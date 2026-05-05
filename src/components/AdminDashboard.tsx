@@ -63,13 +63,17 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('settings').select('*').single();
-      if (data) setExtraSettings({
-        logo_url: data.logo_url || '/logo-final.png',
-        ranking_title: data.ranking_title || 'Ranking Mensual',
-        prize_description: data.prize_description || '¡Gana un Combo Familiar!',
-        ranking_end_date: data.ranking_end_date || ''
-      });
+      try {
+        const { data } = await supabase.from('settings').select('*').single();
+        if (data) setExtraSettings({
+          logo_url: data.logo_url || '/logo-final.png',
+          ranking_title: data.ranking_title || 'Ranking Mensual',
+          prize_description: data.prize_description || '¡Gana un Combo Familiar!',
+          ranking_end_date: data.ranking_end_date || ''
+        });
+      } catch (e) {
+        console.error("Error loading settings");
+      }
     };
     fetchSettings();
   }, []);
