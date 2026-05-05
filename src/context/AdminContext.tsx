@@ -15,17 +15,27 @@ export interface AppSettings {
   banner_link: string;
 }
 
+// NUEVA INTERFAZ PARA EL BRANDING Y RANKING
+export interface ExtraSettings {
+  logo_url: string;
+  ranking_title: string;
+  prize_description: string;
+  ranking_end_date: string;
+}
+
 interface AdminContextValue {
   products: Product[];
   categories: string[];
   overrides: Record<string, ProductOverride>;
   settings: AppSettings;
+  extraSettings: ExtraSettings; // <--- Agregado
   announcement: string;
   customers: Customer[];
   orders: Order[];
   loading: boolean;
   setAnnouncement: (text: string) => Promise<void>;
   updateSetting: (key: keyof AppSettings, value: string) => Promise<void>;
+  updateExtraSettings: (patch: Partial<ExtraSettings>) => Promise<void>; // <--- Agregado
   setOverride: (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'> & { id?: string }) => Promise<void>;
   updateProduct: (id: string, patch: Partial<Product>) => Promise<void>;
@@ -42,17 +52,26 @@ const DEFAULT_SETTINGS: AppSettings = {
   banner_link: '',
 };
 
+const DEFAULT_EXTRA: ExtraSettings = {
+  logo_url: '/logo-final.png',
+  ranking_title: 'Ranking de Clientes',
+  prize_description: '¡Gana un Combo Familiar!',
+  ranking_end_date: '',
+};
+
 const AdminContext = createContext<AdminContextValue>({
   products: seedProducts,
   categories: [...seedCategories],
   overrides: {},
   settings: DEFAULT_SETTINGS,
+  extraSettings: DEFAULT_EXTRA,
   announcement: '',
   customers: [],
   orders: [],
   loading: true,
   setAnnouncement: async () => {},
   updateSetting: async () => {},
+  updateExtraSettings: async () => {},
   setOverride: async () => {},
   addProduct: async () => {},
   updateProduct: async () => {},
@@ -72,6 +91,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
   const [overrides, setOverrides] = useState<Record<string, ProductOverride>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [extraSettings, setExtraSettings] = useState<ExtraSettings>(DEFAULT_EXTRA);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,13 +108,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     setLoading(true);
-    const [prodRes, ovRes, settingsRes, custRes, orderRes] = await Promise.all([
+    const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
       supabase.from('products').select('*').order('created_at', { ascending: true }),
       supabase.from('product_overrides').select('id, price, available'),
       supabase.from('app_settings').select('key, value'),
+      supabase.from('settings').select('*').single(), // Cargamos la tabla de branding
       supabase.from('customers').select('*').order('points', { ascending: false }).limit(200),
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
+    
     if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
     if (ovRes.data) {
       const map: Record<string, ProductOverride> = {};
@@ -109,6 +131,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       setSettings(next);
       document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
     }
+    if (extraRes.data) {
+      setExtraSettings(extraRes.data as ExtraSettings);
+    }
     if (custRes.data) setCustomers(custRes.data as Customer[]);
     if (orderRes.data) setOrders(orderRes.data as Order[]);
     setLoading(false);
@@ -122,6 +147,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_overrides' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, load)
       .subscribe();
@@ -133,6 +159,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (key === 'primary_color') document.documentElement.style.setProperty('--pollazo-primary', value);
     if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() });
   }, []);
+
+  const updateExtraSettings = useCallback(async (patch: Partial<ExtraSettings>) => {
+    const next = { ...extraSettings, ...patch };
+    setExtraSettings(next);
+    if (isSupabaseConfigured) {
+        await supabase.from('settings').upsert({ id: 'global', ...next });
+    }
+  }, [extraSettings]);
 
   const setAnnouncement = useCallback((text: string) => updateSetting('announcement', text), [updateSetting]);
 
@@ -193,5 +227,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) await supabase.from('orders').update({ status }).eq('id', orderId);
   }, []);
 
-  return <AdminContext.Provider value={{ products, categories, overrides, settings, announcement: settings.announcement, customers, orders, loading, setAnnouncement, updateSetting, setOverride, addProduct, updateProduct, deleteProduct, upsertCustomer, addCustomerPoints, createOrder, updateOrderStatus }}>{children}</AdminContext.Provider>;
+  return <AdminContext.Provider value={{ 
+      products, categories, overrides, settings, extraSettings, announcement: settings.announcement, 
+      customers, orders, loading, setAnnouncement, updateSetting, updateExtraSettings, // <--- Funciones añadidas
+      setOverride, addProduct, updateProduct, deleteProduct, upsertCustomer, 
+      addCustomerPoints, createOrder, updateOrderStatus 
+    }}>{children}</AdminContext.Provider>;
 }
