@@ -56,20 +56,20 @@ export default function LandingPage({
     return () => clearTimeout(timer);
   }, []);
 
-  const handleContinueWeb = () => {
+  const handleContinue = () => {
     setShowMainApp(true);
     onContinueWeb();
   };
 
-  const handleSendReview = async () => {
+  const handleSendReview = () => {
     if (userRating === 0) return;
 
-    alert('¡Gracias por tu comentario! Stiven lo recibirá pronto.');
+    alert('¡Gracias! Tu opinión le llegará a Stiven.');
     setUserRating(0);
     setComment('');
   };
 
-  const fadeIn = (delay: number) => ({
+  const fadeIn = (delay: number): CSSProperties => ({
     opacity: visible ? 1 : 0,
     transform: visible ? 'translateY(0)' : 'translateY(20px)',
     transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`,
@@ -77,31 +77,17 @@ export default function LandingPage({
 
   if (!showMainApp) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto hero-water">
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div
-            className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full"
-            style={{
-              background:
-                'radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 65%)',
-              animation: 'water-ripple 9s ease-in-out infinite',
-            }}
-          />
-          <div
-            className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full"
-            style={{
-              background:
-                'radial-gradient(circle, rgba(254,240,138,0.3) 0%, transparent 65%)',
-              animation: 'water-ripple-2 12s ease-in-out infinite',
-            }}
-          />
+      <div className="fixed inset-0 z-50 overflow-y-auto hero-water flex flex-col items-center justify-center px-6">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-white/10 blur-3xl animate-pulse" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-orange-500/20 blur-3xl" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center px-6 pt-14 pb-10 text-center">
-          <div className="mb-6 relative" style={fadeIn(0)}>
+        <div className="relative z-10 text-center space-y-8">
+          <div className="relative" style={fadeIn(0)}>
             <img
               src={logoUrl}
-              className="w-40 h-40 object-contain drop-shadow-2xl"
+              className="w-44 h-44 object-contain mx-auto drop-shadow-2xl"
               onError={(e) => {
                 e.currentTarget.src = '/logo-final.png';
               }}
@@ -109,27 +95,27 @@ export default function LandingPage({
             />
           </div>
 
-          <div style={fadeIn(100)}>
-            <h1 className="font-black text-4xl text-white drop-shadow-md">
+          <div style={fadeIn(100)} className="space-y-2">
+            <h1 className="font-black text-4xl text-white italic drop-shadow-lg">
               Pollazo El Mirador
             </h1>
-            <p className="font-bold text-sm text-white/80 mt-1 uppercase tracking-widest">
-              Puerto Ayora, Galápagos
+            <p className="text-white/70 font-bold uppercase tracking-[0.3em] text-xs">
+              Galápagos • Ecuador
             </p>
           </div>
 
-          <div className="w-full mt-8 space-y-3" style={fadeIn(200)}>
+          <div className="w-full max-w-xs mx-auto space-y-4" style={fadeIn(200)}>
             <button
               onClick={onInstall}
-              className="w-full py-4 bg-white rounded-2xl font-black text-orange-700 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="w-full py-4 bg-white text-orange-600 rounded-2xl font-black shadow-2xl active:scale-95 transition-transform flex items-center justify-center gap-3"
             >
               <Download size={20} />
-              {canInstall ? 'Descargar Aplicación' : 'Instalar Aplicación'}
+              {canInstall ? 'Descargar App' : 'Instalar en mi Celular'}
             </button>
 
             <button
-              onClick={handleContinueWeb}
-              className="flex items-center gap-2 text-xs font-bold text-white/70 mt-4 mx-auto"
+              onClick={handleContinue}
+              className="flex items-center gap-2 text-xs font-bold text-white/60 mx-auto active:opacity-50"
             >
               <Globe size={14} />
               Continuar en la web por ahora
@@ -145,30 +131,76 @@ export default function LandingPage({
       className="min-h-screen bg-gray-50 text-gray-900 pb-24"
       style={{ '--pollazo-primary': primaryColor } as CSSProperties}
     >
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-4">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <img
             src={logoUrl}
-            className="w-10 h-10 object-contain"
+            className="w-9 h-9 object-contain"
             onError={(e) => {
               e.currentTarget.src = '/logo-final.png';
             }}
             alt="Pollazo El Mirador"
           />
-          <h1 className="font-black text-gray-900 text-sm italic">
+
+          <h1 className="font-black text-gray-900 text-sm italic uppercase tracking-tighter">
             Pollazo El Mirador
           </h1>
         </div>
 
-        <button className="p-2 text-gray-400">
-          <Bell size={20} />
-        </button>
+        <Bell size={20} className="text-gray-400" />
       </header>
 
-      <main className="px-4 py-6 space-y-10">
+      <main className="px-4 py-8 space-y-12">
+        <section className="bg-orange-500 rounded-[40px] p-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="font-black text-2xl mb-2 italic">
+              Tradición en El Mirador 🍗
+            </h3>
+            <p className="text-sm font-medium opacity-90 leading-relaxed">
+              Desde hace años, El Pollazo ha sido el punto de encuentro en la
+              isla. No solo servimos comida, servimos el sabor de nuestra tierra
+              directamente a tu mesa.
+            </p>
+          </div>
+
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+        </section>
+
         <section className="space-y-4">
-          <h2 className="font-black text-lg flex items-center gap-2 text-gray-800">
-            <Zap className="text-orange-500" size={20} />
+          <h2 className="font-black text-xl text-gray-800 flex items-center gap-2">
+            Nuestra cocina, tu mesa
+          </h2>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 row-span-2 rounded-3xl overflow-hidden h-52 shadow-md">
+              <img
+                src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg"
+                className="w-full h-full object-cover"
+                alt="Pollo 1"
+              />
+            </div>
+
+            <div className="rounded-3xl overflow-hidden h-24 shadow-sm">
+              <img
+                src="https://images.pexels.com/photos/3887985/pexels-photo-3887985.jpeg"
+                className="w-full h-full object-cover"
+                alt="Pollo 2"
+              />
+            </div>
+
+            <div className="rounded-3xl overflow-hidden h-24 shadow-sm">
+              <img
+                src="https://images.pexels.com/photos/2668308/pexels-photo-2668308.jpeg"
+                className="w-full h-full object-cover"
+                alt="Pollo 3"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="font-black text-xl flex items-center gap-2 text-gray-800">
+            <Zap className="text-orange-500" />
             El Equipo Omnipotente
           </h2>
 
@@ -182,16 +214,17 @@ export default function LandingPage({
             {STAFF.map((m) => (
               <div
                 key={m.id}
-                className="flex-shrink-0 snap-center w-64 bg-white rounded-3xl p-4 border border-gray-100 flex items-center gap-4 shadow-sm active:scale-95 transition-transform"
+                className="flex-shrink-0 snap-center w-64 bg-white rounded-[32px] p-5 border border-gray-100 flex items-center gap-4 shadow-sm active:scale-95 transition-transform"
               >
                 <img
                   src={m.photo_url}
-                  className="w-14 h-14 rounded-2xl object-cover"
+                  className="w-16 h-16 rounded-2xl object-cover shadow-inner"
                   alt={m.name}
                 />
+
                 <div>
-                  <p className="font-black text-gray-900 text-xs">{m.name}</p>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                  <p className="font-black text-gray-900 text-sm">{m.name}</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     {m.role}
                   </p>
                 </div>
@@ -200,58 +233,34 @@ export default function LandingPage({
           </div>
         </section>
 
-        <section
-          className="rounded-[35px] p-6 text-white shadow-lg"
-          style={{ backgroundColor: primaryColor }}
-        >
-          <h3 className="font-black text-lg mb-2">
-            Tradición en El Mirador 🍗
-          </h3>
-          <p className="text-sm font-medium opacity-90 leading-relaxed">
-            Desde hace años, El Pollazo ha sido el punto de encuentro. No solo
-            servimos comida, servimos tradición directamente a tu mesa.
-          </p>
-        </section>
-
         <section className="space-y-4">
-          <h2 className="font-black text-lg text-gray-800">
-            Nuestra cocina, tu mesa
+          <h2 className="font-black text-xl flex items-center gap-2 text-gray-800">
+            <MapPin className="text-red-500" />
+            Dónde encontrarnos
           </h2>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2 row-span-2 rounded-2xl overflow-hidden h-48 shadow-sm">
+          <div className="bg-white p-2 rounded-[35px] border border-gray-100 shadow-sm overflow-hidden">
+            <div className="h-40 bg-gray-100 rounded-[30px] overflow-hidden">
               <img
-                src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg"
-                className="w-full h-full object-cover"
-                alt="Galería principal"
+                src="https://images.pexels.com/photos/461077/pexels-photo-461077.jpeg"
+                className="w-full h-full object-cover opacity-50 grayscale"
+                alt="Mapa"
               />
             </div>
 
-            <div className="rounded-2xl overflow-hidden h-24 shadow-sm">
-              <img
-                src="https://images.pexels.com/photos/3887985/pexels-photo-3887985.jpeg"
-                className="w-full h-full object-cover"
-                alt="Galería secundaria"
-              />
-            </div>
-
-            <div className="rounded-2xl overflow-hidden h-24 shadow-sm">
-              <img
-                src="https://images.pexels.com/photos/2668308/pexels-photo-2668308.jpeg"
-                className="w-full h-full object-cover"
-                alt="Galería secundaria"
-              />
-            </div>
+            <p className="text-center py-4 text-xs font-bold text-gray-400 italic">
+              Calle Delfín, El Mirador, Puerto Ayora.
+            </p>
           </div>
         </section>
 
-        <section className="bg-gray-900 rounded-[40px] p-8 text-white space-y-6 shadow-2xl">
-          <div className="text-center">
-            <h2 className="text-xl font-black italic">
+        <section className="bg-gray-900 rounded-[45px] p-8 text-white space-y-6 shadow-2xl">
+          <div className="text-center space-y-1">
+            <h2 className="text-2xl font-black italic">
               ¿Qué tal el Pollazo de hoy?
             </h2>
-            <p className="text-gray-500 text-xs mt-1 text-balance">
-              Tu opinión le llega directamente a Stiven para mejorar
+            <p className="text-gray-500 text-xs">
+              Tu opinión le llega directamente a Stiven
             </p>
           </div>
 
@@ -268,7 +277,7 @@ export default function LandingPage({
                 }`}
               >
                 <Star
-                  size={36}
+                  size={38}
                   fill={userRating >= num ? 'currentColor' : 'none'}
                 />
               </button>
@@ -278,8 +287,8 @@ export default function LandingPage({
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="¿Algún comentario especial sobre el servicio?"
-            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-gray-600 outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="¿Algún comentario especial?"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-gray-700 outline-none focus:ring-2 focus:ring-orange-500"
             rows={3}
           />
 
@@ -287,48 +296,27 @@ export default function LandingPage({
             type="button"
             disabled={userRating === 0}
             onClick={handleSendReview}
-            className={`w-full py-4 rounded-2xl font-black transition-all ${
+            className={`w-full py-5 rounded-2xl font-black transition-all ${
               userRating > 0
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-900'
-                : 'bg-white/5 text-gray-700'
+                ? 'bg-orange-500 text-white shadow-lg'
+                : 'bg-white/5 text-gray-800'
             }`}
           >
             Enviar Comentario
           </button>
         </section>
-
-        <section className="space-y-4">
-          <h2 className="font-black text-lg flex items-center gap-2">
-            <MapPin className="text-red-500" />
-            Dónde encontrarnos
-          </h2>
-
-          <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3">
-            <p className="text-sm font-bold text-gray-600 italic text-center">
-              El Mirador, Calle Delfín. Puerto Ayora.
-            </p>
-
-            <div className="h-32 bg-gray-100 rounded-2xl overflow-hidden">
-              <img
-                src="https://images.pexels.com/photos/461077/pexels-photo-461077.jpeg"
-                className="w-full h-full object-cover opacity-50 grayscale"
-                alt="Mapa referencia"
-              />
-            </div>
-          </div>
-        </section>
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 h-20 flex items-center justify-around px-4 z-40">
         {['Inicio', 'Menú', 'Puntos', 'Info'].map((t) => (
-          <button key={t} className="flex flex-col items-center gap-1">
+          <button key={t} className="flex flex-col items-center gap-1 group">
             <div
               className={`w-1 h-1 rounded-full mb-1 ${
                 t === 'Inicio' ? 'bg-orange-500' : 'bg-transparent'
               }`}
             />
             <span
-              className={`text-[10px] font-black uppercase ${
+              className={`text-[10px] font-black uppercase tracking-widest ${
                 t === 'Inicio' ? 'text-orange-500' : 'text-gray-400'
               }`}
             >
