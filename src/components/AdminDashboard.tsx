@@ -6,7 +6,7 @@ import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
 // LÍNEA 9: PROTEGIDA PARA QUE NO FALLE EL BUILD ✅
-const BOLITAS_DEL_PIN =;
+const BOLITAS_DEL_PIN = [0, 1, 2, 3];
 
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = e.target.files?.;
+    const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
