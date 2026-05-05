@@ -5,8 +5,8 @@ import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
-// LÍNEA 9: REVISA QUE TENGA LOS NÚMEROS
-const BOLITAS_DEL_PIN =;
+// LÍNEA 9: ESTO NO PUEDE ESTAR VACÍO
+const BOLITAS_DEL_PIN =[0,1,2,3];
 
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
@@ -28,7 +28,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-6">
       <div className="w-full max-w-xs text-center space-y-6">
         <img src="/logo-final.png" className="w-24 h-24 object-contain mx-auto" />
-        <div><h1 className="text-white text-2xl font-black">Panel Omnipotente</h1><p className="text-white/50 text-sm">PIN de administrador</p></div>
+        <div><h1 className="text-white text-2xl font-black">Panel Admin</h1><p className="text-white/50 text-sm">PIN de acceso</p></div>
         <div className="flex justify-center gap-3">
           {BOLITAS_DEL_PIN.map(i => (
             <span key={i} className={`w-4 h-4 rounded-full ${i < pin.length ? 'bg-orange-500' : error ? 'bg-red-500' : 'bg-white/20'}`} />
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
           ranking_end_date: data.ranking_end_date || ''
         });
       } catch (e) {
-        console.error("Error loading settings");
+        console.error("Error al cargar ajustes");
       }
     };
     fetchSettings();
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={extraSettings.logo_url} className="w-10 h-10 object-contain rounded-lg" />
-            <div><p className="font-black text-gray-900 leading-none text-sm">Panel Omnipotente</p><p className="text-[9px] text-gray-400 mt-1 uppercase tracking-wider">Dashboard El Pollazo</p></div>
+            <div><p className="font-black text-gray-900 leading-none text-sm">Panel Admin</p><p className="text-[9px] text-gray-400 mt-1 uppercase tracking-wider">Pollazo El Mirador</p></div>
           </div>
           <button onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); }} className="p-2 text-gray-400"><LogOut size={20}/></button>
         </div>
@@ -158,7 +158,7 @@ export default function AdminDashboard() {
                 <div className="flex-1">
                   <p className="text-sm font-bold text-gray-700">Logo del Local</p>
                   <label className="inline-block mt-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-black cursor-pointer active:scale-95 transition-transform">
-                    {uploading ? 'Subiendo...' : 'Subir nuevo logo'}
+                    {uploading ? 'Subiendo...' : 'Cambiar logo'}
                     <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo_url')} />
                   </label>
                 </div>
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">Actualizar cambios</button>
+            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">Guardar cambios visuales</button>
           </section>
         )}
 
@@ -183,13 +183,13 @@ export default function AdminDashboard() {
               <div><label className="text-[10px] font-black text-gray-400 uppercase">Premio del Mes</label><textarea value={extraSettings.prize_description} onChange={e=>setExtraSettings({...extraSettings, prize_description: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" rows={2} /></div>
               <div><label className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-1"><Calendar size={12}/> Fecha de Cierre</label><input type="datetime-local" value={extraSettings.ranking_end_date} onChange={e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
             </div>
-            <button onClick={saveExtraSettings} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black">Guardar Concurso</button>
+            <button onClick={saveExtraSettings} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black">Actualizar Concurso</button>
           </section>
         )}
 
         {tab === 'customers' && (
           <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-5">
-            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Users size={20} className="text-blue-500"/> Clientes Registrados</h2>
+            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Users size={20} className="text-blue-500"/> Clientes</h2>
             <div className="divide-y divide-gray-100">
               {ranking.map((c, i) => (
                 <div key={c.id} className="py-4 flex items-center gap-4">
@@ -198,9 +198,9 @@ export default function AdminDashboard() {
                     <div className={`absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm ${i===0?'bg-yellow-400 text-white':i===1?'bg-gray-300 text-white':i===2?'bg-amber-600 text-white':'bg-gray-100 text-gray-400'}`}>{i === 0 ? '👑' : i + 1}</div>
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-gray-900 text-sm">{c.full_name || 'Cliente'}</p>
+                    <p className="font-black text-gray-900 text-sm">{c.full_name || 'Sin nombre'}</p>
                     <p className="text-[10px] text-gray-400 font-medium">{c.phone}</p>
-                    <p className="text-[10px] font-black text-orange-500 mt-1 uppercase">{c.points} Puntos</p>
+                    <p className="text-[10px] font-black text-orange-500 mt-1 uppercase">{c.points} Pts</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <input value={points[c.id] ?? ''} onChange={e=>setPoints({...points,[c.id]:e.target.value})} className="w-12 bg-gray-50 rounded-lg px-1 py-2 text-center text-[10px] font-black" placeholder="+5"/>
