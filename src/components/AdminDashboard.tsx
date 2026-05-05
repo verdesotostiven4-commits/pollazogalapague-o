@@ -5,6 +5,9 @@ import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
+// LÍNEA 9: REVISA QUE TENGA LOS NÚMEROS
+const BOLITAS_DEL_PIN =;
+
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
 const emptyProduct: Omit<Product, 'id'> & { id?: string } = { name: '', category: 'Pollos', price: '', description: '', image: '', badge: '', available: true };
@@ -27,7 +30,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
         <img src="/logo-final.png" className="w-24 h-24 object-contain mx-auto" />
         <div><h1 className="text-white text-2xl font-black">Panel Omnipotente</h1><p className="text-white/50 text-sm">PIN de administrador</p></div>
         <div className="flex justify-center gap-3">
-          {.map(i => (
+          {BOLITAS_DEL_PIN.map(i => (
             <span key={i} className={`w-4 h-4 rounded-full ${i < pin.length ? 'bg-orange-500' : error ? 'bg-red-500' : 'bg-white/20'}`} />
           ))}
         </div>
