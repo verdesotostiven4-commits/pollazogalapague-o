@@ -1,13 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Bell, Edit3, LogOut, Package, Plus, Save, Search, Send, Settings, Star, Trash2, Users, Image, Trophy, Calendar } from 'lucide-react';
+import { Bell, Edit3, LogOut, Package, Plus, Save, Search, Send, Settings, Star, Trash2, Users, Image, Trophy, Calendar, Link } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
-// LÍNEA 9: PROTEGIDA ✅
-const BOLITAS_DEL_PIN =[0,1,2,3];
-
+const BOLITAS_DEL_PIN =;
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
 const emptyProduct: Omit<Product, 'id'> & { id?: string } = { name: '', category: 'Pollos', price: '', description: '', image: '', badge: '', available: true };
@@ -84,15 +82,14 @@ export default function AdminDashboard() {
   const saveExtraSettings = async () => {
     try {
       await supabase.from('settings').upsert({ id: 'global', ...extraSettings });
-      alert('¡Ajustes guardados!');
+      alert('¡Ajustes guardados con éxito!');
     } catch (err) {
       alert('Error al guardar ajustes');
     }
   };
 
-  // LÍNEA 95 CORREGIDA AQUÍ ✅
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.;
     if (!file) return;
     setUploading(true);
     try {
@@ -103,7 +100,7 @@ export default function AdminDashboard() {
         setExtraSettings(prev => ({ ...prev, [field]: publicUrl }));
       }
     } catch (err) {
-      alert('Error al subir imagen');
+      alert('Error al subir imagen. Prueba pegando el link directamente.');
     }
     setUploading(false);
   };
@@ -131,7 +128,7 @@ export default function AdminDashboard() {
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={extraSettings.logo_url} className="w-10 h-10 object-contain rounded-lg" />
+            <img src={extraSettings.logo_url} className="w-10 h-10 object-contain rounded-lg" onError={(e) => (e.currentTarget.src = '/logo-final.png')} />
             <div><p className="font-black text-gray-900 leading-none text-sm">Panel Admin</p><p className="text-[9px] text-gray-400 mt-1 uppercase tracking-wider">Pollazo El Mirador</p></div>
           </div>
           <button onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); }} className="p-2 text-gray-400"><LogOut size={20}/></button>
@@ -153,26 +150,46 @@ export default function AdminDashboard() {
         {tab === 'branding' && (
           <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-6">
             <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Image size={20} className="text-orange-500"/> Identidad Visual</h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                <img src={extraSettings.logo_url} className="w-16 h-16 object-contain bg-white rounded-xl shadow-sm" />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-700">Logo del Local</p>
-                  <label className="inline-block mt-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-black cursor-pointer active:scale-95 transition-transform">
-                    {uploading ? 'Subiendo...' : 'Cambiar logo'}
-                    <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo_url')} />
-                  </label>
-                </div>
+            
+            <div className="space-y-6">
+              {/* PREVISUALIZACIÓN */}
+              <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                 <img src={extraSettings.logo_url} className="w-32 h-32 object-contain bg-white rounded-2xl shadow-xl mb-4" onError={(e) => (e.currentTarget.src = '/logo-final.png')} />
+                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Previsualización del Logo</p>
               </div>
+
+              {/* INPUT POR URL */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Color principal</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-1"><Link size={12}/> Link Directo del Logo (URL)</label>
+                <input 
+                  type="text"
+                  value={extraSettings.logo_url}
+                  onChange={(e) => setExtraSettings({...extraSettings, logo_url: e.target.value})}
+                  placeholder="https://tusitio.com/mi-logo.png"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-orange-500 outline-none"
+                />
+                <p className="text-[9px] text-gray-400">Pega aquí el enlace de tu imagen. Es más confiable que subir el archivo.</p>
+              </div>
+
+              {/* OPCIÓN SUBIR ARCHIVO */}
+              <div className="pt-4 border-t border-gray-50">
+                <label className="inline-block bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-black cursor-pointer active:scale-95 transition-transform">
+                  {uploading ? 'Subiendo...' : 'O subir archivo desde el PC'}
+                  <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo_url')} />
+                </label>
+              </div>
+
+              {/* COLOR PRINCIPAL */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase">Color de la Marca</label>
                 <div className="flex gap-3 items-center">
-                  <input type="color" value={settings.primary_color} onChange={e=>updateSetting('primary_color', e.target.value)} className="w-14 h-14 rounded-xl overflow-hidden border-none" />
-                  <p className="text-xs text-gray-400 font-mono uppercase">{settings.primary_color}</p>
+                  <input type="color" value={settings.primary_color} onChange={e=>updateSetting('primary_color', e.target.value)} className="w-14 h-14 rounded-xl overflow-hidden border-none cursor-pointer" />
+                  <p className="text-xs text-gray-400 font-mono uppercase font-bold">{settings.primary_color}</p>
                 </div>
               </div>
             </div>
-            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">Guardar cambios</button>
+
+            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors">Guardar Todos los Cambios</button>
           </section>
         )}
 
@@ -182,7 +199,7 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               <div><label className="text-[10px] font-black text-gray-400 uppercase">Título</label><input value={extraSettings.ranking_title} onChange={e=>setExtraSettings({...extraSettings, ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
               <div><label className="text-[10px] font-black text-gray-400 uppercase">Premio</label><textarea value={extraSettings.prize_description} onChange={e=>setExtraSettings({...extraSettings, prize_description: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" rows={2} /></div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase">Fecha Cierre</label><input type="datetime-local" value={extraSettings.ranking_end_date} onChange={extraSettings.ranking_end_date ? (e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value})) : (e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value}))} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase">Fecha Cierre</label><input type="datetime-local" value={extraSettings.ranking_end_date} onChange={(e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value}))} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
             </div>
             <button onClick={saveExtraSettings} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black">Actualizar Concurso</button>
           </section>
