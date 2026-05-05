@@ -1,12 +1,5 @@
 import { useState, useEffect, type CSSProperties } from 'react';
-import {
-  Download,
-  Globe,
-  Bell,
-  Star,
-  Zap,
-  MapPin,
-} from 'lucide-react';
+import { Download, Globe, Bell, Star, Zap, MapPin } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
 interface Props {
@@ -36,15 +29,12 @@ const STAFF = [
   },
 ];
 
-export default function LandingPage({
-  onInstall,
-  canInstall,
-  onContinueWeb,
-}: Props) {
-  const { settings, extraSettings } = useAdmin();
+export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
+  const admin = useAdmin() as any;
+  const settings = admin.settings;
+  const extraSettings = admin.extraSettings;
 
   const [visible, setVisible] = useState(false);
-  const [showMainApp, setShowMainApp] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [comment, setComment] = useState('');
 
@@ -56,35 +46,32 @@ export default function LandingPage({
     return () => clearTimeout(timer);
   }, []);
 
-  const handleContinue = () => {
-    setShowMainApp(true);
-    onContinueWeb();
-  };
-
-  const handleSendReview = () => {
-    if (userRating === 0) return;
-
-    alert('¡Gracias! Tu opinión le llegará a Stiven.');
-    setUserRating(0);
-    setComment('');
-  };
-
   const fadeIn = (delay: number): CSSProperties => ({
     opacity: visible ? 1 : 0,
     transform: visible ? 'translateY(0)' : 'translateY(20px)',
     transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`,
   });
 
-  if (!showMainApp) {
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto hero-water flex flex-col items-center justify-center px-6">
+  const handleSendReview = () => {
+    if (userRating === 0) return;
+    alert('¡Gracias! Tu opinión le llegará a Stiven.');
+    setUserRating(0);
+    setComment('');
+  };
+
+  return (
+    <div
+      className="min-h-screen bg-gray-50 text-gray-900 pb-24"
+      style={{ '--pollazo-primary': primaryColor } as CSSProperties}
+    >
+      <section className="relative min-h-screen hero-water overflow-hidden flex flex-col items-center justify-center px-6 text-center">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-white/10 blur-3xl animate-pulse" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-orange-500/20 blur-3xl" />
         </div>
 
-        <div className="relative z-10 text-center space-y-8">
-          <div className="relative" style={fadeIn(0)}>
+        <div className="relative z-10 space-y-8">
+          <div style={fadeIn(0)}>
             <img
               src={logoUrl}
               className="w-44 h-44 object-contain mx-auto drop-shadow-2xl"
@@ -114,23 +101,16 @@ export default function LandingPage({
             </button>
 
             <button
-              onClick={handleContinue}
+              onClick={onContinueWeb}
               className="flex items-center gap-2 text-xs font-bold text-white/60 mx-auto active:opacity-50"
             >
               <Globe size={14} />
-              Continuar en la web por ahora
+              Continuar en la web
             </button>
           </div>
         </div>
-      </div>
-    );
-  }
+      </section>
 
-  return (
-    <div
-      className="min-h-screen bg-gray-50 text-gray-900 pb-24"
-      style={{ '--pollazo-primary': primaryColor } as CSSProperties}
-    >
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <img
@@ -141,7 +121,6 @@ export default function LandingPage({
             }}
             alt="Pollazo El Mirador"
           />
-
           <h1 className="font-black text-gray-900 text-sm italic uppercase tracking-tighter">
             Pollazo El Mirador
           </h1>
@@ -151,23 +130,24 @@ export default function LandingPage({
       </header>
 
       <main className="px-4 py-8 space-y-12">
-        <section className="bg-orange-500 rounded-[40px] p-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
+        <section
+          className="rounded-[40px] p-8 text-white shadow-xl relative overflow-hidden"
+          style={{ backgroundColor: primaryColor }}
+        >
           <div className="relative z-10">
             <h3 className="font-black text-2xl mb-2 italic">
               Tradición en El Mirador 🍗
             </h3>
             <p className="text-sm font-medium opacity-90 leading-relaxed">
-              Desde hace años, El Pollazo ha sido el punto de encuentro en la
-              isla. No solo servimos comida, servimos el sabor de nuestra tierra
-              directamente a tu mesa.
+              Desde hace años, El Pollazo ha sido el punto de encuentro en la isla.
+              No solo servimos comida, servimos el sabor de nuestra tierra directamente a tu mesa.
             </p>
           </div>
-
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
         </section>
 
         <section className="space-y-4">
-          <h2 className="font-black text-xl text-gray-800 flex items-center gap-2">
+          <h2 className="font-black text-xl text-gray-800">
             Nuestra cocina, tu mesa
           </h2>
 
@@ -176,7 +156,7 @@ export default function LandingPage({
               <img
                 src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg"
                 className="w-full h-full object-cover"
-                alt="Pollo 1"
+                alt="Pollo asado"
               />
             </div>
 
@@ -184,7 +164,7 @@ export default function LandingPage({
               <img
                 src="https://images.pexels.com/photos/3887985/pexels-photo-3887985.jpeg"
                 className="w-full h-full object-cover"
-                alt="Pollo 2"
+                alt="Combo"
               />
             </div>
 
@@ -192,7 +172,7 @@ export default function LandingPage({
               <img
                 src="https://images.pexels.com/photos/2668308/pexels-photo-2668308.jpeg"
                 className="w-full h-full object-cover"
-                alt="Pollo 3"
+                alt="Comida"
               />
             </div>
           </div>
@@ -221,7 +201,6 @@ export default function LandingPage({
                   className="w-16 h-16 rounded-2xl object-cover shadow-inner"
                   alt={m.name}
                 />
-
                 <div>
                   <p className="font-black text-gray-900 text-sm">{m.name}</p>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -247,7 +226,6 @@ export default function LandingPage({
                 alt="Mapa"
               />
             </div>
-
             <p className="text-center py-4 text-xs font-bold text-gray-400 italic">
               Calle Delfín, El Mirador, Puerto Ayora.
             </p>
@@ -271,9 +249,7 @@ export default function LandingPage({
                 type="button"
                 onClick={() => setUserRating(num)}
                 className={`p-1 transition-all ${
-                  userRating >= num
-                    ? 'text-yellow-400 scale-110'
-                    : 'text-gray-700'
+                  userRating >= num ? 'text-yellow-400 scale-110' : 'text-gray-700'
                 }`}
               >
                 <Star
@@ -306,25 +282,6 @@ export default function LandingPage({
           </button>
         </section>
       </main>
-
-      <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 h-20 flex items-center justify-around px-4 z-40">
-        {['Inicio', 'Menú', 'Puntos', 'Info'].map((t) => (
-          <button key={t} className="flex flex-col items-center gap-1 group">
-            <div
-              className={`w-1 h-1 rounded-full mb-1 ${
-                t === 'Inicio' ? 'bg-orange-500' : 'bg-transparent'
-              }`}
-            />
-            <span
-              className={`text-[10px] font-black uppercase tracking-widest ${
-                t === 'Inicio' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              {t}
-            </span>
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }
