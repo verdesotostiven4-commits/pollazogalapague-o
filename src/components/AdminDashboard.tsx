@@ -5,7 +5,7 @@ import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
-// LÍNEA 9: ESTO NO PUEDE ESTAR VACÍO
+// LÍNEA 9: PROTEGIDA ✅
 const BOLITAS_DEL_PIN =[0,1,2,3];
 
 const ADMIN_PIN = '1328';
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
           ranking_end_date: data.ranking_end_date || ''
         });
       } catch (e) {
-        console.error("Error al cargar ajustes");
+        console.error("Error cargando ajustes");
       }
     };
     fetchSettings();
@@ -90,8 +90,9 @@ export default function AdminDashboard() {
     }
   };
 
+  // LÍNEA 95 CORREGIDA AQUÍ ✅
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = e.target.files?.;
+    const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
@@ -171,36 +172,34 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">Guardar cambios visuales</button>
+            <button onClick={saveExtraSettings} className="w-full bg-black text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2">Guardar cambios</button>
           </section>
         )}
 
         {tab === 'ranking_config' && (
           <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-5">
-            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Trophy size={20} className="text-yellow-500"/> Control de Premios</h2>
+            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Trophy size={20} className="text-yellow-500"/> Concurso</h2>
             <div className="space-y-4">
-              <div><label className="text-[10px] font-black text-gray-400 uppercase">Título del Ranking</label><input value={extraSettings.ranking_title} onChange={e=>setExtraSettings({...extraSettings, ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase">Premio del Mes</label><textarea value={extraSettings.prize_description} onChange={e=>setExtraSettings({...extraSettings, prize_description: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" rows={2} /></div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-1"><Calendar size={12}/> Fecha de Cierre</label><input type="datetime-local" value={extraSettings.ranking_end_date} onChange={e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase">Título</label><input value={extraSettings.ranking_title} onChange={e=>setExtraSettings({...extraSettings, ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase">Premio</label><textarea value={extraSettings.prize_description} onChange={e=>setExtraSettings({...extraSettings, prize_description: e.target.value})} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" rows={2} /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase">Fecha Cierre</label><input type="datetime-local" value={extraSettings.ranking_end_date} onChange={extraSettings.ranking_end_date ? (e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value})) : (e=>setExtraSettings({...extraSettings, ranking_end_date: e.target.value}))} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold mt-1" /></div>
             </div>
             <button onClick={saveExtraSettings} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black">Actualizar Concurso</button>
           </section>
         )}
 
         {tab === 'customers' && (
-          <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-5">
-            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Users size={20} className="text-blue-500"/> Clientes</h2>
+          <section className="bg-white rounded-3xl border border-gray-100 p-5">
+            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 mb-5"><Users size={20} className="text-blue-500"/> Clientes</h2>
             <div className="divide-y divide-gray-100">
               {ranking.map((c, i) => (
                 <div key={c.id} className="py-4 flex items-center gap-4">
                   <div className="relative">
                     {c.avatar_url ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover border-2 border-orange-100" /> : <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 font-black flex items-center justify-center text-lg uppercase">{c.full_name?.charAt(0) || 'C'}</div>}
-                    <div className={`absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm ${i===0?'bg-yellow-400 text-white':i===1?'bg-gray-300 text-white':i===2?'bg-amber-600 text-white':'bg-gray-100 text-gray-400'}`}>{i === 0 ? '👑' : i + 1}</div>
                   </div>
                   <div className="flex-1">
                     <p className="font-black text-gray-900 text-sm">{c.full_name || 'Sin nombre'}</p>
-                    <p className="text-[10px] text-gray-400 font-medium">{c.phone}</p>
-                    <p className="text-[10px] font-black text-orange-500 mt-1 uppercase">{c.points} Pts</p>
+                    <p className="text-[10px] font-black text-orange-500 uppercase">{c.points} Pts</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <input value={points[c.id] ?? ''} onChange={e=>setPoints({...points,[c.id]:e.target.value})} className="w-12 bg-gray-50 rounded-lg px-1 py-2 text-center text-[10px] font-black" placeholder="+5"/>
@@ -220,7 +219,7 @@ export default function AdminDashboard() {
                  <input value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="Nombre" className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold" />
                  <select value={draft.category} onChange={e=>setDraft({...draft,category:e.target.value as Category})} className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold outline-none">{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
                  <input value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})} placeholder="Precio" className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold" />
-                 <input value={draft.image} onChange={e=>setDraft({...draft,image:e.target.value})} placeholder="URL de imagen" className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold" />
+                 <input value={draft.image} onChange={e=>setDraft({...draft,image:e.target.value})} placeholder="URL imagen" className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold" />
                  <textarea value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} placeholder="Descripción" className="bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold md:col-span-2" rows={2} />
               </div>
               <div className="flex gap-2">
@@ -237,7 +236,7 @@ export default function AdminDashboard() {
                   return (
                     <div key={p.id} className="flex items-center gap-4 p-2 bg-gray-50/50 rounded-2xl border border-gray-50">
                       <img src={p.image || '/logo-final.png'} className="w-14 h-14 object-cover rounded-xl shadow-sm"/>
-                      <div className="flex-1 min-w-0"><p className="font-black text-sm text-gray-900 truncate">{p.name}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{p.category} · {overrides[p.id]?.price ?? p.price ?? 'Consultar'}</p></div>
+                      <div className="flex-1 min-w-0"><p className="font-black text-sm text-gray-900 truncate">{p.name}</p></div>
                       <div className="flex gap-1">
                         <button onClick={()=>setOverride(p.id,{available:!available})} className={`p-2 rounded-xl ${available?'text-green-500 bg-green-50':'text-red-500 bg-red-50'}`}><Package size={18}/></button>
                         <button onClick={()=>edit(p)} className="p-2 bg-white text-gray-400 border border-gray-100 rounded-xl shadow-sm"><Edit3 size={18}/></button>
