@@ -1,0 +1,277 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Safe area support for notched phones */
+.safe-area-top    { padding-top: env(safe-area-inset-top); }
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Splash screen animations */
+
+/* Phase 1: Logo drops from top with slight rotation */
+@keyframes splashDrop {
+  0%   { opacity: 0; transform: translateY(-100vh) rotate(-8deg) scale(0.8); }
+  60%  { opacity: 1; transform: translateY(8px) rotate(3deg) scale(1.02); }
+  80%  { transform: translateY(-4px) rotate(-1deg) scale(0.99); }
+  100% { opacity: 1; transform: translateY(0px) rotate(0deg) scale(1.0); }
+}
+
+/* Phase 2: Elastic bounce on impact */
+@keyframes splashBounce {
+  0%   { transform: translateY(0px) scale(1.0); }
+  25%  { transform: translateY(-22px) scale(1.07); }
+  50%  { transform: translateY(8px) scale(0.96); }
+  70%  { transform: translateY(-10px) scale(1.03); }
+  85%  { transform: translateY(3px) scale(0.99); }
+  100% { transform: translateY(0px) scale(1.0); }
+}
+
+/* Phase 3: Gentle float in hold state */
+@keyframes splashFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(0deg); }
+}
+
+/* Logo glow pulse for home hero */
+@keyframes logoGlowPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%       { opacity: 1; transform: scale(1.15); }
+}
+
+/* ── Animated Background ─────────────────────────────────── */
+
+@keyframes bg-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-bg {
+  background: linear-gradient(
+    -45deg,
+    #fff8f0,
+    #fef3c7,
+    #fed7aa,
+    #fff7ed,
+    #fde68a,
+    #ffedd5,
+    #fef9c3
+  );
+  background-size: 600% 600%;
+  animation: bg-drift 18s ease infinite;
+}
+
+/* ── Hide scrollbar utility ─────────────────────────────── */
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Subtle bounce for down arrow cue ───────────────────── */
+
+@keyframes subtleBounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(4px); }
+}
+
+/* ── Floating blobs ─────────────────────────────────────── */
+
+@keyframes float-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -40px) scale(1.08); }
+  66%       { transform: translate(-20px, 20px) scale(0.94); }
+}
+
+@keyframes float-blob-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-35px, 25px) scale(1.06); }
+  66%       { transform: translate(25px, -30px) scale(0.96); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(3deg); }
+}
+
+/* ── Water-liquid hero animation ────────────────────────── */
+
+@keyframes water-flow {
+  0%   { background-position: 0% 50%; }
+  25%  { background-position: 60% 30%; }
+  50%  { background-position: 100% 60%; }
+  75%  { background-position: 40% 80%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes water-ripple {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.55; }
+  33%       { transform: scale(1.12) translate(12px, -8px); opacity: 0.7; }
+  66%       { transform: scale(0.92) translate(-8px, 10px); opacity: 0.5; }
+}
+
+@keyframes water-ripple-2 {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.4; }
+  40%       { transform: scale(1.15) translate(-14px, 12px); opacity: 0.6; }
+  70%       { transform: scale(0.88) translate(10px, -6px); opacity: 0.45; }
+}
+
+.hero-water {
+  background: linear-gradient(
+    135deg,
+    #ea580c 0%,
+    #f97316 18%,
+    #fb923c 38%,
+    #f97316 52%,
+    #fb923c 65%,
+    #fbbf24 80%,
+    #f97316 100%
+  );
+  background-size: 400% 400%;
+  animation: water-flow 8s ease-in-out infinite;
+}
+
+/* ── Button shimmer ─────────────────────────────────────── */
+
+@keyframes shimmer-slide {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(250%) skewX(-15deg); }
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.35) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%) skewX(-15deg);
+  animation: shimmer-slide 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Entrance animations ────────────────────────────────── */
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Pulse ring (WhatsApp) ──────────────────────────────── */
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 12px rgba(37, 211, 102, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+.whatsapp-pulse {
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+/* ── Utility classes ────────────────────────────────────── */
+
+@keyframes logofloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.animate-float      { animation: float-slow   4s ease-in-out infinite; }
+.animate-float-2    { animation: float-blob-2 10s ease-in-out infinite; }
+.animate-float-gen  { animation: float-gentle 5s ease-in-out infinite; }
+.animate-blob       { animation: float-blob   9s ease-in-out infinite; }
+.animate-blob-2     { animation: float-blob-2 11s ease-in-out infinite; }
+
+.animate-fade-in-down { animation: fade-in-down 0.7s ease-out forwards; }
+.animate-fade-in-up   { animation: fade-in-up   0.7s ease-out forwards; opacity: 0; }
+.animate-fade-in      { animation: fade-in      0.7s ease-out forwards; }
+.animate-scale-in     { animation: scale-in     0.6s ease-out forwards; }
+
+.animation-delay-100  { animation-delay: 0.1s; }
+.animation-delay-200  { animation-delay: 0.2s; }
+.animation-delay-300  { animation-delay: 0.3s; }
+.animation-delay-400  { animation-delay: 0.4s; }
+.animation-delay-600  { animation-delay: 0.6s; }
+.animation-delay-800  { animation-delay: 0.8s; }
+.animation-delay-1000 { animation-delay: 1s; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+/* ── Hero gradients (dark theme) ────────────────────────── */
+
+.hero-gradient {
+  background: radial-gradient(ellipse at 50% 0%, rgba(249, 115, 22, 0.4) 0%, rgba(251, 191, 36, 0.15) 40%, rgba(0, 0, 0, 0.95) 70%);
+}
+
+.hero-mesh {
+  background-image:
+    radial-gradient(at 20% 30%, rgba(249, 115, 22, 0.25) 0px, transparent 50%),
+    radial-gradient(at 80% 70%, rgba(251, 191, 36, 0.2) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(245, 158, 11, 0.1) 0px, transparent 50%);
+}
+
+/* ── Brand gradients ────────────────────────────────────── */
+
+.text-gradient-warm {
+  background: linear-gradient(135deg, #ea580c, #f97316, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #f97316, #fbbf24);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #fff8f0; }
+::-webkit-scrollbar-thumb { background: rgba(249, 115, 22, 0.5); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #f97316; }

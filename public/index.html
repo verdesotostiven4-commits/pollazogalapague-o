@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" href="/Picsart_26-03-14_04-02-01-579.png" type="image/png" />
+    <title>Pollazo Galapagueño — El Mirador</title>
+    <meta name="description" content="Pollos frescos y productos para tu hogar en Puerto Ayora, Galápagos. Delivery disponible." />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#ea580c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Pollazo" />
+    <link rel="apple-touch-icon" href="/Picsart_26-03-14_04-02-01-579.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Pollazo Galapagueño — El Mirador" />
+    <meta property="og:description" content="Pollos frescos y delivery en Puerto Ayora, Galápagos." />
+    <meta property="og:image" content="/Picsart_26-03-14_04-02-01-579.png" />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
