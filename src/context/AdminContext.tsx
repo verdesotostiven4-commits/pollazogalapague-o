@@ -108,7 +108,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const categories = useMemo(() => Array.from(new Set([...seedCategories, ...products.map(p => p.category)])).sort(), [products]);
 
-  // CARGA DE DATOS OPTIMIZADA
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     
@@ -133,35 +132,38 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
       });
       setSettings(next);
+      document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
     }
     if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
     if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
     if (orderRes.data) setOrders(orderRes.data as Order[]);
-    
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // 🔔 REAL-TIME MEJORADO: Esto es lo que hace que la barrita se mueva sola
+  // 🔔 BLOQUE REALTIME MEJORADO CON LOGS
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     
-    const channel = supabase.channel('pollazo_realtime')
+    const channel = supabase.channel('pollazo_admin_live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        // Si hay un cambio en pedidos, actualizamos la lista local inmediatamente
-        load();
+        console.log("🔔 Pedido actualizado:", payload);
+        load(); 
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
-      .subscribe();
+      .subscribe((status) => {
+        console.log("📡 Conexión Realtime:", status);
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
   const updateSetting = useCallback(async (key: keyof AppSettings, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
-    if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value });
+    if (key === 'primary_color') document.documentElement.style.setProperty('--pollazo-primary', value);
+    if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() });
   }, []);
 
   const updateExtraSettings = useCallback(async (patch: Partial<ExtraSettings>) => {
@@ -174,18 +176,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     const current = overrides[id] ?? { id, price: null, available: true };
     const updated = { ...current, ...patch, id };
     setOverrides(prev => ({ ...prev, [id]: updated }));
-    if (isSupabaseConfigured) await supabase.from('product_overrides').upsert(updated);
+    if (isSupabaseConfigured) await supabase.from('product_overrides').upsert({ ...updated, updated_at: new Date().toISOString() });
   }, [overrides]);
 
   const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => {
     const newProduct = normalizeProduct({ ...product, id: product.id || slug(product.name) } as Product);
     setRemoteProducts(prev => [newProduct, ...prev]);
-    if (isSupabaseConfigured) await supabase.from('products').insert(newProduct);
+    if (isSupabaseConfigured) await supabase.from('products').upsert(newProduct);
   }, []);
 
   const updateProduct = useCallback(async (id: string, patch: Partial<Product>) => {
     setRemoteProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-    if (isSupabaseConfigured) await supabase.from('products').update(patch).eq('id', id);
+    if (isSupabaseConfigured) await supabase.from('products').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
   }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
@@ -206,7 +208,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const addCustomerPoints = useCallback(async (customerId: string, pointsToAdd: number) => {
     const current = customers.find(c => c.id === customerId);
-    const nextPoints = (current?.points ?? 0) + pointsToAdd;
+    const nextPoints = Math.max(0, (current?.points ?? 0) + pointsToAdd);
     if (isSupabaseConfigured) {
       await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
       load();
@@ -221,13 +223,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
-    // 1. Actualización local inmediata para que el Admin no espere
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    
-    // 2. Guardar en Supabase
     if (isSupabaseConfigured) {
       await supabase.from('orders').update({ status }).eq('id', orderId);
-      // No llamamos a load() aquí para evitar parpadeos, el Realtime se encargará
     }
   }, []);
 
