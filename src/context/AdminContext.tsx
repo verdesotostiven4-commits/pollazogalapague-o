@@ -62,7 +62,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🍗 Lógica para mezclar productos base y remotos
   const products = useMemo(() => {
     const map = new Map<string, Product>();
     seedProducts.forEach(p => map.set(p.id, normalizeProduct(p)));
@@ -77,47 +76,47 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     
-    // 🔍 Cargamos TODO: Productos, Overrides, Settings y Ranking
-    const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
-      supabase.from('products').select('*').order('created_at', { ascending: true }),
-      supabase.from('product_overrides').select('*'),
-      supabase.from('app_settings').select('key, value'),
-      supabase.from('settings').select('*').single(), 
-      supabase.from('customers').select('*').order('points', { ascending: false }),
-      supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
-    ]);
-    
-    if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
-    
-    if (ovRes.data) {
-      const map: Record<string, ProductOverride> = {};
-      ovRes.data.forEach(row => { map[row.id] = row as ProductOverride; });
-      setOverrides(map);
+    try {
+      const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
+        supabase.from('products').select('*').order('created_at', { ascending: true }),
+        supabase.from('product_overrides').select('*'),
+        supabase.from('app_settings').select('key, value'),
+        supabase.from('settings').select('*').limit(1), // Cambiado .single() por .limit(1) para evitar errores
+        supabase.from('customers').select('*').order('points', { ascending: false }),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
+      ]);
+      
+      if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
+      if (ovRes.data) {
+        const map: Record<string, ProductOverride> = {};
+        ovRes.data.forEach(row => { map[row.id] = row as ProductOverride; });
+        setOverrides(map);
+      }
+      if (settingsRes.data) {
+        const next = { ...DEFAULT_SETTINGS };
+        settingsRes.data.forEach((s: { key: string; value: string }) => {
+          if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
+        });
+        setSettings(next);
+      }
+      if (extraRes.data && extraRes.data.length > 0) setExtraSettings(extraRes.data as ExtraSettings);
+      if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
+      if (orderRes.data) setOrders(orderRes.data as Order[]);
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+    } finally {
+      setLoading(false);
     }
-
-    if (settingsRes.data) {
-      const next = { ...DEFAULT_SETTINGS };
-      settingsRes.data.forEach((s: { key: string; value: string }) => {
-        if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
-      });
-      setSettings(next);
-    }
-
-    if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
-    if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
-    if (orderRes.data) setOrders(orderRes.data as Order[]);
-    
-    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // Realtime seguro
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const channel = supabase.channel('pollazo_realtime_global')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
@@ -125,31 +124,40 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const updateExtraSettings = async (patch: Partial<ExtraSettings>) => {
     const next = { ...extraSettings, ...patch };
     setExtraSettings(next);
-    await supabase.from('settings').upsert({ id: 'global', ...next });
+    if (isSupabaseConfigured) await supabase.from('settings').upsert({ id: 'global', ...next });
   };
 
   const addCustomerPoints = async (customerId: string, pointsToAdd: number) => {
     const current = customers.find(c => c.id === customerId);
     const nextPoints = (current?.points ?? 0) + pointsToAdd;
-    await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
-    load();
+    if (isSupabaseConfigured) {
+      await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
+      load();
+    }
   };
 
   const upsertCustomer = async (phone: string, name?: string | null, avatar_url?: string | null) => {
     const clean = phone.replace(/\D/g, '');
-    const { data } = await supabase.from('customers').upsert({ phone: clean, name, avatar_url }, { onConflict: 'phone' }).select().single();
-    if (data) load();
-    return data as ExtendedCustomer;
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('customers').upsert({ phone: clean, name, avatar_url }, { onConflict: 'phone' }).select().single();
+      if (data) load();
+      return data as ExtendedCustomer;
+    }
+    return null;
   };
 
   const createOrder = async (order: Omit<Order, 'created_at'>) => {
-    await supabase.from('orders').insert(order);
-    load();
+    if (isSupabaseConfigured) {
+      await supabase.from('orders').insert(order);
+      load();
+    }
   };
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
-    await supabase.from('orders').update({ status }).eq('id', orderId);
-    load();
+    if (isSupabaseConfigured) {
+      await supabase.from('orders').update({ status }).eq('id', orderId);
+      load();
+    }
   };
 
   return (
