@@ -62,7 +62,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
-  // ✨ AQUÍ ESTÁ EL TEMPORIZADOR NUEVO ✨
   // Muestra el Login a los 2 segundos si es un cliente nuevo
   useEffect(() => {
     if (!customerInfo) {
@@ -179,7 +178,14 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       className="flex flex-col bg-gray-50"
       style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
     >
-      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} />
+      {/* AQUÍ ESTÁN LOS CABLES CONECTADOS */}
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        scrolled={false} 
+        onOpenProfile={() => setShowLoginModal(true)}
+        customerAvatar={customerInfo?.avatarUrl}
+      />
 
       <main
         ref={mainRef}
