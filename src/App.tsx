@@ -46,7 +46,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const [canInstall, setCanInstall] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>(initialCategory ?? 'Todos');
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, addCustomerPoints } = useAdmin();
+  const { upsertCustomer, createOrder } = useAdmin();
   const mainRef = useRef<HTMLElement>(null);
 
   // ESTADO: Información completa del cliente
@@ -58,11 +58,9 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     return null;
   });
 
-  // ESTADOS: Control del Modal de Login
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
-  // Muestra el Login a los 2 segundos si es un cliente nuevo
   useEffect(() => {
     if (!customerInfo) {
       const timer = setTimeout(() => {
@@ -100,22 +98,16 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
   const handleCheckout = () => {
     if (items.length === 0) return;
-    
-    // Si NO está registrado, abrimos modal y pausamos el checkout
     if (!customerInfo || !customerInfo.phone) {
       setPendingAction('checkout');
       setShowLoginModal(true);
       return;
     }
-    
-    // Si ya está registrado, pasa directo a confirmación
     setShowConfirmation(true);
   };
 
-  // ¡AQUÍ ESTÁ LA MAGIA! Ahora es async y envía a Supabase
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
     const cleanPhone = userData.whatsapp.replace(/\D/g, ''); 
-    
     localStorage.setItem('pollazo_customer_phone', cleanPhone);
     localStorage.setItem('pollazo_customer_name', userData.name);
     localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
@@ -123,7 +115,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
     setShowLoginModal(false);
 
-    // Guardamos nombre y avatar en tu base de datos INMEDIATAMENTE
     await upsertCustomer(cleanPhone, userData.name, userData.avatarUrl);
 
     if (pendingAction === 'checkout') {
@@ -137,9 +128,10 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setPendingAction(null);
   };
 
+  // PUNTO 2 CORREGIDO: Sin puntos automáticos y enviando el nombre a WhatsApp
   const handleWhatsApp = async () => {
     const phone = customerInfo?.phone || localStorage.getItem('pollazo_customer_phone') || '';
-    const name = customerInfo?.name || localStorage.getItem('pollazo_customer_name') || '';
+    const name = customerInfo?.name || localStorage.getItem('pollazo_customer_name') || 'Cliente';
     const avatarUrl = customerInfo?.avatarUrl || localStorage.getItem('pollazo_customer_avatar') || '';
     
     const code = orderCode();
@@ -147,9 +139,10 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     const delivery_fee = deliveryFeeOf(subtotal);
     const total = subtotal + delivery_fee;
     
-    // Aquí también nos aseguramos de enviarle el nombre y avatar
+    // Guardamos/Actualizamos cliente en Supabase
     const customer = phone ? await upsertCustomer(phone, name, avatarUrl) : null;
     
+    // Creamos la orden (Sin sumar puntos aquí, tú lo harás manual)
     await createOrder({
       id: crypto.randomUUID(),
       order_code: code,
@@ -163,9 +156,12 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       preorder: !isStoreOpen(),
     });
     
-    if (customer?.id && subtotal > 0) await addCustomerPoints(customer.id, Math.floor(subtotal));
+    // Solo incrementamos métricas globales de órdenes
     supabase.rpc('increment_metric', { metric_id: 'total_orders' }).then(() => {});
-    window.open(buildWhatsAppUrl(items, phone, code, !isStoreOpen()), '_blank');
+    
+    // Abrimos WhatsApp con el nombre del cliente incluido
+    window.open(buildWhatsAppUrl(items, phone, name, code, !isStoreOpen()), '_blank');
+    
     clearCart();
     setShowConfirmation(false);
     setScreen('home');
