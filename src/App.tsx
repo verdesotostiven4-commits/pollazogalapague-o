@@ -112,7 +112,8 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setShowConfirmation(true);
   };
 
-  const handleLoginDone = (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
+  // ¡AQUÍ ESTÁ LA MAGIA! Ahora es async y envía a Supabase
+  const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
     const cleanPhone = userData.whatsapp.replace(/\D/g, ''); 
     
     localStorage.setItem('pollazo_customer_phone', cleanPhone);
@@ -121,6 +122,9 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
     setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
     setShowLoginModal(false);
+
+    // Guardamos nombre y avatar en tu base de datos INMEDIATAMENTE
+    await upsertCustomer(cleanPhone, userData.name, userData.avatarUrl);
 
     if (pendingAction === 'checkout') {
       setShowConfirmation(true);
@@ -135,11 +139,16 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
   const handleWhatsApp = async () => {
     const phone = customerInfo?.phone || localStorage.getItem('pollazo_customer_phone') || '';
+    const name = customerInfo?.name || localStorage.getItem('pollazo_customer_name') || '';
+    const avatarUrl = customerInfo?.avatarUrl || localStorage.getItem('pollazo_customer_avatar') || '';
+    
     const code = orderCode();
     const subtotal = subtotalOf(items);
     const delivery_fee = deliveryFeeOf(subtotal);
     const total = subtotal + delivery_fee;
-    const customer = phone ? await upsertCustomer(phone) : null;
+    
+    // Aquí también nos aseguramos de enviarle el nombre y avatar
+    const customer = phone ? await upsertCustomer(phone, name, avatarUrl) : null;
     
     await createOrder({
       id: crypto.randomUUID(),
@@ -178,7 +187,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       className="flex flex-col bg-gray-50"
       style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
     >
-      {/* AQUÍ ESTÁN LOS CABLES CONECTADOS */}
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
