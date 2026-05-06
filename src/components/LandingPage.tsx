@@ -15,7 +15,6 @@ import {
   PlusSquare,
   X,
 } from 'lucide-react';
-import { useAdmin } from '../context/AdminContext';
 
 interface Props {
   onInstall: () => void;
@@ -27,6 +26,11 @@ interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
+
+const LOGO_URL =
+  'https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg';
+
+const MAPS_URL = 'https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw';
 
 const STAFF = [
   {
@@ -61,18 +65,11 @@ const STAFF = [
   },
 ];
 
-const MAPS_URL =
-  'https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw';
-
 function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
 function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
-  const admin = useAdmin() as any;
-  const settings = admin?.settings;
-  const extraSettings = admin?.extraSettings;
-
   const [visible, setVisible] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -81,38 +78,23 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
 
-  const logoUrl =
-    extraSettings?.logo_url || '/logo-final.png';
-
-  const primaryColor =
-    settings?.primary_color || '#f97316';
+  const primaryColor = '#f97316';
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisible(true);
-    }, 80);
-
+    const timer = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      setDeferredPrompt(
-        event as BeforeInstallPromptEvent
-      );
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener(
-      'beforeinstallprompt',
-      handleBeforeInstallPrompt
-    );
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener(
-        'beforeinstallprompt',
-        handleBeforeInstallPrompt
-      );
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
@@ -124,14 +106,10 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
 
     if (deferredPrompt) {
       await deferredPrompt.prompt();
-
-      const choice =
-        await deferredPrompt.userChoice;
+      const choice = await deferredPrompt.userChoice;
 
       if (choice.outcome === 'dismissed') {
-        setInstallMessage(
-          'Instalación cancelada.'
-        );
+        setInstallMessage('Instalación cancelada.');
       }
 
       setDeferredPrompt(null);
@@ -143,16 +121,13 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
       return;
     }
 
-    setInstallMessage(
-      'Usa el menú de tu navegador -> Instalar aplicación.'
-    );
+    setInstallMessage('Usa el menú del navegador -> Instalar aplicación.');
   };
 
   const handleSendReview = () => {
     if (userRating === 0) return;
 
     alert('¡Gracias! Tu opinión fue enviada.');
-
     setUserRating(0);
     setComment('');
   };
@@ -160,11 +135,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   return (
     <div
       className="bg-white text-gray-950 overflow-x-hidden"
-      style={
-        {
-          '--pollazo-primary': primaryColor,
-        } as CSSProperties
-      }
+      style={{ '--pollazo-primary': primaryColor } as CSSProperties}
     >
       <style>
         {`
@@ -172,7 +143,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             0%, 100% {
               transform: translateY(0px);
             }
-
             50% {
               transform: translateY(-10px);
             }
@@ -182,7 +152,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             0%, 100% {
               transform: translateY(0px);
             }
-
             50% {
               transform: translateY(-4px);
             }
@@ -215,9 +184,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
       <section className="relative h-[100svh] overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
-
           <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-100/30 blur-3xl" />
-
           <div className="absolute top-1/3 left-1/2 w-48 h-48 -translate-x-1/2 rounded-full bg-yellow-100/20 blur-3xl" />
         </div>
 
@@ -232,11 +199,10 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             <div className="absolute w-72 h-72 rounded-full bg-white/10 blur-3xl" />
 
             <img
-              src={logoUrl}
+              src={LOGO_URL}
               className="relative w-56 h-56 object-contain drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)] pollazo-logo-float"
               onError={(event) => {
-                event.currentTarget.src =
-                  '/logo-final.png';
+                event.currentTarget.src = '/logo-final.png';
               }}
             />
           </div>
@@ -251,9 +217,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             </h1>
 
             <p className="text-white/90 text-[15px] font-semibold leading-relaxed max-w-xs mx-auto tracking-wide">
-              Tu market de confianza con pollo fresco
-              enfundado y productos esenciales para tu
-              hogar.
+              Tu market de confianza con pollo fresco enfundado y productos esenciales para tu hogar.
             </p>
           </div>
 
@@ -288,11 +252,10 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-orange-100 h-16 flex items-center justify-between px-5">
         <div className="flex items-center gap-3">
           <img
-            src={logoUrl}
+            src={LOGO_URL}
             className="w-10 h-10 object-contain"
             onError={(event) => {
-              event.currentTarget.src =
-                '/logo-final.png';
+              event.currentTarget.src = '/logo-final.png';
             }}
           />
 
@@ -311,10 +274,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
           type="button"
           className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center active:scale-95 transition-transform"
         >
-          <Bell
-            size={18}
-            className="text-orange-500"
-          />
+          <Bell size={18} className="text-orange-500" />
         </button>
       </header>
 
@@ -335,10 +295,8 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               </h3>
 
               <p className="text-sm font-medium leading-relaxed text-white/95">
-                Pollazo Galapagueño El Mirador
-                ofrece pollo fresco enfundado,
-                atención rápida y productos
-                esenciales con estándares premium
+                Pollazo Galapagueño El Mirador ofrece pollo fresco enfundado,
+                atención rápida y productos esenciales con estándares premium
                 para las familias de Puerto Ayora.
               </p>
             </div>
@@ -349,48 +307,27 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
 
         <section className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-[30px] p-5 shadow-sm border border-orange-100 pollazo-soft-float">
-            <Snowflake
-              className="text-orange-500 mb-3"
-              size={24}
-            />
-
+            <Snowflake className="text-orange-500 mb-3" size={24} />
             <p className="text-[10px] font-black uppercase text-gray-400">
               FRESCURA
             </p>
-
-            <p className="font-black text-sm text-gray-900">
-              Cada día
-            </p>
+            <p className="font-black text-sm text-gray-900">Cada día</p>
           </div>
 
           <div className="bg-white rounded-[30px] p-5 shadow-sm border border-orange-100 pollazo-soft-float-delay">
-            <PackageCheck
-              className="text-orange-500 mb-3"
-              size={24}
-            />
-
+            <PackageCheck className="text-orange-500 mb-3" size={24} />
             <p className="text-[10px] font-black uppercase text-gray-400">
               CALIDAD
             </p>
-
-            <p className="font-black text-sm text-gray-900">
-              Marca propia
-            </p>
+            <p className="font-black text-sm text-gray-900">Marca propia</p>
           </div>
 
           <div className="bg-white rounded-[30px] p-5 shadow-sm border border-orange-100 pollazo-soft-float">
-            <ShoppingBag
-              className="text-orange-500 mb-3"
-              size={24}
-            />
-
+            <ShoppingBag className="text-orange-500 mb-3" size={24} />
             <p className="text-[10px] font-black uppercase text-gray-400">
               MARKET
             </p>
-
-            <p className="font-black text-sm text-gray-900">
-              Confianza
-            </p>
+            <p className="font-black text-sm text-gray-900">Confianza</p>
           </div>
         </section>
 
