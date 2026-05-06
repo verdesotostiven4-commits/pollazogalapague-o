@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Snowflake,
   PackageCheck,
-  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -53,8 +53,7 @@ const STAFF = [
   },
 ];
 
-const MAP_EMBED_URL =
-  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.176472097034!2d-90.316!3d-0.744!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMMKwNDQnMzguNCJTIDkwwrAxOCc1Ny42Ilc!5e0!3m2!1ses!2sec!4v1714945000000!5m2!1ses!2sec';
+const MAPS_URL = 'http://googleusercontent.com/maps.google.com/final_location';
 
 export default function LandingPage({
   onInstall,
@@ -100,10 +99,10 @@ export default function LandingPage({
         {`
           @keyframes pollazoFloat {
             0%, 100% {
-              transform: translateY(0) rotate(-0.4deg);
+              transform: translateY(0);
             }
             50% {
-              transform: translateY(-14px) rotate(0.4deg);
+              transform: translateY(-14px);
             }
           }
 
@@ -113,24 +112,6 @@ export default function LandingPage({
             }
             50% {
               transform: translateY(-7px);
-            }
-          }
-
-          @keyframes pollazoShine {
-            0% {
-              transform: translateX(-160%) rotate(22deg);
-              opacity: 0;
-            }
-            8% {
-              opacity: 0.7;
-            }
-            18% {
-              transform: translateX(180%) rotate(22deg);
-              opacity: 0;
-            }
-            100% {
-              transform: translateX(180%) rotate(22deg);
-              opacity: 0;
             }
           }
 
@@ -144,24 +125,20 @@ export default function LandingPage({
           }
 
           .pollazo-logo-float {
-            animation: pollazoFloat 5.8s ease-in-out infinite;
-          }
-
-          .pollazo-shine {
-            animation: pollazoShine 9s ease-in-out infinite;
+            animation: pollazoFloat 6s ease-in-out infinite;
           }
 
           .pollazo-soft-float {
-            animation: pollazoSoftFloat 6.5s ease-in-out infinite;
+            animation: pollazoSoftFloat 7s ease-in-out infinite;
           }
 
           .pollazo-soft-float-delay {
-            animation: pollazoSoftFloat 7.2s ease-in-out infinite;
+            animation: pollazoSoftFloat 7.6s ease-in-out infinite;
             animation-delay: 0.8s;
           }
 
           .pollazo-icon-float {
-            animation: pollazoIconFloat 4.8s ease-in-out infinite;
+            animation: pollazoIconFloat 5s ease-in-out infinite;
           }
         `}
       </style>
@@ -174,36 +151,29 @@ export default function LandingPage({
         </div>
 
         <div className="relative z-10 max-w-md mx-auto space-y-10">
-          <div style={fadeIn(0)} className="relative mx-auto w-60 h-60 flex items-center justify-center">
-            <div className="absolute inset-5 rounded-full bg-orange-300/25 blur-3xl" />
+          <div style={fadeIn(0)} className="relative mx-auto flex items-center justify-center">
+            <div className="absolute w-64 h-64 rounded-full bg-orange-300/20 blur-3xl" />
 
-            <div className="relative overflow-hidden pollazo-logo-float">
-              <img
-                src={logoUrl}
-                className="w-56 h-56 object-contain mx-auto drop-shadow-[0_32px_50px_rgba(0,0,0,0.38)]"
-                onError={(e) => {
-                  e.currentTarget.src = '/logo-final.png';
-                }}
-                alt="Pollazo Galapagueño El Mirador"
-              />
-
-              <div className="pollazo-shine pointer-events-none absolute -top-10 -bottom-10 left-1/2 w-12 bg-gradient-to-r from-transparent via-white/70 to-transparent blur-sm" />
-            </div>
+            <img
+              src={logoUrl}
+              className="relative w-56 h-56 object-contain mx-auto drop-shadow-[0_32px_50px_rgba(0,0,0,0.35)] pollazo-logo-float"
+              onError={(e) => {
+                e.currentTarget.src = '/logo-final.png';
+              }}
+              alt="Pollazo Galapagueño El Mirador"
+            />
           </div>
 
           <div style={fadeIn(140)} className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/20 px-4 py-2 backdrop-blur-md">
-              <Sparkles size={14} className="text-orange-100" />
-              <p className="text-white/90 font-black uppercase tracking-[0.22em] text-[10px]">
-                Market Premium
-              </p>
-            </div>
+            <p className="text-white/80 font-black uppercase tracking-widest text-xs">
+              Galápagos • Ecuador
+            </p>
 
-            <h1 className="font-black text-5xl text-white italic drop-shadow-lg leading-none">
+            <h1 className="font-black text-5xl text-white drop-shadow-lg leading-none tracking-tight">
               Pollazo El Mirador
             </h1>
 
-            <p className="text-white/85 text-[15px] font-bold leading-relaxed max-w-xs mx-auto tracking-wide">
+            <p className="text-white/85 text-[15px] font-semibold leading-relaxed max-w-xs mx-auto tracking-wide">
               Frescura en cada funda, productos esenciales y una experiencia rápida para comprar mejor.
             </p>
           </div>
@@ -239,7 +209,7 @@ export default function LandingPage({
             alt="Pollazo Galapagueño El Mirador"
           />
           <div>
-            <h1 className="font-black text-gray-950 text-sm italic uppercase tracking-tighter">
+            <h1 className="font-black text-gray-950 text-sm uppercase tracking-tight">
               Pollazo El Mirador
             </h1>
             <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">
@@ -267,7 +237,7 @@ export default function LandingPage({
               <p className="text-[10px] font-black text-white/75 uppercase tracking-[0.28em] mb-3">
                 Calidad garantizada
               </p>
-              <h3 className="font-black text-3xl mb-4 italic leading-tight">
+              <h3 className="font-black text-3xl mb-4 leading-tight">
                 Calidad y Frescura en Galápagos
               </h3>
               <p className="text-sm font-medium opacity-95 leading-relaxed">
@@ -392,7 +362,7 @@ export default function LandingPage({
             <p className="text-[10px] font-black text-orange-400 uppercase tracking-[0.25em]">
               Reseñas
             </p>
-            <h2 className="text-2xl font-black italic">
+            <h2 className="text-2xl font-black">
               ¿Cómo fue tu experiencia?
             </h2>
             <p className="text-gray-500 text-xs">
@@ -451,28 +421,33 @@ export default function LandingPage({
             </h2>
           </div>
 
-          <div className="bg-white p-3 rounded-[40px] border border-orange-100 shadow-xl overflow-hidden">
-            <div className="h-72 rounded-[35px] overflow-hidden bg-orange-50">
-              <iframe
-                src={MAP_EMBED_URL}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Mapa de ubicación Pollazo Galapagueño El Mirador"
-              />
+          <div className="bg-white p-6 rounded-[40px] border border-orange-100 shadow-xl">
+            <div className="w-14 h-14 rounded-3xl bg-orange-50 flex items-center justify-center mb-5">
+              <MapPin className="text-orange-500" size={28} />
             </div>
 
-            <div className="px-3 py-5">
-              <p className="text-center text-sm font-black text-gray-700">
-                El Mirador, Puerto Ayora.
-              </p>
-              <p className="text-center text-xs font-bold text-gray-400 mt-1">
-                Tu market de confianza para pollo fresco enfundado y productos esenciales.
-              </p>
-            </div>
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.25em] mb-2">
+              Dirección
+            </p>
+
+            <h3 className="text-2xl font-black text-gray-950 leading-tight">
+              Calle Delfín, El Mirador, Puerto Ayora
+            </h3>
+
+            <p className="text-sm font-semibold text-gray-500 mt-3 leading-relaxed">
+              Visítanos para comprar pollo fresco enfundado y productos esenciales
+              para tu hogar.
+            </p>
+
+            <a
+              href={MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-5 rounded-3xl bg-orange-500 text-white font-black flex items-center justify-center gap-3 shadow-lg shadow-orange-200 active:scale-95 transition-transform"
+            >
+              ¿Cómo llegar? Ver en Google Maps
+              <ExternalLink size={18} />
+            </a>
           </div>
         </section>
       </main>
