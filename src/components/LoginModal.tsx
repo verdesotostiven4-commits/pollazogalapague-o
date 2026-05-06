@@ -7,7 +7,6 @@ interface LoginModalProps {
   onLogin: (userData: { name: string; whatsapp: string; avatarUrl: string }) => void;
 }
 
-// 6 Avatares divertidos
 const AVATARS = Array.of(
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf',
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka&backgroundColor=c0aede',
@@ -20,8 +19,6 @@ const AVATARS = Array.of(
 export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  
-  // SOLUCIÓN ANTI-FANTASMAS: Usamos .at(0) en lugar de corchetes
   const [selectedAvatar, setSelectedAvatar] = useState<string>(AVATARS.at(0) as string);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   
@@ -30,14 +27,40 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // SOLUCIÓN ANTI-FANTASMAS: Usamos .item(0) en lugar de corchetes
     const filesList = e.target.files;
     const file = filesList ? filesList.item(0) : null;
     
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setUploadedImage(imageUrl);
-      setSelectedAvatar(imageUrl);
+      // MAGIA: Comprimir la imagen y convertirla en texto (Base64) para que viaje a Supabase
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 150; // Tamaño pequeño para que no pese
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          setUploadedImage(dataUrl);
+          setSelectedAvatar(dataUrl);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -54,7 +77,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   };
 
   return (
-    // SOLUCIÓN CAPAS MEZCLADAS: Subimos z-index a z-50 para que esté arriba de todo
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div 
         className="w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl relative flex flex-col"
