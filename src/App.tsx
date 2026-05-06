@@ -12,6 +12,7 @@ import AppHeader from './components/AppHeader';
 import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
+import LoginModal from './components/LoginModal'; // IMPORTAMOS LA NUEVA PIEZA
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { supabase } from './lib/supabase';
@@ -26,36 +27,6 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const LANDING_DISMISSED_KEY = 'pollazo_landing_dismissed';
-
-function PhoneLogin({ onDone }: { onDone: (phone: string) => void }) {
-  const [phone, setPhone] = useState(localStorage.getItem('pollazo_customer_phone') || '');
-  const [error, setError] = useState('');
-  const save = () => {
-    const clean = phone.replace(/\D/g, '');
-    if (clean.length < 8) { setError('Ingresa un número válido.'); return; }
-    localStorage.setItem('pollazo_customer_phone', clean);
-    onDone(clean);
-  };
-  return (
-    <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex items-center justify-center px-5">
-      <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm text-center">
-        <img src="/logo-final.png" className="w-20 h-20 object-contain mx-auto mb-3" />
-        <h2 className="text-gray-900 font-black text-xl">Ingresa con tu celular</h2>
-        <p className="text-gray-400 text-sm mt-1 mb-5">Tu sesión quedará guardada para tus próximos pedidos.</p>
-        <input
-          value={phone}
-          onChange={e => { setPhone(e.target.value); setError(''); }}
-          inputMode="tel"
-          placeholder="Ej: 0989795628"
-          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-4 text-center text-lg font-black outline-none focus:ring-2 focus:ring-orange-300"
-        />
-        {error && <p className="text-red-500 text-xs font-bold mt-2">{error}</p>}
-        <button onClick={save} className="w-full mt-4 bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-2xl py-4 font-black active:scale-95 transition-transform">Continuar</button>
-      </div>
-    </div>
-  );
-}
-
 
 function isStandalone(): boolean {
   return (
@@ -76,8 +47,20 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>(initialCategory ?? 'Todos');
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, addCustomerPoints } = useAdmin();
-  const [customerPhone, setCustomerPhone] = useState(() => localStorage.getItem('pollazo_customer_phone') || '');
   const mainRef = useRef<HTMLElement>(null);
+
+  // NUEVO ESTADO: Información completa del cliente
+  const [customerInfo, setCustomerInfo] = useState<{name: string, phone: string, avatarUrl: string} | null>(() => {
+    const phone = localStorage.getItem('pollazo_customer_phone');
+    const name = localStorage.getItem('pollazo_customer_name');
+    const avatarUrl = localStorage.getItem('pollazo_customer_avatar');
+    if (phone) return { phone, name: name || '', avatarUrl: avatarUrl || '' };
+    return null;
+  });
+
+  // NUEVOS ESTADOS: Control del Modal de Login
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
   useEffect(() => {
     if (initialCategory) {
@@ -105,22 +88,55 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setCanInstall(false);
   };
 
+  // LÓGICA DE BARRERA: Control de checkout modificado
   const handleCheckout = () => {
     if (items.length === 0) return;
-    if (!customerPhone) {
-      setShowConfirmation(false);
+    
+    // Si NO está registrado, abrimos el modal de login y dejamos el checkout en "espera"
+    if (!customerInfo || !customerInfo.phone) {
+      setPendingAction('checkout');
+      setShowLoginModal(true);
       return;
     }
+    
+    // Si ya está registrado, pasa directo a confirmación
     setShowConfirmation(true);
   };
 
+  // Función que se ejecuta cuando el usuario termina de poner su avatar y datos
+  const handleLoginDone = (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
+    const cleanPhone = userData.whatsapp.replace(/\D/g, ''); // Limpiamos el número
+    
+    // Guardamos en la memoria del celular
+    localStorage.setItem('pollazo_customer_phone', cleanPhone);
+    localStorage.setItem('pollazo_customer_name', userData.name);
+    localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
+
+    // Actualizamos el estado actual
+    setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
+    setShowLoginModal(false);
+
+    // Si el usuario venía del botón de pedir, le abrimos la confirmación mágicamente
+    if (pendingAction === 'checkout') {
+      setShowConfirmation(true);
+    }
+    setPendingAction(null);
+  };
+
+  const handleCloseLogin = () => {
+    setShowLoginModal(false);
+    setPendingAction(null);
+  };
+
   const handleWhatsApp = async () => {
-    const phone = customerPhone || localStorage.getItem('pollazo_customer_phone') || '';
+    const phone = customerInfo?.phone || localStorage.getItem('pollazo_customer_phone') || '';
     const code = orderCode();
     const subtotal = subtotalOf(items);
     const delivery_fee = deliveryFeeOf(subtotal);
     const total = subtotal + delivery_fee;
     const customer = phone ? await upsertCustomer(phone) : null;
+    
+    // NOTA: Más adelante actualizaremos upsertCustomer para guardar también el nombre y el avatar en tu Base de Datos
     await createOrder({
       id: crypto.randomUUID(),
       order_code: code,
@@ -133,6 +149,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       status: 'Recibido',
       preorder: !isStoreOpen(),
     });
+    
     if (customer?.id && subtotal > 0) await addCustomerPoints(customer.id, Math.floor(subtotal));
     supabase.rpc('increment_metric', { metric_id: 'total_orders' }).then(() => {});
     window.open(buildWhatsAppUrl(items, phone, code, !isStoreOpen()), '_blank');
@@ -157,6 +174,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       className="flex flex-col bg-gray-50"
       style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
     >
+      {/* Puedes pasarle onOpenProfile={() => setShowLoginModal(true)} a AppHeader más adelante */}
       <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} />
 
       <main
@@ -172,7 +190,14 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      {!customerPhone && <PhoneLogin onDone={setCustomerPhone} />}
+      
+      {/* AQUÍ CONECTAMOS LA VENTANA DE AVATARES */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={handleCloseLogin} 
+        onLogin={handleLoginDone} 
+      />
+
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -210,7 +235,6 @@ export default function App() {
     setLandingDone(true);
   };
 
-  // Admin route — wrap in AdminProvider only
   if (isAdmin) {
     return (
       <AdminProvider>
