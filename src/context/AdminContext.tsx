@@ -51,14 +51,21 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const products = useMemo(() => {
     const map = new Map<string, Product>();
-    if (seedProducts) seedProducts.forEach(p => map.set(p.id, p));
-    if (remoteProducts) remoteProducts.forEach(p => map.set(p.id, p));
+    // Cargamos productos de reserva con seguridad
+    if (seedProducts) {
+      seedProducts.forEach(p => { if (p && p.id) map.set(p.id, p); });
+    }
+    // Cargamos productos de la base de datos
+    if (remoteProducts) {
+      remoteProducts.forEach(p => { if (p && p.id) map.set(p.id, p); });
+    }
     return Array.from(map.values()).filter(p => p && p.available !== false);
   }, [remoteProducts]);
 
-  const categories = useMemo(() => 
-    Array.from(new Set([...seedCategories, ...products.map(p => p.category)])).sort()
-  , [products]);
+  const categories = useMemo(() => {
+    const cats = products.map(p => p.category).filter(Boolean);
+    return Array.from(new Set([...seedCategories, ...cats])).sort();
+  }, [products]);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -76,8 +83,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       }
       if (custRes.status === 'fulfilled' && custRes.value.data) setCustomers(custRes.value.data);
       if (orderRes.status === 'fulfilled' && orderRes.value.data) setOrders(orderRes.value.data);
-    } catch (e) { console.error("Error cargando Supabase:", e); }
-    setLoading(false);
+    } catch (e) {
+      console.error("Error en Supabase:", e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
