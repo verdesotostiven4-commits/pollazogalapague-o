@@ -3,77 +3,74 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>La Casa del Pollazo — El Mirador</title>
-    <meta name="description" content="Pollos frescos y productos para tu hogar en Puerto Ayora, Galápagos. Delivery disponible." />
+    <title>Pollazo El Mirador</title>
+    <meta name="description" content="Tu market de confianza con pollo fresco enfundado en Puerto Ayora." />
 
-    <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#E67E22" />
+    <meta name="theme-color" content="#f97316" />
 
-    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Pollazo" />
-    <link rel="apple-touch-icon" href="/logo-final.png" />
+    <link rel="apple-touch-icon" href="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg" />
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="La Casa del Pollazo — El Mirador" />
-    <meta property="og:description" content="Pollos frescos y delivery en Puerto Ayora, Galápagos." />
-    <meta property="og:image" content="/logo-final.png" />
+    <meta property="og:title" content="Pollazo El Mirador" />
+    <meta property="og:description" content="Pollo fresco y productos para tu hogar en Galápagos." />
+    <meta property="og:image" content="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg" />
     <meta property="og:type" content="website" />
 
-    <!-- Native HTML splash screen: shown instantly before React hydrates -->
     <style>
       #html-splash {
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #E67E22;
+        background: #f97316; /* Naranja Pollazo */
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        transition: opacity 0.35s ease;
+        transition: opacity 0.4s ease;
       }
       #html-splash.fade-out {
         opacity: 0;
         pointer-events: none;
       }
       #html-splash img {
-        width: 172px;
-        height: 172px;
+        width: 180px;
+        height: 180px;
         object-fit: contain;
-        filter: drop-shadow(0 12px 32px rgba(0,0,0,0.28)) drop-shadow(0 0 18px rgba(251,146,60,0.45));
-        animation: splashPulse 1.8s ease-in-out infinite;
+        filter: drop-shadow(0 15px 35px rgba(0,0,0,0.25));
+        animation: splashPulse 2s ease-in-out infinite;
       }
       @keyframes splashPulse {
         0%, 100% { transform: scale(1); }
-        50%       { transform: scale(1.04); }
+        50% { transform: scale(1.06); }
       }
     </style>
   </head>
   <body>
-    <!-- Native splash: hidden once React mounts -->
     <div id="html-splash">
-      <img src="/logo-final.png" alt="La Casa del Pollazo" />
+      <img src="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg" alt="Pollazo El Mirador" />
     </div>
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Registro del Service Worker para que se pueda instalar
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
       }
 
-      // Remove HTML splash once React has had a chance to render
+      // Quitar el splash cuando React esté listo
       window.addEventListener('load', () => {
-        var splash = document.getElementById('html-splash');
+        const splash = document.getElementById('html-splash');
         if (splash) {
-          setTimeout(function() {
+          setTimeout(() => {
             splash.classList.add('fade-out');
-            setTimeout(function() { splash.remove(); }, 380);
-          }, 300);
+            setTimeout(() => splash.remove(), 400);
+          }, 400);
         }
       });
     </script>
