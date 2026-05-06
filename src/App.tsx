@@ -19,20 +19,19 @@ import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 
-// --- ESTO ATRAPARÁ EL ERROR Y TE LO MOSTRARÁ ---
+// Atrapador de errores para que la pantalla no se ponga blanca
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-10 bg-red-50 min-h-screen">
-          <h1 className="text-red-600 font-black text-2xl">🚨 ¡ERROR DETECTADO!</h1>
-          <p className="text-gray-700 mt-2 font-bold">Dile esto a Gemini:</p>
-          <div className="bg-red-900 text-white p-4 mt-4 rounded-xl text-xs overflow-auto font-mono">
-            {this.state.error?.message}
-          </div>
-          <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-full">Reintentar</button>
+        <div className="p-10 bg-orange-50 min-h-screen text-center">
+          <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
+          <p className="text-gray-600 mt-2">Estamos actualizando los productos de la tienda.</p>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg">
+            LIMPIAR Y REINTENTAR
+          </button>
         </div>
       );
     }
@@ -44,7 +43,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading } = useAdmin();
+  const { upsertCustomer, createOrder, loading, products } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -53,7 +52,7 @@ function AppShell() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-orange-500 text-white font-black italic">
         <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-        PREPARANDO EL POLLAZO...
+        CARGANDO POLLAZO...
       </div>
     );
   }
@@ -65,7 +64,12 @@ function AppShell() {
 
   const handleWhatsApp = async () => {
     const code = orderCode();
-    const subtotal = subtotalOf(items);
+    // Cálculo seguro del subtotal para evitar el error de 'undefined'
+    const subtotal = items.reduce((acc, item) => {
+      const p = products.find(prod => prod.id === item.id);
+      return acc + (p ? Number(p.price) * item.quantity : 0);
+    }, 0);
+
     await createOrder({
       order_code: code,
       customer_phone: customerPhone,
@@ -112,6 +116,7 @@ function AppShell() {
 export default function App() {
   const [landingDone, setLandingDone] = useState(() => !!sessionStorage.getItem('pollazo_landing_dismissed'));
   if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
+  
   if (!landingDone) {
     return (
       <AdminProvider>
@@ -122,6 +127,7 @@ export default function App() {
       </AdminProvider>
     );
   }
+
   return (
     <ErrorBoundary>
       <AdminProvider>
