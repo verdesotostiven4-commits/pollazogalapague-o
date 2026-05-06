@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, Component } from 'react';
 import { CartProvider } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
@@ -18,12 +18,30 @@ import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
-import { Category } from './types';
 
-type Screen = 'home' | 'catalog' | 'cart' | 'info' | 'ranking';
+// --- ESTO ATRAPARÁ EL ERROR Y TE LO MOSTRARÁ ---
+class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-10 bg-red-50 min-h-screen">
+          <h1 className="text-red-600 font-black text-2xl">🚨 ¡ERROR DETECTADO!</h1>
+          <p className="text-gray-700 mt-2 font-bold">Dile esto a Gemini:</p>
+          <div className="bg-red-900 text-white p-4 mt-4 rounded-xl text-xs overflow-auto font-mono">
+            {this.state.error?.message}
+          </div>
+          <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-full">Reintentar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppShell() {
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
@@ -40,7 +58,7 @@ function AppShell() {
     );
   }
 
-  const handleNavigate = (s: Screen) => {
+  const handleNavigate = (s: any) => {
     setScreen(s);
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
@@ -64,48 +82,28 @@ function AppShell() {
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader 
-        screen={screen} 
-        onNavigate={handleNavigate} 
-        onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar} 
-      />
-
+      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
-        
-        {/* PANTALLA DE BIENVENIDA (Solo en Home) */}
         {screen === 'home' && (
           <div className="px-6 pt-6">
-            <div className="bg-white p-6 rounded-[32px] shadow-xl shadow-orange-100 border-2 border-orange-50 mb-6">
-               <span className="text-orange-500 font-black text-[10px] uppercase tracking-widest">¡Bienvenido!</span>
-               <h2 className="font-black text-2xl text-gray-900 mt-1 italic">Hola, {(customerName || 'Cliente').trim()}</h2>
-               <button 
-                 onClick={() => handleNavigate('ranking')}
-                 className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs shadow-lg shadow-orange-200 active:scale-95 transition-all uppercase"
-               >
+            <div className="bg-white p-6 rounded-[32px] shadow-xl border-2 border-orange-50 mb-6 text-center">
+               <h2 className="font-black text-2xl text-gray-900 italic">Hola, {customerName || 'Cliente'}</h2>
+               <button onClick={() => handleNavigate('ranking')} className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-orange-200">
                  🏆 Ver Ranking de Clientes
                </button>
             </div>
             <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
           </div>
         )}
-
         {screen === 'catalog' && <CatalogScreen initialCategory="Todos" onCategoryChange={() => {}} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
-        onLogin={(u) => setUserData(u.whatsapp, u.name, u.avatarUrl)} 
-      />
-      
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => setUserData(u.whatsapp, u.name, u.avatarUrl)} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -113,9 +111,7 @@ function AppShell() {
 
 export default function App() {
   const [landingDone, setLandingDone] = useState(() => !!sessionStorage.getItem('pollazo_landing_dismissed'));
-
   if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
-
   if (!landingDone) {
     return (
       <AdminProvider>
@@ -126,16 +122,17 @@ export default function App() {
       </AdminProvider>
     );
   }
-
   return (
-    <AdminProvider>
-      <UserProvider> 
-        <CartProvider>
-          <FlyToCartProvider>
-            <AppShell />
-          </FlyToCartProvider>
-        </CartProvider>
-      </UserProvider>
-    </AdminProvider>
+    <ErrorBoundary>
+      <AdminProvider>
+        <UserProvider> 
+          <CartProvider>
+            <FlyToCartProvider>
+              <AppShell />
+            </FlyToCartProvider>
+          </CartProvider>
+        </UserProvider>
+      </AdminProvider>
+    </ErrorBoundary>
   );
 }
