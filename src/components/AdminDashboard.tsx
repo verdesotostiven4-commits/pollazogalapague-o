@@ -1,12 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Bell, Edit3, LogOut, Package, Plus, Save, Search, Send, Settings, Star, Trash2, Users, Image, Trophy, Calendar, Link } from 'lucide-react';
+import { Bell, Edit3, LogOut, Package, Plus, Save, Search, Send, Settings, Star, Trash2, Users, Image, Trophy, Calendar, Link, User } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
 // LÍNEA 9: PROTEGIDA PARA QUE NO FALLE EL BUILD ✅
-const BOLITAS_DEL_PIN = [0, 1, 2, 3];
+const BOLITAS_DEL_PIN =;
 
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
@@ -50,7 +50,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const { products, categories, overrides, settings, updateSetting, setOverride, addProduct, updateProduct, deleteProduct, customers, addCustomerPoints, orders, updateOrderStatus } = useAdmin();
-  const [tab, setTab] = useState<'products' | 'branding' | 'customers' | 'orders' | 'ranking_config'>('products');
+  const [tab, setTab] = useState<'products' | 'branding' | 'customers' | 'orders' | 'ranking_config'>('orders'); // Cambié el default a orders para que lo veas de una
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState(emptyProduct);
   const [editing, setEditing] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.;
     if (!file) return;
     setUploading(true);
     try {
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto px-4 py-5 space-y-6">
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {[
-            ['products','Menú',Package], ['branding','Marca',Image], ['ranking_config','Concurso',Trophy], ['customers','Clientes',Users], ['orders','WhatsApp',Send]
+            ['orders','Pedidos',Send], ['products','Menú',Package], ['branding','Marca',Image], ['ranking_config','Concurso',Trophy], ['customers','Clientes',Users]
           ].map(([id,label,Icon]) => (
             <button key={id as string} onClick={() => setTab(id as any)} 
               className={`flex-shrink-0 rounded-2xl px-5 py-3 text-xs font-black flex items-center gap-2 transition-all ${tab===id?'bg-orange-500 text-white shadow-lg shadow-orange-100':'bg-white text-gray-600 border border-gray-100'}`}>
@@ -148,6 +148,75 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
+
+        {/* NUEVA PESTAÑA DE PEDIDOS CABLEADA CON AVATARES */}
+        {tab === 'orders' && (
+          <section className="space-y-4">
+            <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2"><Send size={20} className="text-green-500"/> Pedidos Recientes</h2>
+            {orders.length === 0 ? (
+              <div className="text-center py-10 bg-white rounded-3xl border border-gray-100">
+                 <p className="text-gray-400 font-bold">Aún no hay pedidos registrados.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {orders.map(o => {
+                  // Buscamos al cliente en la base de datos que coincida con el teléfono del pedido
+                  const customer = customers.find(c => c.phone === o.customer_phone || c.id === o.customer_id);
+                  
+                  return (
+                    <div key={o.id} className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                         <div className="flex items-center gap-3">
+                            <div className="relative">
+                              {customer?.avatar_url ? (
+                                <img src={customer.avatar_url} className="w-12 h-12 rounded-full object-cover border-2 border-orange-100" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center font-black text-lg">
+                                  {customer?.name?.charAt(0)?.toUpperCase() || <User size={20}/>}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              {/* Mostramos el nombre real o el teléfono si no tiene nombre */}
+                              <p className="font-black text-gray-900 leading-tight">{customer?.name || o.customer_phone}</p>
+                              <p className="text-[10px] text-gray-400 font-bold mt-0.5">Orden: {o.order_code}</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                           <p className="font-black text-orange-500">${o.total}</p>
+                           {o.created_at && (
+                             <p className="text-[9px] text-gray-400 font-bold mt-0.5">
+                               {new Date(o.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                             </p>
+                           )}
+                         </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-3">
+                         <select 
+                           value={o.status} 
+                           onChange={(e) => updateOrderStatus(o.id, e.target.value as OrderStatus)}
+                           className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                         >
+                           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                         </select>
+                         
+                         <a 
+                           href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)}
+                           target="_blank"
+                           rel="noreferrer"
+                           className="bg-[#25D366] text-white rounded-xl px-5 py-3 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-transform"
+                         >
+                           <Send size={16}/> Notificar
+                         </a>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         {tab === 'branding' && (
           <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-6">
@@ -182,7 +251,6 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* ... Resto del código (Ranking, Clientes, Productos) ... */}
         {tab === 'ranking_config' && (
           <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-5">
             <h2 className="font-black text-lg flex items-center gap-2 text-gray-900"><Trophy size={20} className="text-yellow-500"/> Concurso</h2>
@@ -202,10 +270,12 @@ export default function AdminDashboard() {
               {ranking.map((c, i) => (
                 <div key={c.id} className="py-4 flex items-center gap-4">
                   <div className="relative">
-                    {c.avatar_url ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover border-2 border-orange-100" /> : <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 font-black flex items-center justify-center text-lg uppercase">{c.full_name?.charAt(0) || 'C'}</div>}
+                    {/* CABLEADO: Ahora usa el avatar real o la inicial del nombre */}
+                    {c.avatar_url ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover border-2 border-orange-100" /> : <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 font-black flex items-center justify-center text-lg uppercase">{c.name?.charAt(0) || 'C'}</div>}
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-gray-900 text-sm">{c.full_name || 'Sin nombre'}</p>
+                    {/* CABLEADO: Ahora muestra el nombre real */}
+                    <p className="font-black text-gray-900 text-sm">{c.name || c.phone || 'Sin nombre'}</p>
                     <p className="text-[10px] font-black text-orange-500 uppercase">{c.points} Pts</p>
                   </div>
                   <div className="flex items-center gap-1">
