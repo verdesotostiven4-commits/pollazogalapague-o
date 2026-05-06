@@ -19,7 +19,6 @@ const SHORT_LABELS: Record<string, string> = {
 
 type ActiveCat = 'Todos' | Category;
 
-
 interface Props {
   initialCategory?: ActiveCat;
   onCategoryChange?: (cat: ActiveCat) => void;
@@ -45,9 +44,24 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 5)
     : [];
 
+  // 1. Filtramos los productos según la búsqueda o la categoría activa
   const filtered = products.filter(p => {
     if (isSearching) return p.name.toLowerCase().includes(search.toLowerCase());
     return activeCategory === 'Todos' || p.category === activeCategory;
+  });
+
+  // 2. LÓGICA MÁGICA DE AGRUPACIÓN: Si estamos en "Todos", ordenamos los productos por su categoría
+  const displayedProducts = [...filtered].sort((a, b) => {
+    if (activeCategory === 'Todos' && !isSearching) {
+      // Buscamos en qué posición está la categoría de cada producto
+      const indexA = categories.indexOf(a.category);
+      const indexB = categories.indexOf(b.category);
+      // Si por alguna razón no encuentra la categoría, lo manda al final (999)
+      const posA = indexA === -1 ? 999 : indexA;
+      const posB = indexB === -1 ? 999 : indexB;
+      return posA - posB;
+    }
+    return 0; // Si no estamos en "Todos", respetamos el orden normal
   });
 
   // Auto-center active tab
@@ -62,7 +76,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       const scrollTarget = btnCenter - bar.clientWidth / 2;
       bar.scrollTo({ left: scrollTarget, behavior: 'smooth' });
     }
-  }, [activeCategory, isSearching]);
+  }, [activeCategory, isSearching, ALL_CATS]);
 
   const changeCategory = useCallback((next: ActiveCat) => {
     if (next === activeCategory || animating) return;
@@ -82,27 +96,27 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       setAnimating(false);
       setSlideDir(null);
     }, 320);
-  }, [activeCategory, animating, onCategoryChange]);
+  }, [activeCategory, animating, onCategoryChange, ALL_CATS]);
 
   const handleSwipeLeft = useCallback(() => {
     const idx = ALL_CATS.indexOf(activeCategory);
     if (idx < ALL_CATS.length - 1) changeCategory(ALL_CATS[idx + 1]);
-  }, [activeCategory, changeCategory]);
+  }, [activeCategory, changeCategory, ALL_CATS]);
 
   const handleSwipeRight = useCallback(() => {
     const idx = ALL_CATS.indexOf(activeCategory);
     if (idx > 0) changeCategory(ALL_CATS[idx - 1]);
-  }, [activeCategory, changeCategory]);
+  }, [activeCategory, changeCategory, ALL_CATS]);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches.clientX;
+    touchStartY.current = e.touches.clientY;
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    const dx = e.changedTouches.clientX - touchStartX.current;
+    const dy = e.changedTouches.clientY - touchStartY.current;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) handleSwipeLeft();
       else handleSwipeRight();
@@ -219,12 +233,12 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       >
         <p className="text-xs text-gray-400 font-medium mb-3 px-1">
           {isSearching
-            ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''} para "${search}"`
-            : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`
+            ? `${displayedProducts.length} resultado${displayedProducts.length !== 1 ? 's' : ''} para "${search}"`
+            : `${displayedProducts.length} producto${displayedProducts.length !== 1 ? 's' : ''}`
           }
         </p>
 
-        {filtered.length === 0 ? (
+        {displayedProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="text-5xl mb-4">🔍</span>
             <p className="text-gray-500 font-semibold">Sin resultados</p>
@@ -232,7 +246,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3" style={getGridStyle()}>
-            {filtered.map(product => (
+            {displayedProducts.map(product => (
               <ProductCard key={`${product.id}-${activeCategory}`} product={product} />
             ))}
           </div>
