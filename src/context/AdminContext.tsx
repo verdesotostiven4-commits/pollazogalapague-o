@@ -49,10 +49,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Mezclamos productos de archivo y de base de datos
   const products = useMemo(() => {
     const map = new Map<string, Product>();
-    seedProducts.forEach(p => map.set(p.id, p));
-    remoteProducts.forEach(p => map.set(p.id, p));
+    if (seedProducts) seedProducts.forEach(p => map.set(p.id, p));
+    if (remoteProducts) remoteProducts.forEach(p => map.set(p.id, p));
     return Array.from(map.values()).filter(p => p.available !== false);
   }, [remoteProducts]);
 
@@ -76,7 +77,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       }
       if (custRes.status === 'fulfilled' && custRes.value.data) setCustomers(custRes.value.data);
       if (orderRes.status === 'fulfilled' && orderRes.value.data) setOrders(orderRes.value.data);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error cargando Supabase:", e); }
     setLoading(false);
   }, []);
 
