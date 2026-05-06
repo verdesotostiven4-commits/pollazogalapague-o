@@ -15,7 +15,6 @@ export interface AppSettings {
   banner_link: string;
 }
 
-// NUEVA INTERFAZ PARA EL BRANDING Y RANKING
 export interface ExtraSettings {
   logo_url: string;
   ranking_title: string;
@@ -23,24 +22,30 @@ export interface ExtraSettings {
   ranking_end_date: string;
 }
 
+// Actualizamos temporalmente el Customer aquí en caso de que en types.ts no esté actualizado aún
+export interface ExtendedCustomer extends Customer {
+  avatar_url?: string | null;
+}
+
 interface AdminContextValue {
   products: Product[];
   categories: string[];
   overrides: Record<string, ProductOverride>;
   settings: AppSettings;
-  extraSettings: ExtraSettings; // <--- Agregado
+  extraSettings: ExtraSettings; 
   announcement: string;
-  customers: Customer[];
+  customers: ExtendedCustomer[]; // Usamos nuestro tipo extendido
   orders: Order[];
   loading: boolean;
   setAnnouncement: (text: string) => Promise<void>;
   updateSetting: (key: keyof AppSettings, value: string) => Promise<void>;
-  updateExtraSettings: (patch: Partial<ExtraSettings>) => Promise<void>; // <--- Agregado
+  updateExtraSettings: (patch: Partial<ExtraSettings>) => Promise<void>; 
   setOverride: (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'> & { id?: string }) => Promise<void>;
   updateProduct: (id: string, patch: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
-  upsertCustomer: (phone: string, name?: string | null) => Promise<Customer | null>;
+  // ACTUALIZADO: Ahora acepta el avatar_url opcionalmente
+  upsertCustomer: (phone: string, name?: string | null, avatar_url?: string | null) => Promise<ExtendedCustomer | null>;
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
   createOrder: (order: Omit<Order, 'created_at'>) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
@@ -92,7 +97,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [overrides, setOverrides] = useState<Record<string, ProductOverride>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [extraSettings, setExtraSettings] = useState<ExtraSettings>(DEFAULT_EXTRA);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<ExtendedCustomer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,7 +117,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       supabase.from('products').select('*').order('created_at', { ascending: true }),
       supabase.from('product_overrides').select('id, price, available'),
       supabase.from('app_settings').select('key, value'),
-      supabase.from('settings').select('*').single(), // Cargamos la tabla de branding
+      supabase.from('settings').select('*').single(), 
       supabase.from('customers').select('*').order('points', { ascending: false }).limit(200),
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
@@ -134,7 +139,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (extraRes.data) {
       setExtraSettings(extraRes.data as ExtraSettings);
     }
-    if (custRes.data) setCustomers(custRes.data as Customer[]);
+    if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
     if (orderRes.data) setOrders(orderRes.data as Order[]);
     setLoading(false);
   }, []);
@@ -197,17 +202,41 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const upsertCustomer = useCallback(async (phone: string, name?: string | null) => {
+  // LÓGICA ACTUALIZADA PARA GUARDAR EL NOMBRE Y AVATAR EN SUPABASE
+  const upsertCustomer = useCallback(async (phone: string, name?: string | null, avatar_url?: string | null) => {
     const clean = phone.replace(/\D/g, '');
-    const existing = customers.find(c => c.phone === clean);
-    if (existing) return existing;
-    const customer: Customer = { id: crypto.randomUUID(), phone: clean, name: name ?? null, points: 0 };
-    setCustomers(prev => [customer, ...prev]);
+    
+    // Preparamos los datos completos del cliente que vamos a subir
+    const customerData: ExtendedCustomer = { 
+        id: crypto.randomUUID(), 
+        phone: clean, 
+        name: name ?? null, 
+        avatar_url: avatar_url ?? null,
+        points: 0 
+    };
+
+    // Actualizamos localmente primero para rapidez
+    setCustomers(prev => {
+        const existing = prev.find(c => c.phone === clean);
+        if (existing) {
+            // Si ya existe, le actualizamos el nombre o avatar si vienen nuevos
+            return prev.map(c => c.phone === clean ? { ...c, name: name || c.name, avatar_url: avatar_url || c.avatar_url } : c);
+        }
+        return [customerData, ...prev];
+    });
+
+    // Guardamos en Supabase
     if (isSupabaseConfigured) {
-      const { data } = await supabase.from('customers').upsert(customer, { onConflict: 'phone' }).select().single();
-      return data as Customer;
+      // Usamos el ID existente si lo encontramos para no duplicar
+      const existing = customers.find(c => c.phone === clean);
+      const dataToUpsert = existing 
+        ? { ...existing, name: name || existing.name, avatar_url: avatar_url || existing.avatar_url } 
+        : customerData;
+        
+      const { data } = await supabase.from('customers').upsert(dataToUpsert, { onConflict: 'phone' }).select().single();
+      return data as ExtendedCustomer;
     }
-    return customer;
+    return customerData;
   }, [customers]);
 
   const addCustomerPoints = useCallback(async (customerId: string, points: number) => {
@@ -229,7 +258,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   return <AdminContext.Provider value={{ 
       products, categories, overrides, settings, extraSettings, announcement: settings.announcement, 
-      customers, orders, loading, setAnnouncement, updateSetting, updateExtraSettings, // <--- Funciones añadidas
+      customers, orders, loading, setAnnouncement, updateSetting, updateExtraSettings, 
       setOverride, addProduct, updateProduct, deleteProduct, upsertCustomer, 
       addCustomerPoints, createOrder, updateOrderStatus 
     }}>{children}</AdminContext.Provider>;
