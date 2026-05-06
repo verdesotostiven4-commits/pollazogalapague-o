@@ -6,13 +6,12 @@ import { Customer, Order, Product } from '../types';
 export interface ProductOverride { id: string; price: string | null; available: boolean; }
 export interface AppSettings { announcement: string; primary_color: string; banner_link: string; }
 
-// 🏆 NUEVA ESTRUCTURA PARA EL RANKING Y PREMIOS
 export interface ExtraSettings {
   logo_url: string;
   ranking_title: string;
   prize_description: string;
-  ranking_end_date: string; // Fecha de la cuenta regresiva
-  raffle_min_amount: number; // Cantidad mínima para sorteo (ej: $10)
+  ranking_end_date: string;
+  raffle_min_amount: number;
   winners_gallery: Array<{id: string, name: string, photo: string, prize: string}>;
 }
 
@@ -34,6 +33,7 @@ interface AdminContextValue {
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
 }
 
+const DEFAULT_SETTINGS: AppSettings = { announcement: '', primary_color: '#E67E22', banner_link: '' };
 const DEFAULT_EXTRA: ExtraSettings = {
   logo_url: '/logo-final.png',
   ranking_title: '🏆 Gran Ranking Pollazo',
@@ -44,43 +44,80 @@ const DEFAULT_EXTRA: ExtraSettings = {
 };
 
 const AdminContext = createContext<AdminContextValue | undefined>(undefined);
+
 export function useAdmin() { 
   const context = useContext(AdminContext);
   if (!context) throw new Error('useAdmin debe usarse dentro de AdminProvider');
   return context; 
 }
 
+const normalizeProduct = (p: Product): Product => ({ ...p, available: p.available !== false });
+
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
   const [overrides, setOverrides] = useState<Record<string, ProductOverride>>({});
-  const [settings, setSettings] = useState<AppSettings>({ announcement: '', primary_color: '#E67E22', banner_link: '' });
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [extraSettings, setExtraSettings] = useState<ExtraSettings>(DEFAULT_EXTRA);
   const [customers, setCustomers] = useState<ExtendedCustomer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🍗 Lógica para mezclar productos base y remotos
+  const products = useMemo(() => {
+    const map = new Map<string, Product>();
+    seedProducts.forEach(p => map.set(p.id, normalizeProduct(p)));
+    remoteProducts.forEach(p => map.set(p.id, normalizeProduct(p)));
+    return Array.from(map.values()).filter(p => p.available !== false);
+  }, [remoteProducts]);
+
+  const categories = useMemo(() => 
+    Array.from(new Set([...seedCategories, ...products.map(p => p.category)])).sort()
+  , [products]);
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const [ovRes, extraRes, custRes, orderRes] = await Promise.all([
+    
+    // 🔍 Cargamos TODO: Productos, Overrides, Settings y Ranking
+    const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
+      supabase.from('products').select('*').order('created_at', { ascending: true }),
       supabase.from('product_overrides').select('*'),
+      supabase.from('app_settings').select('key, value'),
       supabase.from('settings').select('*').single(), 
       supabase.from('customers').select('*').order('points', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
+    
+    if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
+    
+    if (ovRes.data) {
+      const map: Record<string, ProductOverride> = {};
+      ovRes.data.forEach(row => { map[row.id] = row as ProductOverride; });
+      setOverrides(map);
+    }
+
+    if (settingsRes.data) {
+      const next = { ...DEFAULT_SETTINGS };
+      settingsRes.data.forEach((s: { key: string; value: string }) => {
+        if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
+      });
+      setSettings(next);
+    }
+
     if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
     if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
     if (orderRes.data) setOrders(orderRes.data as Order[]);
+    
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime para que los puntos se vean al instante
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    const channel = supabase.channel('pollazo_realtime')
+    const channel = supabase.channel('pollazo_realtime_global')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
@@ -117,7 +154,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   return (
     <AdminContext.Provider value={{ 
-      products: [], categories: [], overrides, settings, extraSettings, 
+      products, categories, overrides, settings, extraSettings, 
       customers, orders, loading, updateExtraSettings, addCustomerPoints, 
       upsertCustomer, createOrder, updateOrderStatus 
     }}>
