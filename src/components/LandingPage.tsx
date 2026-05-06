@@ -1,219 +1,267 @@
-import React, { useState, useEffect } from 'react';
-import { Star, Loader2, Download, MapPin, X, Share } from 'lucide-react';
+import { useState, useEffect, type CSSProperties } from 'react';
+import {
+  Download,
+  Globe,
+  Bell,
+  Star,
+  Zap,
+  MapPin,
+  ShieldCheck,
+  ExternalLink,
+  Share,
+  PlusSquare,
+  X,
+  Loader2
+} from 'lucide-react';
+import { useAdmin } from '../context/AdminContext';
 
-// Tipado estricto para el evento nativo de instalación PWA
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
+interface Props {
+  onInstall: () => void;
+  canInstall: boolean;
+  onContinueWeb: () => void;
 }
 
-const LandingPage: React.FC = () => {
-  const [isStandalone, setIsStandalone] = useState<boolean>(false);
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const STAFF = [
+  { id: '1', name: 'Mery', role: 'Gerente', photo_url: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg' },
+  { id: '2', name: 'Paola', role: 'Cajera', photo_url: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg' },
+  { id: '3', name: 'Matias', role: 'Especialista en Aves', photo_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg' },
+  { id: '4', name: 'Stiven', role: 'Atención / Fotografía', photo_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg' },
+  { id: '5', name: 'Edgar', role: 'Reponedor', photo_url: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' },
+];
+
+const LOGO_OFFICIAL = "https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg";
+const MAPS_URL = 'https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw';
+
+export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
+  const admin = useAdmin() as any;
+  const settings = admin?.settings;
+  const extraSettings = admin?.extraSettings;
+
+  const [visible, setVisible] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
-  const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [showIOSModal, setShowIOSModal] = useState(false);
+  const [installMessage, setInstallMessage] = useState('');
+  const [userRating, setUserRating] = useState(0);
+  const [comment, setComment] = useState('');
+
+  const logoUrl = extraSettings?.logo_url || LOGO_OFFICIAL;
+  const primaryColor = settings?.primary_color || '#f97316';
 
   useEffect(() => {
-    // 1. DETECCIÓN STANDALONE
-    const checkStandalone = () => {
-      setIsStandalone(window.matchMedia('(display-mode: standalone)').matches);
-    };
-    
-    // Verificación inicial
-    checkStandalone();
-    
-    // Escuchar cambios de display-mode en tiempo real
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
+    // 1. Detectar si la App ya está instalada
+    const checkPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    if (checkPWA) setIsStandalone(true);
 
-    // 2. DETECCIÓN DE ENTORNO IOS (Safari no soporta beforeinstallprompt)
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIOSDevice);
+    const timer = setTimeout(() => setVisible(true), 100);
 
-    // 3. CAPTURA DEL EVENTO DE INSTALACIÓN
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevenir que el mini-infobar aparezca en móviles
+    const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
-      // Guardar el evento para dispararlo luego
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Cleanup de eventos
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
+      clearTimeout(timer);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (isIOS) {
+    if (/iPhone|iPad|iPod/.test(window.navigator.userAgent)) {
       setShowIOSModal(true);
       return;
     }
-    
     if (deferredPrompt) {
       await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'dismissed') setInstallMessage('Instalación cancelada.');
+      setDeferredPrompt(null);
+      return;
     }
+    setInstallMessage('Usa el menú de tu navegador para instalar la App.');
+    onInstall();
   };
 
-  // Datos del Staff con fotos de Pexels
-  const staffMembers = [
-    { name: 'Mery', role: 'Gerente', img: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Paola', role: 'Cajera', img: 'https://images.pexels.com/photos/762041/pexels-photo-762041.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Matias', role: 'Aves', img: 'https://images.pexels.com/photos/280453/pexels-photo-280453.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Stiven', role: 'Fotos', img: 'https://images.pexels.com/photos/1264210/pexels-photo-1264210.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Edgar', role: 'Reponedor', img: 'https://images.pexels.com/photos/316681/pexels-photo-316681.jpeg?auto=compress&cs=tinysrgb&w=400' },
-  ];
-
-  // Renderizado dinámico del botón de instalación
-  const renderInstallContent = () => {
-    if (isIOS) {
-      return (
-        <>
-          <Download className="w-5 h-5 mr-2" />
-          Instalar en iPhone
-        </>
-      );
-    }
-    if (!deferredPrompt) {
-      return (
-        <>
-          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-          Preparando Instalación...
-        </>
-      );
-    }
-    return (
-      <>
-        <Download className="w-5 h-5 mr-2" />
-        Instalar Aplicación
-      </>
-    );
+  const handleSendReview = () => {
+    if (userRating === 0) return;
+    alert('¡Gracias! Tu opinión fue enviada.');
+    setUserRating(0);
+    setComment('');
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 not-italic flex flex-col">
-      
-      {/* SECCIÓN SPLASH/HERO: Oculta automáticamente en modo standalone */}
+    <div className="bg-white text-gray-950 overflow-x-hidden min-h-screen font-sans" style={{ '--pollazo-primary': primaryColor } as CSSProperties}>
+      <style>
+        {`
+          @keyframes pollazoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+          }
+          .pollazo-logo-float { animation: pollazoFloat 6s ease-in-out infinite; }
+          .no-scrollbar::-webkit-scrollbar { display: none; }
+          .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+          * { font-style: normal !important; text-decoration: none !important; }
+        `}
+      </style>
+
+      {/* HERO / SPLASH */}
       {!isStandalone && (
-        <section className="flex flex-col items-center justify-center px-4 py-12 bg-[#f97316] text-white shrink-0">
-          <img 
-            src="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg" 
-            alt="Logo Principal" 
-            className="w-48 h-48 object-contain mb-8 rounded-2xl shadow-xl bg-white p-2"
-          />
-          <h1 className="text-3xl font-bold mb-6 text-center tracking-tight">
-            Bienvenido a Nuestra App
-          </h1>
-          <button
-            onClick={handleInstallClick}
-            disabled={!isIOS && !deferredPrompt}
-            className="flex items-center justify-center px-8 py-4 bg-white text-[#f97316] font-bold rounded-full shadow-lg hover:bg-gray-50 active:scale-95 disabled:opacity-80 disabled:cursor-wait transition-all duration-200"
-          >
-            {renderInstallContent()}
-          </button>
+        <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-100/30 blur-3xl" />
+          </div>
+
+          <div className="relative z-10 max-w-md mx-auto space-y-10" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease' }}>
+            <div className="relative flex justify-center">
+              <img src={logoUrl} className="relative w-52 h-52 object-contain drop-shadow-2xl pollazo-logo-float" alt="" />
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-white/80 font-black uppercase tracking-[0.35em] text-[10px]">GALÁPAGOS • ECUADOR</p>
+              <h1 className="font-black text-5xl text-white leading-none tracking-tighter">Pollazo El Mirador</h1>
+              <p className="text-white/90 text-sm font-semibold max-w-xs mx-auto">Tu market con pollo fresco enfundado y productos esenciales.</p>
+            </div>
+
+            <div className="w-full max-w-xs mx-auto space-y-4">
+              <button onClick={handleInstallClick} className="w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                {!deferredPrompt && !/iPhone|iPad|iPod/.test(window.navigator.userAgent) ? (
+                  <><Loader2 size={20} className="animate-spin" /> Preparando...</>
+                ) : (
+                  <><Download size={20} /> Instalar App</>
+                )}
+              </button>
+              <button onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className="text-xs font-bold text-white/75 mx-auto flex items-center gap-2 justify-center active:opacity-50">
+                <Globe size={14} /> Explorar Catálogo
+              </button>
+              {installMessage && <p className="text-white/75 text-[10px] font-bold uppercase mt-2">{installMessage}</p>}
+            </div>
+          </div>
         </section>
       )}
 
-      {/* CONTENIDO PRINCIPAL DE LA APP */}
-      <main className="flex-1 flex flex-col w-full max-w-4xl mx-auto">
-        
-        {/* SECCIÓN MAPA */}
-        <section className="p-8 flex flex-col items-center text-center border-b border-gray-100">
-          <h2 className="text-2xl font-bold mb-6 text-[#f97316] uppercase tracking-wide">
-            Visítanos
-          </h2>
-          <a
-            href="https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-8 py-4 bg-[#f97316] text-white font-bold rounded-xl shadow hover:bg-orange-600 transition-colors"
-          >
-            <MapPin className="w-6 h-6 mr-3" />
-            Abrir en Google Maps
-          </a>
-        </section>
-
-        {/* SECCIÓN RESEÑAS CON SINTAXIS ESTRICTA */}
-        <section className="p-8 flex flex-col items-center text-center border-b border-gray-100 bg-gray-50">
-          <h2 className="text-2xl font-bold mb-4 text-[#f97316] uppercase tracking-wide">
-            Reseñas
-          </h2>
-          <div className="flex justify-center space-x-1 mb-4 text-[#f97316]">
-            {/* REGLA ANTIBUGS: Array explícito */}
-            {[1, 2, 3, 4, 5].map((num) => (
-              <Star key={num} className="w-8 h-8 fill-current" />
-            ))}
+      {/* HEADER STICKY */}
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-orange-100 h-16 flex items-center justify-between px-5">
+        <div className="flex items-center gap-3">
+          <img src={logoUrl} className="w-10 h-10 object-contain" alt="" />
+          <div>
+            <h1 className="font-black text-xs uppercase text-gray-950">Pollazo El Mirador</h1>
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">MARKET ESPECIALIZADO</p>
           </div>
-          <p className="text-lg text-gray-700 font-medium">
-            "El mejor servicio y atención de la zona. 100% recomendado."
-          </p>
+        </div>
+        <button className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center transition-transform active:scale-90"><Bell size={18} className="text-orange-500" /></button>
+      </header>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="px-5 py-10 space-y-16">
+        <section className="rounded-[40px] p-8 text-white shadow-2xl bg-orange-500 relative overflow-hidden">
+          <div className="relative z-10 space-y-4">
+            <ShieldCheck size={32} />
+            <h3 className="font-black text-2xl leading-tight">Calidad y Frescura en Galápagos</h3>
+            <p className="text-sm opacity-90 font-medium">Atención premium y productos de primera necesidad.</p>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
         </section>
 
-        {/* SECCIÓN STAFF */}
-        <section className="p-8">
-          <h2 className="text-2xl font-bold mb-8 text-center text-[#f97316] uppercase tracking-wide">
-            Nuestro Equipo
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-            {staffMembers.map((member, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <div className="w-28 h-28 mb-4 rounded-full p-1 bg-[#f97316] shadow-md">
-                  <img 
-                    src={member.img} 
-                    alt={`Foto de ${member.name}, ${member.role}`} 
-                    className="w-full h-full object-cover rounded-full border-4 border-white" 
-                  />
+        {/* Galería Bento */}
+        <section className="space-y-5">
+          <h2 className="font-black text-2xl text-gray-950">Nuestra Tienda</h2>
+          <div className="grid grid-cols-3 gap-3 h-64">
+            <div className="col-span-2 rounded-[32px] overflow-hidden shadow-xl">
+              <img src="https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg" className="w-full h-full object-cover" alt="" />
+            </div>
+            <div className="space-y-3">
+              <div className="h-[120px] rounded-[24px] overflow-hidden shadow-md"><img src="https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg" className="w-full h-full object-cover" alt="" /></div>
+              <div className="h-[120px] rounded-[24px] overflow-hidden shadow-md"><img src="https://images.pexels.com/photos/3962285/pexels-photo-3962285.jpeg" className="w-full h-full object-cover" alt="" /></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Staff */}
+        <section className="space-y-5">
+          <h2 className="font-black text-2xl flex items-center gap-2"><Zap className="text-orange-500" /> Nuestro Equipo</h2>
+          <div className="flex gap-4 overflow-x-auto pb-5 no-scrollbar snap-x">
+            {STAFF.map((member) => (
+              <div key={member.id} className="flex-shrink-0 snap-center w-64 bg-white rounded-[32px] p-5 border border-orange-100 flex items-center gap-4 shadow-sm">
+                <img src={member.photo_url} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+                <div>
+                  <p className="font-black text-sm text-gray-950">{member.name}</p>
+                  <p className="text-[9px] font-bold uppercase text-orange-500">{member.role}</p>
                 </div>
-                <span className="font-bold text-xl text-gray-900">{member.name}</span>
-                <span className="text-base text-[#f97316] font-semibold">{member.role}</span>
               </div>
             ))}
           </div>
         </section>
 
+        {/* Reseñas - AQUI ESTÁ EL ARRAY COMPLETO */}
+        <section className="bg-gray-950 rounded-[40px] p-8 text-white space-y-6">
+          <h2 className="text-xl font-black text-center">¿Cómo fue tu experiencia?</h2>
+          <div className="flex justify-center gap-2">
+            {.map((num) => (
+              <button 
+                key={num} 
+                onClick={() => setUserRating(num)} 
+                className={`p-1 transition-all ${userRating >= num ? 'text-yellow-400 scale-110' : 'text-gray-700'}`}
+              >
+                <Star size={32} fill={userRating >= num ? 'currentColor' : 'none'} />
+              </button>
+            ))}
+          </div>
+          <textarea 
+            value={comment} 
+            onChange={(e) => setComment(e.target.value)} 
+            placeholder="¿Algún comentario adicional?" 
+            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white outline-none focus:ring-2 focus:ring-orange-500" 
+            rows={3} 
+          />
+          <button 
+            disabled={userRating === 0} 
+            onClick={handleSendReview} 
+            className={`w-full py-4 rounded-2xl font-black transition-all ${userRating > 0 ? 'bg-orange-500 text-white shadow-lg active:scale-95' : 'bg-white/5 text-gray-800 cursor-not-allowed'}`}
+          >
+            Enviar Opinión
+          </button>
+        </section>
+
+        {/* Ubicación */}
+        <section className="bg-white p-6 rounded-[40px] border border-orange-100 shadow-xl space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center"><MapPin className="text-orange-500" size={24} /></div>
+          <h3 className="text-xl font-black text-gray-950">Calle Delfín, El Mirador, Puerto Ayora</h3>
+          <p className="text-xs font-semibold text-gray-500 leading-relaxed">Los mejores pollos de la isla y productos para tu hogar.</p>
+          <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="w-full py-4 rounded-2xl bg-orange-500 text-white font-black flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-orange-200">
+            ¿Cómo llegar? <ExternalLink size={18} />
+          </a>
+        </section>
       </main>
 
-      {/* MODAL INSTRUCCIONES IOS */}
+      {/* MODAL IOS */}
       {showIOSModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative flex flex-col items-center text-center shadow-2xl pb-10">
-            <button 
-              onClick={() => setShowIOSModal(false)} 
-              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-100 rounded-full p-1"
-              aria-label="Cerrar"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <div className="w-16 h-16 bg-orange-100 text-[#f97316] rounded-2xl flex items-center justify-center mb-6">
-              <Download className="w-8 h-8" />
+        <div className="fixed inset-0 z- bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-[32px] p-7 shadow-2xl relative">
+            <button onClick={() => setShowIOSModal(false)} className="absolute top-4 right-4 w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center transition-transform active:scale-90"><X size={18} /></button>
+            <div className="space-y-6">
+              <h2 className="text-2xl font-black text-gray-950 leading-tight">Instalar en iPhone</h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 bg-orange-50 rounded-2xl p-4">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center"><Share className="text-orange-500" size={20} /></div>
+                  <p className="font-black text-[13px] text-gray-950">1. Pulsa el botón 'Compartir' en Safari.</p>
+                </div>
+                <div className="flex items-center gap-4 bg-orange-50 rounded-2xl p-4">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center"><PlusSquare className="text-orange-500" size={20} /></div>
+                  <p className="font-black text-[13px] text-gray-950">2. Selecciona 'Agregar a inicio'.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowIOSModal(false)} className="w-full py-4 rounded-2xl bg-orange-500 text-white font-black transition-transform active:scale-95">Entendido</button>
             </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900">Instalar App</h3>
-            <p className="mb-6 text-gray-600 text-base leading-relaxed">
-              Para instalar en iPhone, pulsa el botón de <strong>Compartir</strong> <Share className="inline w-4 h-4 mx-1" /> en la barra inferior de Safari y selecciona la opción rectilínea de <strong>"Agregar a la pantalla de inicio"</strong>.
-            </p>
-            <button 
-              onClick={() => setShowIOSModal(false)} 
-              className="w-full py-4 bg-[#f97316] text-white font-bold rounded-xl shadow-md hover:bg-orange-600 transition-colors"
-            >
-              Entendido
-            </button>
           </div>
         </div>
       )}
-      
     </div>
   );
-};
-
-export default LandingPage;
+}
