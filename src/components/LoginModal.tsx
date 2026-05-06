@@ -54,7 +54,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   };
 
   return (
-    <div className="fixed inset-0 z- flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    // SOLUCIÓN CAPAS MEZCLADAS: Subimos z-index a z-50 para que esté arriba de todo
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div 
         className="w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl relative flex flex-col"
         style={{ animation: 'modalFadeIn 0.3s ease-out' }}
