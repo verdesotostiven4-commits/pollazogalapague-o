@@ -49,12 +49,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Mezclamos productos de archivo y de base de datos
   const products = useMemo(() => {
     const map = new Map<string, Product>();
     if (seedProducts) seedProducts.forEach(p => map.set(p.id, p));
     if (remoteProducts) remoteProducts.forEach(p => map.set(p.id, p));
-    return Array.from(map.values()).filter(p => p.available !== false);
+    return Array.from(map.values()).filter(p => p && p.available !== false);
   }, [remoteProducts]);
 
   const categories = useMemo(() => 
