@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { CartProvider } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
-import { UserProvider, useUser } from './context/UserContext'; // Importamos el nuevo cerebro
+import { UserProvider, useUser } from './context/UserContext';
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -14,12 +14,11 @@ import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
 import LoginModal from './components/LoginModal';
-import OrderTracking from './components/OrderTracking'; // Importamos el rastreador
+import OrderTracking from './components/OrderTracking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { supabase } from './lib/supabase';
 import { Category } from './types';
-import { Toaster } from 'react-hot-toast';
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
 
@@ -41,7 +40,6 @@ function isAdminRoute(): boolean {
   return window.location.pathname === '/admin';
 }
 
-// --- APP SHELL (El cuerpo de tu App) ---
 function AppShell({ initialCategory, onClearCategory }: { initialCategory: Category | null; onClearCategory: () => void }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -50,13 +48,12 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>(initialCategory ?? 'Todos');
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder } = useAdmin();
-  const { customerPhone, setPhone } = useUser(); // Usamos el Contexto Global
+  const { customerPhone, setPhone } = useUser();
   const mainRef = useRef<HTMLElement>(null);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
-  // Si no hay teléfono, abrimos el login después de 2 segundos
   useEffect(() => {
     if (!customerPhone) {
       const timer = setTimeout(() => {
@@ -104,20 +101,12 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
     const cleanPhone = userData.whatsapp.replace(/\D/g, ''); 
-    
-    // Guardamos en el contexto (esto ya guarda en localStorage automáticamente)
     setPhone(cleanPhone);
     localStorage.setItem('pollazo_customer_name', userData.name);
     localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
-
     setShowLoginModal(false);
-
-    // Sincronizamos con Supabase
     await upsertCustomer(cleanPhone, userData.name, userData.avatarUrl);
-
-    if (pendingAction === 'checkout') {
-      setShowConfirmation(true);
-    }
+    if (pendingAction === 'checkout') setShowConfirmation(true);
     setPendingAction(null);
   };
 
@@ -130,14 +119,11 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     const phone = customerPhone;
     const name = localStorage.getItem('pollazo_customer_name') || 'Cliente';
     const avatarUrl = localStorage.getItem('pollazo_customer_avatar') || '';
-    
     const code = orderCode();
     const subtotal = subtotalOf(items);
     const delivery_fee = deliveryFeeOf(subtotal);
     const total = subtotal + delivery_fee;
-    
     const customer = await upsertCustomer(phone, name, avatarUrl);
-    
     await createOrder({
       id: crypto.randomUUID(),
       order_code: code,
@@ -150,10 +136,8 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       status: 'Recibido',
       preorder: !isStoreOpen(),
     });
-    
     supabase.rpc('increment_metric', { metric_id: 'total_orders' }).then(() => {});
     window.open(buildWhatsAppUrl(items, phone, name, code, !isStoreOpen()), '_blank');
-    
     clearCart();
     setShowConfirmation(false);
     setScreen('home');
@@ -171,12 +155,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   }, []);
 
   return (
-    <div
-      className="flex flex-col bg-gray-50"
-      style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
-    >
-      <Toaster position="top-center" />
-      
+    <div className="flex flex-col bg-gray-50" style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}>
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
@@ -184,41 +163,26 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
         onOpenProfile={() => setShowLoginModal(true)}
         customerAvatar={localStorage.getItem('pollazo_customer_avatar') || undefined}
       />
-
-      <main
-        ref={mainRef}
-        className="flex-1 overflow-y-auto pb-20 relative"
-        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
-      >
-        {/* LA BARRITA NARANJA: Aparece sobre cualquier pantalla si hay pedido */}
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+        {/* RASTREADOR SIEMPRE VISIBLE */}
         <OrderTracking />
-
+        
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={handleCheckout} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={handleInstall} canInstall={canInstall} />}
       </main>
-
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={handleCloseLogin} 
-        onLogin={handleLoginDone} 
-      />
-
+      <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
 }
 
-// --- COMPONENTE PRINCIPAL (Configuración de Proveedores) ---
 export default function App() {
   const [isAdmin] = useState(isAdminRoute);
-  const [landingDone, setLandingDone] = useState(() => {
-    return isStandalone() || !!sessionStorage.getItem(LANDING_DISMISSED_KEY);
-  });
+  const [landingDone, setLandingDone] = useState(() => isStandalone() || !!sessionStorage.getItem(LANDING_DISMISSED_KEY));
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<Category | null>(null);
@@ -246,38 +210,15 @@ export default function App() {
     setLandingDone(true);
   };
 
-  // Si es Admin, mostramos solo el dashboard
-  if (isAdmin) {
-    return (
-      <AdminProvider>
-        <AdminDashboard />
-      </AdminProvider>
-    );
-  }
+  if (isAdmin) return <AdminProvider><AdminDashboard /></AdminProvider>;
+  if (!landingDone) return <AdminProvider><LandingPage onInstall={handleInstall} canInstall={canInstall} onContinueWeb={handleContinueWeb} /></AdminProvider>;
 
-  // Si no ha pasado la landing, la mostramos
-  if (!landingDone) {
-    return (
-      <AdminProvider>
-        <LandingPage
-          onInstall={handleInstall}
-          canInstall={canInstall}
-          onContinueWeb={handleContinueWeb}
-        />
-      </AdminProvider>
-    );
-  }
-
-  // APP NORMAL: Envuelta en todos los proveedores necesarios
   return (
     <AdminProvider>
-      <UserProvider> 
+      <UserProvider>
         <CartProvider>
           <FlyToCartProvider>
-            <AppShell
-              initialCategory={pendingCategory}
-              onClearCategory={() => setPendingCategory(null)}
-            />
+            <AppShell initialCategory={pendingCategory} onClearCategory={() => setPendingCategory(null)} />
           </FlyToCartProvider>
         </CartProvider>
       </UserProvider>
