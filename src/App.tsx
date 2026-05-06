@@ -12,7 +12,7 @@ import AppHeader from './components/AppHeader';
 import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
-import LoginModal from './components/LoginModal'; // IMPORTAMOS LA NUEVA PIEZA
+import LoginModal from './components/LoginModal';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { supabase } from './lib/supabase';
@@ -49,7 +49,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const { upsertCustomer, createOrder, addCustomerPoints } = useAdmin();
   const mainRef = useRef<HTMLElement>(null);
 
-  // NUEVO ESTADO: Información completa del cliente
+  // ESTADO: Información completa del cliente
   const [customerInfo, setCustomerInfo] = useState<{name: string, phone: string, avatarUrl: string} | null>(() => {
     const phone = localStorage.getItem('pollazo_customer_phone');
     const name = localStorage.getItem('pollazo_customer_name');
@@ -58,16 +58,27 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     return null;
   });
 
-  // NUEVOS ESTADOS: Control del Modal de Login
+  // ESTADOS: Control del Modal de Login
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
+
+  // ✨ AQUÍ ESTÁ EL TEMPORIZADOR NUEVO ✨
+  // Muestra el Login a los 2 segundos si es un cliente nuevo
+  useEffect(() => {
+    if (!customerInfo) {
+      const timer = setTimeout(() => {
+        setShowLoginModal(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [customerInfo]);
 
   useEffect(() => {
     if (initialCategory) {
       setScreen('catalog');
       onClearCategory();
     }
-  }, []);
+  }, [initialCategory, onClearCategory]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -88,11 +99,10 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setCanInstall(false);
   };
 
-  // LÓGICA DE BARRERA: Control de checkout modificado
   const handleCheckout = () => {
     if (items.length === 0) return;
     
-    // Si NO está registrado, abrimos el modal de login y dejamos el checkout en "espera"
+    // Si NO está registrado, abrimos modal y pausamos el checkout
     if (!customerInfo || !customerInfo.phone) {
       setPendingAction('checkout');
       setShowLoginModal(true);
@@ -103,20 +113,16 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setShowConfirmation(true);
   };
 
-  // Función que se ejecuta cuando el usuario termina de poner su avatar y datos
   const handleLoginDone = (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
-    const cleanPhone = userData.whatsapp.replace(/\D/g, ''); // Limpiamos el número
+    const cleanPhone = userData.whatsapp.replace(/\D/g, ''); 
     
-    // Guardamos en la memoria del celular
     localStorage.setItem('pollazo_customer_phone', cleanPhone);
     localStorage.setItem('pollazo_customer_name', userData.name);
     localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
 
-    // Actualizamos el estado actual
     setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
     setShowLoginModal(false);
 
-    // Si el usuario venía del botón de pedir, le abrimos la confirmación mágicamente
     if (pendingAction === 'checkout') {
       setShowConfirmation(true);
     }
@@ -136,7 +142,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     const total = subtotal + delivery_fee;
     const customer = phone ? await upsertCustomer(phone) : null;
     
-    // NOTA: Más adelante actualizaremos upsertCustomer para guardar también el nombre y el avatar en tu Base de Datos
     await createOrder({
       id: crypto.randomUUID(),
       order_code: code,
@@ -174,7 +179,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       className="flex flex-col bg-gray-50"
       style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
     >
-      {/* Puedes pasarle onOpenProfile={() => setShowLoginModal(true)} a AppHeader más adelante */}
       <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} />
 
       <main
@@ -191,7 +195,6 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
       
-      {/* AQUÍ CONECTAMOS LA VENTANA DE AVATARES */}
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={handleCloseLogin} 
