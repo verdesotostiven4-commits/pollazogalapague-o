@@ -5,13 +5,25 @@ import { Category, OrderStatus, Product } from '../types';
 import { WHATSAPP, buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { supabase } from '../lib/supabase';
 
-// LÍNEA 9: PROTEGIDA PARA QUE NO FALLE EL BUILD ✅
-const BOLITAS_DEL_PIN =;
+// LÍNEA 9: BLINDADA CONTRA FANTASMAS 👻🚫
+const BOLITAS_DEL_PIN = Array.of(0, 1, 2, 3);
 
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
 const emptyProduct: Omit<Product, 'id'> & { id?: string } = { name: '', category: 'Pollos', price: '', description: '', image: '', badge: '', available: true };
-const statuses: OrderStatus[] = ['Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'];
+const statuses: OrderStatus[] = Array.of('Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado');
+
+// Teclado blindado
+const PIN_PAD = Array.of('1','2','3','4','5','6','7','8','9','','0','⌫');
+
+// Pestañas blindadas
+const TABS = Array.of(
+  { id: 'orders', label: 'Pedidos', Icon: Send },
+  { id: 'products', label: 'Menú', Icon: Package },
+  { id: 'branding', label: 'Marca', Icon: Image },
+  { id: 'ranking_config', label: 'Concurso', Icon: Trophy },
+  { id: 'customers', label: 'Clientes', Icon: Users }
+);
 
 function PinScreen({ onAuth }: { onAuth: () => void }) {
   const [pin, setPin] = useState('');
@@ -36,7 +48,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
         </div>
         {error && <p className="text-red-400 text-sm font-bold">PIN incorrecto</p>}
         <div className="grid grid-cols-3 gap-3">
-          {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d,i) => d ? (
+          {PIN_PAD.map((d,i) => d ? (
             <button key={i} onClick={() => d === '⌫' ? setPin(p => p.slice(0,-1)) : add(d)} className="aspect-square rounded-2xl bg-white/10 text-white text-xl font-black active:scale-95 transition-transform">
               {d}
             </button>
@@ -50,7 +62,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const { products, categories, overrides, settings, updateSetting, setOverride, addProduct, updateProduct, deleteProduct, customers, addCustomerPoints, orders, updateOrderStatus } = useAdmin();
-  const [tab, setTab] = useState<'products' | 'branding' | 'customers' | 'orders' | 'ranking_config'>('orders'); // Cambié el default a orders para que lo veas de una
+  const [tab, setTab] = useState<'products' | 'branding' | 'customers' | 'orders' | 'ranking_config'>('orders');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState(emptyProduct);
   const [editing, setEditing] = useState<string | null>(null);
@@ -90,25 +102,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = e.target.files?.;
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data } = await supabase.storage.from('images').upload(fileName, file);
-      if (data) {
-        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(fileName);
-        setExtraSettings(prev => ({ ...prev, [field]: publicUrl }));
-      }
-    } catch (err) {
-      alert('Fallo la subida. Mejor usa la opción de URL de abajo.');
-    }
-    setUploading(false);
-  };
-
   const filteredProducts = useMemo(() => products.filter(p => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase())), [products, search]);
-  const ranking = useMemo(() => [...customers].sort((a,b) => b.points - a.points), [customers]);
+  const ranking = useMemo(() => Array.from(customers).sort((a,b) => b.points - a.points), [customers]);
 
   const saveProduct = async () => {
     if (!draft.name.trim()) return;
@@ -139,17 +134,18 @@ export default function AdminDashboard() {
 
       <main className="max-w-6xl mx-auto px-4 py-5 space-y-6">
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {[
-            ['orders','Pedidos',Send], ['products','Menú',Package], ['branding','Marca',Image], ['ranking_config','Concurso',Trophy], ['customers','Clientes',Users]
-          ].map(([id,label,Icon]) => (
-            <button key={id as string} onClick={() => setTab(id as any)} 
-              className={`flex-shrink-0 rounded-2xl px-5 py-3 text-xs font-black flex items-center gap-2 transition-all ${tab===id?'bg-orange-500 text-white shadow-lg shadow-orange-100':'bg-white text-gray-600 border border-gray-100'}`}>
-              <Icon size={16}/>{label as string}
-            </button>
-          ))}
+          {TABS.map((tabItem) => {
+            const Icon = tabItem.Icon;
+            return (
+              <button key={tabItem.id} onClick={() => setTab(tabItem.id as any)} 
+                className={`flex-shrink-0 rounded-2xl px-5 py-3 text-xs font-black flex items-center gap-2 transition-all ${tab===tabItem.id?'bg-orange-500 text-white shadow-lg shadow-orange-100':'bg-white text-gray-600 border border-gray-100'}`}>
+                <Icon size={16}/>{tabItem.label}
+              </button>
+            )
+          })}
         </div>
 
-        {/* NUEVA PESTAÑA DE PEDIDOS CABLEADA CON AVATARES */}
+        {/* PESTAÑA DE PEDIDOS CON FOTOS REALES */}
         {tab === 'orders' && (
           <section className="space-y-4">
             <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2"><Send size={20} className="text-green-500"/> Pedidos Recientes</h2>
@@ -160,7 +156,6 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-4">
                 {orders.map(o => {
-                  // Buscamos al cliente en la base de datos que coincida con el teléfono del pedido
                   const customer = customers.find(c => c.phone === o.customer_phone || c.id === o.customer_id);
                   
                   return (
@@ -177,7 +172,6 @@ export default function AdminDashboard() {
                               )}
                             </div>
                             <div>
-                              {/* Mostramos el nombre real o el teléfono si no tiene nombre */}
                               <p className="font-black text-gray-900 leading-tight">{customer?.name || o.customer_phone}</p>
                               <p className="text-[10px] text-gray-400 font-bold mt-0.5">Orden: {o.order_code}</p>
                             </div>
@@ -186,7 +180,7 @@ export default function AdminDashboard() {
                            <p className="font-black text-orange-500">${o.total}</p>
                            {o.created_at && (
                              <p className="text-[9px] text-gray-400 font-bold mt-0.5">
-                               {new Date(o.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                               {new Date(o.created_at).toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}
                              </p>
                            )}
                          </div>
@@ -270,11 +264,9 @@ export default function AdminDashboard() {
               {ranking.map((c, i) => (
                 <div key={c.id} className="py-4 flex items-center gap-4">
                   <div className="relative">
-                    {/* CABLEADO: Ahora usa el avatar real o la inicial del nombre */}
                     {c.avatar_url ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover border-2 border-orange-100" /> : <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 font-black flex items-center justify-center text-lg uppercase">{c.name?.charAt(0) || 'C'}</div>}
                   </div>
                   <div className="flex-1">
-                    {/* CABLEADO: Ahora muestra el nombre real */}
                     <p className="font-black text-gray-900 text-sm">{c.name || c.phone || 'Sin nombre'}</p>
                     <p className="text-[10px] font-black text-orange-500 uppercase">{c.points} Pts</p>
                   </div>
