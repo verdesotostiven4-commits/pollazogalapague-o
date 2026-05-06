@@ -136,9 +136,9 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
                   <><Download size={20} /> Instalar App</>
                 )}
               </button>
-              <button onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className="text-xs font-bold text-white/75 mx-auto flex items-center gap-2 justify-center active:opacity-50">
-                <Globe size={14} /> Explorar Catálogo
-              </button>
+              <button onClick={onContinueWeb} className="text-xs font-bold text-white/75 mx-auto flex items-center gap-2 justify-center active:opacity-50 transition-transform hover:scale-105">
+  <Globe size={14} /> Continuar en la web
+</button>
               {installMessage && <p className="text-white/75 text-[10px] font-bold uppercase mt-2">{installMessage}</p>}
             </div>
           </div>
