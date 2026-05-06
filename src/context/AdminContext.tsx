@@ -71,7 +71,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       ]);
       
       if (prodRes.status === 'fulfilled' && prodRes.value.data) setRemoteProducts(prodRes.value.data);
-      if (extraRes.status === 'fulfilled' && extraRes.value.data?.) setExtraSettings(extraRes.value.data);
+      // ✅ Línea corregida aquí:
+      if (extraRes.status === 'fulfilled' && extraRes.value.data && extraRes.value.data) {
+        setExtraSettings(extraRes.value.data);
+      }
       if (custRes.status === 'fulfilled' && custRes.value.data) setCustomers(custRes.value.data);
       if (orderRes.status === 'fulfilled' && orderRes.value.data) setOrders(orderRes.value.data);
     } catch (e) { console.error(e); }
