@@ -2,7 +2,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 interface UserContextType {
   customerPhone: string;
-  setPhone: (phone: string) => void;
+  customerName: string;
+  customerAvatar: string;
+  setUserData: (phone: string, name: string, avatar: string) => void;
   logout: () => void;
 }
 
@@ -10,29 +12,39 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerAvatar, setCustomerAvatar] = useState<string>('');
 
-  // 💾 Al cargar la App: Mira si ya teníamos el teléfono guardado en el celular
+  // 💾 Carga inicial ultra-segura
   useEffect(() => {
-    const savedPhone = localStorage.getItem('pollazo_customer_phone');
-    if (savedPhone) {
-      setCustomerPhone(savedPhone);
-    }
+    const p = localStorage.getItem('pollazo_phone');
+    const n = localStorage.getItem('pollazo_name');
+    const a = localStorage.getItem('pollazo_avatar');
+    if (p) setCustomerPhone(p);
+    if (n) setCustomerName(n);
+    if (a) setCustomerAvatar(a);
   }, []);
 
-  // 📝 Al guardar: Guarda el teléfono en la memoria del celular (localStorage)
-  const setPhone = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, ''); // Limpia letras o espacios
+  const setUserData = (phone: string, name: string, avatar: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
     setCustomerPhone(cleanPhone);
-    localStorage.setItem('pollazo_customer_phone', cleanPhone);
+    setCustomerName(name);
+    setCustomerAvatar(avatar);
+    
+    localStorage.setItem('pollazo_phone', cleanPhone);
+    localStorage.setItem('pollazo_name', name);
+    localStorage.setItem('pollazo_avatar', avatar);
   };
 
   const logout = () => {
     setCustomerPhone('');
-    localStorage.removeItem('pollazo_customer_phone');
+    setCustomerName('');
+    setCustomerAvatar('');
+    localStorage.clear();
   };
 
   return (
-    <UserContext.Provider value={{ customerPhone, setPhone, logout }}>
+    <UserContext.Provider value={{ customerPhone, customerName, customerAvatar, setUserData, logout }}>
       {children}
     </UserContext.Provider>
   );
