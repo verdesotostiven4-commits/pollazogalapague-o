@@ -1,5 +1,16 @@
 import { useState, useEffect, type CSSProperties } from 'react';
-import { Download, Globe, Bell, Star, Zap, MapPin, ChefHat } from 'lucide-react';
+import {
+  Download,
+  Globe,
+  Bell,
+  Star,
+  Zap,
+  MapPin,
+  ShoppingBag,
+  ShieldCheck,
+  Snowflake,
+  PackageCheck,
+} from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
 interface Props {
@@ -12,27 +23,42 @@ const STAFF = [
   {
     id: '1',
     name: 'Stiven',
-    role: 'Dirección visual / Fotografía',
+    role: 'Gerente',
     photo_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg',
   },
   {
     id: '2',
-    name: 'Doña María',
-    role: 'Chef principal',
+    name: 'María',
+    role: 'Especialista en Aves',
     photo_url: 'https://images.pexels.com/photos/4253302/pexels-photo-4253302.jpeg',
   },
   {
     id: '3',
     name: 'Carlos',
-    role: 'Maestro parrillero',
+    role: 'Carnicero',
     photo_url: 'https://images.pexels.com/photos/3814446/pexels-photo-3814446.jpeg',
+  },
+  {
+    id: '4',
+    name: 'Andrea',
+    role: 'Cajera',
+    photo_url: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg',
+  },
+  {
+    id: '5',
+    name: 'Luis',
+    role: 'Reponedor / Atención',
+    photo_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg',
   },
 ];
 
-const MAP_EMBED_URL =
-  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.1587637845615!2d-90.3129528!3d-0.742398!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9abd65675e47f7d3%3A0x6b44558e8749a0a4!2sEl%20Mirador!5e0!3m2!1ses!2sec!4v1714945000000!5m2!1ses!2sec';
+const MAP_URL = 'https://maps.app.goo.gl/TgQoboZUK7jdGeww9';
 
-export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
+export default function LandingPage({
+  onInstall,
+  canInstall,
+  onContinueWeb,
+}: Props) {
   const admin = useAdmin() as any;
   const settings = admin.settings;
   const extraSettings = admin.extraSettings;
@@ -58,44 +84,44 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
   const handleSendReview = () => {
     if (userRating === 0) return;
 
-    alert('¡Gracias! Tu opinión le llegará a Stiven.');
+    alert('¡Gracias! Tu opinión fue enviada correctamente.');
     setUserRating(0);
     setComment('');
   };
 
   return (
     <div
-      className="min-h-screen bg-[#f8f7f4] text-gray-950 pb-24"
+      className="min-h-screen bg-white text-gray-950 pb-24"
       style={{ '--pollazo-primary': primaryColor } as CSSProperties}
     >
       <section className="relative min-h-screen hero-water overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/15 blur-3xl animate-pulse" />
+          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl animate-pulse" />
           <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-500/25 blur-3xl" />
-          <div className="absolute top-1/3 left-1/2 w-48 h-48 -translate-x-1/2 rounded-full bg-yellow-200/20 blur-3xl" />
+          <div className="absolute top-1/3 left-1/2 w-48 h-48 -translate-x-1/2 rounded-full bg-orange-200/25 blur-3xl" />
         </div>
 
         <div className="relative z-10 max-w-md mx-auto space-y-9">
           <div style={fadeIn(0)}>
             <img
               src={logoUrl}
-              className="w-52 h-52 object-contain mx-auto drop-shadow-[0_28px_45px_rgba(0,0,0,0.35)]"
+              className="w-56 h-56 object-contain mx-auto drop-shadow-[0_28px_45px_rgba(0,0,0,0.35)] animate-pulse"
               onError={(e) => {
                 e.currentTarget.src = '/logo-final.png';
               }}
-              alt="Pollazo El Mirador"
+              alt="Pollazo Galapagueño El Mirador"
             />
           </div>
 
           <div style={fadeIn(120)} className="space-y-3">
-            <p className="text-white/70 font-black uppercase tracking-[0.35em] text-[10px]">
+            <p className="text-white/75 font-black uppercase tracking-[0.35em] text-[10px]">
               Galápagos • Ecuador
             </p>
             <h1 className="font-black text-5xl text-white italic drop-shadow-lg leading-none">
               Pollazo El Mirador
             </h1>
-            <p className="text-white/80 text-sm font-bold leading-relaxed max-w-xs mx-auto">
-              Sabor de casa, pollo dorado y una experiencia pensada para pedir fácil desde tu celular.
+            <p className="text-white/85 text-sm font-bold leading-relaxed max-w-xs mx-auto">
+              Tu Market de Confianza: pollo fresco enfundado, productos de primera necesidad y atención rápida.
             </p>
           </div>
 
@@ -119,7 +145,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         </div>
       </section>
 
-      <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-xl border-b border-gray-100 h-16 flex items-center justify-between px-5">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-orange-100 h-16 flex items-center justify-between px-5">
         <div className="flex items-center gap-3">
           <img
             src={logoUrl}
@@ -127,41 +153,44 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             onError={(e) => {
               e.currentTarget.src = '/logo-final.png';
             }}
-            alt="Pollazo El Mirador"
+            alt="Pollazo Galapagueño El Mirador"
           />
           <div>
             <h1 className="font-black text-gray-950 text-sm italic uppercase tracking-tighter">
               Pollazo El Mirador
             </h1>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Puerto Ayora
+            <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">
+              Market especializado
             </p>
           </div>
         </div>
 
-        <button className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center active:scale-95 transition-transform">
-          <Bell size={18} className="text-gray-500" />
+        <button className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center active:scale-95 transition-transform">
+          <Bell size={18} className="text-orange-500" />
         </button>
       </header>
 
-      <main className="px-5 py-10 space-y-14">
+      <main className="px-5 py-10 space-y-14 bg-gradient-to-b from-white via-orange-50/40 to-white">
         <section
           className="rounded-[42px] p-8 text-white shadow-2xl relative overflow-hidden"
-          style={{ backgroundColor: primaryColor }}
+          style={{ backgroundColor: '#f97316' }}
         >
-          <div className="relative z-10 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center">
-              <ChefHat size={24} />
+          <div className="relative z-10 space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+              <ShieldCheck size={24} />
             </div>
 
             <div>
+              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.25em] mb-2">
+                Calidad garantizada
+              </p>
               <h3 className="font-black text-2xl mb-3 italic">
-                Tradición en El Mirador 🍗
+                Calidad y Frescura en Galápagos
               </h3>
               <p className="text-sm font-medium opacity-95 leading-relaxed">
-                Desde hace años, El Pollazo ha sido el punto de encuentro en la isla.
-                No solo servimos comida: servimos el sabor de nuestra tierra, el cariño
-                de nuestra gente y ese pollo dorado que siempre provoca volver.
+                En Pollazo Galapagueño El Mirador ofrecemos pollo fresco enfundado,
+                productos esenciales y una experiencia de compra rápida, limpia y confiable
+                para las familias de Puerto Ayora.
               </p>
             </div>
           </div>
@@ -170,40 +199,58 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
         </section>
 
+        <section className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+            <Snowflake className="text-orange-500 mb-3" size={24} />
+            <p className="text-[10px] font-black uppercase text-gray-400">Frescura</p>
+            <p className="font-black text-sm text-gray-900">En cada funda</p>
+          </div>
+
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+            <PackageCheck className="text-orange-500 mb-3" size={24} />
+            <p className="text-[10px] font-black uppercase text-gray-400">Control</p>
+            <p className="font-black text-sm text-gray-900">Marca propia</p>
+          </div>
+
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+            <ShoppingBag className="text-orange-500 mb-3" size={24} />
+            <p className="text-[10px] font-black uppercase text-gray-400">Market</p>
+            <p className="font-black text-sm text-gray-900">Compra fácil</p>
+          </div>
+        </section>
+
         <section className="space-y-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.25em]">
-                Galería
-              </p>
-              <h2 className="font-black text-2xl text-gray-900">
-                Nuestra cocina, tu mesa
-              </h2>
-            </div>
+          <div>
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.25em]">
+              Galería
+            </p>
+            <h2 className="font-black text-2xl text-gray-900">
+              Nuestra Tienda
+            </h2>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 row-span-2 rounded-[32px] overflow-hidden h-60 shadow-xl active:scale-[0.98] hover:scale-[1.01] transition-transform duration-300">
               <img
-                src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg"
+                src="https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg"
                 className="w-full h-full object-cover"
-                alt="Pollo asado"
+                alt="Tienda minimercado"
               />
             </div>
 
             <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300">
               <img
-                src="https://images.pexels.com/photos/3887985/pexels-photo-3887985.jpeg"
+                src="https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg"
                 className="w-full h-full object-cover"
-                alt="Combo de comida"
+                alt="Pollo fresco"
               />
             </div>
 
             <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300">
               <img
-                src="https://images.pexels.com/photos/2668308/pexels-photo-2668308.jpeg"
+                src="https://images.pexels.com/photos/3962285/pexels-photo-3962285.jpeg"
                 className="w-full h-full object-cover"
-                alt="Plato especial"
+                alt="Productos de primera necesidad"
               />
             </div>
           </div>
@@ -212,11 +259,11 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         <section className="space-y-5">
           <div>
             <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.25em]">
-              Equipo
+              Atención
             </p>
             <h2 className="font-black text-2xl flex items-center gap-2 text-gray-900">
               <Zap className="text-orange-500" />
-              Maestros del Sabor
+              Nuestro Equipo Especializado
             </h2>
           </div>
 
@@ -230,7 +277,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             {STAFF.map((m) => (
               <div
                 key={m.id}
-                className="flex-shrink-0 snap-center w-72 bg-white rounded-[36px] p-5 border border-gray-100 flex items-center gap-4 shadow-sm active:scale-[0.98] transition-transform"
+                className="flex-shrink-0 snap-center w-72 bg-white rounded-[36px] p-5 border border-orange-100 flex items-center gap-4 shadow-sm active:scale-[0.98] transition-transform"
               >
                 <img
                   src={m.photo_url}
@@ -240,7 +287,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
 
                 <div>
                   <p className="font-black text-gray-950 text-base">{m.name}</p>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed">
+                  <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest leading-relaxed">
                     {m.role}
                   </p>
                 </div>
@@ -255,10 +302,10 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
               Reseñas
             </p>
             <h2 className="text-2xl font-black italic">
-              ¿Qué tal el Pollazo de hoy?
+              ¿Cómo fue tu experiencia?
             </h2>
             <p className="text-gray-500 text-xs">
-              Tu opinión le llega directamente a Stiven
+              Tu opinión nos ayuda a mejorar la atención y el servicio.
             </p>
           </div>
 
@@ -283,7 +330,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="¿Algún comentario especial?"
+            placeholder="¿Algún comentario sobre tu compra?"
             className="w-full bg-white/5 border border-white/10 rounded-3xl p-5 text-sm font-bold placeholder:text-gray-700 outline-none focus:ring-2 focus:ring-orange-500"
             rows={3}
           />
@@ -313,24 +360,24 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             </h2>
           </div>
 
-          <div className="bg-white p-3 rounded-[40px] border border-gray-100 shadow-xl overflow-hidden">
-            <div className="h-72 rounded-[32px] overflow-hidden bg-gray-100">
+          <div className="bg-white p-3 rounded-[40px] border border-orange-100 shadow-xl overflow-hidden">
+            <div className="h-72 rounded-[32px] overflow-hidden bg-orange-50">
               <iframe
-                src={MAP_EMBED_URL}
+                src={MAP_URL}
                 className="w-full h-full border-0"
                 loading="lazy"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Mapa de ubicación Pollazo El Mirador"
+                title="Mapa de ubicación Pollazo Galapagueño El Mirador"
               />
             </div>
 
             <div className="px-3 py-5">
               <p className="text-center text-sm font-black text-gray-700">
-                Calle Delfín, El Mirador, Puerto Ayora.
+                El Mirador, Puerto Ayora.
               </p>
               <p className="text-center text-xs font-bold text-gray-400 mt-1">
-                Visítanos o pide desde la app.
+                Tu market de confianza para pollo fresco enfundado y productos esenciales.
               </p>
             </div>
           </div>
