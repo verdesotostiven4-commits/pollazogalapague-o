@@ -54,7 +54,6 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
   const primaryColor = settings?.primary_color || '#f97316';
 
   useEffect(() => {
-    // 1. Detectar si la App ya está instalada
     const checkPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
     if (checkPWA) setIsStandalone(true);
 
@@ -169,7 +168,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
         </section>
 
-        {/* Galería Bento */}
+        {/* Galería */}
         <section className="space-y-5">
           <h2 className="font-black text-2xl text-gray-950">Nuestra Tienda</h2>
           <div className="grid grid-cols-3 gap-3 h-64">
@@ -199,11 +198,11 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
           </div>
         </section>
 
-        {/* Reseñas - AQUI ESTÁ EL ARRAY COMPLETO */}
+        {/* RESEÑAS CON ARRAY.OF PARA EVITAR EL BUG DE COPIADO */}
         <section className="bg-gray-950 rounded-[40px] p-8 text-white space-y-6">
           <h2 className="text-xl font-black text-center">¿Cómo fue tu experiencia?</h2>
           <div className="flex justify-center gap-2">
-            {.map((num) => (
+            {Array.of(1, 2, 3, 4, 5).map((num) => (
               <button 
                 key={num} 
                 onClick={() => setUserRating(num)} 
@@ -240,9 +239,9 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         </section>
       </main>
 
-      {/* MODAL IOS */}
+      {/* MODAL IOS (USANDO CLASE ESTÁNDAR Z-50 PARA EVITAR EL BUG) */}
       {showIOSModal && (
-        <div className="fixed inset-0 z- bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-[32px] p-7 shadow-2xl relative">
             <button onClick={() => setShowIOSModal(false)} className="absolute top-4 right-4 w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center transition-transform active:scale-90"><X size={18} /></button>
             <div className="space-y-6">
