@@ -22,7 +22,6 @@ export interface ExtraSettings {
   ranking_end_date: string;
 }
 
-// Actualizamos temporalmente el Customer aquí en caso de que en types.ts no esté actualizado aún
 export interface ExtendedCustomer extends Customer {
   avatar_url?: string | null;
 }
@@ -34,7 +33,7 @@ interface AdminContextValue {
   settings: AppSettings;
   extraSettings: ExtraSettings; 
   announcement: string;
-  customers: ExtendedCustomer[]; // Usamos nuestro tipo extendido
+  customers: ExtendedCustomer[];
   orders: Order[];
   loading: boolean;
   setAnnouncement: (text: string) => Promise<void>;
@@ -44,7 +43,6 @@ interface AdminContextValue {
   addProduct: (product: Omit<Product, 'id'> & { id?: string }) => Promise<void>;
   updateProduct: (id: string, patch: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
-  // ACTUALIZADO: Ahora acepta el avatar_url opcionalmente
   upsertCustomer: (phone: string, name?: string | null, avatar_url?: string | null) => Promise<ExtendedCustomer | null>;
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
   createOrder: (order: Omit<Order, 'created_at'>) => Promise<void>;
@@ -110,15 +108,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const categories = useMemo(() => Array.from(new Set([...seedCategories, ...products.map(p => p.category)])).sort(), [products]);
 
+  // CARGA DE DATOS OPTIMIZADA
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    setLoading(true);
+    
     const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
       supabase.from('products').select('*').order('created_at', { ascending: true }),
       supabase.from('product_overrides').select('id, price, available'),
       supabase.from('app_settings').select('key, value'),
       supabase.from('settings').select('*').single(), 
-      supabase.from('customers').select('*').order('points', { ascending: false }).limit(200),
+      supabase.from('customers').select('*').order('points', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
     
@@ -134,132 +133,112 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
       });
       setSettings(next);
-      document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
     }
-    if (extraRes.data) {
-      setExtraSettings(extraRes.data as ExtraSettings);
-    }
+    if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
     if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
     if (orderRes.data) setOrders(orderRes.data as Order[]);
+    
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // 🔔 REAL-TIME MEJORADO: Esto es lo que hace que la barrita se mueva sola
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    const channel = supabase.channel('pollazo_admin_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_overrides' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, load)
+    
+    const channel = supabase.channel('pollazo_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        // Si hay un cambio en pedidos, actualizamos la lista local inmediatamente
+        load();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
   const updateSetting = useCallback(async (key: keyof AppSettings, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
-    if (key === 'primary_color') document.documentElement.style.setProperty('--pollazo-primary', value);
-    if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value });
   }, []);
 
   const updateExtraSettings = useCallback(async (patch: Partial<ExtraSettings>) => {
     const next = { ...extraSettings, ...patch };
     setExtraSettings(next);
-    if (isSupabaseConfigured) {
-        await supabase.from('settings').upsert({ id: 'global', ...next });
-    }
+    if (isSupabaseConfigured) await supabase.from('settings').upsert({ id: 'global', ...next });
   }, [extraSettings]);
-
-  const setAnnouncement = useCallback((text: string) => updateSetting('announcement', text), [updateSetting]);
 
   const setOverride = useCallback(async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => {
     const current = overrides[id] ?? { id, price: null, available: true };
     const updated = { ...current, ...patch, id };
     setOverrides(prev => ({ ...prev, [id]: updated }));
-    if (isSupabaseConfigured) await supabase.from('product_overrides').upsert({ ...updated, updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) await supabase.from('product_overrides').upsert(updated);
   }, [overrides]);
 
   const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => {
     const newProduct = normalizeProduct({ ...product, id: product.id || slug(product.name) } as Product);
-    setRemoteProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
-    if (isSupabaseConfigured) await supabase.from('products').upsert(newProduct);
+    setRemoteProducts(prev => [newProduct, ...prev]);
+    if (isSupabaseConfigured) await supabase.from('products').insert(newProduct);
   }, []);
 
   const updateProduct = useCallback(async (id: string, patch: Partial<Product>) => {
     setRemoteProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-    if (isSupabaseConfigured) await supabase.from('products').upsert({ id, ...patch, updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) await supabase.from('products').update(patch).eq('id', id);
   }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
     setRemoteProducts(prev => prev.filter(p => p.id !== id));
-    setOverrides(prev => ({ ...prev, [id]: { id, price: null, available: false } }));
-    if (isSupabaseConfigured) {
-      await supabase.from('products').delete().eq('id', id);
-      await supabase.from('product_overrides').upsert({ id, price: null, available: false, updated_at: new Date().toISOString() });
-    }
+    if (isSupabaseConfigured) await supabase.from('products').delete().eq('id', id);
   }, []);
 
-  // LÓGICA ACTUALIZADA PARA GUARDAR EL NOMBRE Y AVATAR EN SUPABASE
   const upsertCustomer = useCallback(async (phone: string, name?: string | null, avatar_url?: string | null) => {
     const clean = phone.replace(/\D/g, '');
-    
-    // Preparamos los datos completos del cliente que vamos a subir
-    const customerData: ExtendedCustomer = { 
-        id: crypto.randomUUID(), 
-        phone: clean, 
-        name: name ?? null, 
-        avatar_url: avatar_url ?? null,
-        points: 0 
-    };
+    const { data } = await supabase.from('customers').upsert({ 
+      phone: clean, 
+      name: name ?? null, 
+      avatar_url: avatar_url ?? null 
+    }, { onConflict: 'phone' }).select().single();
+    if (data) load();
+    return data as ExtendedCustomer;
+  }, [load]);
 
-    // Actualizamos localmente primero para rapidez
-    setCustomers(prev => {
-        const existing = prev.find(c => c.phone === clean);
-        if (existing) {
-            // Si ya existe, le actualizamos el nombre o avatar si vienen nuevos
-            return prev.map(c => c.phone === clean ? { ...c, name: name || c.name, avatar_url: avatar_url || c.avatar_url } : c);
-        }
-        return [customerData, ...prev];
-    });
-
-    // Guardamos en Supabase
-    if (isSupabaseConfigured) {
-      // Usamos el ID existente si lo encontramos para no duplicar
-      const existing = customers.find(c => c.phone === clean);
-      const dataToUpsert = existing 
-        ? { ...existing, name: name || existing.name, avatar_url: avatar_url || existing.avatar_url } 
-        : customerData;
-        
-      const { data } = await supabase.from('customers').upsert(dataToUpsert, { onConflict: 'phone' }).select().single();
-      return data as ExtendedCustomer;
-    }
-    return customerData;
-  }, [customers]);
-
-  const addCustomerPoints = useCallback(async (customerId: string, points: number) => {
+  const addCustomerPoints = useCallback(async (customerId: string, pointsToAdd: number) => {
     const current = customers.find(c => c.id === customerId);
-    const nextPoints = Math.max(0, (current?.points ?? 0) + points);
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, points: nextPoints } : c));
-    if (isSupabaseConfigured) await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
-  }, [customers]);
+    const nextPoints = (current?.points ?? 0) + pointsToAdd;
+    if (isSupabaseConfigured) {
+      await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
+      load();
+    }
+  }, [customers, load]);
 
   const createOrder = useCallback(async (order: Omit<Order, 'created_at'>) => {
-    setOrders(prev => [{ ...order, created_at: new Date().toISOString() }, ...prev]);
-    if (isSupabaseConfigured) await supabase.from('orders').insert(order);
-  }, []);
+    if (isSupabaseConfigured) {
+      await supabase.from('orders').insert(order);
+      load();
+    }
+  }, [load]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
+    // 1. Actualización local inmediata para que el Admin no espere
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    if (isSupabaseConfigured) await supabase.from('orders').update({ status }).eq('id', orderId);
+    
+    // 2. Guardar en Supabase
+    if (isSupabaseConfigured) {
+      await supabase.from('orders').update({ status }).eq('id', orderId);
+      // No llamamos a load() aquí para evitar parpadeos, el Realtime se encargará
+    }
   }, []);
 
-  return <AdminContext.Provider value={{ 
+  return (
+    <AdminContext.Provider value={{ 
       products, categories, overrides, settings, extraSettings, announcement: settings.announcement, 
-      customers, orders, loading, setAnnouncement, updateSetting, updateExtraSettings, 
-      setOverride, addProduct, updateProduct, deleteProduct, upsertCustomer, 
-      addCustomerPoints, createOrder, updateOrderStatus 
-    }}>{children}</AdminContext.Provider>;
+      customers, orders, loading, setAnnouncement: (t) => updateSetting('announcement', t), 
+      updateSetting, updateExtraSettings, setOverride, addProduct, updateProduct, deleteProduct, 
+      upsertCustomer, addCustomerPoints, createOrder, updateOrderStatus 
+    }}>
+      {children}
+    </AdminContext.Provider>
+  );
 }
