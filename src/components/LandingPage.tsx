@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Snowflake,
   PackageCheck,
+  Sparkles,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -22,37 +23,38 @@ interface Props {
 const STAFF = [
   {
     id: '1',
-    name: 'Stiven',
+    name: 'Mery',
     role: 'Gerente',
-    photo_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg',
+    photo_url: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg',
   },
   {
     id: '2',
-    name: 'María',
-    role: 'Especialista en Aves',
-    photo_url: 'https://images.pexels.com/photos/4253302/pexels-photo-4253302.jpeg',
-  },
-  {
-    id: '3',
-    name: 'Carlos',
-    role: 'Carnicero',
-    photo_url: 'https://images.pexels.com/photos/3814446/pexels-photo-3814446.jpeg',
-  },
-  {
-    id: '4',
-    name: 'Andrea',
+    name: 'Paola',
     role: 'Cajera',
     photo_url: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg',
   },
   {
-    id: '5',
-    name: 'Luis',
-    role: 'Reponedor / Atención',
+    id: '3',
+    name: 'Matias',
+    role: 'Especialista en Aves',
     photo_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg',
+  },
+  {
+    id: '4',
+    name: 'Stiven',
+    role: 'Atención / Fotografía',
+    photo_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg',
+  },
+  {
+    id: '5',
+    name: 'Edgar',
+    role: 'Reponedor',
+    photo_url: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg',
   },
 ];
 
-const MAP_URL = 'https://maps.app.goo.gl/TgQoboZUK7jdGeww9';
+const MAP_EMBED_URL =
+  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.176472097034!2d-90.316!3d-0.744!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMMKwNDQnMzguNCJTIDkwwrAxOCc1Ny42Ilc!5e0!3m2!1ses!2sec!4v1714945000000!5m2!1ses!2sec';
 
 export default function LandingPage({
   onInstall,
@@ -94,38 +96,119 @@ export default function LandingPage({
       className="min-h-screen bg-white text-gray-950 pb-24"
       style={{ '--pollazo-primary': primaryColor } as CSSProperties}
     >
+      <style>
+        {`
+          @keyframes pollazoFloat {
+            0%, 100% {
+              transform: translateY(0) rotate(-0.4deg);
+            }
+            50% {
+              transform: translateY(-14px) rotate(0.4deg);
+            }
+          }
+
+          @keyframes pollazoSoftFloat {
+            0%, 100% {
+              transform: translateY(0);
+            }
+            50% {
+              transform: translateY(-7px);
+            }
+          }
+
+          @keyframes pollazoShine {
+            0% {
+              transform: translateX(-160%) rotate(22deg);
+              opacity: 0;
+            }
+            8% {
+              opacity: 0.7;
+            }
+            18% {
+              transform: translateX(180%) rotate(22deg);
+              opacity: 0;
+            }
+            100% {
+              transform: translateX(180%) rotate(22deg);
+              opacity: 0;
+            }
+          }
+
+          @keyframes pollazoIconFloat {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+            }
+            50% {
+              transform: translateY(-5px) scale(1.04);
+            }
+          }
+
+          .pollazo-logo-float {
+            animation: pollazoFloat 5.8s ease-in-out infinite;
+          }
+
+          .pollazo-shine {
+            animation: pollazoShine 9s ease-in-out infinite;
+          }
+
+          .pollazo-soft-float {
+            animation: pollazoSoftFloat 6.5s ease-in-out infinite;
+          }
+
+          .pollazo-soft-float-delay {
+            animation: pollazoSoftFloat 7.2s ease-in-out infinite;
+            animation-delay: 0.8s;
+          }
+
+          .pollazo-icon-float {
+            animation: pollazoIconFloat 4.8s ease-in-out infinite;
+          }
+        `}
+      </style>
+
       <section className="relative min-h-screen hero-water overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl animate-pulse" />
+          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
           <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-500/25 blur-3xl" />
           <div className="absolute top-1/3 left-1/2 w-48 h-48 -translate-x-1/2 rounded-full bg-orange-200/25 blur-3xl" />
         </div>
 
-        <div className="relative z-10 max-w-md mx-auto space-y-9">
-          <div style={fadeIn(0)}>
-            <img
-              src={logoUrl}
-              className="w-56 h-56 object-contain mx-auto drop-shadow-[0_28px_45px_rgba(0,0,0,0.35)] animate-pulse"
-              onError={(e) => {
-                e.currentTarget.src = '/logo-final.png';
-              }}
-              alt="Pollazo Galapagueño El Mirador"
-            />
+        <div className="relative z-10 max-w-md mx-auto space-y-10">
+          <div style={fadeIn(0)} className="relative mx-auto w-60 h-60 flex items-center justify-center">
+            <div className="absolute inset-5 rounded-full bg-orange-300/25 blur-3xl" />
+
+            <div className="relative overflow-hidden pollazo-logo-float">
+              <img
+                src={logoUrl}
+                className="w-56 h-56 object-contain mx-auto drop-shadow-[0_32px_50px_rgba(0,0,0,0.38)]"
+                onError={(e) => {
+                  e.currentTarget.src = '/logo-final.png';
+                }}
+                alt="Pollazo Galapagueño El Mirador"
+              />
+
+              <div className="pollazo-shine pointer-events-none absolute -top-10 -bottom-10 left-1/2 w-12 bg-gradient-to-r from-transparent via-white/70 to-transparent blur-sm" />
+            </div>
           </div>
 
-          <div style={fadeIn(120)} className="space-y-3">
-            <p className="text-white/75 font-black uppercase tracking-[0.35em] text-[10px]">
-              Galápagos • Ecuador
-            </p>
+          <div style={fadeIn(140)} className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/20 px-4 py-2 backdrop-blur-md">
+              <Sparkles size={14} className="text-orange-100" />
+              <p className="text-white/90 font-black uppercase tracking-[0.22em] text-[10px]">
+                Market Premium
+              </p>
+            </div>
+
             <h1 className="font-black text-5xl text-white italic drop-shadow-lg leading-none">
               Pollazo El Mirador
             </h1>
-            <p className="text-white/85 text-sm font-bold leading-relaxed max-w-xs mx-auto">
-              Tu Market de Confianza: pollo fresco enfundado, productos de primera necesidad y atención rápida.
+
+            <p className="text-white/85 text-[15px] font-bold leading-relaxed max-w-xs mx-auto tracking-wide">
+              Frescura en cada funda, productos esenciales y una experiencia rápida para comprar mejor.
             </p>
           </div>
 
-          <div className="w-full max-w-xs mx-auto space-y-4" style={fadeIn(240)}>
+          <div className="w-full max-w-xs mx-auto space-y-4" style={fadeIn(280)}>
             <button
               onClick={onInstall}
               className="w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-2xl active:scale-95 transition-transform flex items-center justify-center gap-3"
@@ -170,51 +253,57 @@ export default function LandingPage({
         </button>
       </header>
 
-      <main className="px-5 py-10 space-y-14 bg-gradient-to-b from-white via-orange-50/40 to-white">
+      <main className="px-5 py-10 space-y-16 bg-gradient-to-b from-white via-orange-50/40 to-white">
         <section
           className="rounded-[42px] p-8 text-white shadow-2xl relative overflow-hidden"
           style={{ backgroundColor: '#f97316' }}
         >
-          <div className="relative z-10 space-y-5">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              <ShieldCheck size={24} />
+          <div className="relative z-10 space-y-6">
+            <div className="w-14 h-14 rounded-3xl bg-white/20 flex items-center justify-center pollazo-icon-float">
+              <ShieldCheck size={28} />
             </div>
 
             <div>
-              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.25em] mb-2">
+              <p className="text-[10px] font-black text-white/75 uppercase tracking-[0.28em] mb-3">
                 Calidad garantizada
               </p>
-              <h3 className="font-black text-2xl mb-3 italic">
+              <h3 className="font-black text-3xl mb-4 italic leading-tight">
                 Calidad y Frescura en Galápagos
               </h3>
               <p className="text-sm font-medium opacity-95 leading-relaxed">
-                En Pollazo Galapagueño El Mirador ofrecemos pollo fresco enfundado,
-                productos esenciales y una experiencia de compra rápida, limpia y confiable
-                para las familias de Puerto Ayora.
+                Pollazo Galapagueño El Mirador es tu market de confianza:
+                pollo fresco enfundado, productos de primera necesidad y atención
+                rápida para las familias de Puerto Ayora.
               </p>
             </div>
           </div>
 
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+          <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-36 h-36 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
         </section>
 
         <section className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100 pollazo-soft-float">
             <Snowflake className="text-orange-500 mb-3" size={24} />
-            <p className="text-[10px] font-black uppercase text-gray-400">Frescura</p>
+            <p className="text-[10px] font-black uppercase text-gray-400">
+              Frescura
+            </p>
             <p className="font-black text-sm text-gray-900">En cada funda</p>
           </div>
 
-          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100 pollazo-soft-float-delay">
             <PackageCheck className="text-orange-500 mb-3" size={24} />
-            <p className="text-[10px] font-black uppercase text-gray-400">Control</p>
+            <p className="text-[10px] font-black uppercase text-gray-400">
+              Control
+            </p>
             <p className="font-black text-sm text-gray-900">Marca propia</p>
           </div>
 
-          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100">
+          <div className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100 pollazo-soft-float">
             <ShoppingBag className="text-orange-500 mb-3" size={24} />
-            <p className="text-[10px] font-black uppercase text-gray-400">Market</p>
+            <p className="text-[10px] font-black uppercase text-gray-400">
+              Market
+            </p>
             <p className="font-black text-sm text-gray-900">Compra fácil</p>
           </div>
         </section>
@@ -230,7 +319,7 @@ export default function LandingPage({
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 row-span-2 rounded-[32px] overflow-hidden h-60 shadow-xl active:scale-[0.98] hover:scale-[1.01] transition-transform duration-300">
+            <div className="col-span-2 row-span-2 rounded-[32px] overflow-hidden h-60 shadow-xl active:scale-[0.98] hover:scale-[1.01] transition-transform duration-300 pollazo-soft-float">
               <img
                 src="https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg"
                 className="w-full h-full object-cover"
@@ -238,7 +327,7 @@ export default function LandingPage({
               />
             </div>
 
-            <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300">
+            <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300 pollazo-soft-float-delay">
               <img
                 src="https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg"
                 className="w-full h-full object-cover"
@@ -246,7 +335,7 @@ export default function LandingPage({
               />
             </div>
 
-            <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300">
+            <div className="rounded-[28px] overflow-hidden h-[114px] shadow-md active:scale-95 hover:scale-[1.03] transition-transform duration-300 pollazo-soft-float">
               <img
                 src="https://images.pexels.com/photos/3962285/pexels-photo-3962285.jpeg"
                 className="w-full h-full object-cover"
@@ -274,10 +363,12 @@ export default function LandingPage({
               scrollBehavior: 'smooth',
             }}
           >
-            {STAFF.map((m) => (
+            {STAFF.map((m, index) => (
               <div
                 key={m.id}
-                className="flex-shrink-0 snap-center w-72 bg-white rounded-[36px] p-5 border border-orange-100 flex items-center gap-4 shadow-sm active:scale-[0.98] transition-transform"
+                className={`flex-shrink-0 snap-center w-72 bg-white rounded-[36px] p-5 border border-orange-100 flex items-center gap-4 shadow-sm active:scale-[0.98] transition-transform ${
+                  index % 2 === 0 ? 'pollazo-soft-float' : 'pollazo-soft-float-delay'
+                }`}
               >
                 <img
                   src={m.photo_url}
@@ -361,12 +452,14 @@ export default function LandingPage({
           </div>
 
           <div className="bg-white p-3 rounded-[40px] border border-orange-100 shadow-xl overflow-hidden">
-            <div className="h-72 rounded-[32px] overflow-hidden bg-orange-50">
+            <div className="h-72 rounded-[35px] overflow-hidden bg-orange-50">
               <iframe
-                src={MAP_URL}
-                className="w-full h-full border-0"
-                loading="lazy"
+                src={MAP_EMBED_URL}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
                 allowFullScreen
+                loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 title="Mapa de ubicación Pollazo Galapagueño El Mirador"
               />
