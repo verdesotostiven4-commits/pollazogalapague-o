@@ -71,9 +71,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       ]);
       
       if (prodRes.status === 'fulfilled' && prodRes.value.data) setRemoteProducts(prodRes.value.data);
-      // ✅ Línea corregida aquí:
       if (extraRes.status === 'fulfilled' && extraRes.value.data && extraRes.value.data) {
-        setExtraSettings(extraRes.value.data);
+        setExtraSettings(extraRes.value.data as ExtraSettings);
       }
       if (custRes.status === 'fulfilled' && custRes.value.data) setCustomers(custRes.value.data);
       if (orderRes.status === 'fulfilled' && orderRes.value.data) setOrders(orderRes.value.data);
@@ -89,7 +88,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       updateExtraSettings: async (p) => { setExtraSettings(prev => ({...prev, ...p})) },
       addCustomerPoints: async () => {},
       upsertCustomer: async (phone, name, avatar_url) => {
-        const { data } = await supabase.from('customers').upsert({ phone: phone.replace(/\D/g, ''), name, avatar_url }, { onConflict: 'phone' }).select().single();
+        const clean = (phone || '').replace(/\D/g, '');
+        const { data } = await supabase.from('customers').upsert({ phone: clean, name, avatar_url }, { onConflict: 'phone' }).select().single();
         return data;
       },
       createOrder: async (order) => { await supabase.from('orders').insert(order); load(); },
