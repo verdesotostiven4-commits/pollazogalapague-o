@@ -14,7 +14,7 @@ import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
 import LoginModal from './components/LoginModal';
-import OrderTracking from './components/OrderTracking';
+import OrderTracking from './components/OrderTracking'; // El código que ya tienes
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { supabase } from './lib/supabase';
@@ -164,9 +164,10 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
         customerAvatar={localStorage.getItem('pollazo_customer_avatar') || undefined}
       />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
-        {/* RASTREADOR SIEMPRE VISIBLE */}
-        <OrderTracking />
         
+        {/* EL RASTREADOR QUE RECORDARÁ EL TELÉFONO */}
+        <OrderTracking />
+
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={handleCheckout} onNavigate={handleNavigate} />}
