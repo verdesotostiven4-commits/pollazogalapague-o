@@ -61,8 +61,7 @@ const STAFF = [
   },
 ];
 
-const MAPS_URL =
-  'https://www.google.com/maps/search/?api=1&query=Pollazo+Galapagueño+El+Mirador';
+const MAPS_URL = 'https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw';
 
 function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -74,7 +73,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   const extraSettings = admin?.extraSettings;
 
   const [visible, setVisible] = useState(false);
-  const [logoLoaded, setLogoLoaded] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [comment, setComment] = useState('');
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -91,16 +89,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   }, []);
 
   useEffect(() => {
-    setLogoLoaded(false);
-
-    const image = new Image();
-    image.src = logoUrl;
-
-    image.onload = () => setLogoLoaded(true);
-    image.onerror = () => setLogoLoaded(false);
-  }, [logoUrl]);
-
-  useEffect(() => {
     const handler = (event: Event) => {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
@@ -113,10 +101,9 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
     };
   }, []);
 
-  const fadeIn = (delay: number): CSSProperties => ({
+  const fadeOpacity = (delay: number): CSSProperties => ({
     opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0)' : 'translateY(24px)',
-    transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
+    transition: `opacity 0.7s ease ${delay}ms`,
   });
 
   const handleInstallClick = async () => {
@@ -142,7 +129,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
       return;
     }
 
-    setInstallMessage('Tu navegador no permite instalar automáticamente la app.');
+    setInstallMessage('Usa el menú de tu navegador -> Instalar aplicación.');
   };
 
   const handleSendReview = () => {
@@ -155,7 +142,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
 
   return (
     <div
-      className="min-h-screen bg-white text-gray-950 pb-24"
+      className="min-h-screen bg-white text-gray-950"
       style={{ '--pollazo-primary': primaryColor } as CSSProperties}
     >
       <style>
@@ -165,7 +152,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               transform: translateY(0px);
             }
             50% {
-              transform: translateY(-14px);
+              transform: translateY(-12px);
             }
           }
 
@@ -174,7 +161,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               transform: translateY(0px);
             }
             50% {
-              transform: translateY(-6px);
+              transform: translateY(-5px);
             }
           }
 
@@ -183,11 +170,11 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
           }
 
           .pollazo-soft-float {
-            animation: pollazoSoftFloat 7s ease-in-out infinite;
+            animation: pollazoSoftFloat 8s ease-in-out infinite;
           }
 
           .pollazo-soft-float-delay {
-            animation: pollazoSoftFloat 8s ease-in-out infinite;
+            animation: pollazoSoftFloat 8.5s ease-in-out infinite;
             animation-delay: 0.7s;
           }
 
@@ -202,29 +189,27 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
         `}
       </style>
 
-      <section className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
+      <section className="relative h-[92vh] min-h-[680px] max-h-[860px] overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
           <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-100/30 blur-3xl" />
           <div className="absolute top-1/3 left-1/2 w-48 h-48 -translate-x-1/2 rounded-full bg-yellow-100/20 blur-3xl" />
         </div>
 
-        <div className="relative z-10 max-w-md mx-auto space-y-10">
-          <div style={fadeIn(0)} className="relative flex justify-center">
+        <div className="relative z-10 max-w-md mx-auto space-y-10" style={fadeOpacity(0)}>
+          <div className="relative flex justify-center">
             <div className="absolute w-72 h-72 rounded-full bg-white/10 blur-3xl" />
 
-            {logoLoaded && (
-              <img
-                src={logoUrl}
-                className="relative w-56 h-56 object-contain drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)] pollazo-logo-float"
-                onError={(event) => {
-                  event.currentTarget.style.display = 'none';
-                }}
-              />
-            )}
+            <img
+              src={logoUrl}
+              className="relative w-56 h-56 object-contain drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)] pollazo-logo-float"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
 
-          <div style={fadeIn(140)} className="space-y-4">
+          <div className="space-y-4">
             <p className="text-white/80 font-black uppercase tracking-[0.35em] text-xs">
               GALÁPAGOS • ECUADOR
             </p>
@@ -238,8 +223,9 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             </p>
           </div>
 
-          <div style={fadeIn(260)} className="w-full max-w-xs mx-auto space-y-4">
+          <div className="w-full max-w-xs mx-auto space-y-4">
             <button
+              type="button"
               onClick={handleInstallClick}
               className="w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-2xl active:scale-95 transition-transform flex items-center justify-center gap-3"
             >
@@ -254,6 +240,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
             )}
 
             <button
+              type="button"
               onClick={onContinueWeb}
               className="flex items-center gap-2 text-xs font-bold text-white/75 mx-auto active:opacity-50"
             >
@@ -285,7 +272,10 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
           </div>
         </div>
 
-        <button className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center active:scale-95 transition-transform">
+        <button
+          type="button"
+          className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center active:scale-95 transition-transform"
+        >
           <Bell size={18} className="text-orange-500" />
         </button>
       </header>
@@ -365,6 +355,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               <img
                 src="https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg"
                 className="w-full h-full object-cover"
+                alt=""
               />
             </div>
 
@@ -372,6 +363,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               <img
                 src="https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg"
                 className="w-full h-full object-cover"
+                alt=""
               />
             </div>
 
@@ -379,11 +371,11 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               <img
                 src="https://images.pexels.com/photos/3962285/pexels-photo-3962285.jpeg"
                 className="w-full h-full object-cover"
+                alt=""
               />
             </div>
           </div>
         </section>
-
         <section className="space-y-5">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">
@@ -415,6 +407,7 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
                 <img
                   src={member.photo_url}
                   className="w-20 h-20 rounded-[26px] object-cover"
+                  alt=""
                 />
 
                 <div>
@@ -429,8 +422,8 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
               </div>
             ))}
           </div>
-        </section> 
-        {/* RESEÑAS */}
+        </section>
+
         <section className="bg-gray-950 rounded-[45px] p-8 text-white space-y-7 shadow-2xl">
           <div className="text-center space-y-2">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-400">
@@ -488,7 +481,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
           </button>
         </section>
 
-        {/* UBICACIÓN */}
         <section className="space-y-5">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">
@@ -531,31 +523,6 @@ function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
         </section>
       </main>
 
-      {/* NAV */}
-      <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-orange-100 h-20 flex items-center justify-around px-4 z-40">
-        {['Inicio', 'Menú', 'Puntos', 'Info'].map((item) => (
-          <button
-            key={item}
-            className="flex flex-col items-center gap-1"
-          >
-            <div
-              className={`w-1 h-1 rounded-full mb-1 ${
-                item === 'Inicio' ? 'bg-orange-500' : 'bg-transparent'
-              }`}
-            />
-
-            <span
-              className={`text-[10px] font-black uppercase tracking-[0.2em] ${
-                item === 'Inicio' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              {item}
-            </span>
-          </button>
-        ))}
-      </nav>
-
-      {/* MODAL IOS */}
       {showIOSModal && (
         <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-[32px] p-7 shadow-2xl relative">
