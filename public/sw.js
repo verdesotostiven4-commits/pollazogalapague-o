@@ -1,36 +1,28 @@
-const CACHE_NAME = 'pollazo-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo-final.png'
-];
+const CACHE_NAME = 'pollazo-cache-v2';
 
-// Instalación del Service Worker
+// 1. Instalación: Forzamos a la nueva versión a tomar el control
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
+  self.skipWaiting();
 });
 
-// Activación y limpieza de cache antigua
+// 2. Activación: Borramos TODA la basura de las versiones anteriores
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
+    caches.keys().then((cacheNames) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
-// Responder a las peticiones (Necesario para que Chrome acepte la PWA)
+// 3. Estrategia: Buscar siempre en internet primero para evitar pantallas blancas
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
     })
   );
 });
