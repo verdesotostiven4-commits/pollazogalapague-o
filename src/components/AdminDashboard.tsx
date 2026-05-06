@@ -67,7 +67,6 @@ export default function AdminDashboard() {
   const [draft, setDraft] = useState(emptyProduct);
   const [editing, setEditing] = useState<string | null>(null);
   const [points, setPoints] = useState<Record<string, string>>({});
-  const [uploading, setUploading] = useState(false);
 
   const [extraSettings, setExtraSettings] = useState({
     logo_url: '/logo-final.png',
@@ -96,7 +95,7 @@ export default function AdminDashboard() {
   const saveExtraSettings = async () => {
     try {
       await supabase.from('settings').upsert({ id: 'global', ...extraSettings });
-      alert('¡Ajustes guardados! Recarga la página para ver los cambios.');
+      alert('¡Ajustes guardados!');
     } catch (err) {
       alert('Error al guardar ajustes');
     }
@@ -145,13 +144,13 @@ export default function AdminDashboard() {
           })}
         </div>
 
-        {/* PESTAÑA DE PEDIDOS CON FOTOS REALES */}
+        {/* PESTAÑA DE PEDIDOS ACTUALIZADA */}
         {tab === 'orders' && (
           <section className="space-y-4">
             <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2"><Send size={20} className="text-green-500"/> Pedidos Recientes</h2>
             {orders.length === 0 ? (
               <div className="text-center py-10 bg-white rounded-3xl border border-gray-100">
-                 <p className="text-gray-400 font-bold">Aún no hay pedidos registrados.</p>
+                 <p className="text-gray-400 font-bold">Aún no hay pedidos.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -186,23 +185,40 @@ export default function AdminDashboard() {
                          </div>
                       </div>
                       
-                      <div className="flex items-center justify-between gap-3">
-                         <select 
-                           value={o.status} 
-                           onChange={(e) => updateOrderStatus(o.id, e.target.value as OrderStatus)}
-                           className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
-                         >
-                           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                         </select>
-                         
-                         <a 
-                           href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)}
-                           target="_blank"
-                           rel="noreferrer"
-                           className="bg-[#25D366] text-white rounded-xl px-5 py-3 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-transform"
-                         >
-                           <Send size={16}/> Notificar
-                         </a>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 relative">
+                            <select 
+                              value={o.status} 
+                              onChange={(e) => updateOrderStatus(o.id, e.target.value as OrderStatus)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                            >
+                              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </div>
+                          
+                          {/* BOTÓN PUSH APP: Actualiza la barrita del cliente */}
+                          <button 
+                            onClick={() => {
+                              updateOrderStatus(o.id, o.status);
+                              alert('¡Estado sincronizado con la App! 🚀');
+                            }}
+                            className="bg-orange-500 text-white rounded-xl px-4 py-3 font-black text-[10px] active:scale-95 transition-transform uppercase shadow-md shadow-orange-100"
+                          >
+                            Push App
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <a 
+                            href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 bg-[#25D366] text-white rounded-xl py-3 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-transform"
+                          >
+                            <Send size={14}/> Notificar por WhatsApp
+                          </a>
+                        </div>
                       </div>
                     </div>
                   )
@@ -230,7 +246,6 @@ export default function AdminDashboard() {
                   className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder="https://ejemplo.com/logo.png"
                 />
-                <p className="text-[9px] text-gray-400">Pega aquí el enlace de tu imagen. Es más seguro que subir el archivo.</p>
               </div>
 
               <div className="pt-4 border-t border-gray-50">
