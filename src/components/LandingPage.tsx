@@ -1,219 +1,395 @@
-import React, { useState, useEffect } from 'react';
-import { Star, Loader2, Download, MapPin, X, Share } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  Download,
+  Globe,
+  Bell,
+  Star,
+  Zap,
+  X,
+  Share,
+  Smartphone,
+} from 'lucide-react';
+import { useAdmin } from '../context/AdminContext';
+import { supabase } from '../lib/supabase';
 
-// Tipado estricto para el evento nativo de instalación PWA
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
+interface Props {
+  onInstall: () => void;
+  canInstall: boolean;
+  onContinueWeb: () => void;
 }
 
-const LandingPage: React.FC = () => {
-  const [isStandalone, setIsStandalone] = useState<boolean>(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
-  const [isIOS, setIsIOS] = useState<boolean>(false);
+type InstallState = 'idle' | 'waiting' | 'success';
+
+function isIOS(): boolean {
+  return (
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
+const STAFF = [
+  {
+    id: '1',
+    name: 'Stiven',
+    role: 'Director / Fotógrafo',
+    photo_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg',
+  },
+  {
+    id: '2',
+    name: 'Doña María',
+    role: 'Chef Principal',
+    photo_url: 'https://images.pexels.com/photos/4253302/pexels-photo-4253302.jpeg',
+  },
+  {
+    id: '3',
+    name: 'Carlos',
+    role: 'Maestro Parrillero',
+    photo_url: 'https://images.pexels.com/photos/3814446/pexels-photo-3814446.jpeg',
+  },
+];
+
+export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
+  const { settings } = useAdmin();
+
+  const [visible, setVisible] = useState(false);
+  const [installState, setInstallState] = useState<InstallState>('idle');
+  const [showIOSModal, setShowIOSModal] = useState(false);
+  const [showMainApp, setShowMainApp] = useState(false);
+
+  const [logoUrl, setLogoUrl] = useState('/logo-final.png');
+  const [userRating, setUserRating] = useState(0);
+  const [comment, setComment] = useState('');
 
   useEffect(() => {
-    // 1. DETECCIÓN STANDALONE
-    const checkStandalone = () => {
-      setIsStandalone(window.matchMedia('(display-mode: standalone)').matches);
-    };
-    
-    // Verificación inicial
-    checkStandalone();
-    
-    // Escuchar cambios de display-mode en tiempo real
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
+    const timer = setTimeout(() => setVisible(true), 80);
+    return () => clearTimeout(timer);
+  }, []);
 
-    // 2. DETECCIÓN DE ENTORNO IOS (Safari no soporta beforeinstallprompt)
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIOSDevice);
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        const { data } = await supabase
+          .from('settings')
+          .select('logo_url')
+          .eq('id', 'global')
+          .single();
 
-    // 3. CAPTURA DEL EVENTO DE INSTALACIÓN
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevenir que el mini-infobar aparezca en móviles
-      e.preventDefault();
-      // Guardar el evento para dispararlo luego
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+        if (data?.logo_url) {
+          setLogoUrl(data.logo_url);
+        }
+      } catch (error) {
+        console.error('No se pudo cargar el logo:', error);
+      }
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Cleanup de eventos
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
-    };
+    loadLogo();
   }, []);
 
   const handleInstallClick = async () => {
-    if (isIOS) {
+    if (isIOS()) {
       setShowIOSModal(true);
       return;
     }
-    
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
+
+    setInstallState('waiting');
+
+    try {
+      await onInstall();
+      setInstallState('success');
+    } catch (error) {
+      console.error('Error instalando app:', error);
+      setInstallState('idle');
     }
   };
 
-  // Datos del Staff con fotos de Pexels
-  const staffMembers = [
-    { name: 'Mery', role: 'Gerente', img: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Paola', role: 'Cajera', img: 'https://images.pexels.com/photos/762041/pexels-photo-762041.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Matias', role: 'Aves', img: 'https://images.pexels.com/photos/280453/pexels-photo-280453.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Stiven', role: 'Fotos', img: 'https://images.pexels.com/photos/1264210/pexels-photo-1264210.jpeg?auto=compress&cs=tinysrgb&w=400' },
-    { name: 'Edgar', role: 'Reponedor', img: 'https://images.pexels.com/photos/316681/pexels-photo-316681.jpeg?auto=compress&cs=tinysrgb&w=400' },
-  ];
+  const handleContinue = () => {
+    setShowMainApp(true);
+    onContinueWeb();
+  };
 
-  // Renderizado dinámico del botón de instalación
-  const renderInstallContent = () => {
-    if (isIOS) {
-      return (
-        <>
-          <Download className="w-5 h-5 mr-2" />
-          Instalar en iPhone
-        </>
-      );
+  const handleSendReview = async () => {
+    if (userRating === 0) return;
+
+    try {
+      await supabase.from('reviews').insert({
+        rating: userRating,
+        comment,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('No se pudo guardar el comentario:', error);
     }
-    if (!deferredPrompt) {
-      return (
-        <>
-          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-          Preparando Instalación...
-        </>
-      );
-    }
+
+    alert('¡Gracias por tu comentario!');
+    setUserRating(0);
+    setComment('');
+  };
+
+  const fadeIn = (delay: number) => ({
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(20px)',
+    transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`,
+  });
+
+  if (!showMainApp) {
     return (
-      <>
-        <Download className="w-5 h-5 mr-2" />
-        Instalar Aplicación
-      </>
+      <div className="fixed inset-0 z-50 overflow-y-auto hero-water">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div
+            className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 65%)',
+              animation: 'water-ripple 9s ease-in-out infinite',
+            }}
+          />
+          <div
+            className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(254,240,138,0.3) 0%, transparent 65%)',
+              animation: 'water-ripple-2 12s ease-in-out infinite',
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center px-6 pt-14 pb-10 text-center">
+          <div className="mb-6 relative">
+            <img
+              src={logoUrl}
+              className="w-36 h-36 object-contain relative z-10 shadow-2xl"
+              onError={(e) => {
+                e.currentTarget.src = '/logo-final.png';
+              }}
+            />
+          </div>
+
+          <div style={fadeIn(100)}>
+            <h1 className="font-black text-4xl text-white drop-shadow-md">
+              Pollazo El Mirador
+            </h1>
+            <p className="font-bold text-sm text-white/80 mt-1">
+              Puerto Ayora, Galápagos
+            </p>
+          </div>
+
+          <div className="w-full mt-8 space-y-3" style={fadeIn(200)}>
+            <button
+              onClick={handleInstallClick}
+              className="w-full flex items-center justify-center gap-3 py-4 bg-white rounded-2xl font-black text-orange-700 shadow-xl active:scale-95 transition-all"
+            >
+              <Download size={20} />
+              <span>
+                {installState === 'waiting'
+                  ? 'Preparando instalación...'
+                  : installState === 'success'
+                  ? 'App lista'
+                  : canInstall
+                  ? 'Descargar App en mi celular'
+                  : 'Instalar App'}
+              </span>
+            </button>
+
+            <button
+              onClick={handleContinue}
+              className="flex items-center gap-2 text-xs font-bold text-white/70 mt-4 mx-auto"
+            >
+              <Globe size={14} />
+              Continuar en la web por ahora
+            </button>
+          </div>
+        </div>
+
+        {showIOSModal && (
+          <div
+            className="fixed inset-0 z-[60] bg-black/60 flex items-end p-4"
+            onClick={() => setShowIOSModal(false)}
+          >
+            <div
+              className="w-full bg-white rounded-3xl p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-black text-lg">Instalar en iPhone</p>
+                <button onClick={() => setShowIOSModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-500">
+                Pulsa el botón de compartir y luego selecciona “Agregar a pantalla de inicio”.
+              </p>
+
+              <div className="flex items-center gap-3 text-sm font-bold text-gray-700">
+                <Share size={18} className="text-orange-500" />
+                Compartir
+              </div>
+
+              <div className="flex items-center gap-3 text-sm font-bold text-gray-700">
+                <Smartphone size={18} className="text-orange-500" />
+                Agregar a pantalla de inicio
+              </div>
+
+              <button
+                onClick={() => setShowIOSModal(false)}
+                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 not-italic flex flex-col">
-      
-      {/* SECCIÓN SPLASH/HERO: Oculta automáticamente en modo standalone */}
-      {!isStandalone && (
-        <section className="flex flex-col items-center justify-center px-4 py-12 bg-[#f97316] text-white shrink-0">
-          <img 
-            src="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg" 
-            alt="Logo Principal" 
-            className="w-48 h-48 object-contain mb-8 rounded-2xl shadow-xl bg-white p-2"
+    <div
+      className="min-h-screen bg-gray-50 text-gray-900 pb-24"
+      style={{ '--pollazo-primary': settings.primary_color } as React.CSSProperties}
+    >
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <img
+            src={logoUrl}
+            className="w-10 h-10 object-contain rounded-full shadow-sm border-2 border-white"
+            onError={(e) => {
+              e.currentTarget.src = '/logo-final.png';
+            }}
           />
-          <h1 className="text-3xl font-bold mb-6 text-center tracking-tight">
-            Bienvenido a Nuestra App
+          <h1 className="font-black text-gray-900 text-sm">
+            Pollazo El Mirador
           </h1>
-          <button
-            onClick={handleInstallClick}
-            disabled={!isIOS && !deferredPrompt}
-            className="flex items-center justify-center px-8 py-4 bg-white text-[#f97316] font-bold rounded-full shadow-lg hover:bg-gray-50 active:scale-95 disabled:opacity-80 disabled:cursor-wait transition-all duration-200"
+        </div>
+
+        <button className="p-2 text-gray-400">
+          <Bell size={20} />
+        </button>
+      </header>
+
+      <main className="px-4 py-6 space-y-12">
+        <section className="space-y-4">
+          <h2 className="font-black text-lg flex items-center gap-2">
+            <Zap className="text-orange-500" />
+            El Equipo Omnipotente
+          </h2>
+
+          <div
+            className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              scrollBehavior: 'smooth',
+            }}
           >
-            {renderInstallContent()}
-          </button>
-        </section>
-      )}
-
-      {/* CONTENIDO PRINCIPAL DE LA APP */}
-      <main className="flex-1 flex flex-col w-full max-w-4xl mx-auto">
-        
-        {/* SECCIÓN MAPA */}
-        <section className="p-8 flex flex-col items-center text-center border-b border-gray-100">
-          <h2 className="text-2xl font-bold mb-6 text-[#f97316] uppercase tracking-wide">
-            Visítanos
-          </h2>
-          <a
-            href="https://maps.app.goo.gl/d5UnTFpGPouAFVyb6?g_st=aw"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-8 py-4 bg-[#f97316] text-white font-bold rounded-xl shadow hover:bg-orange-600 transition-colors"
-          >
-            <MapPin className="w-6 h-6 mr-3" />
-            Abrir en Google Maps
-          </a>
-        </section>
-
-        {/* SECCIÓN RESEÑAS CON SINTAXIS ESTRICTA */}
-        <section className="p-8 flex flex-col items-center text-center border-b border-gray-100 bg-gray-50">
-          <h2 className="text-2xl font-bold mb-4 text-[#f97316] uppercase tracking-wide">
-            Reseñas
-          </h2>
-          <div className="flex justify-center space-x-1 mb-4 text-[#f97316]">
-            {/* REGLA ANTIBUGS: Array explícito */}
-            {[1, 2, 3, 4, 5].map((num) => (
-              <Star key={num} className="w-8 h-8 fill-current" />
-            ))}
-          </div>
-          <p className="text-lg text-gray-700 font-medium">
-            "El mejor servicio y atención de la zona. 100% recomendado."
-          </p>
-        </section>
-
-        {/* SECCIÓN STAFF */}
-        <section className="p-8">
-          <h2 className="text-2xl font-bold mb-8 text-center text-[#f97316] uppercase tracking-wide">
-            Nuestro Equipo
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-            {staffMembers.map((member, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <div className="w-28 h-28 mb-4 rounded-full p-1 bg-[#f97316] shadow-md">
-                  <img 
-                    src={member.img} 
-                    alt={`Foto de ${member.name}, ${member.role}`} 
-                    className="w-full h-full object-cover rounded-full border-4 border-white" 
-                  />
+            {STAFF.map((member) => (
+              <div
+                key={member.id}
+                className="flex-shrink-0 snap-center w-60 bg-white rounded-3xl p-4 border border-gray-100 flex items-center gap-4 active:scale-95 transition-transform"
+              >
+                <img
+                  src={member.photo_url}
+                  className="w-14 h-14 rounded-2xl object-cover"
+                />
+                <div>
+                  <p className="font-black text-gray-900 text-xs">
+                    {member.name}
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    {member.role}
+                  </p>
                 </div>
-                <span className="font-bold text-xl text-gray-900">{member.name}</span>
-                <span className="text-base text-[#f97316] font-semibold">{member.role}</span>
               </div>
             ))}
           </div>
         </section>
 
+        <section className="space-y-4">
+          <h2 className="font-black text-lg">Nuestra cocina, tu mesa</h2>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 row-span-2 rounded-2xl overflow-hidden h-48">
+              <img
+                src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="rounded-2xl overflow-hidden h-24">
+              <img
+                src="https://images.pexels.com/photos/3887985/pexels-photo-3887985.jpeg"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="rounded-2xl overflow-hidden h-24">
+              <img
+                src="https://images.pexels.com/photos/2668308/pexels-photo-2668308.jpeg"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-gray-900 rounded-[40px] p-8 text-white space-y-6 shadow-2xl">
+          <div className="text-center">
+            <h2 className="text-xl font-black italic">
+              ¿Qué tal el Pollazo de hoy?
+            </h2>
+            <p className="text-gray-500 text-xs mt-1">
+              Dinos la verdad, Stiven te lee
+            </p>
+          </div>
+
+          <div className="flex justify-center gap-2">
+            {[1, 2, 3, 4, 5].map((num) => (
+              <button
+                key={num}
+                onClick={() => setUserRating(num)}
+                className={`p-2 transition-all ${
+                  userRating >= num
+                    ? 'text-yellow-400 scale-110'
+                    : 'text-gray-700'
+                }`}
+              >
+                <Star
+                  size={32}
+                  fill={userRating >= num ? 'currentColor' : 'none'}
+                />
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="¿Algún comentario especial?"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-gray-600 outline-none focus:ring-2 focus:ring-orange-500"
+            rows={3}
+          />
+
+          <button
+            onClick={handleSendReview}
+            disabled={userRating === 0}
+            className={`w-full py-4 rounded-2xl font-black transition-all ${
+              userRating > 0
+                ? 'bg-orange-500 text-white'
+                : 'bg-white/5 text-gray-700'
+            }`}
+          >
+            Enviar Comentario
+          </button>
+        </section>
       </main>
 
-      {/* MODAL INSTRUCCIONES IOS */}
-      {showIOSModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative flex flex-col items-center text-center shadow-2xl pb-10">
-            <button 
-              onClick={() => setShowIOSModal(false)} 
-              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-100 rounded-full p-1"
-              aria-label="Cerrar"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <div className="w-16 h-16 bg-orange-100 text-[#f97316] rounded-2xl flex items-center justify-center mb-6">
-              <Download className="w-8 h-8" />
-            </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900">Instalar App</h3>
-            <p className="mb-6 text-gray-600 text-base leading-relaxed">
-              Para instalar en iPhone, pulsa el botón de <strong>Compartir</strong> <Share className="inline w-4 h-4 mx-1" /> en la barra inferior de Safari y selecciona la opción rectilínea de <strong>"Agregar a la pantalla de inicio"</strong>.
-            </p>
-            <button 
-              onClick={() => setShowIOSModal(false)} 
-              className="w-full py-4 bg-[#f97316] text-white font-bold rounded-xl shadow-md hover:bg-orange-600 transition-colors"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
-      
+      <nav className="fixed bottom-0 inset-x-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 h-20 flex items-center justify-around px-4 z-50">
+        {['Inicio', 'Menú', 'Puntos', 'Info'].map((tab) => (
+          <button key={tab} className="flex flex-col items-center gap-1">
+            <span className="text-[10px] font-black uppercase text-gray-400">
+              {tab}
+            </span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
-};
-
-export default LandingPage;
+}
