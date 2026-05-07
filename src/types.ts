@@ -8,8 +8,6 @@ export interface Product {
   image?: string;
   badge?: string;
   available?: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface Customer {
@@ -17,7 +15,7 @@ export interface Customer {
   phone: string;
   name?: string | null;
   points: number;
-  created_at?: string;
+  avatar_url?: string | null; // Unificado
 }
 
 export type OrderStatus = 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
@@ -27,7 +25,7 @@ export interface Order {
   order_code: string;
   customer_id?: string | null;
   customer_phone: string;
-  items: CartItem[];
+  items: any[];
   subtotal: number;
   delivery_fee: number;
   total: number;
@@ -36,17 +34,10 @@ export interface Order {
   created_at?: string;
 }
 
-export type Category =
-  | 'Pollos'
-  | 'Embutidos'
-  | 'Lácteos y refrigerados'
-  | 'Abarrotes y básicos'
-  | 'Salsas, aliños y aceites'
-  | 'Bebidas'
-  | 'Frutas y verduras'
-  | 'Snacks y dulces'
-  | 'Cuidado personal'
-  | 'Limpieza y hogar';
+export type Category = 'Pollos' | 'Embutidos' | 'Lácteos y refrigerados' | 'Abarrotes y básicos' | 'Salsas, aliños y aceites' | 'Bebidas' | 'Frutas y verduras' | 'Snacks y dulces' | 'Cuidado personal' | 'Limpieza y hogar';
+
+// PANTALLAS OFICIALES
+export type Screen = 'home' | 'catalog' | 'cart' | 'info' | 'ranking';
 
 export interface CartItem {
   product: Product;
