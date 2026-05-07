@@ -23,7 +23,7 @@ function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading, products } = useAdmin();
+  const { upsertCustomer, createOrder, loading } = useAdmin();
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -60,7 +60,6 @@ function AppShell() {
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      {/* Pasamos handleNavigate al Header para que el nuevo botón de Ranking funcione */}
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
@@ -110,7 +109,12 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminDashboard>;
+  // AQUÍ ESTABA EL ERROR: El cierre de la etiqueta era incorrecto
+  if (isDashboard) return (
+    <AdminProvider>
+      <AdminDashboard />
+    </AdminProvider>
+  );
 
   if (!landingDone) {
     return (
