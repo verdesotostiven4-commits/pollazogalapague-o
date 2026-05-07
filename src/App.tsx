@@ -19,7 +19,8 @@ import Ranking from './pages/Ranking';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { Category, Screen } from './types';
 
-function AppShell() {
+// Componente principal de la interfaz
+function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall: boolean }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -30,35 +31,6 @@ function AppShell() {
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
-
-  // 🚀 LÓGICA DE INSTALACIÓN PWA
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e); // Guardamos el evento para usarlo luego
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt(); // Mostramos el cartel de instalación
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
-  };
-
-  // 🔄 AUTO-ACTUALIZACIÓN SERVICE WORKER
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((reg) => reg.update());
-      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
-    }
-  }, []);
 
   useEffect(() => {
     if (!customerPhone) {
@@ -118,15 +90,7 @@ function AppShell() {
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        
-        {/* ✅ AHORA SÍ PASAMOS LAS FUNCIONES REALES A INFOSCREEN */}
-        {screen === 'info' && (
-          <InfoScreen 
-            onInstall={handleInstallApp} 
-            canInstall={!!deferredPrompt} 
-          />
-        )}
-        
+        {screen === 'info' && <InfoScreen onInstall={onInstall} canInstall={canInstall} />}
         {screen === 'ranking' && <Ranking />}
       </main>
 
@@ -135,28 +99,53 @@ function AppShell() {
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
-      
       <FlyParticleLayer />
     </div>
   );
 }
 
+// COMPONENTE RAÍZ — Maneja la instalación y el Landing
 export default function App() {
   const isDashboard = window.location.pathname === '/admin';
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [landingDone, setLandingDone] = useState(() => {
     const skip = localStorage.getItem('pollazo_landing_dismissed');
     const hasUser = localStorage.getItem('pollazo_customer_phone');
     return !!skip || !!hasUser;
   });
 
+  // 🔄 Manejo Global de Instalación PWA
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    
+    // Auto-actualización del Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => reg.update());
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
+
   if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
+  // Pantalla de Landing
   if (!landingDone) {
     return (
       <AdminProvider>
         <LandingPage 
-          onInstall={() => {}} 
-          canInstall={false} 
+          onInstall={handleInstallApp} 
+          canInstall={!!deferredPrompt} 
           onContinueWeb={() => { 
             localStorage.setItem('pollazo_landing_dismissed', '1'); 
             setLandingDone(true); 
@@ -166,12 +155,13 @@ export default function App() {
     );
   }
 
+  // App Principal
   return (
     <AdminProvider>
       <UserProvider> 
         <CartProvider>
           <FlyToCartProvider>
-            <AppShell />
+            <AppShell onInstall={handleInstallApp} canInstall={!!deferredPrompt} />
           </FlyToCartProvider>
         </CartProvider>
       </UserProvider>
