@@ -23,7 +23,7 @@ function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [isTrackingMinimized, setIsTrackingMinimized] = useState(false); // ✅ Nuevo
+  const [showTracking, setShowTracking] = useState(false); // ✅ Control del Modal de Rastreo
   
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
@@ -64,7 +64,7 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
-    setIsTrackingMinimized(false); // Reset al pedir
+    setShowTracking(true); // Abrimos el rastreo automáticamente al pedir
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
@@ -82,14 +82,13 @@ function AppShell() {
         onNavigate={handleNavigate} 
         onOpenProfile={() => setShowLoginModal(true)} 
         customerAvatar={customerAvatar}
-        isTrackingMinimized={isTrackingMinimized} // ✅ Pasamos estado
-        onShowTracking={() => setIsTrackingMinimized(false)} // ✅ Para volver a abrirlo
+        onOpenTracking={() => setShowTracking(true)} // ✅ Abrir desde el Header
       />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking 
-          isMinimized={isTrackingMinimized} 
-          onMinimize={() => setIsTrackingMinimized(true)} 
+          isOpen={showTracking} 
+          onClose={() => setShowTracking(false)} 
         />
         
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
