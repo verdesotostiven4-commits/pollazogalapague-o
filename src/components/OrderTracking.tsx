@@ -21,20 +21,24 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
 
   if (!isOpen) return null;
 
-  // 🛠️ COMPARACIÓN BLINDADA: Comparamos solo los últimos 9 dígitos del WhatsApp
-  const cleanUser = customerPhone ? customerPhone.replace(/\D/g, '').slice(-9) : '';
+  // 🛠️ LIMPIEZA TOTAL: Solo nos quedamos con los números
+  const userNum = customerPhone ? customerPhone.replace(/\D/g, '') : '';
   
   const activeOrder = orders
     ?.filter(o => {
-      const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-9);
-      // Buscamos pedidos de las últimas 24 horas que no estén cancelados
+      const orderNum = (o.customer_phone || '').replace(/\D/g, '');
+      // Comparamos los últimos 8 dígitos. Si coinciden, es el mismo dueño.
+      const match = orderNum.length >= 8 && userNum.length >= 8 && 
+                    orderNum.slice(-8) === userNum.slice(-8);
+      
+      // Pedidos de las últimas 24 horas que no estén cancelados
       const isRecent = new Date(o.created_at || '').getTime() > Date.now() - (24 * 60 * 60 * 1000);
-      return cleanOrder === cleanUser && isRecent && o.status !== 'Cancelado';
+      
+      return match && isRecent && o.status !== 'Cancelado';
     })
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
-  // ✅ AHORA "Recibido" también activa el rastreo real
-  const isTrackingNow = activeOrder && ['Recibido', 'Preparando', 'Enviado', 'Entregado'].includes(activeOrder.status);
+  const isTrackingNow = !!activeOrder;
 
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
@@ -50,10 +54,10 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
             {isTrackingNow ? <Truck size={40} /> : <PackageSearch size={40} />}
           </div>
           <h2 className="text-2xl font-black text-gray-900 uppercase italic leading-none">
-            {isTrackingNow ? 'Seguimiento' : 'Rastreo en Vivo'}
+            {isTrackingNow ? 'Estado del Pedido' : 'Rastreo en Vivo'}
           </h2>
           <p className="text-sm font-bold text-gray-400 mt-2">
-            {isTrackingNow ? `Orden: #${activeOrder.order_code}` : 'Sigue tu compra en tiempo real'}
+            {isTrackingNow ? `Orden: #${activeOrder.order_code}` : 'Sigue tu compra paso a paso'}
           </p>
         </div>
 
@@ -86,16 +90,16 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            <p className="text-sm text-gray-500 font-bold leading-relaxed text-center px-2">
-              Aquí podrás ver el progreso de tu compra. Se activará automáticamente cuando realices un pedido y lo confirmemos. 🛵💨
+          <div className="space-y-6 text-center">
+            <p className="text-sm text-gray-500 font-bold leading-relaxed px-2">
+              Aquí podrás ver el progreso de tu compra en tiempo real. Cuando realices un pedido y lo confirmemos, se activará este seguimiento automático. 🛵💨
             </p>
             <div className="p-5 bg-blue-50 rounded-[32px] flex items-center gap-4 border border-blue-100 shadow-sm">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0">
                 <Info size={24}/>
               </div>
               <p className="text-[10px] font-black text-blue-700 uppercase leading-tight text-left">
-                Te notificaremos cuando el pedido salga del Market.
+                Te notificaremos cuando el pedido salga de "La Casa del Pollazo".
               </p>
             </div>
             <button type="button" onClick={onClose} className="w-full py-5 bg-gray-900 text-white font-black rounded-[24px] text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl">
