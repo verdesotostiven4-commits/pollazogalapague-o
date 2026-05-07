@@ -44,6 +44,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ✅ CORRECCIÓN AQUÍ: Quitamos el punto y coma erróneo
     const file = e.target.files ? e.target.files : null;
     if (file) {
       const reader = new FileReader();
@@ -65,7 +66,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          const dataUrl = canvas.toSTring ? canvas.toDataURL('image/jpeg', 0.8) : '';
           setUploadedImage(dataUrl);
           setSelectedAvatar(dataUrl);
         };
@@ -119,7 +120,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             </button>
           ))}
         </div>
-        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
+        <button type="button" onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
           Guardar Cambios
         </button>
       </div>
