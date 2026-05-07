@@ -18,12 +18,13 @@ const AVATARS = [
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=b6e3f4' 
 ];
 
-// 🛠️ TRITURADOR V3 (A prueba de balas móviles)
+// 🛠️ TRITURADOR V4 (Sin candados paranoicos)
 const compressImageNative = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    // Doble validación por si el celular manda basura
-    if (!file || !(file instanceof Blob)) {
-      return reject(new Error("El archivo seleccionado no es válido."));
+    // ✅ FIX: Quitamos el "instanceof Blob" que bloqueaba los celulares. 
+    // Solo verificamos que el archivo exista.
+    if (!file) {
+      return reject(new Error("No se detectó ningún archivo."));
     }
 
     const reader = new FileReader();
@@ -56,14 +57,14 @@ const compressImageNative = (file: File): Promise<string> => {
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/jpeg', 0.6));
         } else {
-          reject(new Error("No se pudo procesar la imagen."));
+          reject(new Error("No se pudo procesar la imagen en el lienzo."));
         }
       };
-      img.onerror = () => reject(new Error("El archivo no es una imagen válida o está dañado."));
+      img.onerror = () => reject(new Error("El archivo no se pudo leer como imagen."));
       img.src = event.target?.result as string;
     };
     reader.onerror = () => reject(new Error("Error leyendo el archivo desde tu dispositivo."));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(file); // Leemos el archivo directamente
   });
 };
 
@@ -110,7 +111,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       alert(`No pudimos cargar la foto: ${error.message || 'Intenta con otra.'}`);
     } finally {
       setIsCompressing(false);
-      // ✅ FIX VITAL: Limpiamos el input DESPUÉS de procesar, nunca antes.
+      // Limpiamos el input para que puedas volver a elegir la misma foto si quieres
       if (e.target) e.target.value = ''; 
     }
   };
