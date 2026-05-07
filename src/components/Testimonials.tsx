@@ -14,23 +14,44 @@ interface Testimonial {
 
 const ADMIN_HOLD_MS = 3000;
 
+// ✅ SOLUCIÓN ANTI-FANTASMAS: Escribimos las 5 estrellas a mano. 
+// Cero ".map", cero arreglos que se puedan borrar al copiar.
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
+  const btnClass = onChange ? 'cursor-pointer active:scale-90 transition-transform' : 'cursor-default';
+  
   return (
     <div className="flex gap-1">
-      {/* ✅ FIX: Agregado antes del punto */}
-      {.map(n => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onChange?.(n)}
-          className={onChange ? 'cursor-pointer active:scale-90 transition-transform' : 'cursor-default'}
-        >
-          <Star
-            size={18}
-            className={n <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'}
-          />
-        </button>
-      ))}
+      <button type="button" onClick={() => onChange?.(1)} className={btnClass}>
+        <Star size={18} className={1 <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} />
+      </button>
+      <button type="button" onClick={() => onChange?.(2)} className={btnClass}>
+        <Star size={18} className={2 <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} />
+      </button>
+      <button type="button" onClick={() => onChange?.(3)} className={btnClass}>
+        <Star size={18} className={3 <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} />
+      </button>
+      <button type="button" onClick={() => onChange?.(4)} className={btnClass}>
+        <Star size={18} className={4 <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} />
+      </button>
+      <button type="button" onClick={() => onChange?.(5)} className={btnClass}>
+        <Star size={18} className={5 <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} />
+      </button>
+    </div>
+  );
+}
+
+// ✅ Componente auxiliar para evitar el otro ".map" fantasma en las barras de progreso
+function StarStatRow({ star, testimonials }: { star: number, testimonials: Testimonial[] }) {
+  const cnt = testimonials.filter(t => t.stars === star).length;
+  const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-gray-500 w-2">{star}</span>
+      <Star size={8} className="text-yellow-400 fill-yellow-400 flex-shrink-0" />
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-full bg-yellow-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] text-gray-400 w-4 text-right">{cnt}</span>
     </div>
   );
 }
@@ -171,21 +192,12 @@ export default function Testimonials() {
               <p className="text-[10px] text-gray-400 mt-1">{testimonials.length} opinión{testimonials.length !== 1 ? 'es' : ''}</p>
             </div>
             <div className="flex-1 space-y-1">
-              {/* ✅ FIX: Agregado antes del punto */}
-              {.map(star => {
-                const cnt = testimonials.filter(t => t.stars === star).length;
-                const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
-                return (
-                  <div key={star} className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-500 w-2">{star}</span>
-                    <Star size={8} className="text-yellow-400 fill-yellow-400 flex-shrink-0" />
-                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-[10px] text-gray-400 w-4 text-right">{cnt}</span>
-                  </div>
-                );
-              })}
+              {/* ✅ Usamos el componente auxiliar para evitar otro .map que se pueda borrar */}
+              <StarStatRow star={5} testimonials={testimonials} />
+              <StarStatRow star={4} testimonials={testimonials} />
+              <StarStatRow star={3} testimonials={testimonials} />
+              <StarStatRow star={2} testimonials={testimonials} />
+              <StarStatRow star={1} testimonials={testimonials} />
             </div>
           </div>
         </div>
@@ -271,7 +283,7 @@ export default function Testimonials() {
                 <StarRating value={t.stars} />
                 <p className="text-gray-600 text-xs mt-1.5">{t.comment}</p>
                 <p className="text-gray-300 text-[10px] mt-2 font-medium">
-                  {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' }) }
+                  {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               </div>
             </div>
