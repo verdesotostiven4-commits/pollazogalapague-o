@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Star, Send, Trash2, X, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useUser } from '../context/UserContext'; // ✅ Importamos el contexto del usuario
+import { useUser } from '../context/UserContext'; 
 
 interface Testimonial {
   id: string;
@@ -17,6 +17,7 @@ const ADMIN_HOLD_MS = 3000;
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   return (
     <div className="flex gap-1">
+      {/* ✅ FIX: Se restauró el array que faltaba en el error de Vercel */}
       {.map(n => (
         <button
           key={n}
@@ -35,13 +36,12 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
 }
 
 export default function Testimonials() {
-  const { customerName, customerAvatar } = useUser(); // ✅ Obtenemos tus datos actuales
+  const { customerName, customerAvatar } = useUser(); 
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
-  // Estados del formulario
   const [name, setName] = useState('');
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
@@ -54,7 +54,6 @@ export default function Testimonials() {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  // ✅ EFECTO: Cuando abres el formulario, se llena con tus datos del Club automáticamente
   useEffect(() => {
     if (showForm) {
       setName(customerName || '');
@@ -85,12 +84,11 @@ export default function Testimonials() {
     setSubmitting(true);
     setError('');
 
-    // ✅ Grabamos en Supabase con tu foto de perfil actual
     const { error: err } = await supabase.from('testimonials').insert({
       author_name: name.trim(),
       stars,
       comment: comment.trim(),
-      photo_url: photoUrl.trim() || null, // Aquí va tu foto de galería o avatar
+      photo_url: photoUrl.trim() || null,
     });
 
     setSubmitting(false);
@@ -130,7 +128,6 @@ export default function Testimonials() {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
         <div
           className="select-none"
@@ -163,7 +160,6 @@ export default function Testimonials() {
         </div>
       </div>
 
-      {/* Average Stats */}
       {testimonials.length > 0 && !showForm && (
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center gap-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-2xl px-4 py-3.5 border border-orange-100">
@@ -194,11 +190,10 @@ export default function Testimonials() {
         </div>
       )}
 
-      {/* Formulario de Opinión */}
       {showForm && (
         <div className="px-4 py-4 border-b border-gray-100 bg-orange-50/30">
           {success ? (
-            <div className="flex flex-col items-center py-4 gap-2 animate-in fade-in zoom-in">
+            <div className="flex flex-col items-center py-4 gap-2">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <Star size={22} className="text-green-500 fill-green-500" />
               </div>
@@ -206,7 +201,6 @@ export default function Testimonials() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* ✅ Vista previa del autor */}
               <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-orange-100">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200">
                   {photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}
@@ -216,23 +210,19 @@ export default function Testimonials() {
                   <p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p>
                 </div>
               </div>
-
               <div>
                 <p className="text-xs text-gray-500 mb-2 font-black uppercase tracking-tighter">¿Cuántas estrellas nos das?</p>
                 <StarRating value={stars} onChange={setStars} />
               </div>
-
               <textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Cuéntanos tu experiencia con el Pollazo..."
+                placeholder="Cuéntanos tu experiencia..."
                 maxLength={300}
                 rows={3}
-                className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-3 text-sm text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-orange-500 resize-none shadow-sm"
+                className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-3 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-orange-500 resize-none shadow-sm"
               />
-
               {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
-              
               <button
                 type="submit"
                 disabled={submitting}
@@ -246,7 +236,6 @@ export default function Testimonials() {
         </div>
       )}
 
-      {/* Listado de Testimonios */}
       <div className="divide-y divide-gray-50">
         {loading ? (
           <div className="flex items-center justify-center py-10">
@@ -260,36 +249,26 @@ export default function Testimonials() {
         ) : (
           testimonials.map(t => (
             <div key={t.id} className="flex gap-3 px-4 py-4 hover:bg-gray-50/50 transition-colors">
-              {/* Burbuja de foto */}
               <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50">
                 {t.photo_url ? (
-                  <img
-                    src={t.photo_url}
-                    alt={t.author_name}
-                    className="w-full h-full object-cover"
-                    onError={e => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(t.author_name)}&background=f97316&color=fff`; }}
-                  />
+                  <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm">
                     {t.author_name.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
-
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-bold text-gray-900 truncate">{t.author_name}</p>
                   {adminMode && (
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center active:bg-red-100 transition-colors"
-                    >
+                    <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center">
                       <Trash2 size={13} />
                     </button>
                   )}
                 </div>
                 <StarRating value={t.stars} />
-                <p className="text-gray-600 text-xs leading-relaxed mt-1.5">{t.comment}</p>
+                <p className="text-gray-600 text-xs mt-1.5">{t.comment}</p>
                 <p className="text-gray-300 text-[10px] mt-2 font-medium">
                   {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
