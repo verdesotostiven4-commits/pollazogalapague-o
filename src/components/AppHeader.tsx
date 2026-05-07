@@ -1,8 +1,6 @@
 import { ShoppingCart, ChevronLeft, User, BarChart2, PackageSearch } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
-import { useAdmin } from '../context/AdminContext';
-import { useUser } from '../context/UserContext';
 import { useRef, useEffect } from 'react';
 import { Screen } from '../types';
 
@@ -14,22 +12,24 @@ interface Props {
   onOpenTracking: () => void;
 }
 
+const screenTitles: Record<string, string> = {
+  home: '',
+  catalog: 'Catálogo',
+  cart: 'Mi Pedido',
+  info: 'Información',
+  ranking: 'Ranking VIP',
+};
+
 export default function AppHeader({ screen, onNavigate, onOpenProfile, customerAvatar, onOpenTracking }: Props) {
   const { total } = useCart();
   const { cartPop, setCartRef } = useFlyToCart();
-  const { orders } = useAdmin();
-  const { customerPhone } = useUser();
   const cartBtnRef = useRef<HTMLButtonElement>(null);
 
-  // ✅ RESTAURADO: Necesario para la animación Fly-to-Cart
   useEffect(() => {
     if (cartBtnRef.current) setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
   }, [setCartRef]);
 
   const isHome = screen === 'home';
-
-  const userNum = customerPhone ? customerPhone.replace(/\D/g, '').slice(-8) : '';
-  const hasActiveTrack = orders?.some(o => (o.customer_phone || '').replace(/\D/g, '').slice(-8) === userNum && o.notes);
 
   return (
     <header className="flex-shrink-0 safe-area-top bg-white/80 backdrop-blur-md border-b border-orange-50 shadow-sm z-40 sticky top-0">
@@ -39,8 +39,7 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
             <img src="/logo-final.png" alt="logo" className="h-9 w-auto" />
             <div className="flex flex-col leading-none">
               <span className="font-black text-[11px] text-gray-900 uppercase">Pollazo El Mirador</span>
-              {/* ✅ RESTAURADO: Subtítulo original */}
-              <span className="font-bold text-[9px] text-orange-500 uppercase tracking-tighter mt-1">El #1 del Mercado</span>
+              <span className="font-bold text-[9px] text-orange-500 uppercase tracking-tighter mt-1">Market Especializado</span>
             </div>
           </div>
         ) : (
@@ -49,24 +48,21 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
           </button>
         )}
 
+        {!isHome && <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">{screenTitles[screen]}</span>}
+
         <div className="flex items-center gap-2">
           {isHome && (
-            <button onClick={onOpenTracking} className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100">
+            <button onClick={onOpenTracking} className="w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform">
               <PackageSearch size={18} />
-              {hasActiveTrack && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />}
             </button>
           )}
-          
-          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
+          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
             <BarChart2 size={18} />
           </button>
-
           <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center">
             {customerAvatar ? <img src={customerAvatar} className="w-full h-full object-cover" /> : <User size={18} className="text-orange-500" />}
           </button>
-
-          <button ref={cartBtnRef} onClick={() => onNavigate('cart')} 
-            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'cart' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-125' : ''}`}>
+          <button ref={cartBtnRef} onClick={() => onNavigate('cart')} className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'cart' ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-125' : ''}`}>
             <ShoppingCart size={18} />
             {total > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm">{total}</span>}
           </button>
