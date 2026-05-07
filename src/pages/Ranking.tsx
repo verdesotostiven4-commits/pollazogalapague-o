@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Timer } from 'lucide-react';
+import { Trophy, User } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
 export default function Ranking() {
@@ -35,10 +35,22 @@ export default function Ranking() {
       <div className="space-y-3">
         {customers.length > 0 ? (
           customers.slice(0, 10).map((c, i) => (
-            <div key={c.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl">
-              <span className="font-black text-orange-500 w-6 text-center">{i + 1}º</span>
+            <div key={c.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl border border-white shadow-sm">
+              <span className="font-black text-orange-500 w-6 text-center text-xs">{i + 1}º</span>
+              
+              {/* ✅ FOTO DEL CLIENTE AGREGADA */}
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-100 border-2 border-white shadow-sm flex-shrink-0">
+                {c.avatar_url ? (
+                  <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-orange-500">
+                    <User size={20} />
+                  </div>
+                )}
+              </div>
+
               <div className="flex-1 font-bold text-gray-800 text-sm truncate">{c.name || 'Cliente'}</div>
-              <span className="font-black text-gray-400 text-xs uppercase">{c.points} Pts</span>
+              <span className="font-black text-orange-600 text-xs uppercase bg-orange-50 px-2.5 py-1 rounded-lg">{c.points} Pts</span>
             </div>
           ))
         ) : (
