@@ -1,4 +1,4 @@
-import { Download, Globe, Sparkles } from 'lucide-react';
+import { ArrowDownToLine, MapPin } from 'lucide-react'; // Usamos este icono de descarga
 
 interface Props {
   onInstall: () => void;
@@ -8,43 +8,44 @@ interface Props {
 
 export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
-      <div className="mb-12 animate-in zoom-in duration-700">
-        <div className="w-24 h-24 bg-orange-500 rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-orange-500/20">
-          <img src="/logo-final.png" alt="Logo" className="w-16 h-16 object-contain" />
-        </div>
-        <h1 className="text-4xl font-black text-white uppercase italic leading-none tracking-tighter">
-          La Casa del <span className="text-orange-500">Pollazo</span>
-        </h1>
-        <p className="text-gray-400 font-bold mt-2 uppercase tracking-widest text-xs">Puerto Ayora - Galápagos</p>
+    // Pantalla completa, flex en columna, todo centrado, fondo melocotón/naranja
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-[#f39763]">
+      
+      {/* Elemento del logo - Recreando el diseño circular complejo del logo con tu 'logo-final.png' */}
+      <div className="w-36 h-36 rounded-full border-4 border-[#b15f3e] bg-[#f8e8cd] flex items-center justify-center mb-6">
+        {/* El usuario mencionó logo-final.png en el contexto anterior. Usaré ese nombre. */}
+        <img src="/logo-final.png" alt="Logo" className="w-28 h-28 object-contain" />
       </div>
 
-      <div className="w-full max-w-xs space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-        {/* BOTÓN PRINCIPAL: Siempre visible */}
+      {/* Texto GALÁPAGOS • ECUADOR */}
+      <p className="text-[#964a27] text-sm font-bold uppercase tracking-wider mb-2">GALÁPAGOS • ECUADOR</p>
+
+      {/* Título principal: Pollazo El Mirador */}
+      <h1 className="text-5xl font-black text-gray-950 leading-none mb-4">Pollazo El Mirador</h1>
+
+      {/* Sub-descripción: smaller, lighter centered text */}
+      <p className="text-[#a15532] text-sm max-w-sm text-center mb-10 leading-relaxed">
+        Tu market con pollo fresco enfundado y productos esenciales.
+      </p>
+
+      {/* Botón "Instalar App" - Botón grande, blanco, con icono y texto, que conecta a la prop onInstall */}
+      {canInstall && (
         <button 
-          onClick={onContinueWeb}
-          className="w-full py-5 bg-white/10 hover:bg-white/15 text-white font-black rounded-[24px] flex items-center justify-center gap-3 transition-all active:scale-95 border border-white/10"
+          onClick={onInstall}
+          className="flex items-center gap-3 px-10 py-4.5 bg-white text-[#d2754c] font-black rounded-full shadow-lg shadow-black/10 active:scale-95 transition-all mb-4"
         >
-          <Globe size={20} className="text-orange-500" />
-          <span className="uppercase italic text-sm">Continuar en la Web</span>
+          <ArrowDownToLine size={24} className="text-[#d2754c]" />
+          <span className="text-base">Instalar App</span>
         </button>
+      )}
 
-        {/* BOTÓN INSTALAR: Aparece solo si el navegador lo permite */}
-        {canInstall && (
-          <button 
-            onClick={onInstall}
-            className="w-full py-5 bg-orange-500 text-white font-black rounded-[24px] flex items-center justify-center gap-3 shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
-          >
-            <Download size={20} />
-            <span className="uppercase italic text-sm">Instalar Aplicación</span>
-          </button>
-        )}
-      </div>
-
-      <div className="mt-12 flex items-center gap-2 text-gray-500 text-[10px] font-black uppercase tracking-[0.3em]">
-        <Sparkles size={12} className="text-orange-500" />
-        Experiencia Premium
-      </div>
+      {/* Texto vinculado "Explorar Catálogo" - Acts as 'onContinueWeb' */}
+      <button 
+        onClick={onContinueWeb}
+        className="text-[#3c1e11] text-sm font-semibold hover:text-white active:scale-95 transition-colors"
+      >
+        Explorar Catálogo
+      </button>
     </div>
   );
 }
