@@ -31,6 +31,21 @@ function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // 🔥 NUEVA LÓGICA: Fuerza a la App instalada a actualizarse
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        // Revisa si hay una nueva versión en Vercel cada vez que abres la App
+        registration.update();
+      });
+
+      // Si detecta un cambio, recarga la página para aplicar lo nuevo
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!customerPhone) {
       const timer = setTimeout(() => setShowLoginModal(true), 2500);
@@ -73,7 +88,7 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-8">CARGANDO EL POLLAZO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
@@ -95,7 +110,6 @@ function AppShell() {
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
 
-      {/* 🚀 MODALES MOVIDOS AL FINAL PARA DOMINAR EL Z-INDEX */}
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
