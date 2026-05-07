@@ -10,6 +10,8 @@ type LoginModalProps = {
     whatsapp: string;
     avatarUrl: string;
   }) => void;
+  title?: string;
+  subtitle?: string;
 };
 
 const DEFAULT_AVATARS = [
@@ -27,6 +29,8 @@ export default function LoginModal({
   isOpen,
   onClose,
   onLogin,
+  title = 'Únete al Club',
+  subtitle = 'Acumula puntos y gana con tus compras',
 }: LoginModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { customerName, customerPhone, customerAvatar } = useUser();
@@ -150,12 +154,12 @@ export default function LoginModal({
             <div className="flex items-center gap-2">
               <Sparkles className="text-orange-500" size={20} />
               <h2 className="text-xl font-black text-slate-900">
-                Únete al Club
+                {title}
               </h2>
             </div>
 
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Acumula puntos y gana con tus compras
+              {subtitle}
             </p>
           </div>
 
