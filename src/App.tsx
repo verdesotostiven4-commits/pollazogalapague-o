@@ -56,8 +56,10 @@ function AppShell() {
     );
   }
 
+  // ✅ CORRECCIÓN: Esta función ahora cierra el perfil al navegar
   const handleNavigate = (s: any) => {
     setScreen(s);
+    setShowLoginModal(false); // Cierra el modal automáticamente
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
@@ -93,7 +95,6 @@ function AppShell() {
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
         {screen === 'home' && (
-          /* Quitamos el px-6 de aquí para que el banner naranja toque los bordes */
           <div className="pt-0">
             <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
           </div>
@@ -105,7 +106,11 @@ function AppShell() {
       </main>
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => setUserData(u.whatsapp, u.name, u.avatarUrl)} />
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+        onLogin={(u) => setUserData(u.whatsapp, u.name, u.avatarUrl)} 
+      />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
