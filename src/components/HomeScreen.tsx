@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { MessageCircle, Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -24,19 +24,18 @@ const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
-  const { customerName } = useUser();
+  const { customerName, loading: userLoading } = useUser();
   const { products } = useAdmin();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar y agrupar productos de 2 en 2
+  // Filtrar y agrupar productos de 2 en 2 para el carrusel
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
   const pairs = [];
   for (let i = 0; i < bestsellers.length; i += 2) {
     pairs.push(bestsellers.slice(i, i + 2));
   }
 
-  // 1. Sincronizar los puntitos con el scroll del dedo
   const handleScroll = () => {
     if (scrollRef.current) {
       const width = scrollRef.current.offsetWidth;
@@ -46,7 +45,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     }
   };
 
-  // 2. Carrusel Automático (4 segundos)
   useEffect(() => {
     const timer = setInterval(() => {
       if (scrollRef.current) {
@@ -76,6 +74,23 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
+      {/* SECCIÓN DE SALUDO CORREGIDA (BLINDADA CONTRA [object Object]) */}
+      <div className="px-6 pt-8 pb-4 bg-white">
+        {userLoading ? (
+          <div className="animate-pulse">
+            <div className="h-3 w-20 bg-gray-200 rounded-full mb-2"></div>
+            <div className="h-8 w-48 bg-gray-200 rounded-lg"></div>
+          </div>
+        ) : (
+          <>
+            <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
+            <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
+              Hola, <span className="text-orange-500">{typeof customerName === 'string' ? customerName.split(' ') : 'Cliente'}</span> 👋
+            </h2>
+          </>
+        )}
+      </div>
+
       {/* HERO NARANJA COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-lg"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
@@ -98,15 +113,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* SALUDO PERSONALIZADO (Entre el hero y las categorías) */}
-      <div className="px-6 pt-8 pb-2">
-        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
-        <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
-          Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
-        </h2>
-      </div>
-
-      {/* CATEGORÍAS RÁPIDAS (Llevan al catálogo) */}
+      {/* CATEGORÍAS RÁPIDAS */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
@@ -126,7 +133,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* LOS MÁS PEDIDOS (CARRUSEL CON SWIPE NATIVO) */}
+      {/* LOS MÁS PEDIDOS (CON SCROLL SNAP) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -139,7 +146,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
         </div>
         
-        {/* CONTENEDOR CON SCROLL SNAP (Como Instagram) */}
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
@@ -155,7 +161,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           ))}
         </div>
         
-        {/* Puntitos indicadores */}
         <div className="flex justify-center gap-2 mt-6">
           {pairs.map((_, i) => (
             <button 
@@ -167,7 +172,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* INFO STRIP (HORARIO, DELIVERY, GARANTÍA) */}
+      {/* INFO STRIP */}
       <div className="px-4 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
