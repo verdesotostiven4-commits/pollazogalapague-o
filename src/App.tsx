@@ -31,18 +31,32 @@ function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // 🔥 NUEVA LÓGICA: Fuerza a la App instalada a actualizarse
+  // 🚀 LÓGICA DE INSTALACIÓN PWA
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e); // Guardamos el evento para usarlo luego
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt(); // Mostramos el cartel de instalación
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+  // 🔄 AUTO-ACTUALIZACIÓN SERVICE WORKER
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((registration) => {
-        // Revisa si hay una nueva versión en Vercel cada vez que abres la App
-        registration.update();
-      });
-
-      // Si detecta un cambio, recarga la página para aplicar lo nuevo
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
+      navigator.serviceWorker.ready.then((reg) => reg.update());
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
     }
   }, []);
 
@@ -88,7 +102,7 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-8">CARGANDO EL POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
@@ -104,7 +118,15 @@ function AppShell() {
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
+        
+        {/* ✅ AHORA SÍ PASAMOS LAS FUNCIONES REALES A INFOSCREEN */}
+        {screen === 'info' && (
+          <InfoScreen 
+            onInstall={handleInstallApp} 
+            canInstall={!!deferredPrompt} 
+          />
+        )}
+        
         {screen === 'ranking' && <Ranking />}
       </main>
 
@@ -132,10 +154,14 @@ export default function App() {
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
-          localStorage.setItem('pollazo_landing_dismissed', '1'); 
-          setLandingDone(true); 
-        }} />
+        <LandingPage 
+          onInstall={() => {}} 
+          canInstall={false} 
+          onContinueWeb={() => { 
+            localStorage.setItem('pollazo_landing_dismissed', '1'); 
+            setLandingDone(true); 
+          }} 
+        />
       </AdminProvider>
     );
   }
