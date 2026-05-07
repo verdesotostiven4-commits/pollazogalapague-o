@@ -1,16 +1,8 @@
-import { ShoppingCart, ChevronLeft, User } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, User, BarChart2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useRef, useEffect } from 'react';
-
-type Screen = 'home' | 'catalog' | 'cart' | 'info';
-
-const screenTitles: Record<Screen, string> = {
-  home: '',
-  catalog: 'Catálogo',
-  cart: 'Mi Pedido',
-  info: 'Información',
-};
+import { Screen } from '../types';
 
 interface Props {
   screen: Screen;
@@ -20,92 +12,70 @@ interface Props {
   customerAvatar?: string;
 }
 
+const screenTitles: Record<string, string> = {
+  home: '',
+  catalog: 'Catálogo',
+  cart: 'Mi Pedido',
+  info: 'Información',
+  ranking: 'Ranking VIP',
+};
+
 export default function AppHeader({ screen, onNavigate, scrolled: _scrolled, onOpenProfile, customerAvatar }: Props) {
   const { total } = useCart();
   const { cartPop, setCartRef } = useFlyToCart();
   const cartBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
+    if (cartBtnRef.current) {
+      setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
+    }
   }, [setCartRef]);
 
   const isHome = screen === 'home';
 
   return (
-    <header
-      className="flex-shrink-0 safe-area-top bg-white"
-      style={{
-        zIndex: 40,
-        borderBottom: '1px solid rgba(249,115,22,0.10)',
-        boxShadow: '0 1px 12px rgba(0,0,0,0.06)',
-      }}
-    >
-      <div className="flex items-center justify-between px-4 h-14">
-        {/* Izquierda (Logo o Botón de Volver) */}
+    <header className="flex-shrink-0 safe-area-top bg-white border-b border-orange-50 shadow-sm z-40">
+      <div className="flex items-center justify-between px-4 h-14 relative">
+        {/* Izquierda: Logo o Volver */}
         {isHome ? (
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/logo-final.png"
-              alt="logo"
-              className="h-9 w-auto object-contain"
-            />
-            <div>
-              <div className="font-black text-xs leading-none text-gray-900">
-                Pollazo El Mirador
-              </div>
-              <div className="font-bold text-[10px] tracking-wider uppercase leading-none mt-0.5 text-orange-500">
-                Market Especializado
-              </div>
+          <div className="flex items-center gap-2">
+            <img src="/logo-final.png" alt="logo" className="h-9 w-auto" />
+            <div className="flex flex-col">
+              <span className="font-black text-[11px] leading-none text-gray-900 uppercase">Pollazo El Mirador</span>
+              <span className="font-bold text-[9px] text-orange-500 uppercase tracking-tighter">Market Especializado</span>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => onNavigate('home')}
-            className="flex items-center gap-1 text-orange-500 font-semibold text-sm active:opacity-60 transition-opacity"
-          >
-            <ChevronLeft size={20} strokeWidth={2.5} />
-            Inicio
+          <button onClick={() => onNavigate('home')} className="flex items-center gap-1 text-orange-500 font-bold text-sm">
+            <ChevronLeft size={20} strokeWidth={3} /> Inicio
           </button>
         )}
 
-        {/* Título Central */}
+        {/* Centro: Título de pantalla */}
         {!isHome && (
-          <span className="font-bold text-gray-900 text-base absolute left-1/2 -translate-x-1/2 pointer-events-none">
+          <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">
             {screenTitles[screen]}
           </span>
         )}
 
-        {/* Lado Derecho: Botón de Perfil + Carrito */}
+        {/* Derecha: Ranking + Perfil + Carrito */}
         <div className="flex items-center gap-2">
-          
-          {/* Botón de Perfil */}
-          <button
-            onClick={onOpenProfile}
-            className="relative w-10 h-10 flex items-center justify-center rounded-2xl bg-orange-50 active:bg-orange-100 transition-colors overflow-hidden"
+          <button 
+            onClick={() => onNavigate('ranking')}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${screen === 'ranking' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}
           >
-            {customerAvatar ? (
-              <img src={customerAvatar} alt="Perfil" className="w-full h-full object-cover" />
-            ) : (
-              <User size={20} className="text-orange-500" />
-            )}
+            <BarChart2 size={18} />
           </button>
 
-          {/* Botón de Carrito */}
-          <button
-            ref={cartBtnRef}
-            onClick={() => onNavigate('cart')}
-            className={`relative w-10 h-10 flex items-center justify-center rounded-2xl transition-all duration-200 ${
-              screen === 'cart'
-                ? 'bg-orange-500 text-white shadow-md shadow-orange-400/40'
-                : 'bg-orange-50 text-orange-500 active:bg-orange-100'
-            } ${cartPop ? 'scale-125' : ''}`}
-          >
-            <ShoppingCart size={20} />
+          <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center">
+            {customerAvatar ? <img src={customerAvatar} className="w-full h-full object-cover" /> : <User size={18} className="text-orange-500" />}
+          </button>
+
+          <button ref={cartBtnRef} onClick={() => onNavigate('cart')} 
+            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'cart' ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-125' : ''}`}>
+            <ShoppingCart size={18} />
             {total > 0 && (
-              <span
-                className={`absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 ${cartPop ? 'scale-150' : ''}`}
-                style={{ transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
-              >
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm">
                 {total}
               </span>
             )}
