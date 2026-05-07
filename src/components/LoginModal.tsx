@@ -88,10 +88,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
-      {/* Overlay oscuro y desenfocado para tapar el fondo */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
       
-      {/* Tarjeta de perfil - Fondo blanco SÓLIDO y Z-Index alto */}
       <div className="relative z-10 w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100">
         <button type="button" onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
@@ -101,8 +99,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-3">
             <Sparkles size={32} />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 uppercase italic">Mi Perfil VIP</h2>
-          <p className="text-sm font-bold text-gray-400 mt-1">Configura tus datos para el Ranking.</p>
+          <h2 className="text-2xl font-black text-gray-900 uppercase italic">Únete al Club</h2>
+          <p className="text-sm font-bold text-gray-400 mt-1">Acumula puntos y gana con tus compras</p>
         </div>
 
         <div className="space-y-4">
