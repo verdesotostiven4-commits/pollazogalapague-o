@@ -18,6 +18,7 @@ import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
+import { Category } from './types'; // ✅ Importamos Category
 
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
@@ -25,10 +26,10 @@ class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-10 bg-orange-50 min-h-screen text-center">
+        <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
           <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
-          <p className="text-gray-600 mt-2">Estamos actualizando los productos de la tienda.</p>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg">
+          <p className="text-gray-600 mt-2">Estamos sincronizando el sistema de puntos...</p>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform">
             LIMPIAR Y REINTENTAR
           </button>
         </div>
@@ -40,29 +41,35 @@ class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error
 
 function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
+  // ✅ NUEVO: Estado para recordar la categoría seleccionada
+  const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
+  
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
   const { createOrder, loading, products, upsertCustomer } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  
-  // ✅ Estado para saber si el login saltó por obligación al intentar comprar
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  // ✅ Auto-Open Modal después de 3 segundos si no está registrado
   useEffect(() => {
     if (!customerName && !loading) {
-      const timer = setTimeout(() => {
-        setShowLoginModal(true);
-      }, 3000);
+      const timer = setTimeout(() => { setShowLoginModal(true); }, 3000);
       return () => clearTimeout(timer);
     }
   }, [customerName, loading]);
 
   const handleNavigate = (s: any) => {
+    if (s !== 'catalog') setActiveCategory('Todos'); // Si salimos del catálogo, reseteamos el filtro
     setScreen(s);
     setShowLoginModal(false); 
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  };
+
+  // ✅ NUEVA FUNCIÓN: Maneja el click de categorías desde el Home
+  const handleCategoryClick = (cat: Category) => {
+    setActiveCategory(cat); // Guardamos la categoría en memoria
+    setScreen('catalog');   // Saltamos al catálogo
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
@@ -70,12 +77,8 @@ function AppShell() {
     setUserData(u.whatsapp, u.name, u.avatarUrl); 
     try {
       await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
-    } catch (e) {
-      console.error("Error sincronizando perfil:", e);
-    }
+    } catch (e) { console.error("Error perfil:", e); }
     setShowLoginModal(false);
-
-    // ✅ Si venía de intentar hacer un pedido, le abrimos la confirmación automáticamente
     if (pendingOrder) {
       setPendingOrder(false);
       setShowConfirmation(true);
@@ -83,14 +86,12 @@ function AppShell() {
   };
 
   const handleWhatsApp = async () => {
-    // ✅ Bloqueo de pedido si no está registrado
     if (!customerName || !customerPhone) {
-      setPendingOrder(true); // Marcamos que el registro es para terminar un pedido
+      setPendingOrder(true);
       setShowConfirmation(false);
       setShowLoginModal(true);
       return;
     }
-
     const code = orderCode();
     const subtotal = items.reduce((acc, item) => {
       const p = products.find(prod => prod.id === item.id);
@@ -104,6 +105,7 @@ function AppShell() {
       subtotal,
       total: subtotal + deliveryFeeOf(subtotal),
       status: 'Recibido',
+      preorder: !isStoreOpen()
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart();
@@ -121,12 +123,25 @@ function AppShell() {
       />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
+        
         {screen === 'home' && (
           <div className="pt-0">
-            <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
+            {/* ✅ CORREGIDO: Ahora sí pasamos la función que recibe la categoría */}
+            <HomeScreen 
+              onNavigate={handleNavigate} 
+              onNavigateToCategory={handleCategoryClick} 
+            />
           </div>
         )}
-        {screen === 'catalog' && <CatalogScreen initialCategory="Todos" onCategoryChange={() => {}} />}
+
+        {screen === 'catalog' && (
+          /* ✅ CORREGIDO: Le pasamos la categoría que guardamos en memoria */
+          <CatalogScreen 
+            initialCategory={activeCategory} 
+            onCategoryChange={(cat) => setActiveCategory(cat as any)} 
+          />
+        )}
+
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
@@ -134,13 +149,9 @@ function AppShell() {
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
       
-      {/* ✅ LoginModal con Textos Inteligentes */}
       <LoginModal 
         isOpen={showLoginModal} 
-        onClose={() => {
-          setShowLoginModal(false);
-          setPendingOrder(false);
-        }} 
+        onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} 
         onLogin={handleLogin}
         title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"}
         subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"}
