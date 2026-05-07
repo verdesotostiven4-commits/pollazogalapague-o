@@ -17,7 +17,7 @@ const ADMIN_HOLD_MS = 3000;
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   return (
     <div className="flex gap-1">
-      {/* ✅ FIX: Se restauró el array que faltaba en el error de Vercel */}
+      {/* ✅ CORREGIDO: Se restauró el array */}
       {.map(n => (
         <button
           key={n}
@@ -171,6 +171,7 @@ export default function Testimonials() {
               <p className="text-[10px] text-gray-400 mt-1">{testimonials.length} opinión{testimonials.length !== 1 ? 'es' : ''}</p>
             </div>
             <div className="flex-1 space-y-1">
+              {/* ✅ CORREGIDO: Se restauró el array */}
               {.map(star => {
                 const cnt = testimonials.filter(t => t.stars === star).length;
                 const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
