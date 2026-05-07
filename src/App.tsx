@@ -17,13 +17,13 @@ import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking'; 
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
-import { Category, Screen } from './types';
+import { Screen } from './types';
 
 function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading } = useAdmin();
+  const { upsertCustomer, createOrder, loading, products } = useAdmin();
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -56,36 +56,47 @@ function AppShell() {
     clearCart(); setShowConfirmation(false); setScreen('home');
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse">CARGANDO POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO POLLAZO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
+      {/* Pasamos handleNavigate al Header para que el nuevo botón de Ranking funcione */}
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        scrolled={false} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar} 
+      />
+      
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
+        
         {screen === 'home' && (
-           <div className="px-6 pt-6">
-              <div className="bg-white p-6 rounded-[32px] shadow-sm border border-orange-100 mb-6 text-center">
-                 <h2 className="font-black text-2xl text-gray-900 italic">Hola, {customerName || 'Cliente'}</h2>
-                 <button onClick={() => handleNavigate('ranking')} className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-orange-200">
-                    🏆 Ver Ranking de Clientes
-                 </button>
-              </div>
-              <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
+           <div className="animate-in fade-in duration-500">
+             <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
            </div>
         )}
+
         {screen === 'catalog' && <CatalogScreen initialCategory="Todos" onCategoryChange={() => {}} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
+
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => { 
+      
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+        onLogin={(u) => { 
           setUserData(u.whatsapp, u.name, u.avatarUrl); 
           setShowLoginModal(false); 
           upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
-      }} />
+        }} 
+      />
+      
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -99,7 +110,7 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
+  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminDashboard>;
 
   if (!landingDone) {
     return (
