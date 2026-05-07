@@ -26,7 +26,7 @@ function AppShell() {
   const [showTracking, setShowTracking] = useState(false);
   
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading } = useAdmin();
+  const { upsertCustomer, createOrder, loading, fetchOrders } = useAdmin(); // ✅ Añadido fetchOrders
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -37,6 +37,12 @@ function AppShell() {
       return () => clearTimeout(timer);
     }
   }, [customerPhone]);
+
+  // 🔄 RECARGA AUTOMÁTICA: Cada 30 segundos buscamos si hay cambios en las órdenes
+  useEffect(() => {
+    const interval = setInterval(() => fetchOrders(), 30000);
+    return () => clearInterval(interval);
+  }, [fetchOrders]);
 
   const handleNavigate = useCallback((s: Screen) => {
     setScreen(s);
@@ -64,8 +70,10 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
-    // ✅ Abrimos el rastreo automáticamente después de pedir
-    setTimeout(() => setShowTracking(true), 1500);
+    setTimeout(() => {
+      fetchOrders(); // Refrescar para que aparezca ya
+      setShowTracking(true);
+    }, 2000);
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
@@ -74,7 +82,7 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-8">CARGANDO EL POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
