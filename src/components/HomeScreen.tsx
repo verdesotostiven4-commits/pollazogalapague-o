@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { MessageCircle, Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
+import { Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import ProductCard from './ProductCard';
@@ -14,13 +14,14 @@ interface Props {
 
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
-const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
-  { label: 'Pollos', icon: '🍗' },
-  { label: 'Embutidos', icon: '🥓' },
-  { label: 'Bebidas', icon: '🥤' },
-  { label: 'Lácteos y refrigerados', icon: '🥛' },
-  { label: 'Abarrotes y básicos', icon: '🌾' },
-  { label: 'Snacks y dulces', icon: '🍫' },
+// CATEGORÍAS ACORTADAS
+const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
+  { label: 'Pollos', target: 'Pollos', icon: '🍗' },
+  { label: 'Embutidos', target: 'Embutidos', icon: '🥓' },
+  { label: 'Bebidas', target: 'Bebidas', icon: '🥤' },
+  { label: 'LÁCTEOS', target: 'Lácteos y refrigerados', icon: '🥛' },
+  { label: 'ABARROTES', target: 'Abarrotes y básicos', icon: '🌾' },
+  { label: 'Snacks', target: 'Snacks y dulces', icon: '🍫' },
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
@@ -49,10 +50,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       if (scrollRef.current) {
         const nextIndex = (activeIndex + 1) % pairs.length;
         const width = scrollRef.current.offsetWidth;
-        scrollRef.current.scrollTo({
-          left: nextIndex * width,
-          behavior: 'smooth'
-        });
+        scrollRef.current.scrollTo({ left: nextIndex * width, behavior: 'smooth' });
       }
     }, 4500);
     return () => clearInterval(timer);
@@ -66,14 +64,14 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   };
 
   const openWhatsApp = () => {
-    window.open(`https://wa.me/${WHATSAPP.replace(/\D/g, '')}?text=Hola%2C%20quiero%20hacer%20un%20pedido%20en%20La%20Casa%20del%20Pollazo%20El%20Mirador.`, '_blank');
+    window.open(`https://wa.me/${WHATSAPP.replace(/\D/g, '')}?text=Hola%2C%20quiero%20hacer%20un%20pedido.`, '_blank');
   };
 
   return (
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA - DISEÑO ORIGINAL */}
+      {/* 1. HERO NARANJA - ANCHO COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
@@ -97,17 +95,17 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 2. SALUDO PERSONALIZADO */}
+      {/* 2. SALUDO PERSONALIZADO (AQUÍ SÍ PX-6) */}
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
-        <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight text-gray-900">
-          Hola, <span className="text-orange-500">{typeof customerName === 'string' ? customerName.split(' ') : 'Cliente'}</span> 👋
+        <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
+          Hola, <span className="text-orange-500">{typeof customerName === 'string' ? customerName : 'Cliente'}</span> 👋
         </h2>
       </div>
 
-      {/* 3. CATEGORÍAS RÁPIDAS (6 ITEMS) */}
-      <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-4 px-2">
+      {/* 3. CATEGORÍAS RÁPIDAS (PX-6) */}
+      <div className="px-6 py-6">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
           <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all">Ver todo <ChevronRight size={12}/></button>
         </div>
@@ -115,19 +113,19 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           {QUICK_CATEGORIES.map((cat) => (
             <button 
               key={cat.label} 
-              onClick={() => onNavigateToCategory(cat.label)}
+              onClick={() => onNavigateToCategory(cat.target)}
               className="bg-white border border-orange-50 p-4 rounded-[24px] flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-orange-50"
             >
               <span className="text-2xl">{cat.icon}</span>
-              <span className="text-[9px] font-black text-gray-600 uppercase text-center leading-none">{cat.label.split(' ')}</span>
+              <span className="text-[9px] font-black text-gray-600 uppercase text-center leading-none tracking-tighter">{cat.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS (EL FAMOSO CARRUSEL DUAL) */}
-      <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-6 px-2">
+      {/* 4. LOS MÁS PEDIDOS (PX-6) */}
+      <div className="px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">🔥</span>
             <h3 className="font-black text-gray-900 uppercase italic tracking-tight text-lg">Los más pedidos</h3>
@@ -138,15 +136,11 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
         </div>
         
-        {/* ✅ FIX DEFINITIVO: Cambiamos a touch-auto para liberar ambos ejes */}
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
           className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-auto"
-          style={{ 
-            scrollBehavior: 'smooth', 
-            WebkitOverflowScrolling: 'touch'
-          }}
+          style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
         >
           {pairs.map((pair, i) => (
             <div key={i} className="min-w-full snap-center grid grid-cols-2 gap-4 px-1 pb-2">
@@ -170,8 +164,8 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. INFO STRIP (ICONOS) */}
-      <div className="px-4 py-4 mb-4">
+      {/* 5. INFO STRIP (PX-6) */}
+      <div className="px-6 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Clock size={18}/></div>
