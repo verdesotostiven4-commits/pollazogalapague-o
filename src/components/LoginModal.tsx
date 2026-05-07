@@ -1,248 +1,190 @@
-import React, { useRef, useState } from "react";
-import { Camera, Phone, User, X, Sparkles } from "lucide-react";
+import React, { useRef, useState } from 'react'; import { Camera, Phone, User, X, Sparkles } from 'lucide-react';
 
-type LoginData = {
-  name: string;
-  whatsapp: string;
-  avatarUrl: string;
+type LoginModalProps = { isOpen: boolean; onClose: () => void; onSave: (payload: { name: string; phone: string; avatar: string; }) => void; };
+
+const DEFAULT_AVATARS = [ 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo1', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo2', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo3', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo4', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo5', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo6', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo7', 'https://api.dicebear.com/8.x/adventurer/svg?seed=pollo8', ];
+
+export default function LoginModal({ isOpen, onClose, onSave, }: LoginModalProps) { const inputRef = useRef<HTMLInputElement | null>(null);
+
+const [name, setName] = useState(''); const [phone, setPhone] = useState(''); const [avatar, setAvatar] = useState(DEFAULT_AVATARS[0]); const [error, setError] = useState(''); const [isProcessing, setIsProcessing] = useState(false);
+
+const handleFileChange = async ( e: React.ChangeEvent<HTMLInputElement> ) => { const file = e.target.files;
+
+if (!file || !file[0]) return;
+
+const selectedFile = file[0];
+setIsProcessing(true);
+
+try {
+  const imageUrl = URL.createObjectURL(selectedFile);
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = imageUrl;
+  });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    URL.revokeObjectURL(imageUrl);
+    return;
+  }
+
+  const SIZE = 256;
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  const sourceWidth = img.width;
+  const sourceHeight = img.height;
+
+  const cropSize = Math.min(sourceWidth, sourceHeight);
+  const cropX = (sourceWidth - cropSize) / 2;
+  const cropY = (sourceHeight - cropSize) / 2;
+
+  ctx.drawImage(
+    img,
+    cropX,
+    cropY,
+    cropSize,
+    cropSize,
+    0,
+    0,
+    SIZE,
+    SIZE
+  );
+
+  const compressed = canvas.toDataURL('image/jpeg', 0.8);
+  setAvatar(compressed);
+
+  URL.revokeObjectURL(imageUrl);
+} catch (err) {
+  console.error('Error processing image:', err);
+} finally {
+  setIsProcessing(false);
+}
+
 };
 
-type LoginModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onLogin: (data: LoginData) => void;
+const handleSave = () => { if (!name.trim() || !phone.trim()) { setError('Por favor, completa los campos'); return; }
+
+setError('');
+
+onSave({
+  name: name.trim(),
+  phone: phone.trim(),
+  avatar,
+});
+
 };
 
-const predefinedAvatars = [
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Pollazo",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Mirador",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Randy",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Cliente",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Pollo",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Club",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Fuego",
-  "https://api.dicebear.com/8.x/adventurer/svg?seed=Puntos",
-];
+if (!isOpen) return null;
 
-export default function LoginModal({
-  isOpen,
-  onClose,
-  onLogin,
-}: LoginModalProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+return ( <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-md p-4"> <div className="relative w-full max-w-sm rounded-3xl bg-white shadow-2xl p-5"> <button
+onClick={onClose}
+className="absolute right-4 top-4 rounded-full p-1 text-slate-500 transition hover:bg-slate-100"
+> <X size={18} /> </button>
 
-  const [name, setName] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(predefinedAvatars[0]);
-  const [isProcessing, setIsProcessing] = useState(false);
+<div className="mb-4 flex items-center gap-2">
+      <Sparkles className="text-orange-500" size={18} />
+      <h2 className="text-lg font-bold text-slate-800">
+        Tu perfil Pollazo
+      </h2>
+    </div>
 
-  if (!isOpen) return null;
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    const file = files[0];
-
-    if (!file || !(file instanceof Blob)) {
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      alert("Por favor selecciona una imagen válida.");
-      return;
-    }
-
-    setIsProcessing(true);
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const image = new Image();
-
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 160;
-        canvas.height = 160;
-
-        const ctx = canvas.getContext("2d");
-
-        if (!ctx) {
-          setIsProcessing(false);
-          return;
-        }
-
-        ctx.clearRect(0, 0, 160, 160);
-        ctx.drawImage(image, 0, 0, 160, 160);
-
-        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
-
-        setAvatarUrl(compressedBase64);
-        setIsProcessing(false);
-      };
-
-      image.onerror = () => {
-        setIsProcessing(false);
-        alert("No se pudo procesar la imagen.");
-      };
-
-      if (typeof reader.result === "string") {
-        image.src = reader.result;
-      } else {
-        setIsProcessing(false);
-      }
-    };
-
-    reader.onerror = () => {
-      setIsProcessing(false);
-      alert("No se pudo leer el archivo.");
-    };
-
-    reader.readAsDataURL(file);
-
-    e.target.value = "";
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const cleanName = name.trim();
-    const cleanWhatsapp = whatsapp.trim();
-
-    if (!cleanName || !cleanWhatsapp) {
-      alert("Completa tu nombre y WhatsApp.");
-      return;
-    }
-
-    onLogin({
-      name: cleanName,
-      whatsapp: cleanWhatsapp,
-      avatarUrl,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[32px] bg-white p-6 shadow-2xl">
-        <div className="absolute left-0 top-0 h-32 w-full bg-gradient-to-br from-orange-500 to-orange-600" />
+    <div className="mb-4 flex justify-center">
+      <div className="relative">
+        <img
+          src={avatar}
+          alt="avatar"
+          className="h-20 w-20 rounded-3xl object-cover border-4 border-orange-500 shadow-lg"
+        />
 
         <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 z-10 rounded-full bg-white/20 p-2 text-white backdrop-blur-md transition hover:bg-white/30 active:scale-95"
+          onClick={() => inputRef.current?.click()}
+          className="absolute -bottom-2 -right-2 rounded-full bg-orange-500 p-2 text-white shadow-lg"
+          disabled={isProcessing}
         >
-          <X size={20} />
+          <Camera size={14} />
         </button>
-
-        <div className="relative z-10 mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-md">
-            <Sparkles size={28} />
-          </div>
-
-          <h2 className="text-2xl font-black text-white">
-            Pollazo El Mirador
-          </h2>
-
-          <p className="mt-1 text-sm font-medium text-orange-50">
-            Ingresa al club de puntos y gana recompensas.
-          </p>
-        </div>
-
-        <div className="relative z-10 rounded-[28px] bg-white p-4 shadow-xl">
-          <div className="mb-5 flex flex-col items-center">
-            <img
-              src={avatarUrl}
-              alt="Avatar seleccionado"
-              className="h-28 w-28 rounded-full border-4 border-orange-500 bg-orange-50 object-cover shadow-lg"
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
-              className="mt-3 flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:bg-orange-600 active:scale-95 disabled:opacity-60"
-            >
-              <Camera size={17} />
-              {isProcessing ? "Procesando..." : "Subir foto"}
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </div>
-
-          <div className="mb-5 grid grid-cols-4 gap-3">
-            {predefinedAvatars.map((avatar) => {
-              const isSelected = avatarUrl === avatar;
-
-              return (
-                <button
-                  key={avatar}
-                  type="button"
-                  onClick={() => setAvatarUrl(avatar)}
-                  className={`rounded-2xl border-4 bg-orange-50 p-1 transition duration-200 hover:scale-105 active:scale-95 ${
-                    isSelected
-                      ? "border-orange-500 shadow-md"
-                      : "border-transparent hover:border-orange-200"
-                  }`}
-                >
-                  <img
-                    src={avatar}
-                    alt="Avatar"
-                    className="h-14 w-full rounded-xl object-cover"
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-black text-gray-700">
-                <User size={17} className="text-orange-500" />
-                Nombre
-              </span>
-
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Randy"
-                className="h-14 w-full rounded-2xl border border-gray-200 bg-gray-100 px-5 text-base font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-black text-gray-700">
-                <Phone size={17} className="text-orange-500" />
-                WhatsApp
-              </span>
-
-              <input
-                type="tel"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="Ej: 0987654321"
-                className="h-14 w-full rounded-2xl border border-gray-200 bg-gray-100 px-5 text-base font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="mt-2 w-full rounded-2xl bg-orange-500 px-5 py-4 text-lg font-black text-white shadow-xl shadow-orange-200 transition hover:bg-orange-600 active:scale-95"
-            >
-              Guardar
-            </button>
-          </form>
-        </div>
       </div>
     </div>
-  );
-}
+
+    <input
+      ref={inputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={handleFileChange}
+    />
+
+    <div className="mb-3 grid grid-cols-4 gap-2">
+      {DEFAULT_AVATARS.map((item, index) => (
+        <button
+          key={index}
+          onClick={() => setAvatar(item)}
+          className={`overflow-hidden rounded-2xl border-2 shadow-sm transition ${
+            avatar === item
+              ? 'border-orange-500 scale-95'
+              : 'border-transparent'
+          }`}
+        >
+          <img
+            src={item}
+            alt={`avatar-${index}`}
+            className="h-14 w-full object-cover"
+          />
+        </button>
+      ))}
+    </div>
+
+    <div className="space-y-3">
+      <div className="relative">
+        <User
+          size={16}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ej: Stiven Verdesoto"
+          className="h-12 w-full rounded-2xl bg-slate-100 pl-11 pr-4 outline-none ring-2 ring-transparent focus:ring-orange-500"
+        />
+      </div>
+
+      <div className="relative">
+        <Phone
+          size={16}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Tu WhatsApp"
+          inputMode="numeric"
+          className="h-12 w-full rounded-2xl bg-slate-100 pl-11 pr-4 outline-none ring-2 ring-transparent focus:ring-orange-500"
+        />
+      </div>
+    </div>
+
+    <div className="mt-4 min-h-[20px]">
+      {error && (
+        <p className="text-xs font-medium text-red-500">{error}</p>
+      )}
+    </div>
+
+    <button
+      onClick={handleSave}
+      className="mt-1 h-12 w-full rounded-2xl bg-orange-500 font-semibold text-white shadow-lg transition active:scale-95"
+    >
+      Guardar
+    </button>
+  </div>
+</div>
+
+); }
