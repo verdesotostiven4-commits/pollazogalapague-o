@@ -27,11 +27,12 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
 
   const isHome = screen === 'home';
 
-  // Verificar si hay un pedido activo para mostrar el puntito verde
-  const cleanUser = customerPhone ? customerPhone.replace(/\D/g, '').slice(-9) : '';
+  // Punto verde si hay pedido activo
+  const userNum = customerPhone ? customerPhone.replace(/\D/g, '') : '';
   const hasActiveOrder = orders?.some(o => {
-    const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-9);
-    return cleanOrder === cleanUser && ['Recibido', 'Preparando', 'Enviado'].includes(o.status);
+    const orderNum = (o.customer_phone || '').replace(/\D/g, '');
+    const match = orderNum.length >= 8 && userNum.length >= 8 && orderNum.slice(-8) === userNum.slice(-8);
+    return match && ['Recibido', 'Preparando', 'Enviado'].includes(o.status);
   });
 
   return (
@@ -55,7 +56,7 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
           {isHome && (
             <button onClick={onOpenTracking} className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform">
               <PackageSearch size={18} />
-              {hasActiveOrder && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />}
+              {hasActiveOrder && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse shadow-sm" />}
             </button>
           )}
           <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
