@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import { Truck, CheckCircle2, ClipboardList, ChevronUp, ChevronDown, X, ShoppingBag, Info } from 'lucide-react';
+import { Truck, CheckCircle2, ClipboardList, X, ShoppingBag, Info, Sparkles } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { OrderStatus } from '../types';
 
 interface Props {
-  isMinimized: boolean;
-  onMinimize: () => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const statusSteps: Array<{ status: OrderStatus; label: string; icon: any }> = [
@@ -16,55 +15,51 @@ const statusSteps: Array<{ status: OrderStatus; label: string; icon: any }> = [
   { status: 'Entregado', label: 'Entregado', icon: CheckCircle2 },
 ];
 
-export default function OrderTracking({ isMinimized, onMinimize }: Props) {
+export default function OrderTracking({ isOpen, onClose }: Props) {
   const { orders } = useAdmin();
   const { customerPhone } = useUser();
-  const [isOpen, setIsOpen] = useState(false);
 
-  // No mostrar nada si el usuario lo minimizó (ya se ve en el header)
-  if (isMinimized) return null;
+  if (!isOpen) return null;
 
-  const cleanUser = customerPhone ? customerPhone.slice(-7) : null;
+  // Limpiamos el número para comparar bien (últimos 8 dígitos)
+  const cleanUser = customerPhone ? customerPhone.replace(/\D/g, '').slice(-8) : '';
   
-  // Buscar pedidos con estados de "Push" (Preparando o Enviado)
-  const activeOrder = orders?.find(o => {
-    const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-7);
-    const isPushStatus = ['Preparando', 'Enviado'].includes(o.status);
-    const isRecent = new Date(o.created_at || '').getTime() > Date.now() - (12 * 60 * 60 * 1000);
-    return cleanOrder === cleanUser && isPushStatus && isRecent;
-  });
+  // Buscamos el pedido más reciente del usuario
+  const activeOrder = orders
+    ?.filter(o => {
+      const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-8);
+      const isRecent = new Date(o.created_at || '').getTime() > Date.now() - (24 * 60 * 60 * 1000);
+      return cleanOrder === cleanUser && isRecent && o.status !== 'Cancelado';
+    })
+    .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
-  const isPushActive = !!activeOrder;
+  // Solo consideramos "Rastreo Activo" si tú ya le diste al Push (Preparando o Enviado)
+  const isTrackingNow = activeOrder && ['Preparando', 'Enviado', 'Entregado'].includes(activeOrder.status);
 
   return (
-    <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end pointer-events-none">
-      {isOpen && (
-        <div className="mb-3 w-[85vw] max-w-[340px] bg-white rounded-[32px] p-6 shadow-2xl border-2 border-orange-500 animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider ${isPushActive ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-                {isPushActive ? 'Seguimiento en Vivo' : 'Nueva Función'}
-              </span>
-              <p className="text-lg font-black text-gray-900 mt-1">
-                {isPushActive ? `Orden #${activeOrder.order_code}` : 'Rastrea tus Pedidos'}
-              </p>
-            </div>
-            {/* Si hay push activo, permitimos minimizar al header con la X */}
-            <button 
-              onClick={() => {
-                if (isPushActive) onMinimize();
-                setIsOpen(false);
-              }} 
-              className="p-2 hover:bg-gray-100 rounded-full"
-            >
-              <X size={18} className="text-gray-400" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z- flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-300">
+        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+          <X size={20} />
+        </button>
 
-          {isPushActive ? (
-            /* VISTA DE RASTREO REAL */
-            <div className="relative flex justify-between items-center px-1 py-4">
-              <div className="absolute left-0 right-0 top-[34px] h-[3px] bg-gray-100 rounded-full" />
+        <div className="text-center mb-6 mt-4">
+          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 ${isTrackingNow ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-500'}`}>
+            {isTrackingNow ? <Truck size={32} /> : <Sparkles size={32} />}
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 uppercase italic">
+            {isTrackingNow ? 'Pedido en Curso' : 'Rastreo de Pedidos'}
+          </h2>
+          <p className="text-sm font-bold text-gray-400 mt-1">
+            {isTrackingNow ? `Orden #${activeOrder.order_code}` : 'Nueva función exclusiva'}
+          </p>
+        </div>
+
+        {isTrackingNow ? (
+          /* PASOS DEL PEDIDO (VISTA REAL) */
+          <div className="py-4">
+            <div className="relative flex justify-between items-center px-1 mb-8">
+              <div className="absolute left-0 right-0 top-[20px] h-[3px] bg-gray-100 rounded-full" />
               {statusSteps.map((step, idx) => {
                 const currentStatusIdx = statusSteps.findIndex(s => s.status === activeOrder.status);
                 const isCompleted = currentStatusIdx >= idx;
@@ -73,47 +68,41 @@ export default function OrderTracking({ isMinimized, onMinimize }: Props) {
                 return (
                   <div key={step.status} className="flex flex-col items-center gap-2 z-10">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${isCompleted ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border-2 border-gray-100 text-gray-300'} ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}>
-                      <Icon size={18} className={isCurrent && step.status === 'Preparando' ? 'animate-bounce' : ''} />
+                      <Icon size={18} />
                     </div>
                     <span className={`text-[8px] font-black uppercase tracking-tighter ${isCompleted ? 'text-gray-900' : 'text-gray-300'}`}>{step.label}</span>
                   </div>
                 );
               })}
             </div>
-          ) : (
-            /* VISTA DE INTRO / TUTORIAL */
-            <div className="py-2">
-              <p className="text-xs text-gray-500 font-bold leading-relaxed">
-                ¡Ahora puedes ver el progreso de tu compra en tiempo real! Cuando confirmemos tu pedido, aparecerá aquí el estado de entrega. 🛵💨
-              </p>
-              <div className="mt-4 p-3 bg-blue-50 rounded-2xl flex items-center gap-3">
-                <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm"><Info size={16}/></div>
-                <span className="text-[10px] font-black text-blue-700 uppercase">¡Te avisaremos cuando salga tu pollo!</span>
-              </div>
+            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-center">
+               <p className="text-xs font-black text-orange-600 uppercase tracking-widest">
+                  {activeOrder.status === 'Preparando' && 'Estamos empacando tus productos...'}
+                  {activeOrder.status === 'Enviado' && '¡Tu pedido va en camino a tu casa!'}
+                  {activeOrder.status === 'Entregado' && '¡Pedido entregado! ¡Buen provecho!'}
+               </p>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* BOTÓN FLOTANTE PRINCIPAL */}
-      <button 
-        onClick={() => setIsOpen(!isOpen)} 
-        className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border-2 transition-all active:scale-95 ${isPushActive ? 'bg-white text-orange-500 border-orange-500 animate-bounce-subtle' : 'bg-white text-gray-400 border-gray-100'}`}
-      >
-        <div className="relative">
-          <ShoppingBag size={20} />
-          {isPushActive && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />}
-        </div>
-        <div className="flex flex-col items-start leading-none">
-          <span className="text-[9px] font-black text-gray-400 uppercase">
-            {isPushActive ? 'Estado:' : 'Seguimiento'}
-          </span>
-          <span className={`text-[12px] font-black uppercase mt-1 ${isPushActive ? 'text-gray-900' : 'text-gray-300'}`}>
-            {isPushActive ? activeOrder.status : 'NUEVO'}
-          </span>
-        </div>
-        {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-      </button>
+          </div>
+        ) : (
+          /* INTRO / NO HAY PEDIDO */
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500 font-bold leading-relaxed text-center">
+              ¡Hola! Aquí podrás ver el progreso de tu compra en tiempo real. Cuando realices un pedido y lo confirmemos, el repartidor activará este seguimiento. 🛵💨
+            </p>
+            <div className="p-4 bg-blue-50 rounded-[24px] flex items-center gap-4">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0">
+                <Info size={20}/>
+              </div>
+              <p className="text-[10px] font-black text-blue-700 uppercase leading-tight">
+                Te notificaremos aquí mismo cuando tu pedido salga del market.
+              </p>
+            </div>
+            <button onClick={onClose} className="w-full py-4 bg-gray-900 text-white font-black rounded-2xl text-xs uppercase tracking-widest active:scale-95 transition-all">
+              Entendido
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
