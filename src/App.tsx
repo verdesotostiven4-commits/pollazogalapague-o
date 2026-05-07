@@ -19,7 +19,6 @@ import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
 
-// Atrapador de errores para que la pantalla no se ponga blanca
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
@@ -85,17 +84,17 @@ function AppShell() {
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar} 
+      />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
         {screen === 'home' && (
-          <div className="px-6 pt-6">
-            <div className="bg-white p-6 rounded-[32px] shadow-xl border-2 border-orange-50 mb-6 text-center">
-               <h2 className="font-black text-2xl text-gray-900 italic">Hola, {customerName || 'Cliente'}</h2>
-               <button onClick={() => handleNavigate('ranking')} className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-orange-200">
-                 🏆 Ver Ranking de Clientes
-               </button>
-            </div>
+          /* Quitamos el px-6 de aquí para que el banner naranja toque los bordes */
+          <div className="pt-0">
             <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
           </div>
         )}
@@ -114,16 +113,12 @@ function AppShell() {
 
 export default function App() {
   const [landingDone, setLandingDone] = useState(() => {
-    // 1. Detectar si ya está instalado (Standalone mode)
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    // 2. Detectar si ya lo aceptó en esta sesión o permanentemente
     const isDismissed = !!localStorage.getItem('pollazo_landing_dismissed');
-    
     return isPWA || isDismissed;
   });
 
   useEffect(() => {
-    // PWA Auto-update logic
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(reg => reg.update());
     }
