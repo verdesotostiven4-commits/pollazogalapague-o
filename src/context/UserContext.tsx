@@ -1,15 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
 
 interface UserContextType {
   customerPhone: string;
   customerName: string;
   customerAvatar: string;
-  points: number;
-  lastSpin: string | null;
   setUserData: (phone: string, name: string, avatar: string) => void;
-  addPollazoPuntos: (amount: number) => Promise<boolean>;
-  refreshUserData: () => Promise<void>;
   logout: () => void;
 }
 
@@ -19,70 +14,39 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerAvatar, setCustomerAvatar] = useState('');
-  const [points, setPoints] = useState(0);
-  const [lastSpin, setLastSpin] = useState<string | null>(null);
 
   useEffect(() => {
     const p = localStorage.getItem('pollazo_customer_phone');
     const n = localStorage.getItem('pollazo_customer_name');
     const a = localStorage.getItem('pollazo_customer_avatar');
-    if (p) {
-      setCustomerPhone(p);
-      setCustomerName(n || '');
-      setCustomerAvatar(a || '');
-      fetchDatabaseData(p);
-    }
+    if (p) setCustomerPhone(p);
+    if (n) setCustomerName(n);
+    if (a) setCustomerAvatar(a);
   }, []);
 
-  const fetchDatabaseData = async (phone: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('points, last_roulette_spin')
-        .eq('phone', phone)
-        .maybeSingle(); // Usamos maybeSingle para evitar errores si no existe
-
-      if (data && !error) {
-        setPoints(data.points || 0);
-        setLastSpin(data.last_roulette_spin);
-      }
-    } catch (e) {
-      console.error("Error fetching user data:", e);
-    }
-  };
-
   const setUserData = (phone: string, name: string, avatar: string) => {
-    const clean = (phone || '').replace(/\D/g, '');
+    const clean = phone.replace(/\D/g, '');
+    
+    // Guardar en Estado
     setCustomerPhone(clean);
     setCustomerName(name);
     setCustomerAvatar(avatar);
+    
+    // Guardar en LocalStorage (Persistencia real)
     localStorage.setItem('pollazo_customer_phone', clean);
     localStorage.setItem('pollazo_customer_name', name);
     localStorage.setItem('pollazo_customer_avatar', avatar);
-    fetchDatabaseData(clean);
   };
-
-  const addPollazoPuntos = async (amount: number): Promise<boolean> => {
-    if (!customerPhone) return false;
-    const { data: current } = await supabase.from('customers').select('points').eq('phone', customerPhone).single();
-    const newPoints = (current?.points || 0) + amount;
-    const { error } = await supabase.from('customers').update({ points: newPoints, last_roulette_spin: new Date().toISOString() }).eq('phone', customerPhone);
-    if (!error) { setPoints(newPoints); return true; }
-    return false;
-  };
-
-  const refreshUserData = async () => { if (customerPhone) await fetchDatabaseData(customerPhone); };
 
   const logout = () => {
-    localStorage.clear();
-    setCustomerPhone(''); setCustomerName(''); setCustomerAvatar(''); setPoints(0); setLastSpin(null);
+    localStorage.removeItem('pollazo_customer_phone');
+    localStorage.removeItem('pollazo_customer_name');
+    localStorage.removeItem('pollazo_customer_avatar');
+    setCustomerPhone(''); setCustomerName(''); setCustomerAvatar('');
   };
 
   return (
-    <UserContext.Provider value={{ 
-      customerPhone, customerName, customerAvatar, points, lastSpin,
-      setUserData, addPollazoPuntos, refreshUserData, logout 
-    }}>
+    <UserContext.Provider value={{ customerPhone, customerName, customerAvatar, setUserData, logout }}>
       {children}
     </UserContext.Provider>
   );
@@ -90,6 +54,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (!context) return {} as UserContextType; // Retornamos objeto vacío en lugar de tirar error
+  if (!context) throw new Error('useUser debe usarse dentro de UserProvider');
   return context;
 };
