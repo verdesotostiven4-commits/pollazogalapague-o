@@ -42,7 +42,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido upsertCustomer
+  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -62,18 +62,14 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  // ✅ NUEVA LÓGICA DE GUARDADO: Sincroniza local y nube
+  // ✅ NUEVA LÓGICA: Sincroniza foto/nombre con Supabase
   const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
-    // 1. Guardar en el celular (Local)
-    setUserData(u.whatsapp, u.name, u.avatarUrl);
-    
-    // 2. Subir a Supabase (Nube) para el Ranking
+    setUserData(u.whatsapp, u.name, u.avatarUrl); // Guarda local
     try {
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl);
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); // Sube a la nube
     } catch (e) {
-      console.error("Error al sincronizar con la nube:", e);
+      console.error("Error sincronizando perfil:", e);
     }
-    
     setShowLoginModal(false);
   };
 
@@ -123,7 +119,7 @@ function AppShell() {
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
-        onLogin={handleLogin} // ✅ Usamos la nueva función
+        onLogin={handleLogin} // ✅ Nueva función
       />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
