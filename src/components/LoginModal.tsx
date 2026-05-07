@@ -21,6 +21,11 @@ const AVATARS = [
 // 🛠️ TRITURADOR V3 (A prueba de balas móviles)
 const compressImageNative = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
+    // Doble validación por si el celular manda basura
+    if (!file || !(file instanceof Blob)) {
+      return reject(new Error("El archivo seleccionado no es válido."));
+    }
+
     const reader = new FileReader();
     
     reader.onload = (event) => {
@@ -51,7 +56,7 @@ const compressImageNative = (file: File): Promise<string> => {
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/jpeg', 0.6));
         } else {
-          reject(new Error("No se pudo crear el lienzo (canvas)"));
+          reject(new Error("No se pudo procesar la imagen."));
         }
       };
       img.onerror = () => reject(new Error("El archivo no es una imagen válida o está dañado."));
@@ -92,13 +97,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files ? e.target.files : null; 
     
-    // ✅ FIX: Reseteamos el valor del input para que te deje elegir la misma foto 2 veces si te equivocaste
-    if (e.target) e.target.value = ''; 
-    
     if (!file) return;
-
-    // ✅ FIX: Quitamos la validación estricta de "image/" porque bloquea algunos iPhones/Androids.
-    // Dejamos que el Triturador intente leerlo a la fuerza.
 
     setIsCompressing(true);
 
@@ -106,12 +105,13 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       const base64data = await compressImageNative(file);
       setUploadedImage(base64data);
       setSelectedAvatar(base64data);
-      setIsCompressing(false);
     } catch (error: any) {
       console.error('Error al procesar la foto:', error);
-      // ✅ AHORA TE AVISARÁ EL ERROR EXACTO EN VEZ DE QUEDARSE CALLADO
       alert(`No pudimos cargar la foto: ${error.message || 'Intenta con otra.'}`);
+    } finally {
       setIsCompressing(false);
+      // ✅ FIX VITAL: Limpiamos el input DESPUÉS de procesar, nunca antes.
+      if (e.target) e.target.value = ''; 
     }
   };
 
@@ -164,7 +164,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             )}
           </button>
           
-          {/* ✅ input tipo file oculto. Acepta todas las imágenes */}
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           
           {AVATARS.map((avatar, idx) => (
