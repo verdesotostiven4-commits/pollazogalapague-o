@@ -37,9 +37,14 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
   const isTrackingNow = activeOrder && ['Preparando', 'Enviado', 'Entregado'].includes(activeOrder.status);
 
   return (
-    <div className="fixed inset-0 z- flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-300">
-        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+    // ✅ CORRECCIÓN DE Z-INDEX Y FONDO SÓLIDO (Igual que el LoginModal)
+    <div className="fixed inset-0 z- flex items-center justify-center p-4">
+      {/* Overlay oscuro y desenfocado para tapar el fondo (bg-black/80 para que no trasluzca) */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      
+      {/* Tarjeta del rastreo - Fondo blanco SÓLIDO y Z-Index alto */}
+      <div className="relative z-10 w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100">
+        <button type="button" onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
 
@@ -76,7 +81,7 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
               })}
             </div>
             <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-center">
-               <p className="text-xs font-black text-orange-600 uppercase tracking-widest">
+               <p className="text-xs font-black text-orange-600 uppercase tracking-widest leading-normal">
                   {activeOrder.status === 'Preparando' && 'Estamos empacando tus productos...'}
                   {activeOrder.status === 'Enviado' && '¡Tu pedido va en camino a tu casa!'}
                   {activeOrder.status === 'Entregado' && '¡Pedido entregado! ¡Buen provecho!'}
