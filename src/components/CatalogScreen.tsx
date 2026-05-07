@@ -44,27 +44,22 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 5)
     : [];
 
-  // 1. Filtramos los productos según la búsqueda o la categoría activa
   const filtered = products.filter(p => {
     if (isSearching) return p.name.toLowerCase().includes(search.toLowerCase());
     return activeCategory === 'Todos' || p.category === activeCategory;
   });
 
-  // 2. LÓGICA MÁGICA DE AGRUPACIÓN: Si estamos en "Todos", ordenamos los productos por su categoría
   const displayedProducts = [...filtered].sort((a, b) => {
     if (activeCategory === 'Todos' && !isSearching) {
-      // Buscamos en qué posición está la categoría de cada producto
       const indexA = categories.indexOf(a.category);
       const indexB = categories.indexOf(b.category);
-      // Si por alguna razón no encuentra la categoría, lo manda al final (999)
       const posA = indexA === -1 ? 999 : indexA;
       const posB = indexB === -1 ? 999 : indexB;
       return posA - posB;
     }
-    return 0; // Si no estamos en "Todos", respetamos el orden normal
+    return 0;
   });
 
-  // Auto-center active tab
   useEffect(() => {
     if (!tabBarRef.current || isSearching) return;
     const bar = tabBarRef.current;
@@ -87,11 +82,11 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     setAnimating(true);
     setActiveCategory(next);
     onCategoryChange?.(next);
-    requestAnimationFrame(() => {
-      const main = document.querySelector('main');
-      main?.scrollTo({ top: 0, behavior: 'smooth' });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    
+    // Scrollear al inicio al cambiar categoría
+    const main = document.querySelector('main');
+    main?.scrollTo({ top: 0, behavior: 'smooth' });
+
     setTimeout(() => {
       setAnimating(false);
       setSlideDir(null);
@@ -136,7 +131,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Slide animation styles
   const getGridStyle = (): React.CSSProperties => {
     if (!animating || !slideDir) return {};
     return {
@@ -147,8 +141,9 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   return (
     <div className="flex flex-col">
       <AnnouncementBanner />
-      {/* SEARCH — sticky */}
-      <div className="px-4 pt-3 pb-2 bg-white sticky top-0 z-20 border-b border-gray-50">
+      
+      {/* BUSCADOR — Reducimos z-index a 10 para que el modal (z-100) lo cubra */}
+      <div className="px-4 pt-3 pb-2 bg-white sticky top-0 z-10 border-b border-gray-50">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
@@ -157,8 +152,8 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
             value={search}
             onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
             onFocus={() => search && setShowSuggestions(true)}
-            placeholder="Buscar en todos los productos..."
-            className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:bg-gray-50 focus:ring-2 focus:ring-orange-200 transition-all"
+            placeholder="Buscar productos..."
+            className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-gray-50 focus:ring-2 focus:ring-orange-200 transition-all"
           />
           {search && (
             <button onClick={() => { setSearch(''); setShowSuggestions(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 active:text-gray-700">
@@ -169,8 +164,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           {showSuggestions && suggestions.length > 0 && (
             <div
               ref={suggestionsRef}
-              className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-30"
-              style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.12)' }}
+              className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-20"
             >
               {suggestions.map(p => (
                 <button
@@ -186,7 +180,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
                     <p className="text-xs text-gray-400">{p.category}</p>
                   </div>
                   <span className="text-xs text-orange-500 font-bold flex-shrink-0">
-                    {p.price?.startsWith('$') ? p.price : 'Consultar'}
+                    {p.price}
                   </span>
                 </button>
               ))}
@@ -195,9 +189,9 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         </div>
       </div>
 
-      {/* CATEGORY TABS — sticky, auto-center active */}
+      {/* TABS DE CATEGORÍAS — Reducimos z-index a 5 */}
       {!isSearching && (
-        <div className="bg-white border-b border-gray-100 sticky top-[57px] z-10">
+        <div className="bg-white border-b border-gray-100 sticky top-[57px] z-">
           <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide">
             <div className="flex gap-1.5 px-4 py-2.5" style={{ width: 'max-content' }}>
               {ALL_CATS.map(cat => {
@@ -225,7 +219,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         </div>
       )}
 
-      {/* PRODUCT GRID with slide animation */}
+      {/* GRID DE PRODUCTOS */}
       <div
         className="px-3 pt-3 pb-4 overflow-hidden"
         onTouchStart={onTouchStart}
@@ -233,7 +227,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       >
         <p className="text-xs text-gray-400 font-medium mb-3 px-1">
           {isSearching
-            ? `${displayedProducts.length} resultado${displayedProducts.length !== 1 ? 's' : ''} para "${search}"`
+            ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''} para "${search}"`
             : `${displayedProducts.length} producto${displayedProducts.length !== 1 ? 's' : ''}`
           }
         </p>
@@ -242,7 +236,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="text-5xl mb-4">🔍</span>
             <p className="text-gray-500 font-semibold">Sin resultados</p>
-            <p className="text-gray-400 text-sm mt-1">Intenta con otra búsqueda</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3" style={getGridStyle()}>
@@ -253,7 +246,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         )}
       </div>
 
-      {/* Slide keyframes injected inline */}
       <style>{`
         @keyframes slideInLeft {
           from { opacity: 0.4; transform: translateX(48px); }
