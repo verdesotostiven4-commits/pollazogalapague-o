@@ -49,10 +49,10 @@ const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
-  // 🛡️ PROTECCIÓN ANTI-CRASH: Si points no existe en useUser, usamos 0.
+  // 🛡️ PROTECCIÓN ANTI-CRASH: Fallbacks por si el contexto no está listo
   const user = useUser();
   const customerName = user?.customerName || 'Guerrero';
-  const points = user?.points || 0; 
+  const points = user?.points ?? 0; // Si es null o undefined, usa 0
   
   const { products = [] } = useAdmin();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -109,7 +109,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 📍 2. VIP POINTS CARD (Glassmorphism) */}
+      {/* 📍 2. VIP POINTS CARD (Protegida contra errores) */}
       <div className="px-6 -mt-8 relative z-20">
         <RevealOnScroll>
           <div className="bg-white/80 backdrop-blur-xl border-2 border-white rounded-[35px] p-6 shadow-[0_15px_35px_rgba(0,0,0,0.1)] flex items-center justify-between">
@@ -118,21 +118,23 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 <Zap size={24} fill="currentColor" className="animate-pulse" />
               </div>
               <div className="leading-none text-left">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Hola, {customerName}</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Bienvenido, {customerName}</p>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-2xl font-black text-gray-900 tabular-nums">{(points || 0).toLocaleString()}</span>
+                  <span className="text-2xl font-black text-gray-900 tabular-nums">
+                    {points.toLocaleString()}
+                  </span>
                   <span className="text-orange-500 font-black text-[9px] uppercase tracking-tighter mt-1">Pollazo Puntos 🍗</span>
                 </div>
               </div>
             </div>
-            <button onClick={() => onNavigate('ranking')} className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 border border-gray-100">
+            <button onClick={() => onNavigate('ranking')} className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 border border-gray-100 active:scale-90 transition-all">
               <ChevronRight size={20} />
             </button>
           </div>
         </RevealOnScroll>
       </div>
 
-      {/* 🎡 3. GAMIFICATION HUB (Ruleta Diaria & Misiones) */}
+      {/* 🎡 3. GAMIFICATION HUB */}
       <div className="px-6 py-8 grid grid-cols-2 gap-4">
         <RevealOnScroll delay={100}>
           <button className="w-full bg-slate-900 rounded-[30px] p-5 text-left relative overflow-hidden group active:scale-95 transition-all shadow-xl border-b-4 border-black">
@@ -168,7 +170,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <RevealOnScroll key={cat.label} delay={idx * 50}>
               <button 
                 onClick={() => onNavigateToCategory(cat.target)}
-                className="bg-white border border-gray-100 p-4 rounded-[28px] flex flex-col items-center gap-2 shadow-sm active:scale-90 transition-all"
+                className="bg-white border border-gray-100 p-4 rounded-[28px] flex flex-col items-center gap-2 shadow-sm active:scale-90 transition-all hover:bg-orange-50/30"
               >
                 <span className="text-2xl">{cat.icon}</span>
                 <span className="text-[9px] font-black text-gray-500 uppercase text-center leading-none tracking-tighter">{cat.label}</span>
@@ -178,7 +180,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. LOS MÁS PEDIDOS (PIN PIN) */}
+      {/* 5. LOS MÁS PEDIDOS */}
       <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -197,7 +199,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-auto"
           style={{ scrollBehavior: 'smooth' }}
         >
-          {pairs.map((pair, i) => (
+          {pairs.length > 0 ? pairs.map((pair, i) => (
             <div key={i} className="min-w-full snap-center grid grid-cols-2 gap-4 px-1 pb-4">
               {pair.map((p, pIdx) => (
                 <RevealOnScroll key={p.id} delay={pIdx * 100}>
@@ -205,7 +207,9 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 </RevealOnScroll>
               ))}
             </div>
-          ))}
+          )) : (
+            <div className="w-full text-center py-10 opacity-30 italic font-black uppercase text-[10px]">Cargando favoritos...</div>
+          )}
         </div>
       </div>
 
@@ -219,11 +223,11 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             </div>
             <div className="flex flex-col items-center text-center gap-2 border-x border-white/10 relative z-10 px-2">
                <Truck size={18} className="text-orange-500" />
-               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">Entrega</span>
+               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">A domicilio</span>
             </div>
             <div className="flex flex-col items-center text-center gap-2 relative z-10">
                <Award size={18} className="text-orange-500" />
-               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">Garantía</span>
+               <span className="text-[8px] font-black text-white uppercase tracking-widest">Calidad 100%</span>
             </div>
          </div>
       </div>
