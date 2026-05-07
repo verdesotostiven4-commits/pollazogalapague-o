@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Trophy, Star, Crown, Medal, Award, CameraOff, Sparkles, Zap, History, ChevronDown } from 'lucide-react';
+import { Trophy, Star, Crown, Medal, Award, CameraOff, Sparkles, Zap, History, ChevronRight } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 
@@ -97,15 +97,15 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* 📍 BOTÓN "VER GANADORES" - MINIMALISTA A LA DERECHA */}
+      {/* 📍 BOTÓN "VER GANADORES ANTERIORES" - BRANDED & MINIMALISTA */}
       {publishedSeasons.length > 0 && (
-        <div className="px-6 mt-8 flex justify-end">
+        <div className="px-6 mt-8 flex justify-end animate-in slide-in-from-right duration-700">
           <button 
             onClick={scrollToHall}
-            className="flex items-center gap-2 bg-white text-orange-600 px-4 py-2.5 rounded-full shadow-lg active:scale-95 transition-all border-2 border-orange-500 group animate-pro-reveal"
+            className="flex items-center gap-2 bg-orange-500 text-white px-5 py-3 rounded-full shadow-[0_10px_20px_rgba(249,115,22,0.3)] active:scale-95 transition-all border border-orange-500/20 group border-2 border-white"
           >
-            <History size={14} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
-            <span className="text-[10px] font-black uppercase italic tracking-tighter">Historial Ganadores</span>
+            <History size={16} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
+            <span className="text-[11px] font-black uppercase italic tracking-widest">Ver Ganadores Anteriores</span>
           </button>
         </div>
       )}
@@ -176,7 +176,7 @@ export default function Ranking() {
                         
                         {/* MARCO DIAMANTE-ORO / PLATA REAL INTENSA */}
                         <div className={`relative z-10 rounded-[45px] overflow-hidden transition-all duration-1000 ${
-                          idx === 0 ? 'border-[10px] border-yellow-400 animate-diamond-gold' : 
+                          idx === 0 ? 'border-[10px] border-yellow-400 animate-diamond-gold' : // ORO BRILLANTE Y DIAMANTE
                           idx === 1 ? 'border-[7px] border-slate-100 animate-silver-pulse shadow-silver-glow' : // Plata real intenso
                           'border-[7px] border-orange-900 shadow-2xl'
                         }`}>
@@ -212,7 +212,7 @@ export default function Ranking() {
                         <div className={`absolute -top-5 -right-3 z-20 px-7 py-3 rounded-2xl font-black text-xs uppercase italic shadow-2xl rotate-3 ${
                           idx === 0 ? 'bg-yellow-400 text-black' : idx === 1 ? 'bg-slate-100 text-slate-800' : 'bg-orange-900 text-white'
                         }`}>
-                          {idx === 0 ? '👑 Campeón Oro 💎' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
+                          {idx === 0 ? '🥇 Campeón Oro 💎' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
                         </div>
                       </div>
                     ))}
