@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MessageCircle, Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -12,7 +12,6 @@ interface Props {
   onNavigateToCategory: (cat: Category) => void;
 }
 
-// IDs de los productos para el carrusel (Incluyendo los que pediste)
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
 const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
@@ -27,67 +26,46 @@ const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
   const { customerName } = useUser();
   const { products } = useAdmin();
-  const [index, setIndex] = useState(0);
-  
-  // Refs para el control del gesto (Swipe)
-  const touchStart = useRef<number | null>(null);
-  const touchEnd = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Filtrar y agrupar productos de 2 en 2
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
   const pairs = [];
   for (let i = 0; i < bestsellers.length; i += 2) {
     pairs.push(bestsellers.slice(i, i + 2));
   }
 
-  // 1. Función para mover el carrusel
-  const moveNext = useCallback(() => {
-    setIndex((prev) => (prev + 1) % pairs.length);
-  }, [pairs.length]);
-
-  const movePrev = useCallback(() => {
-    setIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
-  }, [pairs.length]);
-
-  // 2. Control del Autoplay
-  const startTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(moveNext, 4000);
-  }, [moveNext]);
-
-  useEffect(() => {
-    startTimer();
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [startTimer]);
-
-  // 3. Lógica de Deslizamiento (Swipe)
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.targetTouches.clientX;
-    // Pausamos el auto-scroll mientras el usuario toca
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEnd.current = e.targetTouches.clientX;
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart.current || !touchEnd.current) {
-      startTimer(); // Si solo fue un toque, reiniciamos el timer
-      return;
+  // 1. Sincronizar los puntitos con el scroll del dedo
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const width = scrollRef.current.offsetWidth;
+      const scrollLeft = scrollRef.current.scrollLeft;
+      const index = Math.round(scrollLeft / width);
+      setActiveIndex(index);
     }
-    
-    const distance = touchStart.current - touchEnd.current;
-    const isLeftSwipe = distance > 50;  // Deslizó a la izquierda (siguiente)
-    const isRightSwipe = distance < -50; // Deslizó a la derecha (anterior)
+  };
 
-    if (isLeftSwipe) moveNext();
-    if (isRightSwipe) movePrev();
+  // 2. Carrusel Automático (4 segundos)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (scrollRef.current) {
+        const nextIndex = (activeIndex + 1) % pairs.length;
+        const width = scrollRef.current.offsetWidth;
+        scrollRef.current.scrollTo({
+          left: nextIndex * width,
+          behavior: 'smooth'
+        });
+      }
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [activeIndex, pairs.length]);
 
-    // Resetear valores y reiniciar timer
-    touchStart.current = null;
-    touchEnd.current = null;
-    startTimer();
+  const scrollTo = (idx: number) => {
+    if (scrollRef.current) {
+      const width = scrollRef.current.offsetWidth;
+      scrollRef.current.scrollTo({ left: idx * width, behavior: 'smooth' });
+    }
   };
 
   const openWhatsApp = () => {
@@ -99,7 +77,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       <AnnouncementBanner />
       
       {/* HERO NARANJA COMPLETO */}
-      <div className="relative overflow-hidden hero-water w-full shadow-inner"> 
+      <div className="relative overflow-hidden hero-water w-full shadow-lg"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
           <div className="flex justify-center mb-6">
@@ -120,26 +98,26 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* SALUDO PERSONALIZADO */}
+      {/* SALUDO PERSONALIZADO (Entre el hero y las categorías) */}
       <div className="px-6 pt-8 pb-2">
-        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none">Bienvenido al club,</p>
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
           Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
         </h2>
       </div>
 
-      {/* CATEGORÍAS RÁPIDAS (6 ITEMS) */}
+      {/* CATEGORÍAS RÁPIDAS (Llevan al catálogo) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
-          <h3 className="font-black text-gray-900 uppercase italic text-xs tracking-widest">Explorar Categorías</h3>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-lg">Ver todo <ChevronRight size={12}/></button>
+          <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all">Ver todo <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {QUICK_CATEGORIES.map((cat) => (
             <button 
               key={cat.label} 
               onClick={() => onNavigateToCategory(cat.label)}
-              className="bg-white border border-orange-50 p-4 rounded-[24px] flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all active:bg-orange-50"
+              className="bg-white border border-orange-50 p-4 rounded-[24px] flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-orange-50"
             >
               <span className="text-2xl">{cat.icon}</span>
               <span className="text-[9px] font-black text-gray-600 uppercase text-center leading-none">{cat.label.split(' ')}</span>
@@ -148,7 +126,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* LOS MÁS PEDIDOS (CON SWIPE) */}
+      {/* LOS MÁS PEDIDOS (CARRUSEL CON SWIPE NATIVO) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -156,53 +134,53 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <h3 className="font-black text-gray-900 uppercase italic tracking-tight text-lg">Los más pedidos</h3>
           </div>
           <div className="flex gap-1.5">
-            <button onClick={movePrev} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronLeft size={16}/></button>
-            <button onClick={moveNext} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronRight size={16}/></button>
+            <button onClick={() => scrollTo(activeIndex - 1)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronLeft size={16}/></button>
+            <button onClick={() => scrollTo(activeIndex + 1)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronRight size={16}/></button>
           </div>
         </div>
         
+        {/* CONTENEDOR CON SCROLL SNAP (Como Instagram) */}
         <div 
-          className="relative overflow-hidden touch-pan-y"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-pan-x"
+          style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
-            {pairs.map((pair, i) => (
-              <div key={i} className="min-w-full grid grid-cols-2 gap-4 px-1">
-                {pair.map(p => (
-                  <ProductCard key={p.id} product={p} compact />
-                ))}
-              </div>
-            ))}
-          </div>
-          
-          <div className="flex justify-center gap-1.5 mt-6">
-            {pairs.map((_, i) => (
-              <button 
-                key={i} 
-                onClick={() => setIndex(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-6 bg-orange-500' : 'w-1.5 bg-gray-200'}`} 
-              />
-            ))}
-          </div>
+          {pairs.map((pair, i) => (
+            <div key={i} className="min-w-full snap-center grid grid-cols-2 gap-4 px-1 pb-2">
+              {pair.map(p => (
+                <ProductCard key={p.id} product={p} compact />
+              ))}
+            </div>
+          ))}
+        </div>
+        
+        {/* Puntitos indicadores */}
+        <div className="flex justify-center gap-2 mt-6">
+          {pairs.map((_, i) => (
+            <button 
+              key={i} 
+              onClick={() => scrollTo(i)}
+              className={`h-1.5 rounded-full transition-all duration-300 ${i === activeIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-200'}`} 
+            />
+          ))}
         </div>
       </div>
 
-      {/* INFO STRIP */}
-      <div className="px-4 py-6 mb-4">
-         <div className="grid grid-cols-3 gap-2 bg-white p-4 rounded-[28px] border border-orange-100 shadow-sm">
+      {/* INFO STRIP (HORARIO, DELIVERY, GARANTÍA) */}
+      <div className="px-4 py-4 mb-4">
+         <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Clock size={18}/></div>
-               <span className="text-[9px] font-black text-gray-800 uppercase">7 AM - 9 PM</span>
+               <span className="text-[9px] font-black text-gray-800 uppercase leading-none">7 AM - 9 PM</span>
             </div>
-            <div className="flex flex-col items-center text-center gap-1.5 border-x border-gray-50">
+            <div className="flex flex-col items-center text-center gap-1.5 border-x border-gray-100">
                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Truck size={18}/></div>
-               <span className="text-[9px] font-black text-gray-800 uppercase">Delivery</span>
+               <span className="text-[9px] font-black text-gray-800 uppercase leading-none">Delivery</span>
             </div>
             <div className="flex flex-col items-center text-center gap-1.5">
                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Star size={18} fill="currentColor"/></div>
-               <span className="text-[9px] font-black text-gray-800 uppercase">Garantía</span>
+               <span className="text-[9px] font-black text-gray-800 uppercase leading-none">Garantía</span>
             </div>
          </div>
       </div>
