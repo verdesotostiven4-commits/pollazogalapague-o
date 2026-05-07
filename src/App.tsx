@@ -47,17 +47,16 @@ function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   
-  // ✅ NUEVO: Estado para saber si el login saltó por obligación al comprar
+  // ✅ Estado para saber si el login saltó por obligación al intentar comprar
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  // ✅ NUEVO: Auto-Open Modal después de 3 segundos
+  // ✅ Auto-Open Modal después de 3 segundos si no está registrado
   useEffect(() => {
-    // Si no hay nombre guardado y no es admin, activamos el timer
     if (!customerName && !loading) {
       const timer = setTimeout(() => {
         setShowLoginModal(true);
       }, 3000);
-      return () => clearTimeout(timer); // Limpiar timer si el usuario se registra antes
+      return () => clearTimeout(timer);
     }
   }, [customerName, loading]);
 
@@ -76,7 +75,7 @@ function AppShell() {
     }
     setShowLoginModal(false);
 
-    // ✅ NUEVO: Si venía de intentar hacer un pedido, le abrimos la confirmación de nuevo
+    // ✅ Si venía de intentar hacer un pedido, le abrimos la confirmación automáticamente
     if (pendingOrder) {
       setPendingOrder(false);
       setShowConfirmation(true);
@@ -84,9 +83,9 @@ function AppShell() {
   };
 
   const handleWhatsApp = async () => {
-    // ✅ NUEVO: Order Guard - Si no está registrado, bloqueamos
+    // ✅ Bloqueo de pedido si no está registrado
     if (!customerName || !customerPhone) {
-      setPendingOrder(true); // Marcamos que tiene un pedido pendiente
+      setPendingOrder(true); // Marcamos que el registro es para terminar un pedido
       setShowConfirmation(false);
       setShowLoginModal(true);
       return;
@@ -135,6 +134,7 @@ function AppShell() {
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
       
+      {/* ✅ LoginModal con Textos Inteligentes */}
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => {
@@ -142,6 +142,8 @@ function AppShell() {
           setPendingOrder(false);
         }} 
         onLogin={handleLogin}
+        title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"}
+        subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"}
       />
       
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
