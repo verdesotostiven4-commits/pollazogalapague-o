@@ -9,6 +9,8 @@ interface AdminContextValue {
   customers: Customer[];
   orders: Order[];
   loading: boolean;
+  settings: { announcement: string; primary_color: string }; // Pieza de seguridad
+  extraSettings: any; // Pieza de seguridad
   upsertCustomer: (phone: string, name?: string | null, avatar_url?: string | null) => Promise<any>;
   createOrder: (order: any) => Promise<void>;
   updateOrderStatus: (orderId: string, status: string) => Promise<void>;
@@ -28,10 +30,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Valores por defecto para que la App no explote si los busca
+  const settings = { announcement: '', primary_color: '#E67E22' };
+  const extraSettings = { ranking_title: '', prize_description: '', ranking_end_date: '' };
+
   const products = useMemo(() => {
     const map = new Map<string, Product>();
-    seedProducts.forEach(p => map.set(p.id, p));
-    remoteProducts.forEach(p => map.set(p.id, p));
+    if (seedProducts) seedProducts.forEach(p => map.set(p.id, p));
+    if (remoteProducts) remoteProducts.forEach(p => map.set(p.id, p));
     return Array.from(map.values()).filter(p => p.available !== false);
   }, [remoteProducts]);
 
@@ -50,7 +56,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (prodRes.data) setRemoteProducts(prodRes.data);
       if (custRes.data) setCustomers(custRes.data);
       if (orderRes.data) setOrders(orderRes.data);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error cargando datos:", e); }
     setLoading(false);
   }, []);
 
@@ -59,14 +65,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const upsertCustomer = async (phone: string, name?: string | null, avatar_url?: string | null) => {
     if (!isSupabaseConfigured) return null;
     const cleanPhone = phone.replace(/\D/g, '');
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('customers')
       .upsert({ phone: cleanPhone, name, avatar_url }, { onConflict: 'phone' })
       .select()
       .single();
-    
-    if (error) console.error("Error al guardar cliente:", error);
-    load(); // Recargamos la lista de clientes
+    load();
     return data;
   };
 
@@ -84,7 +88,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   return (
     <AdminContext.Provider value={{ 
-      products, categories, customers, orders, loading,
+      products, categories, customers, orders, loading, settings, extraSettings,
       upsertCustomer, createOrder, updateOrderStatus 
     }}>
       {children}
