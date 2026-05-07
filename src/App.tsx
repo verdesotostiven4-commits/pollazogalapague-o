@@ -1,4 +1,4 @@
-import { useState, useRef, Component } from 'react';
+import { useState, useRef, Component, useEffect } from 'react';
 import { CartProvider } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
@@ -17,7 +17,7 @@ import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking'; 
 import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
-import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
+import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
 
 // Atrapador de errores para que la pantalla no se ponga blanca
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
@@ -43,7 +43,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading, products } = useAdmin();
+  const { createOrder, loading, products } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -64,7 +64,6 @@ function AppShell() {
 
   const handleWhatsApp = async () => {
     const code = orderCode();
-    // Cálculo seguro del subtotal para evitar el error de 'undefined'
     const subtotal = items.reduce((acc, item) => {
       const p = products.find(prod => prod.id === item.id);
       return acc + (p ? Number(p.price) * item.quantity : 0);
@@ -114,16 +113,35 @@ function AppShell() {
 }
 
 export default function App() {
-  const [landingDone, setLandingDone] = useState(() => !!sessionStorage.getItem('pollazo_landing_dismissed'));
+  const [landingDone, setLandingDone] = useState(() => {
+    // 1. Detectar si ya está instalado (Standalone mode)
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    // 2. Detectar si ya lo aceptó en esta sesión o permanentemente
+    const isDismissed = !!localStorage.getItem('pollazo_landing_dismissed');
+    
+    return isPWA || isDismissed;
+  });
+
+  useEffect(() => {
+    // PWA Auto-update logic
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => reg.update());
+    }
+  }, []);
+
   if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
   
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => {
-          sessionStorage.setItem('pollazo_landing_dismissed', '1');
-          setLandingDone(true);
-        }} />
+        <LandingPage 
+          onInstall={() => {}} 
+          canInstall={false} 
+          onContinueWeb={() => {
+            localStorage.setItem('pollazo_landing_dismissed', '1');
+            setLandingDone(true);
+          }} 
+        />
       </AdminProvider>
     );
   }
