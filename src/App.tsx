@@ -64,6 +64,15 @@ function AppShell() {
     clearCart(); setShowConfirmation(false); setScreen('home');
   };
 
+  const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
+    // 1. Actualizamos el contexto (y localStorage automáticamente)
+    setUserData(userData.whatsapp, userData.name, userData.avatarUrl);
+    // 2. Cerramos el modal
+    setShowLoginModal(false);
+    // 3. Enviamos a Supabase para el Ranking
+    await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
+  };
+
   if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
 
   return (
@@ -79,7 +88,7 @@ function AppShell() {
       </main>
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => { setUserData(u.whatsapp, u.name, u.avatarUrl); setShowLoginModal(false); upsertCustomer(u.whatsapp, u.name, u.avatarUrl); }} />
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
