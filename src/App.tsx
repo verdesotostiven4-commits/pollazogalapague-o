@@ -17,18 +17,19 @@ import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking'; 
 import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
-import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
+import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 
-class ErrorBoundary extends Component<{children: any}, {hasError: boolean}> {
-  constructor(props: any) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
+// Atrapador de errores para que la pantalla no se ponga blanca
+class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
+        <div className="p-10 bg-orange-50 min-h-screen text-center">
           <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
-          <p className="text-gray-600 mt-2 max-w-xs">Estamos actualizando los productos de la tienda para que todo funcione perfecto.</p>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-4 rounded-3xl font-black shadow-xl shadow-orange-200">
+          <p className="text-gray-600 mt-2">Estamos actualizando los productos de la tienda.</p>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg">
             LIMPIAR Y REINTENTAR
           </button>
         </div>
@@ -51,7 +52,7 @@ function AppShell() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-orange-500 text-white font-black italic">
         <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-        PREPARANDO EL POLLAZO...
+        CARGANDO POLLAZO...
       </div>
     );
   }
@@ -63,6 +64,7 @@ function AppShell() {
 
   const handleWhatsApp = async () => {
     const code = orderCode();
+    // Cálculo seguro del subtotal para evitar el error de 'undefined'
     const subtotal = items.reduce((acc, item) => {
       const p = products.find(prod => prod.id === item.id);
       return acc + (p ? Number(p.price) * item.quantity : 0);
@@ -88,11 +90,10 @@ function AppShell() {
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
         {screen === 'home' && (
-          <div className="px-6 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-6 rounded-[32px] shadow-xl shadow-orange-100 border-2 border-orange-50 mb-6">
-               <span className="text-orange-500 font-black text-[10px] uppercase tracking-widest">Tu Tienda Favorita</span>
-               <h2 className="font-black text-2xl text-gray-900 mt-1 italic leading-tight">Hola, {customerName || 'Cliente'}</h2>
-               <button onClick={() => handleNavigate('ranking')} className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-orange-200 active:scale-95 transition-all">
+          <div className="px-6 pt-6">
+            <div className="bg-white p-6 rounded-[32px] shadow-xl border-2 border-orange-50 mb-6 text-center">
+               <h2 className="font-black text-2xl text-gray-900 italic">Hola, {customerName || 'Cliente'}</h2>
+               <button onClick={() => handleNavigate('ranking')} className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-orange-200">
                  🏆 Ver Ranking de Clientes
                </button>
             </div>
