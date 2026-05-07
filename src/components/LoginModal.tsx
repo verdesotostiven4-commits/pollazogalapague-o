@@ -46,7 +46,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.;
+    const file = e.target.files ? e.target.files : null;
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -71,7 +71,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           setUploadedImage(dataUrl);
           setSelectedAvatar(dataUrl);
         };
-        img.src = event.target?.result as string;
+        img.src = (event.target?.result as string) || '';
       };
       reader.readAsDataURL(file);
     }
@@ -88,7 +88,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-300">
-        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+        <button type="button" onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
 
@@ -97,7 +97,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             <Sparkles size={32} />
           </div>
           <h2 className="text-2xl font-black text-gray-900 uppercase italic">Mi Perfil VIP</h2>
-          <p className="text-sm font-bold text-gray-400 mt-1">Configura tu perfil para ganar puntos.</p>
+          <p className="text-sm font-bold text-gray-400 mt-1">Gana puntos por cada compra.</p>
         </div>
 
         <div className="space-y-4">
@@ -115,7 +115,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             <input 
               value={whatsapp} 
               onChange={(e) => setWhatsapp(e.target.value)} 
-              placeholder="Tu número de WhatsApp" 
+              placeholder="Número de WhatsApp" 
               className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" 
             />
           </div>
@@ -129,7 +129,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${uploadedImage === selectedAvatar ? 'border-orange-500 bg-orange-50' : 'border-dashed border-gray-200 bg-gray-50'}`}
           >
             {uploadedImage ? (
-              <img src={uploadedImage} alt="Subida" className="w-full h-full object-cover rounded-xl" />
+              <img src={uploadedImage} alt="Perfil" className="w-full h-full object-cover rounded-xl" />
             ) : (
               <Camera size={20} className="text-gray-400" />
             )}
@@ -149,8 +149,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         </div>
 
         <button 
+          type="button"
           onClick={handleSave} 
-          className="mt-8 w-full py-4 bg-orange-500 text-white font-black rounded-[24px] shadow-xl shadow-orange-200 active:scale-95 transition-all uppercase tracking-widest text-sm"
+          className="mt-8 w-full py-4 bg-orange-500 text-white font-black rounded-[24px] shadow-xl shadow-orange-200 active:scale-95 transition-all uppercase text-sm tracking-widest"
         >
           Guardar Cambios
         </button>
