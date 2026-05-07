@@ -71,14 +71,20 @@ function AppShell() {
   };
 
   if (loading) return (
-    <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">
+    <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-6">
       CARGANDO EL POLLAZO...
     </div>
   );
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        scrolled={false} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar} 
+      />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
