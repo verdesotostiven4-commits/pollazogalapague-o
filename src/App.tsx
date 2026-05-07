@@ -24,6 +24,7 @@ function AppShell() {
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
+  
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
@@ -72,22 +73,33 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
 
   return (
-    <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} onOpenTracking={() => setShowTracking(true)} />
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
+    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar}
+        onOpenTracking={() => setShowTracking(true)}
+      />
+      
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
+
       <BottomNav current={screen} onNavigate={handleNavigate} />
+
+      {/* 🚀 MODALES MOVIDOS AL FINAL PARA DOMINAR EL Z-INDEX */}
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
+      
       <FlyParticleLayer />
     </div>
   );
@@ -100,7 +112,29 @@ export default function App() {
     const hasUser = localStorage.getItem('pollazo_customer_phone');
     return !!skip || !!hasUser;
   });
+
   if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
-  if (!landingDone) return <AdminProvider><LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { localStorage.setItem('pollazo_landing_dismissed', '1'); setLandingDone(true); }} /></AdminProvider>;
-  return <AdminProvider><UserProvider><CartProvider><FlyToCartProvider><AppShell /></FlyToCartProvider></CartProvider></UserProvider></AdminProvider>;
+
+  if (!landingDone) {
+    return (
+      <AdminProvider>
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
+          localStorage.setItem('pollazo_landing_dismissed', '1'); 
+          setLandingDone(true); 
+        }} />
+      </AdminProvider>
+    );
+  }
+
+  return (
+    <AdminProvider>
+      <UserProvider> 
+        <CartProvider>
+          <FlyToCartProvider>
+            <AppShell />
+          </FlyToCartProvider>
+        </CartProvider>
+      </UserProvider>
+    </AdminProvider>
+  );
 }
