@@ -73,7 +73,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA COMPLETO */}
+      {/* 1. HERO NARANJA - DISEÑO ORIGINAL */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
@@ -91,7 +91,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
 
           <div className="w-full max-w-sm flex gap-3">
-             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-widest">Ver Catálogo</button>
+             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-widest text-center">Catálogo</button>
              <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs uppercase tracking-widest">WhatsApp</button>
           </div>
         </div>
@@ -101,15 +101,15 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight text-gray-900">
-          Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
+          Hola, <span className="text-orange-500">{typeof customerName === 'string' ? customerName.split(' ') : 'Cliente'}</span> 👋
         </h2>
       </div>
 
-      {/* 3. CATEGORÍAS RÁPIDAS */}
+      {/* 3. CATEGORÍAS RÁPIDAS (6 ITEMS) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg">Ver todo <ChevronRight size={12}/></button>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all">Ver todo <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {QUICK_CATEGORIES.map((cat) => (
@@ -125,7 +125,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS (CON SCROLL NATIVO DUAL) */}
+      {/* 4. LOS MÁS PEDIDOS (EL FAMOSO CARRUSEL DUAL) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -138,16 +138,14 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
         </div>
         
-        {/* ✅ LA MAGIA ESTÁ AQUÍ: touch-pan-y + overflow-x-auto */}
+        {/* ✅ FIX DEFINITIVO: Cambiamos a touch-auto para liberar ambos ejes */}
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-pan-y"
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-auto"
           style={{ 
             scrollBehavior: 'smooth', 
-            WebkitOverflowScrolling: 'touch',
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none'
+            WebkitOverflowScrolling: 'touch'
           }}
         >
           {pairs.map((pair, i) => (
@@ -172,7 +170,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. INFO STRIP */}
+      {/* 5. INFO STRIP (ICONOS) */}
       <div className="px-4 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
