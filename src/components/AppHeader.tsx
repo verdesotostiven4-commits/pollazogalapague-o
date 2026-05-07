@@ -51,26 +51,18 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
         {!isHome && <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">{screenTitles[screen]}</span>}
 
         <div className="flex items-center gap-2">
-          {/* ✅ SOLO APARECE EN EL INICIO */}
           {isHome && (
-            <button 
-              onClick={onOpenTracking}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform"
-            >
+            <button onClick={onOpenTracking} className="w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform">
               <PackageSearch size={18} />
             </button>
           )}
-
-          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
+          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
             <BarChart2 size={18} />
           </button>
-
           <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center">
             {customerAvatar ? <img src={customerAvatar} className="w-full h-full object-cover" /> : <User size={18} className="text-orange-500" />}
           </button>
-
-          <button ref={cartBtnRef} onClick={() => onNavigate('cart')} 
-            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'cart' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-125' : ''}`}>
+          <button ref={cartBtnRef} onClick={() => onNavigate('cart')} className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'cart' ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-125' : ''}`}>
             <ShoppingCart size={18} />
             {total > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm">{total}</span>}
           </button>
