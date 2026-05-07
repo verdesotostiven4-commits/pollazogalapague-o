@@ -78,13 +78,7 @@ function AppShell() {
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader 
-        screen={screen} 
-        onNavigate={handleNavigate} 
-        scrolled={false} 
-        onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar} 
-      />
+      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
@@ -132,11 +126,13 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  if (isDashboard) return (
-    <AdminProvider>
-      <AdminDashboard />
-    </AdminProvider>
-  );
+  if (isDashboard) {
+    return (
+      <AdminProvider>
+        <AdminDashboard />
+      </AdminProvider>
+    );
+  }
 
   if (!landingDone) {
     return (
