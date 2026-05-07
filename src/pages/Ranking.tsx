@@ -81,10 +81,12 @@ export default function Ranking() {
   return (
     <div className="relative pb-40 max-w-4xl mx-auto overflow-x-hidden bg-white">
       
-      {/* --- HEADER MINIMALISTA CON ESTRELLAS GIRATORIAS ✨ --- */}
+      {/* --- HEADER CON ESTRELLAS GIRATORIAS ✨ --- */}
       <div className="bg-gradient-to-b from-orange-500 to-orange-600 p-8 rounded-b-[60px] shadow-2xl text-center text-white relative overflow-hidden">
+        {/* Estrellas en movimiento continuo */}
         <div className="absolute inset-0 pointer-events-none">
           <Star className="absolute top-10 left-10 text-yellow-200/20 animate-spin-slow" size={30} />
+          <Star className="absolute bottom-20 right-10 text-white/10 animate-spin-slow-reverse" size={50} />
           <Sparkles className="absolute top-20 right-20 text-yellow-300/30 animate-pulse" size={25} />
         </div>
         
@@ -93,8 +95,8 @@ export default function Ranking() {
           {extraSettings?.ranking_title || 'Ranking de Clientes'}
         </h1>
         
-        {/* TEXTO DINÁMICO REEMPLAZADO */}
-        <p className="text-white font-black text-[10px] uppercase tracking-[0.2em] mb-8 bg-black/10 py-1 px-4 rounded-full inline-block animate-pulse">
+        {/* TEXTO DINÁMICO QUE PALPITA */}
+        <p className="text-white font-black text-[10px] uppercase tracking-[0.2em] mb-8 bg-black/10 py-1 px-4 rounded-full inline-block animate-pulse italic">
            {extraSettings?.prize_description || '¡Compite por el primer lugar!'}
         </p>
 
@@ -131,20 +133,20 @@ export default function Ranking() {
             <RevealOnScroll key={c.id} delay={i * 60}>
               <div className={`relative flex items-center gap-4 p-5 rounded-[35px] border-2 transition-all duration-700 ${
                 i === 0 ? 'bg-yellow-50 border-yellow-400 shadow-[0_15px_35px_rgba(250,204,21,0.4)] scale-[1.03] z-10' :
-                i === 1 ? 'bg-slate-50 border-slate-300 shadow-md' : // Plata real
+                i === 1 ? 'bg-slate-100 border-slate-400 shadow-md' : // Plata real intenso
                 i === 2 ? 'bg-white border-orange-200 shadow-sm' : // Bronce limpio
                 'bg-white border-transparent'
               } ${isMe ? 'ring-[4px] ring-orange-500 ring-offset-4' : ''}`}>
                 <div className="w-10 flex justify-center">
                   {i === 0 ? <Crown className="text-yellow-500 animate-bounce" size={36} /> :
-                   i === 1 ? <Medal className="text-slate-400 animate-silver-pulse" size={30} /> :
-                   i === 2 ? <Medal className="text-orange-400" size={30} /> :
+                   i === 1 ? <Medal className="text-slate-500 animate-float" size={30} /> :
+                   i === 2 ? <Medal className="text-orange-500" size={30} /> :
                    <span className="font-black text-slate-300 text-xl italic">#{i + 1}</span>}
                 </div>
                 <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-16 h-14 rounded-2xl object-cover border-2 border-white shadow-lg" />
                 <div className="flex-1 min-w-0">
-                  {/* NOMBRE CON FORMATO ORIGINAL */}
-                  <p className={`font-black italic truncate text-sm tracking-tight ${isTop3 ? 'text-gray-900' : 'text-slate-500'}`}>{c.name || 'Cliente'}</p>
+                  {/* NOMBRE COMPLETO */}
+                  <p className={`font-black italic text-sm tracking-tight ${isTop3 ? 'text-gray-900' : 'text-slate-500'}`}>{c.name || 'Cliente'}</p>
                   <div className="flex items-center gap-1 opacity-70">
                     <Star size={10} className={isTop3 ? 'text-orange-500 fill-orange-500' : 'text-slate-400'} />
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">{getGuerreroTitle(i)}</p>
@@ -177,7 +179,7 @@ export default function Ranking() {
                   {/* ETIQUETA TEMPORADA: CENTRADA EN DOS LÍNEAS */}
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-3 rounded-3xl font-black shadow-2xl z-20 animate-float border-2 border-slate-950 text-center flex flex-col items-center justify-center leading-none min-w-[160px]">
                      <span className="text-[9px] uppercase tracking-widest mb-1 opacity-80">Temporada</span>
-                     <span className="text-xl italic">#{publishedSeasons.length - sIdx}</span>
+                     <span className="text-lg italic text-yellow-100/90">#{publishedSeasons.length - sIdx}</span>
                   </div>
 
                   <div className="text-center pt-8">
@@ -190,7 +192,7 @@ export default function Ranking() {
                     {season.winners.map((winner: any, idx: number) => (
                       <div key={idx} className="relative group/winner">
                         
-                        {/* MARCO DIAMANTE-ORO / PLATA REAL */}
+                        {/* MARCO DIAMANTE-ORO / PLATA REAL INTENSA */}
                         <div className={`relative z-10 rounded-[45px] overflow-hidden transition-all duration-1000 ${
                           idx === 0 ? 'border-[10px] border-yellow-400 animate-diamond-gold' : 
                           idx === 1 ? 'border-[7px] border-slate-100 animate-silver-pulse shadow-silver-glow' : 
@@ -218,13 +220,14 @@ export default function Ranking() {
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-6 z-10">
                              <div className="flex justify-between items-end gap-2">
                                 <div className="space-y-1">
-                                  {/* NOMBRE CON FORMATO ORIGINAL */}
-                                  <p className="text-white font-black italic text-2xl leading-none tracking-tighter drop-shadow-md truncate">{winner.name}</p>
+                                  {/* NOMBRE COMPLETO */}
+                                  <p className="text-white font-black italic text-2xl leading-none tracking-tighter drop-shadow-md">{winner.name}</p>
                                   <p className="flex items-center gap-1 italic">
+                                    {/* RAYITO AMARILLO ✨ */}
                                     <Zap size={13} className="text-yellow-400 fill-yellow-400" /> 
                                     {/* COLOR DIFERENCIADO PUNTOS */}
                                     <span className="text-white font-black text-lg tabular-nums leading-none">{winner.points}</span> 
-                                    <span className="text-yellow-200/70 font-black text-[9px] uppercase tracking-tighter leading-none mt-1">Pollazo Puntos 🍗</span>
+                                    <span className="text-yellow-300/80 font-black text-[9px] uppercase tracking-tighter leading-none mt-1">Pollazo Puntos 🍗</span>
                                   </p>
                                 </div>
                                 <div className={`p-4 rounded-3xl shrink-0 ${idx===0 ? 'bg-yellow-400 text-black shadow-gold-glow animate-bounce' : 'bg-slate-800 text-white'}`}>
@@ -240,7 +243,7 @@ export default function Ranking() {
                           idx === 1 ? 'bg-slate-100 text-slate-800 animate-silver-pulse' : 
                           'bg-orange-900 text-white'
                         }`}>
-                          {idx === 0 ? '👑 Campeón Oro' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
+                          {idx === 0 ? '🏆 Campeón Oro' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
                         </div>
                       </div>
                     ))}
@@ -261,13 +264,13 @@ export default function Ranking() {
               <div className="flex items-center gap-5 shrink-0">
                  <img src={myData.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-orange-500 object-cover" />
                  <div className="text-left leading-none">
-                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1 animate-pulse italic">Tu Rango Actual</p>
+                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1 animate-pulse italic">Tu Estatus Actual</p>
                     <p className="text-white font-black text-2xl italic uppercase tracking-tighter leading-none">Puesto #{myRankIndex + 1}</p>
                  </div>
               </div>
               <div className="text-right leading-none shrink-0 flex flex-col items-end">
                  <p className="text-3xl font-black text-white leading-none tabular-nums text-shadow-orange">{myData.points}</p>
-                 <p className="text-[8px] font-black text-yellow-400 uppercase tracking-widest mt-1">Pollazo Puntos 🍗</p>
+                 <p className="text-[8px] font-black text-yellow-300 uppercase tracking-widest mt-1">Pollazo Puntos 🍗</p>
               </div>
             </div>
           </div>
@@ -292,6 +295,10 @@ export default function Ranking() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        @keyframes spin-slow-reverse {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0) rotate(3deg); }
           50% { transform: translateY(-10px) rotate(-2deg); }
@@ -299,7 +306,8 @@ export default function Ranking() {
         .animate-diamond-gold { animation: diamond-gold 3s infinite; }
         .animate-silver-pulse { animation: silver-pulse 3s ease-in-out infinite; }
         .animate-shimmer { animation: shimmer 2.5s infinite; }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
+        .animate-spin-slow { animation: spin-slow 15s linear infinite; }
+        .animate-spin-slow-reverse { animation: spin-slow-reverse 20s linear infinite; }
         .animate-float { animation: float 4s ease-in-out infinite; }
         .shadow-gold-glow { box-shadow: 0 0 30px rgba(250,204,21,0.5); }
         .shadow-silver-glow { box-shadow: 0 0 25px rgba(255,255,255,0.3); }
