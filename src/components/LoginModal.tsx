@@ -44,7 +44,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ✅ CORRECCIÓN AQUÍ: Quitamos el punto y coma erróneo
+    // ✅ CORRECCIÓN: Se quitó el punto y coma que daba el error en Vercel
     const file = e.target.files ? e.target.files : null;
     if (file) {
       const reader = new FileReader();
@@ -66,7 +66,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toSTring ? canvas.toDataURL('image/jpeg', 0.8) : '';
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
           setUploadedImage(dataUrl);
           setSelectedAvatar(dataUrl);
         };
