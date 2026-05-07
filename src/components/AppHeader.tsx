@@ -1,4 +1,4 @@
-import { ShoppingCart, ChevronLeft, User, BarChart2, PackageSearch } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, User, BarChart2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useRef, useEffect } from 'react';
@@ -9,7 +9,6 @@ interface Props {
   onNavigate: (s: Screen) => void;
   onOpenProfile?: () => void;
   customerAvatar?: string;
-  onOpenTracking: () => void;
 }
 
 const screenTitles: Record<string, string> = {
@@ -20,7 +19,7 @@ const screenTitles: Record<string, string> = {
   ranking: 'Ranking VIP',
 };
 
-export default function AppHeader({ screen, onNavigate, onOpenProfile, customerAvatar, onOpenTracking }: Props) {
+export default function AppHeader({ screen, onNavigate, onOpenProfile, customerAvatar }: Props) {
   const { total } = useCart();
   const { cartPop, setCartRef } = useFlyToCart();
   const cartBtnRef = useRef<HTMLButtonElement>(null);
@@ -51,11 +50,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
         {!isHome && <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">{screenTitles[screen]}</span>}
 
         <div className="flex items-center gap-2">
-          {isHome && (
-            <button onClick={onOpenTracking} className="w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform">
-              <PackageSearch size={18} />
-            </button>
-          )}
           <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
             <BarChart2 size={18} />
           </button>
