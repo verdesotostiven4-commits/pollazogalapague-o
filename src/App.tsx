@@ -23,7 +23,7 @@ function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showTracking, setShowTracking] = useState(false); // ✅ Control del Modal de Rastreo
+  const [showTracking, setShowTracking] = useState(false);
   
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
@@ -64,7 +64,7 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
-    setShowTracking(true); // Abrimos el rastreo automáticamente al pedir
+    setShowTracking(true);
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
@@ -76,21 +76,16 @@ function AppShell() {
   if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
 
   return (
-    <div className="flex flex-col bg-gray-50 h-[100dvh]">
+    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
         onOpenProfile={() => setShowLoginModal(true)} 
         customerAvatar={customerAvatar}
-        onOpenTracking={() => setShowTracking(true)} // ✅ Abrir desde el Header
+        onOpenTracking={() => setShowTracking(true)}
       />
       
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
-        <OrderTracking 
-          isOpen={showTracking} 
-          onClose={() => setShowTracking(false)} 
-        />
-        
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
@@ -99,9 +94,12 @@ function AppShell() {
       </main>
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
-      <FlyParticleLayer />
+      
+      {/* MODALES EN CAPA SUPERIOR */}
+      <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
+      <FlyParticleLayer />
     </div>
   );
 }
