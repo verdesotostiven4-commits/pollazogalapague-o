@@ -9,7 +9,7 @@ interface Props {
   onNavigate: (s: Screen) => void;
   onOpenProfile?: () => void;
   customerAvatar?: string;
-  onOpenTracking: () => void; // ✅ Nueva función
+  onOpenTracking: () => void;
 }
 
 const screenTitles: Record<string, string> = {
@@ -34,13 +34,12 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
   return (
     <header className="flex-shrink-0 safe-area-top bg-white border-b border-orange-50 shadow-sm z-40">
       <div className="flex items-center justify-between px-4 h-14 relative">
-        {/* Izquierda: Logo o Volver */}
         {isHome ? (
           <div className="flex items-center gap-2">
             <img src="/logo-final.png" alt="logo" className="h-9 w-auto" />
-            <div className="flex flex-col">
-              <span className="font-black text-[11px] text-gray-900 uppercase leading-none">Pollazo El Mirador</span>
-              <span className="font-bold text-[9px] text-orange-500 uppercase tracking-tighter mt-0.5">Market Especializado</span>
+            <div className="flex flex-col leading-none">
+              <span className="font-black text-[11px] text-gray-900 uppercase">Pollazo El Mirador</span>
+              <span className="font-bold text-[9px] text-orange-500 uppercase tracking-tighter mt-1">Market Especializado</span>
             </div>
           </div>
         ) : (
@@ -52,7 +51,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
         {!isHome && <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">{screenTitles[screen]}</span>}
 
         <div className="flex items-center gap-2">
-          {/* ✅ BOTÓN DE RASTREO EN EL HEADER (Donde pediste) */}
           <button 
             onClick={onOpenTracking}
             className="w-9 h-9 flex items-center justify-center rounded-xl bg-green-50 text-green-600 border border-green-100 active:scale-90 transition-transform"
@@ -60,11 +58,11 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
             <PackageSearch size={18} />
           </button>
 
-          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md shadow-orange-100' : 'bg-gray-100 text-gray-400'}`}>
             <BarChart2 size={18} />
           </button>
 
-          <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center">
+          <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center active:scale-90">
             {customerAvatar ? <img src={customerAvatar} className="w-full h-full object-cover" /> : <User size={18} className="text-orange-500" />}
           </button>
 
