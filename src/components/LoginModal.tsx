@@ -45,29 +45,28 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   if (!isOpen) return null;
 
-  // 🛠️ FUNCIÓN VIEJA ESCUELA (Adaptada a tu código actual)
+  // 🛠️ FUNCIÓN ADAPTADA DE GEMINI ANTERIOR (Vieja Escuela y a prueba de móviles)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // 1. Extraemos el archivo exacto (el), que es el verdadero "Blob"
     const file = e.target.files && e.target.files.length > 0 ? e.target.files : null;
     
-    // 2. Validación de seguridad (si se cancela, no hace nada)
+    // 1. Validación de seguridad (si se cancela, no hace nada)
     if (!file) return;
 
-    setIsCompressing(true);
+    setIsCompressing(true); // Empieza a cargar
 
     const reader = new FileReader();
     
     reader.onload = (event) => {
       const img = new Image();
+      
       img.onload = () => {
-        // 3. Crear el Canvas para achicar la foto
+        // 2. Crear Canvas para comprimir
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 96; // 96x96 se ve mejor que 40x40 sin hacer pesada la app
+        const MAX_SIZE = 96; // Tamaño ultra ligero
         
         let width = img.width;
         let height = img.height;
 
-        // Calculamos la escala manteniendo la proporción
         if (width > height) {
           if (width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -85,17 +84,24 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Dibujamos la imagen pequeña
           ctx.drawImage(img, 0, 0, width, height);
           
-          // 4. Convertimos a Base64 súper ligero
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          // 3. Convertir a Base64 súper ligero
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
           setUploadedImage(compressedBase64);
           setSelectedAvatar(compressedBase64);
         }
         
+        // ✅ Finaliza la carga correctamente
         setIsCompressing(false);
-        // Limpiamos el input para la próxima vez
+        if (e.target) e.target.value = ''; // Limpiamos input
+      };
+      
+      // ✅ FIX VITAL: Qué pasa si la imagen no se puede abrir? 
+      // (HEIC de iPhone o archivos grandes). ¡Teníamos que apagar la carga!
+      img.onerror = () => {
+        alert("Error: El archivo seleccionado no parece ser una imagen válida o está dañado.");
+        setIsCompressing(false); // Apagamos la ruedita
         if (e.target) e.target.value = '';
       };
       
@@ -105,9 +111,10 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     reader.onerror = () => {
       alert("Hubo un error al leer la foto desde el celular.");
       setIsCompressing(false);
+      if (e.target) e.target.value = '';
     };
 
-    // 5. Iniciar la lectura (¡Aquí es donde antes fallaba porque no era un Blob!)
+    // 4. Iniciar la lectura (pasando el archivo/Blob)
     reader.readAsDataURL(file);
   };
 
@@ -175,7 +182,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           disabled={isCompressing}
           className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
         >
-          {isCompressing ? 'Procesando...' : 'Guardar y Sincronizar'}
+          {isCompressing ? 'Procesando...' : 'Guardar Cambios'}
         </button>
       </div>
     </div>
