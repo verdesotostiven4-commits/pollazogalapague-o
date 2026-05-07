@@ -65,30 +65,60 @@ function AppShell() {
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
-    // 1. Actualizamos el contexto (y localStorage automáticamente)
     setUserData(userData.whatsapp, userData.name, userData.avatarUrl);
-    // 2. Cerramos el modal
     setShowLoginModal(false);
-    // 3. Enviamos a Supabase para el Ranking
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
+  if (loading) return (
+    <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">
+      CARGANDO EL POLLAZO...
+    </div>
+  );
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        scrolled={false} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar} 
+      />
+      
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
-        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
-        {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
-        {screen === 'ranking' && <Ranking />}
+        
+        {screen === 'home' && (
+           <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />
+        )}
+
+        {screen === 'catalog' && (
+          <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />
+        )}
+
+        {screen === 'cart' && (
+          <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />
+        )}
+
+        {screen === 'info' && (
+          <InfoScreen onInstall={() => {}} canInstall={false} />
+        )}
+
+        {screen === 'ranking' && (
+          <Ranking />
+        )}
       </main>
+
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
+      
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+        onLogin={handleLoginDone} 
+      />
+      
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -102,15 +132,23 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
+  if (isDashboard) return (
+    <AdminProvider>
+      <AdminDashboard />
+    </AdminProvider>
+  );
 
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
-          localStorage.setItem('pollazo_landing_dismissed', '1'); 
-          setLandingDone(true); 
-        }} />
+        <LandingPage 
+          onInstall={() => {}} 
+          canInstall={false} 
+          onContinueWeb={() => { 
+            localStorage.setItem('pollazo_landing_dismissed', '1'); 
+            setLandingDone(true); 
+          }} 
+        />
       </AdminProvider>
     );
   }
