@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Trophy, User, Star, Crown, Medal, Award, CameraOff, ChevronDown, Sparkles, Zap } from 'lucide-react';
+import { Trophy, Star, Crown, Medal, Award, CameraOff, ChevronRight, Zap, Sparkles } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 
 export default function Ranking() {
   const { customers = [], extraSettings, seasons = [], loading } = useAdmin();
   const { customerPhone } = useUser();
+  const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const [timeLeft, setTimeLeft] = useState({ d: '0', h: '0', m: '0', s: '0' });
-  const hallOfFameRef = useRef<HTMLDivElement>(null); // Para el salto automático
 
   // 🕒 CONTADOR CON SEGUNDOS
   useEffect(() => {
@@ -45,27 +45,15 @@ export default function Ranking() {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <Zap className="text-orange-500 animate-bounce mb-4" size={48} />
-      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest">Abriendo Arena VIP...</p>
+      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest text-center">Abriendo Arena VIP de Pollazos...</p>
     </div>
   );
 
   return (
-    <div className="relative pb-40 animate-in fade-in duration-700 max-w-2xl mx-auto overflow-x-hidden">
+    <div className="relative pb-40 animate-in fade-in duration-700 max-w-2xl mx-auto overflow-x-hidden bg-gray-50/30">
       
-      {/* 📍 BOTÓN FLOTANTE DE ACCESO RÁPIDO */}
-      {publishedSeasons.length > 0 && (
-        <button 
-          onClick={scrollToHall}
-          className="fixed bottom-24 right-4 z- bg-slate-900 text-orange-500 p-4 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.4)] animate-bounce border-2 border-orange-500/50 flex flex-col items-center group active:scale-90 transition-all"
-        >
-          <Award size={24} className="group-hover:rotate-12 transition-transform" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-1">Hitorial</span>
-        </button>
-      )}
-
-      {/* --- EVENTO ACTUAL --- */}
-      <div className="bg-gradient-to-b from-orange-500 to-orange-600 p-8 rounded-b-[50px] shadow-2xl text-center text-white mb-10 relative overflow-hidden">
-        {/* Efecto de destellos de fondo */}
+      {/* --- HEADER PREMIUM --- */}
+      <div className="bg-gradient-to-b from-orange-500 to-orange-600 p-8 rounded-b-[50px] shadow-2xl text-center text-white relative overflow-hidden">
         <Sparkles className="absolute top-4 left-4 opacity-20 animate-pulse" size={40} />
         <Sparkles className="absolute bottom-4 right-4 opacity-20 animate-pulse delay-700" size={30} />
         
@@ -79,7 +67,7 @@ export default function Ranking() {
            </p>
         </div>
 
-        {/* RELOJ DIGITAL PREMIUM */}
+        {/* RELOJ DIGITAL */}
         <div className="flex justify-center gap-3">
           {[
             { v: timeLeft.d, l: 'DÍAS' },
@@ -95,7 +83,29 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* LISTA DE COMPETIDORES EN VIVO */}
+      {/* 📍 ACCESO AL SALÓN DE LA FAMA (Ubicación estratégica) */}
+      {publishedSeasons.length > 0 && (
+        <div className="px-5 mt-6 mb-4">
+          <button 
+            onClick={scrollToHall}
+            className="w-full bg-slate-900 border-2 border-orange-500/30 p-5 rounded-[28px] shadow-2xl flex items-center justify-between group active:scale-[0.98] transition-all relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[26px]"></div>
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="p-3 bg-slate-800 rounded-2xl text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-500 shadow-inner">
+                <Award size={24} className="group-hover:rotate-12 transition-transform" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black text-white/50 uppercase italic tracking-widest leading-none mb-1">Ver historia de</p>
+                <p className="text-xl font-black text-orange-500 uppercase italic tracking-tighter leading-none">Ganadores Anteriores</p>
+              </div>
+            </div>
+            <ChevronRight size={24} className="text-orange-500 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+      )}
+
+      {/* LISTA ACTUAL CON ANIMACIÓN EN CASCADA */}
       <div className="px-5 space-y-4">
         {ranking.length > 0 ? (
           ranking.map((c, i) => {
@@ -105,12 +115,14 @@ export default function Ranking() {
             return (
               <div 
                 key={c.id} 
-                className={`relative flex items-center gap-4 p-4 rounded-[30px] transition-all duration-500 border-2 ${
-                  i === 0 ? 'bg-yellow-50 border-yellow-400 shadow-[0_10px_30px_-10px_rgba(250,204,21,0.4)] scale-[1.03] z-10' :
+                className={`relative flex items-center gap-4 p-4 rounded-[30px] border-2 shadow-sm ${
+                  i === 0 ? 'bg-yellow-50 border-yellow-400 shadow-[0_15px_40px_-5px_rgba(250,204,21,0.5)] scale-[1.03] z-10' :
                   i === 1 ? 'bg-slate-50 border-slate-300 shadow-lg' :
                   i === 2 ? 'bg-orange-50 border-orange-200 shadow-lg' :
-                  'bg-white border-transparent shadow-sm'
-                } ${isMe ? 'ring-[3px] ring-orange-500 ring-offset-2' : ''}`}
+                  'bg-white border-transparent'
+                } ${isMe ? 'ring-[3px] ring-orange-500 ring-offset-2' : ''} 
+                  animate-in fade-in slide-in-from-bottom-5 duration-500`}
+                style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className="w-10 flex justify-center items-center">
                   {i === 0 ? <Crown className="text-yellow-500 drop-shadow-md animate-bounce" size={32} /> :
@@ -129,26 +141,29 @@ export default function Ranking() {
                   <p className={`font-black uppercase italic truncate text-sm ${isTop3 ? 'text-gray-900' : 'text-slate-500'}`}>
                     {c.name || 'Cliente Pro'} {isMe && '(TÚ)'}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <Star size={10} className={isTop3 ? 'text-orange-500 fill-orange-500' : 'text-slate-300'} />
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Nivel Pollazo</p>
+                  <div className="flex items-center gap-1 opacity-60">
+                    <Star size={10} className={isTop3 ? 'text-orange-500 fill-orange-500' : 'text-slate-400'} />
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Puntos Pollazo</p>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <p className={`text-xl font-black leading-none ${isTop3 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points}</p>
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">PTS</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">PUNTOS</p>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="text-center py-20 opacity-30 italic font-black uppercase tracking-[0.3em]">Cargando Arena...</div>
+          <div className="text-center py-20 bg-white rounded-[30px] border-2 border-dashed border-gray-100">
+            <Trophy size={40} className="mx-auto text-gray-200 mb-3 animate-pulse" />
+            <p className="text-gray-400 font-bold text-sm uppercase italic tracking-[0.2em]">Cargando Arena...</p>
+          </div>
         )}
       </div>
 
-      {/* --- 🏆 SALÓN DE LA FAMA (HISTORIAL) --- */}
-      <div ref={hallOfFameRef} className="mt-24">
+      {/* --- 🏆 SALÓN DE LA FAMA CON DESTELLO PREMIUM --- */}
+      <div ref={hallOfFameRef} className="mt-28 scroll-mt-6">
         {publishedSeasons.length > 0 && (
           <div className="px-5 space-y-16">
             <div className="text-center space-y-2">
@@ -158,45 +173,48 @@ export default function Ranking() {
                  <Star size={16} fill="currentColor" className="animate-pulse delay-200" />
               </div>
               <h2 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">Salón de la Fama</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Leyendas Inmortales</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Leyendas de El Mirador</p>
             </div>
 
             {publishedSeasons.map((season, sIdx) => (
-              <div key={season.id} className="bg-slate-900 rounded-[50px] p-8 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] space-y-10 border border-white/5 relative group animate-in slide-in-from-bottom-10 duration-1000">
+              <div key={season.id} className="bg-slate-950 rounded-[50px] p-8 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] space-y-10 border-2 border-orange-500/10 relative group animate-in slide-in-from-bottom duration-1000">
                 
-                {/* ETIQUETA DE EVENTO AUTOMÁTICA */}
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-2.5 rounded-full font-black text-xs uppercase italic tracking-widest shadow-2xl border-2 border-slate-900 z-20 group-hover:scale-110 transition-transform">
+                {/* ETIQUETA DE EVENTO */}
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-2.5 rounded-full font-black text-xs uppercase italic tracking-widest shadow-2xl border-2 border-slate-950 z-20 group-hover:scale-110 transition-transform">
                    Evento #{publishedSeasons.length - sIdx}
                 </div>
 
-                <div className="text-center">
-                  <h3 className="text-orange-500 font-black text-2xl uppercase italic tracking-tighter leading-none mb-2">{season.name}</h3>
-                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] italic">{season.prize}</p>
+                <div className="text-center mb-10 pt-2">
+                  <h3 className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none mb-2">{season.name}</h3>
+                  <p className="text-orange-500 text-[10px] font-black uppercase mt-2 tracking-widest">{season.prize}</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-12">
+                <div className="grid grid-cols-1 gap-14">
                   {season.winners.map((winner: any, idx: number) => (
-                    <div key={idx} className="relative">
-                      {/* MARCO PREMIUM CON EFECTO GLOW */}
-                      <div className={`relative z-10 rounded-[40px] overflow-hidden border-[6px] shadow-2xl bg-slate-800 transition-all duration-700 group-hover:scale-[1.02] ${
-                        idx === 0 ? 'border-yellow-400 ring-[12px] ring-yellow-400/5' : 
-                        idx === 1 ? 'border-slate-300 ring-[12px] ring-slate-300/5' : 
-                        'border-orange-700 ring-[12px] ring-orange-700/5'
-                      }`}>
+                    <div key={idx} className="relative group/winner">
+                      {/* MARCO PREMIUM CON EFECTO DESTELLO (GLOW) SOLO AL 1ER LUGAR */}
+                      <div className={`relative z-10 rounded-[40px] overflow-hidden transition-all duration-700 ${
+                        idx === 0 ? 'border-[7px] border-yellow-400 animate-vip-glow' : 
+                        idx === 1 ? 'border-[6px] border-slate-300 shadow-2xl' : 
+                        'border-[6px] border-orange-800 shadow-2xl'
+                      } group-hover/winner:scale-[1.02]`}>
                         
+                        {/* Brillo interno extra para el Campeón */}
+                        {idx === 0 && <div className="absolute inset-0 rounded-[33px] shadow-[inset_0_0_30px_2px_rgba(250,204,21,0.5)] z-20 pointer-events-none"></div>}
+
                         {winner.photo_url ? (
                           <img src={winner.photo_url} className="w-full h-64 object-cover" alt="Ganador" />
                         ) : (
-                          <div className="w-full h-56 flex flex-col items-center justify-center text-slate-600 gap-2">
+                          <div className="w-full h-56 bg-slate-800 flex flex-col items-center justify-center text-slate-600 gap-2">
                             <CameraOff size={40} className="opacity-20" />
-                            <p className="text-[10px] font-black uppercase italic tracking-widest">Evidencia en Proceso...</p>
+                            <p className="text-[10px] font-black uppercase italic tracking-widest text-center px-4">Evidencia en Proceso...</p>
                           </div>
                         )}
                         
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-6">
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 z-10">
                            <div className="flex justify-between items-end">
                               <div className="space-y-1">
-                                <p className="text-white font-black uppercase italic text-2xl leading-none tracking-tighter">{winner.name}</p>
+                                <p className="text-white font-black uppercase italic text-2xl leading-none tracking-tighter drop-shadow-md">{winner.name}</p>
                                 <p className="text-orange-500 font-black text-[11px] uppercase tracking-widest">{winner.points} Puntos Totales</p>
                               </div>
                               <div className={`p-3 rounded-2xl ${idx===0 ? 'bg-yellow-400 text-black shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'bg-white/10 text-white'}`}>
@@ -206,19 +224,24 @@ export default function Ranking() {
                         </div>
                       </div>
 
-                      {/* BADGE FLOTANTE DE PUESTO */}
-                      <div className={`absolute -top-4 -right-2 z-20 px-6 py-2.5 rounded-2xl font-black text-xs uppercase italic shadow-2xl rotate-3 transition-transform group-hover:-rotate-3 ${
+                      {/* BADGE DE PUESTO */}
+                      <div className={`absolute -top-4 -right-3 z-20 px-7 py-3 rounded-2xl font-black text-xs uppercase italic shadow-2xl rotate-3 ${
                         idx === 0 ? 'bg-yellow-400 text-black' : 
                         idx === 1 ? 'bg-slate-200 text-slate-800' : 
                         'bg-orange-800 text-white'
                       }`}>
-                        {idx === 0 ? '👑 Campeón' : idx === 1 ? '🥈 2do Lugar' : '🥉 3er Lugar'}
+                        {idx === 0 ? '👑 Campeón Oro' : idx === 1 ? '🥈 Plata' : '🥉 Bronce'}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             ))}
+
+            <div className="text-center pt-5 pb-10 opacity-60">
+               <Award className="text-gray-300 mx-auto mb-2" size={24} />
+               <p className="text-[11px] font-black text-gray-400 uppercase italic tracking-wider">Toca la copa en el menú para volver arriba 🏆</p>
+            </div>
           </div>
         )}
       </div>
@@ -226,7 +249,7 @@ export default function Ranking() {
       {/* 🚀 RADAR DEL USUARIO (STICKY) */}
       {myData && myRankIndex > 2 && (
         <div className="fixed bottom-20 left-4 right-4 z-">
-          <div className="bg-black/95 backdrop-blur-2xl border border-white/10 rounded-[35px] p-5 shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex items-center justify-between animate-in slide-in-from-bottom-10 duration-700">
+          <div className="bg-slate-950/95 backdrop-blur-2xl border-2 border-orange-500/30 rounded-[35px] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex items-center justify-between animate-in slide-in-from-bottom-10 duration-700">
             <div className="flex items-center gap-4">
                <div className="relative">
                  <img src={myData.avatar_url} className="w-14 h-14 rounded-2xl border-2 border-orange-500 object-cover shadow-lg" />
@@ -239,11 +262,22 @@ export default function Ranking() {
             </div>
             <div className="text-right">
                <p className="text-white font-black text-2xl leading-none tabular-nums">{myData.points}</p>
-               <p className="text-[8px] font-black text-orange-500 uppercase tracking-[0.2em]">Pts Acumulados</p>
+               <p className="text-[8px] font-black text-orange-500 uppercase tracking-[0.2em]">Pts Totales</p>
             </div>
           </div>
         </div>
       )}
+
+      {/* ESTILOS DESTELLO VIP */}
+      <style>{`
+        @keyframes vip-glow {
+          0%, 100% { box-shadow: 0 0 25px 2px rgba(250,204,21,0.3); border-color: #facc15; }
+          50% { box-shadow: 0 0 45px 10px rgba(250,204,21,0.6); border-color: #fef08a; }
+        }
+        .animate-vip-glow {
+          animation: vip-glow 3s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
