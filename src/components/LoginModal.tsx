@@ -87,14 +87,14 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-        <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+        <button type="button" onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <Sparkles size={40} />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 uppercase italic text-center">Únete al Club</h2>
+          <h2 className="text-2xl font-black text-gray-900 uppercase italic">Únete al Club</h2>
           <p className="text-sm font-bold text-gray-400 mt-2">Acumula puntos y gana con tus compras</p>
         </div>
         <div className="space-y-4">
@@ -119,7 +119,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             </button>
           ))}
         </div>
-        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">Guardar Cambios</button>
+        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
+          Guardar Cambios
+        </button>
       </div>
     </div>
   );
