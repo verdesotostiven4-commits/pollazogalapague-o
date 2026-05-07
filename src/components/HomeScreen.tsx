@@ -12,7 +12,7 @@ interface Props {
   onNavigateToCategory: (cat: Category) => void;
 }
 
-// IDs de los productos para el carrusel (Incluidos los nuevos que pediste)
+// IDs de los productos para el carrusel (Incluyendo los que pediste)
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
 const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
@@ -29,21 +29,66 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const { products } = useAdmin();
   const [index, setIndex] = useState(0);
   
-  // Filtrar solo los productos destacados
+  // Refs para el control del gesto (Swipe)
+  const touchStart = useRef<number | null>(null);
+  const touchEnd = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
-  // Agrupar de 2 en 2 para el carrusel
   const pairs = [];
   for (let i = 0; i < bestsellers.length; i += 2) {
     pairs.push(bestsellers.slice(i, i + 2));
   }
 
-  // Lógica del carrusel automático (4 segundos)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % pairs.length);
-    }, 4000);
-    return () => clearInterval(timer);
+  // 1. Función para mover el carrusel
+  const moveNext = useCallback(() => {
+    setIndex((prev) => (prev + 1) % pairs.length);
   }, [pairs.length]);
+
+  const movePrev = useCallback(() => {
+    setIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
+  }, [pairs.length]);
+
+  // 2. Control del Autoplay
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(moveNext, 4000);
+  }, [moveNext]);
+
+  useEffect(() => {
+    startTimer();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [startTimer]);
+
+  // 3. Lógica de Deslizamiento (Swipe)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = e.targetTouches.clientX;
+    // Pausamos el auto-scroll mientras el usuario toca
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEnd.current = e.targetTouches.clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart.current || !touchEnd.current) {
+      startTimer(); // Si solo fue un toque, reiniciamos el timer
+      return;
+    }
+    
+    const distance = touchStart.current - touchEnd.current;
+    const isLeftSwipe = distance > 50;  // Deslizó a la izquierda (siguiente)
+    const isRightSwipe = distance < -50; // Deslizó a la derecha (anterior)
+
+    if (isLeftSwipe) moveNext();
+    if (isRightSwipe) movePrev();
+
+    // Resetear valores y reiniciar timer
+    touchStart.current = null;
+    touchEnd.current = null;
+    startTimer();
+  };
 
   const openWhatsApp = () => {
     window.open(`https://wa.me/${WHATSAPP.replace(/\D/g, '')}?text=Hola%2C%20quiero%20hacer%20un%20pedido%20en%20La%20Casa%20del%20Pollazo%20El%20Mirador.`, '_blank');
@@ -53,7 +98,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA COMPLETO */}
+      {/* HERO NARANJA COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
@@ -64,9 +109,9 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
             <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
           </div>
-          <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8">
+          <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8 text-white">
             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            <span className="text-white text-[11px] font-bold uppercase tracking-wider">Puerto Ayora, Galápagos</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Puerto Ayora, Galápagos</span>
           </div>
           <div className="w-full max-w-sm flex gap-3">
              <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-widest">Ver Catálogo</button>
@@ -75,7 +120,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 2. SALUDO PERSONALIZADO (DONDE QUEDA BIEN) */}
+      {/* SALUDO PERSONALIZADO */}
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none">Bienvenido al club,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
@@ -83,11 +128,11 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </h2>
       </div>
 
-      {/* 3. CATEGORÍAS RÁPIDAS (6 ITEMS QUE LLEVAN AL CATÁLOGO) */}
+      {/* CATEGORÍAS RÁPIDAS (6 ITEMS) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-xs tracking-widest">Explorar Categorías</h3>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1">Ver todo <ChevronRight size={12}/></button>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-lg">Ver todo <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {QUICK_CATEGORIES.map((cat) => (
@@ -103,7 +148,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS (CARRUSEL DINÁMICO) */}
+      {/* LOS MÁS PEDIDOS (CON SWIPE) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -111,12 +156,17 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <h3 className="font-black text-gray-900 uppercase italic tracking-tight text-lg">Los más pedidos</h3>
           </div>
           <div className="flex gap-1.5">
-            <button onClick={() => setIndex((prev) => (prev - 1 + pairs.length) % pairs.length)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronLeft size={16}/></button>
-            <button onClick={() => setIndex((prev) => (prev + 1) % pairs.length)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronRight size={16}/></button>
+            <button onClick={movePrev} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronLeft size={16}/></button>
+            <button onClick={moveNext} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronRight size={16}/></button>
           </div>
         </div>
         
-        <div className="relative overflow-hidden">
+        <div 
+          className="relative overflow-hidden touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
             {pairs.map((pair, i) => (
               <div key={i} className="min-w-full grid grid-cols-2 gap-4 px-1">
@@ -126,17 +176,21 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
               </div>
             ))}
           </div>
-          {/* Indicador de puntitos */}
+          
           <div className="flex justify-center gap-1.5 mt-6">
             {pairs.map((_, i) => (
-              <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-6 bg-orange-500' : 'w-1.5 bg-gray-200'}`} />
+              <button 
+                key={i} 
+                onClick={() => setIndex(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-6 bg-orange-500' : 'w-1.5 bg-gray-200'}`} 
+              />
             ))}
           </div>
         </div>
       </div>
 
-      {/* 5. INFO STRIP (HORARIO, DELIVERY) */}
-      <div className="px-4 py-6">
+      {/* INFO STRIP */}
+      <div className="px-4 py-6 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-4 rounded-[28px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Clock size={18}/></div>
