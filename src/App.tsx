@@ -42,7 +42,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products } = useAdmin();
+  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido upsertCustomer
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -56,11 +56,25 @@ function AppShell() {
     );
   }
 
-  // ✅ CORRECCIÓN: Esta función ahora cierra el perfil al navegar
   const handleNavigate = (s: any) => {
     setScreen(s);
-    setShowLoginModal(false); // Cierra el modal automáticamente
+    setShowLoginModal(false); 
     if (mainRef.current) mainRef.current.scrollTop = 0;
+  };
+
+  // ✅ NUEVA LÓGICA DE GUARDADO: Sincroniza local y nube
+  const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
+    // 1. Guardar en el celular (Local)
+    setUserData(u.whatsapp, u.name, u.avatarUrl);
+    
+    // 2. Subir a Supabase (Nube) para el Ranking
+    try {
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl);
+    } catch (e) {
+      console.error("Error al sincronizar con la nube:", e);
+    }
+    
+    setShowLoginModal(false);
   };
 
   const handleWhatsApp = async () => {
@@ -109,7 +123,7 @@ function AppShell() {
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
-        onLogin={(u) => setUserData(u.whatsapp, u.name, u.avatarUrl)} 
+        onLogin={handleLogin} // ✅ Usamos la nueva función
       />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
