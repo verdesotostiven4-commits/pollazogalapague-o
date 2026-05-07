@@ -42,19 +42,24 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido upsertCustomer
+  const { createOrder, loading, products, upsertCustomer } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // ✅ NUEVO: Estado para saber si el login saltó por obligación al comprar
+  const [pendingOrder, setPendingOrder] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-orange-500 text-white font-black italic">
-        <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-        CARGANDO POLLAZO...
-      </div>
-    );
-  }
+  // ✅ NUEVO: Auto-Open Modal después de 3 segundos
+  useEffect(() => {
+    // Si no hay nombre guardado y no es admin, activamos el timer
+    if (!customerName && !loading) {
+      const timer = setTimeout(() => {
+        setShowLoginModal(true);
+      }, 3000);
+      return () => clearTimeout(timer); // Limpiar timer si el usuario se registra antes
+    }
+  }, [customerName, loading]);
 
   const handleNavigate = (s: any) => {
     setScreen(s);
@@ -62,7 +67,6 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  // ✅ NUEVA LÓGICA: Sincroniza foto/nombre con Supabase al guardar
   const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
     setUserData(u.whatsapp, u.name, u.avatarUrl); 
     try {
@@ -71,9 +75,23 @@ function AppShell() {
       console.error("Error sincronizando perfil:", e);
     }
     setShowLoginModal(false);
+
+    // ✅ NUEVO: Si venía de intentar hacer un pedido, le abrimos la confirmación de nuevo
+    if (pendingOrder) {
+      setPendingOrder(false);
+      setShowConfirmation(true);
+    }
   };
 
   const handleWhatsApp = async () => {
+    // ✅ NUEVO: Order Guard - Si no está registrado, bloqueamos
+    if (!customerName || !customerPhone) {
+      setPendingOrder(true); // Marcamos que tiene un pedido pendiente
+      setShowConfirmation(false);
+      setShowLoginModal(true);
+      return;
+    }
+
     const code = orderCode();
     const subtotal = items.reduce((acc, item) => {
       const p = products.find(prod => prod.id === item.id);
@@ -116,11 +134,16 @@ function AppShell() {
       </main>
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
+      
       <LoginModal 
         isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
-        onLogin={handleLogin} // ✅ Modificado
+        onClose={() => {
+          setShowLoginModal(false);
+          setPendingOrder(false);
+        }} 
+        onLogin={handleLogin}
       />
+      
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
