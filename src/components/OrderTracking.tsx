@@ -22,9 +22,10 @@ export default function OrderTracking() {
   const myOrders = orders
     .filter(o => {
       const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-7);
-      const isImportantStatus = ['Preparando', 'Enviado'].includes(o.status);
+      // ✅ SÓLO MOSTRAR SI EL ESTADO ES PREPARANDO O ENVIADO
+      const isImportant = ['Preparando', 'Enviado'].includes(o.status);
       const isRecent = new Date(o.created_at || '').getTime() > Date.now() - (12 * 60 * 60 * 1000);
-      return cleanOrder === cleanUser && isRecent && isImportantStatus;
+      return cleanOrder === cleanUser && isRecent && isImportant;
     })
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
@@ -37,7 +38,7 @@ export default function OrderTracking() {
         <div className="mb-3 w-[85vw] max-w-[340px] bg-white rounded-[32px] p-6 shadow-2xl border-2 border-orange-500 animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <span className="bg-orange-100 text-orange-600 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">Estado de Compra</span>
+              <span className="bg-orange-100 text-orange-600 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">Tu Pedido</span>
               <p className="text-lg font-black text-gray-900 mt-1">Orden #{order.order_code}</p>
             </div>
             <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} className="text-gray-400" /></button>
@@ -64,14 +65,8 @@ export default function OrderTracking() {
       )}
 
       <button onClick={() => setIsOpen(!isOpen)} className="pointer-events-auto flex items-center gap-3 bg-white text-orange-500 px-4 py-3 rounded-2xl shadow-xl border-2 border-orange-500 transition-all active:scale-95">
-        <div className="relative">
-          <ShoppingBag size={20} />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />
-        </div>
-        <div className="flex flex-col items-start leading-none">
-          <span className="text-[9px] font-black text-gray-400 uppercase">Tu pedido</span>
-          <span className="text-[12px] font-black uppercase text-gray-900 mt-1">{order.status}</span>
-        </div>
+        <div className="relative"><ShoppingBag size={20} /><span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" /></div>
+        <div className="flex flex-col items-start leading-none"><span className="text-[9px] font-black text-gray-400 uppercase">Estado:</span><span className="text-[12px] font-black uppercase text-gray-900 mt-1">{order.status}</span></div>
         {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
       </button>
     </div>
