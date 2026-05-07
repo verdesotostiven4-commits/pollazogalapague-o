@@ -15,7 +15,7 @@ export interface Customer {
   phone: string;
   name?: string | null;
   points: number;
-  avatar_url?: string | null; // Unificado
+  avatar_url?: string | null;
 }
 
 export type OrderStatus = 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
@@ -34,9 +34,11 @@ export interface Order {
   created_at?: string;
 }
 
-export type Category = 'Pollos' | 'Embutidos' | 'Lácteos y refrigerados' | 'Abarrotes y básicos' | 'Salsas, aliños y aceites' | 'Bebidas' | 'Frutas y verduras' | 'Snacks y dulces' | 'Cuidado personal' | 'Limpieza y hogar';
+export type Category = 
+  | 'Pollos' | 'Embutidos' | 'Lácteos y refrigerados' | 'Abarrotes y básicos' 
+  | 'Salsas, aliños y aceites' | 'Bebidas' | 'Frutas y verduras' 
+  | 'Snacks y dulces' | 'Cuidado personal' | 'Limpieza y hogar';
 
-// PANTALLAS OFICIALES
 export type Screen = 'home' | 'catalog' | 'cart' | 'info' | 'ranking';
 
 export interface CartItem {
