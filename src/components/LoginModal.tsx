@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Phone, User, X, Sparkles, Loader2 } from 'lucide-react';
+import { Camera, Phone, User, X, Sparkles } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 interface LoginModalProps {
@@ -24,7 +24,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,76 +44,35 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   if (!isOpen) return null;
 
-  // 🛠️ FUNCIÓN ADAPTADA DE GEMINI ANTERIOR (Vieja Escuela y a prueba de móviles)
+  // 🛠️ LA FUNCIÓN EXACTA QUE TE FUNCIONÓ ANTES (Solo con el fix del)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files && e.target.files.length > 0 ? e.target.files : null;
+    // Aquí está el arreglo del Blob: e.target.files
+    const file = e.target.files ? e.target.files : null;
     
-    // 1. Validación de seguridad (si se cancela, no hace nada)
-    if (!file) return;
-
-    setIsCompressing(true); // Empieza a cargar
+    if (!file) return; 
 
     const reader = new FileReader();
     
     reader.onload = (event) => {
       const img = new Image();
-      
       img.onload = () => {
-        // 2. Crear Canvas para comprimir
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 96; // Tamaño ultra ligero
-        
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
+        const size = 96; // Tamaño ajustado para que se vea bien (96x96)
+        canvas.width = size;
+        canvas.height = size;
         
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
+          ctx.drawImage(img, 0, 0, size, size);
           
-          // 3. Convertir a Base64 súper ligero
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
           setUploadedImage(compressedBase64);
           setSelectedAvatar(compressedBase64);
         }
-        
-        // ✅ Finaliza la carga correctamente
-        setIsCompressing(false);
-        if (e.target) e.target.value = ''; // Limpiamos input
       };
-      
-      // ✅ FIX VITAL: Qué pasa si la imagen no se puede abrir? 
-      // (HEIC de iPhone o archivos grandes). ¡Teníamos que apagar la carga!
-      img.onerror = () => {
-        alert("Error: El archivo seleccionado no parece ser una imagen válida o está dañado.");
-        setIsCompressing(false); // Apagamos la ruedita
-        if (e.target) e.target.value = '';
-      };
-      
       img.src = event.target?.result as string;
     };
 
-    reader.onerror = () => {
-      alert("Hubo un error al leer la foto desde el celular.");
-      setIsCompressing(false);
-      if (e.target) e.target.value = '';
-    };
-
-    // 4. Iniciar la lectura (pasando el archivo/Blob)
     reader.readAsDataURL(file);
   };
 
@@ -158,15 +116,14 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         
         <div className="grid grid-cols-4 gap-3">
           <button type="button" onClick={() => fileInputRef.current?.click()} className={`relative aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${uploadedImage ? 'border-orange-500' : 'border-dashed border-gray-200 bg-gray-50'}`}>
-            {isCompressing ? (
-              <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
-            ) : uploadedImage ? (
+            {uploadedImage ? (
               <img src={uploadedImage} className="w-full h-full object-cover rounded-xl" />
             ) : (
               <Camera size={20} className="text-gray-400" />
             )}
           </button>
           
+          {/* El input oculto que llama a la función */}
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           
           {AVATARS.map((avatar, idx) => (
@@ -179,10 +136,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         <button 
           type="button" 
           onClick={handleSave} 
-          disabled={isCompressing}
-          className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
+          className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm"
         >
-          {isCompressing ? 'Procesando...' : 'Guardar Cambios'}
+          Guardar y Sincronizar
         </button>
       </div>
     </div>
