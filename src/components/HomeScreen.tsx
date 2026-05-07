@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Clock, Truck, ChevronRight, Star, ChevronLeft, Zap, Gift, Target, History, Sparkles } from 'lucide-react';
+import { Clock, Truck, ChevronRight, Star, ChevronLeft, Zap, Gift, Target, History, Sparkles, Award } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import ProductCard from './ProductCard';
@@ -44,13 +44,17 @@ const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
   { label: 'Lácteos', target: 'Lácteos y refrigerados', icon: '🥛' },
   { label: 'Abarrotes', target: 'Abarrotes y básicos', icon: '🌾' },
   { label: 'Bebidas', target: 'Bebidas', icon: '🥤' },
-  { label: 'Snacks', target: 'Snacks', icon: '🍫' },
+  { label: 'Snacks', target: 'Snacks y dulces', icon: '🍫' },
   { label: 'Limpieza', target: 'Limpieza y hogar', icon: '🧼' },
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
-  const { customerName, points, lastSpin } = useUser();
-  const { products } = useAdmin();
+  // 🛡️ PROTECCIÓN ANTI-CRASH: Si points no existe en useUser, usamos 0.
+  const user = useUser();
+  const customerName = user?.customerName || 'Guerrero';
+  const points = user?.points || 0; 
+  
+  const { products = [] } = useAdmin();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -83,14 +87,14 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       
       {/* 1. HERO - EL MIRADOR ELITE */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
-        <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
-          <div className="absolute top-0 inset-0 pointer-events-none opacity-20">
-             <Sparkles className="absolute top-10 left-10 animate-spin-slow" size={40} />
-             <Star className="absolute bottom-10 right-10 animate-pulse" size={30} />
+        <div className="px-6 pt-10 pb-14 relative z-10 text-center flex flex-col items-center">
+          <div className="absolute inset-0 pointer-events-none opacity-20">
+             <Star className="absolute top-10 left-10 animate-spin-slow text-yellow-200" size={30} />
+             <Sparkles className="absolute top-20 right-20 animate-pulse text-white" size={25} />
           </div>
 
           <div className="flex justify-center mb-6">
-            <img src="/logo-final.png" alt="logo" className="w-36 h-36 object-contain animate-float-gen drop-shadow-[0_20px_35px_rgba(0,0,0,0.3)]" />
+            <img src="/logo-final.png" alt="logo" className="w-32 h-32 object-contain animate-float-gen drop-shadow-2xl" />
           </div>
           
           <div className="space-y-1">
@@ -99,61 +103,61 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
 
           <div className="w-full max-w-xs mt-8 flex gap-3">
-             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-3.5 rounded-[20px] shadow-xl active:scale-95 transition-all text-[10px] uppercase tracking-widest border-b-4 border-orange-100">Comprar</button>
-             <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-3.5 rounded-[20px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border-b-4 border-green-700">WhatsApp</button>
+             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-3.5 rounded-2xl shadow-xl active:scale-95 transition-all text-[10px] uppercase tracking-widest">Catálogo</button>
+             <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-3.5 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest">WhatsApp</button>
           </div>
         </div>
       </div>
 
-      {/* 📍 2. VIP POINTS CARD (Tarjeta de Vidrio) */}
+      {/* 📍 2. VIP POINTS CARD (Glassmorphism) */}
       <div className="px-6 -mt-8 relative z-20">
         <RevealOnScroll>
-          <div className="bg-white/80 backdrop-blur-xl border-2 border-white rounded-[35px] p-6 shadow-[0_20px_40px_rgba(0,0,0,0.08)] flex items-center justify-between">
+          <div className="bg-white/80 backdrop-blur-xl border-2 border-white rounded-[35px] p-6 shadow-[0_15px_35px_rgba(0,0,0,0.1)] flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-tr from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg rotate-3">
-                <Zap size={28} fill="currentColor" className="animate-pulse" />
+              <div className="w-12 h-12 bg-gradient-to-tr from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg rotate-3">
+                <Zap size={24} fill="currentColor" className="animate-pulse" />
               </div>
-              <div className="leading-none">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Bienvenido, {customerName || 'Guerrero'}</p>
+              <div className="leading-none text-left">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Hola, {customerName}</p>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-2xl font-black text-gray-900 tabular-nums">{points.toLocaleString()}</span>
+                  <span className="text-2xl font-black text-gray-900 tabular-nums">{(points || 0).toLocaleString()}</span>
                   <span className="text-orange-500 font-black text-[9px] uppercase tracking-tighter mt-1">Pollazo Puntos 🍗</span>
                 </div>
               </div>
             </div>
-            <button onClick={() => onNavigate('ranking')} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 active:bg-orange-50 active:text-orange-500 transition-all">
+            <button onClick={() => onNavigate('ranking')} className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 border border-gray-100">
               <ChevronRight size={20} />
             </button>
           </div>
         </RevealOnScroll>
       </div>
 
-      {/* 🎡 3. GAMIFICATION HUB (Ruleta & Misiones) */}
+      {/* 🎡 3. GAMIFICATION HUB (Ruleta Diaria & Misiones) */}
       <div className="px-6 py-8 grid grid-cols-2 gap-4">
         <RevealOnScroll delay={100}>
-          <button className="w-full bg-slate-900 rounded-[30px] p-5 text-left relative overflow-hidden group active:scale-95 transition-all shadow-xl">
-            <div className="absolute -right-4 -top-4 text-orange-500/20 group-hover:rotate-12 transition-transform">
+          <button className="w-full bg-slate-900 rounded-[30px] p-5 text-left relative overflow-hidden group active:scale-95 transition-all shadow-xl border-b-4 border-black">
+            <div className="absolute -right-4 -top-4 text-orange-500/10 group-hover:rotate-12 transition-transform">
                <History size={80} />
             </div>
             <Gift className="text-orange-500 mb-3" size={24} />
             <p className="text-white font-black text-xs uppercase italic leading-none">Ruleta</p>
-            <p className="text-orange-500/80 font-black text-[9px] uppercase mt-1">Giro Diario</p>
+            <p className="text-orange-500/80 font-black text-[9px] uppercase mt-1">Giro Diario Gratis</p>
           </button>
         </RevealOnScroll>
 
         <RevealOnScroll delay={200}>
-          <button className="w-full bg-white border border-gray-100 rounded-[30px] p-5 text-left relative overflow-hidden group active:scale-95 transition-all shadow-sm">
-            <div className="absolute -right-4 -top-4 text-orange-100 group-hover:scale-110 transition-transform">
+          <button className="w-full bg-white border border-gray-200 rounded-[30px] p-5 text-left relative overflow-hidden group active:scale-95 transition-all shadow-sm border-b-4 border-gray-100">
+            <div className="absolute -right-4 -top-4 text-orange-500/5 group-hover:scale-110 transition-transform">
                <Target size={80} />
             </div>
-            <Target className="text-orange-500 mb-3" size={24} />
+            <Target className="text-orange-600 mb-3" size={24} />
             <p className="text-gray-900 font-black text-xs uppercase italic leading-none">Misiones</p>
             <p className="text-gray-400 font-black text-[9px] uppercase mt-1">Gana +Puntos</p>
           </button>
         </RevealOnScroll>
       </div>
 
-      {/* 4. CATEGORÍAS (MANTENIDO Y PULIDO) */}
+      {/* 4. CATEGORÍAS */}
       <div className="px-6 pb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-[0.2em]">Surtido del Barrio</h3>
@@ -164,7 +168,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <RevealOnScroll key={cat.label} delay={idx * 50}>
               <button 
                 onClick={() => onNavigateToCategory(cat.target)}
-                className="bg-white border border-gray-100 p-4 rounded-[28px] flex flex-col items-center gap-2 shadow-sm active:scale-90 transition-all hover:border-orange-200"
+                className="bg-white border border-gray-100 p-4 rounded-[28px] flex flex-col items-center gap-2 shadow-sm active:scale-90 transition-all"
               >
                 <span className="text-2xl">{cat.icon}</span>
                 <span className="text-[9px] font-black text-gray-500 uppercase text-center leading-none tracking-tighter">{cat.label}</span>
@@ -205,21 +209,21 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 6. INFO STRIP ELEGANTE */}
+      {/* 6. INFO STRIP */}
       <div className="px-6 py-4">
          <div className="grid grid-cols-3 gap-2 bg-slate-900 p-6 rounded-[35px] shadow-2xl border border-white/5 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-orange-500/10 to-transparent pointer-events-none"></div>
             <div className="flex flex-col items-center text-center gap-2 relative z-10">
                <Clock size={18} className="text-orange-500" />
-               <span className="text-[8px] font-black text-white uppercase tracking-widest">7 AM - 9 PM</span>
+               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">7 AM - 9 PM</span>
             </div>
             <div className="flex flex-col items-center text-center gap-2 border-x border-white/10 relative z-10 px-2">
                <Truck size={18} className="text-orange-500" />
-               <span className="text-[8px] font-black text-white uppercase tracking-widest">A domicilio</span>
+               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">Entrega</span>
             </div>
             <div className="flex flex-col items-center text-center gap-2 relative z-10">
                <Award size={18} className="text-orange-500" />
-               <span className="text-[8px] font-black text-white uppercase tracking-widest">Calidad 100%</span>
+               <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">Garantía</span>
             </div>
          </div>
       </div>
@@ -227,17 +231,10 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       <style>{`
         .hero-water { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-        .animate-spin-slow-reverse { animation: spin-slow 15s linear infinite reverse; }
+        .animate-spin-slow { animation: spin-slow 15s linear infinite; }
         .hero-water::after {
-          content: '';
-          position: absolute;
-          bottom: -50px;
-          left: -10%;
-          width: 120%;
-          height: 100px;
-          background: #f9fafb;
-          border-radius: 100%;
+          content: ''; position: absolute; bottom: -50px; left: -10%; width: 120%; height: 100px;
+          background: #f9fafb; border-radius: 100%;
         }
       `}</style>
     </div>
