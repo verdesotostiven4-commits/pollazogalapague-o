@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MessageCircle, Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -24,12 +24,11 @@ const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
-  const { customerName, loading: userLoading } = useUser();
+  const { customerName } = useUser();
   const { products } = useAdmin();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar y agrupar productos de 2 en 2 para el carrusel
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
   const pairs = [];
   for (let i = 0; i < bestsellers.length; i += 2) {
@@ -74,25 +73,8 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* SECCIÓN DE SALUDO CORREGIDA (BLINDADA CONTRA [object Object]) */}
-      <div className="px-6 pt-8 pb-4 bg-white">
-        {userLoading ? (
-          <div className="animate-pulse">
-            <div className="h-3 w-20 bg-gray-200 rounded-full mb-2"></div>
-            <div className="h-8 w-48 bg-gray-200 rounded-lg"></div>
-          </div>
-        ) : (
-          <>
-            <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
-            <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
-              Hola, <span className="text-orange-500">{typeof customerName === 'string' ? customerName.split(' ') : 'Cliente'}</span> 👋
-            </h2>
-          </>
-        )}
-      </div>
-
-      {/* HERO NARANJA COMPLETO */}
-      <div className="relative overflow-hidden hero-water w-full shadow-lg"> 
+      {/* 1. HERO NARANJA COMPLETO */}
+      <div className="relative overflow-hidden hero-water w-full shadow-inner"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
           <div className="flex justify-center mb-6">
@@ -102,10 +84,13 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
             <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
           </div>
+
+          {/* BADGE DE UBICACIÓN RECUPERADO */}
           <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8 text-white">
             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             <span className="text-[11px] font-bold uppercase tracking-wider">Puerto Ayora, Galápagos</span>
           </div>
+
           <div className="w-full max-w-sm flex gap-3">
              <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-widest">Ver Catálogo</button>
              <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs uppercase tracking-widest">WhatsApp</button>
@@ -113,7 +98,15 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* CATEGORÍAS RÁPIDAS */}
+      {/* 2. SALUDO PERSONALIZADO */}
+      <div className="px-6 pt-8 pb-2">
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
+        <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
+          Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
+        </h2>
+      </div>
+
+      {/* 3. CATEGORÍAS RÁPIDAS (6 ITEMS) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
@@ -133,7 +126,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* LOS MÁS PEDIDOS (CON SCROLL SNAP) */}
+      {/* 4. LOS MÁS PEDIDOS (CARRUSEL CON SWIPE NATIVO) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -172,7 +165,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* INFO STRIP */}
+      {/* 5. INFO STRIP (ICONOS RECUPERADOS) */}
       <div className="px-4 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
