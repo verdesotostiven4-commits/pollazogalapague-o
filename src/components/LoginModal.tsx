@@ -18,55 +18,47 @@ const AVATARS = [
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=b6e3f4' 
 ];
 
-// 🛠️ TRITURADOR NATIVO V2.0: Ahora usa una "burbuja de datos" (Blob)
-// Esto es mucho más suave para el navegador y achica la foto a 96x96 sin trabas.
+// 🛠️ TRITURADOR V3 (A prueba de balas móviles)
 const compressImageNative = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    // 1. Creamos una URL temporal para la burbuja de datos del archivo
-    img.src = URL.createObjectURL(file);
+    const reader = new FileReader();
     
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const MAX_SIZE = 96; // Tamaño ultra-ligero final
-      let width = img.width;
-      let height = img.height;
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const MAX_SIZE = 96; 
+        let width = img.width;
+        let height = img.height;
 
-      if (width > height) {
-        if (width > MAX_SIZE) {
-          height *= MAX_SIZE / width;
-          width = MAX_SIZE;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
         }
-      } else {
-        if (height > MAX_SIZE) {
-          width *= MAX_SIZE / height;
-          height = MAX_SIZE;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      
-      // ✅ MEJORA: Calidad baja inicial (imageSmoothingQuality) para acelerar
-      if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'low';
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-      }
-      
-      // 2. Exportamos a Base64 en calidad muy baja (0.6) para que sea instantáneo
-      const base64 = canvas.toDataURL('image/jpeg', 0.6);
-      
-      // 3. Limpiamos la URL temporal para no gastar memoria
-      URL.revokeObjectURL(img.src);
-      
-      resolve(base64);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        } else {
+          reject(new Error("No se pudo crear el lienzo (canvas)"));
+        }
+      };
+      img.onerror = () => reject(new Error("El archivo no es una imagen válida o está dañado."));
+      img.src = event.target?.result as string;
     };
-    img.onerror = (error) => {
-      URL.revokeObjectURL(img.src);
-      reject(error);
-    };
+    reader.onerror = () => reject(new Error("Error leyendo el archivo desde tu dispositivo."));
+    reader.readAsDataURL(file);
   });
 };
 
@@ -76,7 +68,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [isCompressing, setIsCompressing] = useState(false); // Ruedita de carga
+  const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,24 +91,26 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files ? e.target.files : null; 
+    
+    // ✅ FIX: Reseteamos el valor del input para que te deje elegir la misma foto 2 veces si te equivocaste
+    if (e.target) e.target.value = ''; 
+    
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecciona un archivo de imagen válido.');
-      return;
-    }
+    // ✅ FIX: Quitamos la validación estricta de "image/" porque bloquea algunos iPhones/Androids.
+    // Dejamos que el Triturador intente leerlo a la fuerza.
 
-    setIsCompressing(true); // Aparece la ruedita
+    setIsCompressing(true);
 
     try {
-      // 🚀 Pasamos la foto por el triturador nativo V2.0
       const base64data = await compressImageNative(file);
       setUploadedImage(base64data);
       setSelectedAvatar(base64data);
-      setIsCompressing(false); // Se quita la ruedita
-    } catch (error) {
+      setIsCompressing(false);
+    } catch (error: any) {
       console.error('Error al procesar la foto:', error);
-      alert('Hubo un error con esa foto. Intenta con otra más pequeña.');
+      // ✅ AHORA TE AVISARÁ EL ERROR EXACTO EN VEZ DE QUEDARSE CALLADO
+      alert(`No pudimos cargar la foto: ${error.message || 'Intenta con otra.'}`);
       setIsCompressing(false);
     }
   };
@@ -126,13 +120,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       alert('Por favor completa tus datos.');
       return;
     }
-    // Sincronizamos con el App.tsx
     onLogin({ name, whatsapp, avatarUrl: selectedAvatar });
     onClose(); 
   };
 
   return (
-    /* ✅ FIX: z- para estar por encima del Catálogo */
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -163,7 +155,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         
         <div className="grid grid-cols-4 gap-3">
           <button type="button" onClick={() => fileInputRef.current?.click()} className={`relative aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${uploadedImage ? 'border-orange-500' : 'border-dashed border-gray-200 bg-gray-50'}`}>
-            {/* ✅ Spinner de carga si la foto se está triturando */}
             {isCompressing ? (
               <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
             ) : uploadedImage ? (
@@ -172,6 +163,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               <Camera size={20} className="text-gray-400" />
             )}
           </button>
+          
+          {/* ✅ input tipo file oculto. Acepta todas las imágenes */}
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           
           {AVATARS.map((avatar, idx) => (
@@ -182,7 +175,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         </div>
 
         <button 
-          type="submit" 
+          type="button" 
           onClick={handleSave} 
           disabled={isCompressing}
           className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
