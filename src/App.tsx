@@ -64,7 +64,8 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
-    setShowTracking(true);
+    // ✅ Abrimos el rastreo automáticamente después de pedir
+    setTimeout(() => setShowTracking(true), 1500);
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
@@ -73,18 +74,11 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-8">CARGANDO EL POLLAZO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
-      <AppHeader 
-        screen={screen} 
-        onNavigate={handleNavigate} 
-        onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar}
-        onOpenTracking={() => setShowTracking(true)}
-      />
-      
+      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} onOpenTracking={() => setShowTracking(true)} />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
@@ -92,14 +86,10 @@ function AppShell() {
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-
       <BottomNav current={screen} onNavigate={handleNavigate} />
-
-      {/* 🚀 MODALES MOVIDOS AL FINAL PARA DOMINAR EL Z-INDEX */}
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
-      
       <FlyParticleLayer />
     </div>
   );
@@ -112,29 +102,7 @@ export default function App() {
     const hasUser = localStorage.getItem('pollazo_customer_phone');
     return !!skip || !!hasUser;
   });
-
   if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
-
-  if (!landingDone) {
-    return (
-      <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
-          localStorage.setItem('pollazo_landing_dismissed', '1'); 
-          setLandingDone(true); 
-        }} />
-      </AdminProvider>
-    );
-  }
-
-  return (
-    <AdminProvider>
-      <UserProvider> 
-        <CartProvider>
-          <FlyToCartProvider>
-            <AppShell />
-          </FlyToCartProvider>
-        </CartProvider>
-      </UserProvider>
-    </AdminProvider>
-  );
+  if (!landingDone) return <AdminProvider><LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { localStorage.setItem('pollazo_landing_dismissed', '1'); setLandingDone(true); }} /></AdminProvider>;
+  return <AdminProvider><UserProvider><CartProvider><FlyToCartProvider><AppShell /></FlyToCartProvider></CartProvider></UserProvider></AdminProvider>;
 }
