@@ -16,6 +16,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [customerAvatar, setCustomerAvatar] = useState('');
 
   useEffect(() => {
+    // Sincronizado con las llaves de App.tsx
     const p = localStorage.getItem('pollazo_customer_phone');
     const n = localStorage.getItem('pollazo_customer_name');
     const a = localStorage.getItem('pollazo_customer_avatar');
@@ -29,6 +30,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerPhone(clean);
     setCustomerName(name);
     setCustomerAvatar(avatar);
+    
     localStorage.setItem('pollazo_customer_phone', clean);
     localStorage.setItem('pollazo_customer_name', name);
     localStorage.setItem('pollazo_customer_avatar', avatar);
