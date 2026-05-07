@@ -19,12 +19,10 @@ const AVATARS = [
 
 export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
   const { customerName, customerPhone, customerAvatar } = useUser();
-  
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,8 +44,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    const file = files ? files : null;
+    const file = e.target.files?.;
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -80,7 +77,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   const handleSave = () => {
     if (!name.trim() || !whatsapp.trim()) {
-      alert('Por favor completa tu nombre y número.');
+      alert('Por favor completa tus datos.');
       return;
     }
     onLogin({ name, whatsapp, avatarUrl: selectedAvatar });
@@ -88,74 +85,53 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      {/* ✅ FONDO BORROSO (Glassmorphism) */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
       
-      <div className="relative z-10 w-full max-w-md bg-white rounded-[36px] p-6 shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100">
-        <button type="button" onClick={onClose} className="absolute top-5 right-5 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+        <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
 
-        <div className="text-center mb-6 mt-4">
-          <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-3">
-            <Sparkles size={32} />
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-4">
+            <Sparkles size={40} />
           </div>
           <h2 className="text-2xl font-black text-gray-900 uppercase italic">Únete al Club</h2>
-          <p className="text-sm font-bold text-gray-400 mt-1">Acumula puntos y gana con tus compras</p>
+          <p className="text-sm font-bold text-gray-400 mt-2">Acumula puntos y gana con tus compras</p>
         </div>
 
         <div className="space-y-4">
           <div className="relative">
             <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              placeholder="Tu nombre" 
+              value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" 
               className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" 
             />
           </div>
           <div className="relative">
             <Phone size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
-              value={whatsapp} 
-              onChange={(e) => setWhatsapp(e.target.value)} 
-              placeholder="Número de WhatsApp" 
+              value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" 
               className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" 
             />
           </div>
         </div>
 
-        <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mt-6 mb-3 text-center">Avatar o Foto</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mt-8 mb-4 text-center">Avatar o Foto</p>
         <div className="grid grid-cols-4 gap-3">
-          <button 
-            type="button"
-            onClick={() => fileInputRef.current?.click()} 
-            className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${uploadedImage === selectedAvatar ? 'border-orange-500 bg-orange-50' : 'border-dashed border-gray-200 bg-gray-50'}`}
-          >
-            {uploadedImage ? (
-              <img src={uploadedImage} alt="Perfil" className="w-full h-full object-cover rounded-xl" />
-            ) : (
-              <Camera size={20} className="text-gray-400" />
-            )}
+          <button type="button" onClick={() => fileInputRef.current?.click()} className={`relative aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${uploadedImage ? 'border-orange-500' : 'border-dashed border-gray-200 bg-gray-50'}`}>
+            {uploadedImage ? <img src={uploadedImage} className="w-full h-full object-cover rounded-xl" /> : <Camera size={20} className="text-gray-400" />}
           </button>
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-          
           {AVATARS.map((avatar, idx) => (
-            <button 
-              key={idx} 
-              type="button"
-              onClick={() => { setSelectedAvatar(avatar); setUploadedImage(null); }} 
-              className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${selectedAvatar === avatar && !uploadedImage ? 'border-orange-500 scale-105 shadow-lg' : 'border-transparent opacity-60'}`}
-            >
-              <img src={avatar} alt={`Avatar-${idx}`} className="w-full h-full object-cover" />
+            <button key={idx} onClick={() => { setSelectedAvatar(avatar); setUploadedImage(null); }} className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${selectedAvatar === avatar && !uploadedImage ? 'border-orange-500 scale-105' : 'border-transparent opacity-60'}`}>
+              <img src={avatar} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
 
-        <button 
-          type="button"
-          onClick={handleSave} 
-          className="mt-8 w-full py-4 bg-orange-500 text-white font-black rounded-[24px] shadow-xl shadow-orange-200 active:scale-95 transition-all uppercase tracking-widest text-sm"
-        >
+        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl shadow-orange-200 active:scale-95 transition-all uppercase tracking-widest text-sm">
           Guardar Cambios
         </button>
       </div>
