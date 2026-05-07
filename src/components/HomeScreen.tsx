@@ -73,6 +73,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
+      {/* 1. HERO NARANJA COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
@@ -96,6 +97,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
+      {/* 2. SALUDO PERSONALIZADO */}
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
@@ -103,10 +105,11 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </h2>
       </div>
 
+      {/* 3. CATEGORÍAS RÁPIDAS */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg">Ver todo <ChevronRight size={12}/></button>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all">Ver todo <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {QUICK_CATEGORIES.map((cat) => (
@@ -122,6 +125,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
+      {/* 4. LOS MÁS PEDIDOS (CON SCROLL NATIVO Y BLINDADO) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -134,10 +138,11 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
         </div>
         
+        {/* ✅ FIX AQUÍ: Se cambió 'touch-pan-x' por 'touch-pan-y' */}
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-pan-x"
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide touch-pan-y" 
           style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
         >
           {pairs.map((pair, i) => (
@@ -160,6 +165,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
+      {/* 5. INFO STRIP */}
       <div className="px-4 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
