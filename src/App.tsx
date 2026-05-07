@@ -17,10 +17,11 @@ import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking'; 
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
-import { Screen } from './types';
+import { Category, Screen } from './types';
 
 function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
@@ -37,6 +38,13 @@ function AppShell() {
 
   const handleNavigate = useCallback((s: Screen) => {
     setScreen(s);
+    if (s !== 'catalog') setActiveCategory('Todos');
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, []);
+
+  const handleNavigateToCategory = useCallback((cat: Category) => {
+    setActiveCategory(cat);
+    setScreen('catalog');
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, []);
 
@@ -61,21 +69,16 @@ function AppShell() {
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
       <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
-      
-      {/* QUITAMOS EL PADDING P-4 PARA QUE EL HERO SEA COMPLETO */}
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
-        
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />}
-        {screen === 'catalog' && <CatalogScreen initialCategory="Todos" onCategoryChange={() => {}} />}
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
+        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => { setUserData(u.whatsapp, u.name, u.avatarUrl); setShowLoginModal(false); upsertCustomer(u.whatsapp, u.name, u.avatarUrl); }} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
@@ -95,7 +98,10 @@ export default function App() {
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { localStorage.setItem('pollazo_landing_dismissed', '1'); setLandingDone(true); }} />
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
+          localStorage.setItem('pollazo_landing_dismissed', '1'); 
+          setLandingDone(true); 
+        }} />
       </AdminProvider>
     );
   }
