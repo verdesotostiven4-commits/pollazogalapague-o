@@ -79,11 +79,10 @@ export default function Ranking() {
   );
 
   return (
-    <div className="relative pb-40 max-w-4xl mx-auto overflow-x-hidden bg-white">
+    <div className="relative pb-40 max-w-4xl mx-auto overflow-x-hidden bg-white relative">
       
       {/* --- HEADER CON ESTRELLAS GIRATORIAS ✨ --- */}
       <div className="bg-gradient-to-b from-orange-500 to-orange-600 p-8 rounded-b-[60px] shadow-2xl text-center text-white relative overflow-hidden">
-        {/* Estrellas en movimiento continuo */}
         <div className="absolute inset-0 pointer-events-none">
           <Star className="absolute top-10 left-10 text-yellow-200/20 animate-spin-slow" size={30} />
           <Star className="absolute bottom-20 right-10 text-white/10 animate-spin-slow-reverse" size={50} />
@@ -113,10 +112,10 @@ export default function Ranking() {
 
       {/* 📍 BOTÓN "VER GANADORES ANTERIORES" - TIPO VIDRIO (MINIMALISTA) */}
       {publishedSeasons.length > 0 && (
-        <div className="px-6 mt-8 flex justify-end">
+        <div className="px-6 mt-8 flex justify-end animate-pro-reveal">
           <button 
             onClick={scrollToHall}
-            className="flex items-center gap-2 bg-orange-500/10 backdrop-blur-md text-orange-600 px-4 py-2.5 rounded-full shadow-sm active:scale-95 transition-all border border-orange-500/20 group animate-pro-reveal"
+            className="flex items-center gap-2 bg-orange-500/10 backdrop-blur-md text-orange-600 px-4 py-2.5 rounded-full shadow-sm active:scale-95 transition-all border border-orange-500/20 group animate-soft-pulse"
           >
             <History size={14} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
             <span className="text-[9px] font-black uppercase italic tracking-widest">Ver Ganadores Anteriores</span>
@@ -133,7 +132,7 @@ export default function Ranking() {
             <RevealOnScroll key={c.id} delay={i * 60}>
               <div className={`relative flex items-center gap-4 p-5 rounded-[35px] border-2 transition-all duration-700 ${
                 i === 0 ? 'bg-yellow-50 border-yellow-400 shadow-[0_15px_35px_rgba(250,204,21,0.4)] scale-[1.03] z-10' :
-                i === 1 ? 'bg-slate-100 border-slate-400 shadow-md' : // Plata real intenso
+                i === 1 ? 'bg-slate-50 border-slate-300 shadow-md' : // Plata real intenso
                 i === 2 ? 'bg-white border-orange-200 shadow-sm' : // Bronce limpio
                 'bg-white border-transparent'
               } ${isMe ? 'ring-[4px] ring-orange-500 ring-offset-4' : ''}`}>
@@ -154,6 +153,7 @@ export default function Ranking() {
                 </div>
                 <div className="text-right leading-none">
                   <p className={`text-2xl font-black leading-none ${isTop3 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points}</p>
+                  {/* RAYITO AMARILLO/DORADO ✨ */}
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-tighter mt-1">Pollazo Puntos 🍗</p>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function Ranking() {
       </div>
 
       {/* --- 🏆 SALÓN DE LA FAMA (PANORÁMICO VIP) --- */}
-      <div ref={hallOfFameRef} className="mt-36 scroll-mt-6">
+      <div ref={hallOfFameRef} className="mt-36 scroll-mt-6 relative">
         {publishedSeasons.length > 0 && (
           <div className="px-5 space-y-32">
             <div className="text-center space-y-2 animate-in fade-in duration-1000">
@@ -179,11 +179,11 @@ export default function Ranking() {
                   {/* ETIQUETA TEMPORADA: CENTRADA EN DOS LÍNEAS */}
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-3 rounded-3xl font-black shadow-2xl z-20 animate-float border-2 border-slate-950 text-center flex flex-col items-center justify-center leading-none min-w-[160px]">
                      <span className="text-[9px] uppercase tracking-widest mb-1 opacity-80">Temporada</span>
-                     <span className="text-lg italic text-yellow-100/90">#{publishedSeasons.length - sIdx}</span>
+                     <span className="text-xl italic text-yellow-100/90 tracking-widest leading-none">#{publishedSeasons.length - sIdx}</span>
                   </div>
 
                   <div className="text-center pt-8">
-                    <h3 className="text-white font-black text-3xl uppercase italic tracking-tighter leading-none mb-3 animate-pulse">{season.name}</h3>
+                    <h3 className="text-white font-black text-3xl uppercase italic tracking-tighter leading-none mb-3 animate-pulse leading-none truncate">{season.name}</h3>
                     <p className="text-orange-500 text-[11px] font-black uppercase tracking-widest italic">{season.prize}</p>
                   </div>
 
@@ -218,20 +218,20 @@ export default function Ranking() {
                           )}
                           
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-6 z-10">
-                             <div className="flex justify-between items-end gap-2">
+                             <div className="flex justify-between items-end gap-2 leading-none">
                                 <div className="space-y-1">
                                   {/* NOMBRE COMPLETO */}
-                                  <p className="text-white font-black italic text-2xl leading-none tracking-tighter drop-shadow-md">{winner.name}</p>
+                                  <p className="text-white font-black italic text-2xl leading-none tracking-tighter drop-shadow-md truncate">{winner.name}</p>
                                   <p className="flex items-center gap-1 italic">
                                     {/* RAYITO AMARILLO ✨ */}
                                     <Zap size={13} className="text-yellow-400 fill-yellow-400" /> 
                                     {/* COLOR DIFERENCIADO PUNTOS */}
-                                    <span className="text-white font-black text-lg tabular-nums leading-none">{winner.points}</span> 
+                                    <span className="text-white font-black text-lg tabular-nums leading-none tracking-widest">{winner.points}</span> 
                                     <span className="text-yellow-300/80 font-black text-[9px] uppercase tracking-tighter leading-none mt-1">Pollazo Puntos 🍗</span>
                                   </p>
                                 </div>
-                                <div className={`p-4 rounded-3xl shrink-0 ${idx===0 ? 'bg-yellow-400 text-black shadow-gold-glow animate-bounce' : 'bg-slate-800 text-white'}`}>
-                                   {idx === 0 ? <Crown size={30}/> : <Medal size={30}/>}
+                                <div className={`p-4 rounded-3xl shrink-0 ${idx===0 ? 'bg-yellow-400 text-black shadow-gold-glow animate-soft-pulse' : 'bg-slate-800 text-white'}`}>
+                                   <Medal size={30}/>
                                 </div>
                              </div>
                           </div>
@@ -243,7 +243,7 @@ export default function Ranking() {
                           idx === 1 ? 'bg-slate-100 text-slate-800 animate-silver-pulse' : 
                           'bg-orange-900 text-white'
                         }`}>
-                          {idx === 0 ? '🏆 Campeón Oro' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
+                          {idx === 0 ? '👑 Campeón Oro' : idx === 1 ? '🥈 Plata Real' : '🥉 Honor de Bronce'}
                         </div>
                       </div>
                     ))}
@@ -260,16 +260,16 @@ export default function Ranking() {
       {myData && myRankIndex > 2 && (
         <RevealOnScroll delay={500}>
           <div className="fixed bottom-20 left-4 right-4 z-">
-            <div className="bg-slate-950/98 backdrop-blur-3xl border-2 border-orange-500/40 rounded-[40px] p-6 shadow-[0_30px_70px_rgba(0,0,0,0.7)] flex items-center justify-between animate- soft-pulse transition-all duration-700">
-              <div className="flex items-center gap-5 shrink-0">
+            <div className="bg-slate-950/98 backdrop-blur-3xl border-2 border-orange-500/40 rounded-[40px] p-6 shadow-[0_30px_70px_rgba(0,0,0,0.7)] flex items-center justify-between animate- softness-pulse transition-all duration-700">
+              <div className="flex items-center gap-5 shrink-0 leading-none">
                  <img src={myData.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-orange-500 object-cover" />
-                 <div className="text-left leading-none">
-                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1 animate-pulse italic">Tu Estatus Actual</p>
-                    <p className="text-white font-black text-2xl italic uppercase tracking-tighter leading-none">Puesto #{myRankIndex + 1}</p>
+                 <div className="text-left leading-none space-y-1">
+                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none animate-pulse italic">Tu Rango Actual</p>
+                    <p className="text-white font-black text-2xl italic uppercase tracking-tighter leading-none truncate">Puesto #{myRankIndex + 1}</p>
                  </div>
               </div>
               <div className="text-right leading-none shrink-0 flex flex-col items-end">
-                 <p className="text-3xl font-black text-white leading-none tabular-nums text-shadow-orange">{myData.points}</p>
+                 <p className="text-3xl font-black text-white leading-none tabular-nums text-shadow-orange tabular-nums">{myData.points}</p>
                  <p className="text-[8px] font-black text-yellow-300 uppercase tracking-widest mt-1">Pollazo Puntos 🍗</p>
               </div>
             </div>
@@ -303,12 +303,19 @@ export default function Ranking() {
           0%, 100% { transform: translateY(0) rotate(3deg); }
           50% { transform: translateY(-10px) rotate(-2deg); }
         }
+        @keyframes softness-pulse {
+            0% { box-shadow: 0 30px 70px rgba(0,0,0,0.7); }
+            50% { box-shadow: 0 30px 70px rgba(249,115,22,0.4); }
+            100% { box-shadow: 0 30px 70px rgba(0,0,0,0.7); }
+        }
         .animate-diamond-gold { animation: diamond-gold 3s infinite; }
         .animate-silver-pulse { animation: silver-pulse 3s ease-in-out infinite; }
         .animate-shimmer { animation: shimmer 2.5s infinite; }
         .animate-spin-slow { animation: spin-slow 15s linear infinite; }
         .animate-spin-slow-reverse { animation: spin-slow-reverse 20s linear infinite; }
         .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-soft-pulse { animation: soft-pulse 4s ease-in-out infinite; }
+        .animate-softness-pulse { animation: softness-pulse 4s ease-in-out infinite; }
         .shadow-gold-glow { box-shadow: 0 0 30px rgba(250,204,21,0.5); }
         .shadow-silver-glow { box-shadow: 0 0 25px rgba(255,255,255,0.3); }
         .text-shadow-orange { text-shadow: 0 0 15px rgba(249,115,22,0.5); }
