@@ -22,27 +22,20 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
   if (!isOpen) return null;
 
   const cleanUser = customerPhone ? customerPhone.replace(/\D/g, '').slice(-8) : '';
-  
-  const activeOrder = orders
-    ?.filter(o => {
-      const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-8);
-      const isRecent = new Date(o.created_at || '').getTime() > Date.now() - (24 * 60 * 60 * 1000);
-      return cleanOrder === cleanUser && isRecent && o.status !== 'Cancelado';
-    })
-    .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+  const activeOrder = orders?.filter(o => {
+    const cleanOrder = (o.customer_phone || '').replace(/\D/g, '').slice(-8);
+    return cleanOrder === cleanUser && o.status !== 'Cancelado';
+  }).sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
   const isTrackingNow = activeOrder && ['Preparando', 'Enviado', 'Entregado'].includes(activeOrder.status);
 
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
-      {/* ✅ FONDO BORROSO (Glassmorphism) */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
-      
-      <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
         <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
-
         <div className="text-center mb-8">
           <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 ${isTrackingNow ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-500'}`}>
             {isTrackingNow ? <Truck size={40} /> : <Sparkles size={40} />}
@@ -54,7 +47,6 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
             {isTrackingNow ? `Código: #${activeOrder.order_code}` : 'Sigue tu pedido en tiempo real'}
           </p>
         </div>
-
         {isTrackingNow ? (
           <div className="space-y-8">
             <div className="relative flex justify-between items-center px-2">
@@ -66,7 +58,7 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
                 const Icon = step.icon;
                 return (
                   <div key={step.status} className="flex flex-col items-center gap-2 z-10">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${isCompleted ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border-2 border-gray-100 text-gray-300'} ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}>
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isCompleted ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border-2 border-gray-100 text-gray-300'} ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}>
                       <Icon size={18} />
                     </div>
                     <span className={`text-[8px] font-black uppercase tracking-tighter ${isCompleted ? 'text-gray-900' : 'text-gray-300'}`}>{step.label}</span>
@@ -74,30 +66,20 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
                 );
               })}
             </div>
-            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-center">
-               <p className="text-xs font-black text-orange-600 uppercase italic">
-                  {activeOrder.status === 'Preparando' && 'Estamos empacando tus productos...'}
-                  {activeOrder.status === 'Enviado' && '¡Tu pedido va en camino!'}
-                  {activeOrder.status === 'Entregado' && '¡Pedido entregado con éxito!'}
-               </p>
+            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-center text-xs font-black text-orange-600 uppercase italic">
+              {activeOrder.status === 'Preparando' && 'Estamos empacando tus productos...'}
+              {activeOrder.status === 'Enviado' && '¡Tu pedido va en camino!'}
+              {activeOrder.status === 'Entregado' && '¡Pedido entregado con éxito!'}
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <p className="text-sm text-gray-500 font-bold leading-relaxed text-center">
-              Aquí podrás ver el progreso de tu compra. Cuando realices un pedido y lo confirmemos, se activará el seguimiento paso a paso. 🛵💨
-            </p>
+            <p className="text-sm text-gray-500 font-bold leading-relaxed text-center">Aquí podrás ver el progreso de tu compra en tiempo real. Se activará cuando confirmemos tu pedido. 🛵💨</p>
             <div className="p-4 bg-blue-50 rounded-[28px] flex items-center gap-4 border border-blue-100">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0">
-                <Info size={24}/>
-              </div>
-              <p className="text-[10px] font-black text-blue-700 uppercase leading-tight">
-                Te notificaremos cuando tu pedido salga del Market.
-              </p>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0"><Info size={24}/></div>
+              <p className="text-[10px] font-black text-blue-700 uppercase leading-tight">Te notificaremos cuando tu pedido salga del Market.</p>
             </div>
-            <button onClick={onClose} className="w-full py-5 bg-gray-900 text-white font-black rounded-[24px] text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl">
-              Cerrar
-            </button>
+            <button onClick={onClose} className="w-full py-5 bg-gray-900 text-white font-black rounded-[24px] text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl">Cerrar</button>
           </div>
         )}
       </div>
