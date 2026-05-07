@@ -76,7 +76,7 @@ function AppShell() {
   if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
 
   return (
-    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
+    <div className="flex flex-col bg-gray-50 h-[100dvh]">
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
@@ -85,7 +85,7 @@ function AppShell() {
         onOpenTracking={() => setShowTracking(true)}
       />
       
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
@@ -95,7 +95,7 @@ function AppShell() {
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
       
-      {/* MODALES EN CAPA SUPERIOR */}
+      {/* MODALES CON Z-INDEX ALTO Y BLUR */}
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
