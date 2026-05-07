@@ -56,27 +56,17 @@ function AppShell() {
     clearCart(); setShowConfirmation(false); setScreen('home');
   };
 
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO POLLAZO...</div>;
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader 
-        screen={screen} 
-        onNavigate={handleNavigate} 
-        scrolled={false} 
-        onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar} 
-      />
+      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
       
+      {/* QUITAMOS EL PADDING P-4 PARA QUE EL HERO SEA COMPLETO */}
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
         
-        {screen === 'home' && (
-           <div className="animate-in fade-in duration-500">
-             <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />
-           </div>
-        )}
-
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={() => handleNavigate('catalog')} />}
         {screen === 'catalog' && <CatalogScreen initialCategory="Todos" onCategoryChange={() => {}} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
@@ -86,16 +76,7 @@ function AppShell() {
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
       
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
-        onLogin={(u) => { 
-          setUserData(u.whatsapp, u.name, u.avatarUrl); 
-          setShowLoginModal(false); 
-          upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
-        }} 
-      />
-      
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(u) => { setUserData(u.whatsapp, u.name, u.avatarUrl); setShowLoginModal(false); upsertCustomer(u.whatsapp, u.name, u.avatarUrl); }} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -109,24 +90,12 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  // AQUÍ ESTABA EL ERROR: El cierre de la etiqueta era incorrecto
-  if (isDashboard) return (
-    <AdminProvider>
-      <AdminDashboard />
-    </AdminProvider>
-  );
+  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage 
-          onInstall={() => {}} 
-          canInstall={false} 
-          onContinueWeb={() => { 
-            localStorage.setItem('pollazo_landing_dismissed', '1'); 
-            setLandingDone(true); 
-          }} 
-        />
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { localStorage.setItem('pollazo_landing_dismissed', '1'); setLandingDone(true); }} />
       </AdminProvider>
     );
   }
