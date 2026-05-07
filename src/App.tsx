@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { CartProvider } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
-import { AdminProvider, useAdmin } from './context/AdminContext';
-import { UserProvider, useUser } from './context/UserContext';
+import { AdminProvider } from './context/AdminContext';
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -14,11 +13,11 @@ import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
 import LoginModal from './components/LoginModal';
-import OrderTracking from './components/OrderTracking'; // El código que ya tienes
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { supabase } from './lib/supabase';
 import { Category } from './types';
+import { useAdmin } from './context/AdminContext';
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
 
@@ -48,20 +47,28 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>(initialCategory ?? 'Todos');
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder } = useAdmin();
-  const { customerPhone, setPhone } = useUser();
   const mainRef = useRef<HTMLElement>(null);
+
+  // ESTADO: Información completa del cliente
+  const [customerInfo, setCustomerInfo] = useState<{name: string, phone: string, avatarUrl: string} | null>(() => {
+    const phone = localStorage.getItem('pollazo_customer_phone');
+    const name = localStorage.getItem('pollazo_customer_name');
+    const avatarUrl = localStorage.getItem('pollazo_customer_avatar');
+    if (phone) return { phone, name: name || '', avatarUrl: avatarUrl || '' };
+    return null;
+  });
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
   useEffect(() => {
-    if (!customerPhone) {
+    if (!customerInfo) {
       const timer = setTimeout(() => {
         setShowLoginModal(true);
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [customerPhone]);
+  }, [customerInfo]);
 
   useEffect(() => {
     if (initialCategory) {
@@ -91,7 +98,7 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
   const handleCheckout = () => {
     if (items.length === 0) return;
-    if (!customerPhone) {
+    if (!customerInfo || !customerInfo.phone) {
       setPendingAction('checkout');
       setShowLoginModal(true);
       return;
@@ -101,12 +108,18 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
     const cleanPhone = userData.whatsapp.replace(/\D/g, ''); 
-    setPhone(cleanPhone);
+    localStorage.setItem('pollazo_customer_phone', cleanPhone);
     localStorage.setItem('pollazo_customer_name', userData.name);
     localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
+
+    setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
     setShowLoginModal(false);
+
     await upsertCustomer(cleanPhone, userData.name, userData.avatarUrl);
-    if (pendingAction === 'checkout') setShowConfirmation(true);
+
+    if (pendingAction === 'checkout') {
+      setShowConfirmation(true);
+    }
     setPendingAction(null);
   };
 
@@ -115,15 +128,21 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
     setPendingAction(null);
   };
 
+  // PUNTO 2 CORREGIDO: Sin puntos automáticos y enviando el nombre a WhatsApp
   const handleWhatsApp = async () => {
-    const phone = customerPhone;
-    const name = localStorage.getItem('pollazo_customer_name') || 'Cliente';
-    const avatarUrl = localStorage.getItem('pollazo_customer_avatar') || '';
+    const phone = customerInfo?.phone || localStorage.getItem('pollazo_customer_phone') || '';
+    const name = customerInfo?.name || localStorage.getItem('pollazo_customer_name') || 'Cliente';
+    const avatarUrl = customerInfo?.avatarUrl || localStorage.getItem('pollazo_customer_avatar') || '';
+    
     const code = orderCode();
     const subtotal = subtotalOf(items);
     const delivery_fee = deliveryFeeOf(subtotal);
     const total = subtotal + delivery_fee;
-    const customer = await upsertCustomer(phone, name, avatarUrl);
+    
+    // Guardamos/Actualizamos cliente en Supabase
+    const customer = phone ? await upsertCustomer(phone, name, avatarUrl) : null;
+    
+    // Creamos la orden (Sin sumar puntos aquí, tú lo harás manual)
     await createOrder({
       id: crypto.randomUUID(),
       order_code: code,
@@ -136,8 +155,13 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
       status: 'Recibido',
       preorder: !isStoreOpen(),
     });
+    
+    // Solo incrementamos métricas globales de órdenes
     supabase.rpc('increment_metric', { metric_id: 'total_orders' }).then(() => {});
+    
+    // Abrimos WhatsApp con el nombre del cliente incluido
     window.open(buildWhatsAppUrl(items, phone, name, code, !isStoreOpen()), '_blank');
+    
     clearCart();
     setShowConfirmation(false);
     setScreen('home');
@@ -155,27 +179,38 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
   }, []);
 
   return (
-    <div className="flex flex-col bg-gray-50" style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}>
+    <div
+      className="flex flex-col bg-gray-50"
+      style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
+    >
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
         scrolled={false} 
         onOpenProfile={() => setShowLoginModal(true)}
-        customerAvatar={localStorage.getItem('pollazo_customer_avatar') || undefined}
+        customerAvatar={customerInfo?.avatarUrl}
       />
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
-        
-        {/* EL RASTREADOR QUE RECORDARÁ EL TELÉFONO */}
-        <OrderTracking />
 
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto pb-20"
+        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+      >
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={handleCheckout} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={handleInstall} canInstall={canInstall} />}
       </main>
+
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} onLogin={handleLoginDone} />
+      
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={handleCloseLogin} 
+        onLogin={handleLoginDone} 
+      />
+
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -183,7 +218,9 @@ function AppShell({ initialCategory, onClearCategory }: { initialCategory: Categ
 
 export default function App() {
   const [isAdmin] = useState(isAdminRoute);
-  const [landingDone, setLandingDone] = useState(() => isStandalone() || !!sessionStorage.getItem(LANDING_DISMISSED_KEY));
+  const [landingDone, setLandingDone] = useState(() => {
+    return isStandalone() || !!sessionStorage.getItem(LANDING_DISMISSED_KEY);
+  });
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<Category | null>(null);
@@ -211,18 +248,36 @@ export default function App() {
     setLandingDone(true);
   };
 
-  if (isAdmin) return <AdminProvider><AdminDashboard /></AdminProvider>;
-  if (!landingDone) return <AdminProvider><LandingPage onInstall={handleInstall} canInstall={canInstall} onContinueWeb={handleContinueWeb} /></AdminProvider>;
+  if (isAdmin) {
+    return (
+      <AdminProvider>
+        <AdminDashboard />
+      </AdminProvider>
+    );
+  }
+
+  if (!landingDone) {
+    return (
+      <AdminProvider>
+        <LandingPage
+          onInstall={handleInstall}
+          canInstall={canInstall}
+          onContinueWeb={handleContinueWeb}
+        />
+      </AdminProvider>
+    );
+  }
 
   return (
     <AdminProvider>
-      <UserProvider>
-        <CartProvider>
-          <FlyToCartProvider>
-            <AppShell initialCategory={pendingCategory} onClearCategory={() => setPendingCategory(null)} />
-          </FlyToCartProvider>
-        </CartProvider>
-      </UserProvider>
+      <CartProvider>
+        <FlyToCartProvider>
+          <AppShell
+            initialCategory={pendingCategory}
+            onClearCategory={() => setPendingCategory(null)}
+          />
+        </FlyToCartProvider>
+      </CartProvider>
     </AdminProvider>
   );
 }
