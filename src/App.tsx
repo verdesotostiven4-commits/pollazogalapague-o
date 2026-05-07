@@ -42,7 +42,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products, upsertCustomer } = useAdmin(); 
+  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido upsertCustomer
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -62,6 +62,7 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
+  // ✅ NUEVA LÓGICA: Sincroniza foto/nombre con Supabase al guardar
   const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
     setUserData(u.whatsapp, u.name, u.avatarUrl); 
     try {
@@ -118,7 +119,7 @@ function AppShell() {
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
-        onLogin={handleLogin} 
+        onLogin={handleLogin} // ✅ Modificado
       />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
