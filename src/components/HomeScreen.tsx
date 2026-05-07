@@ -73,8 +73,8 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA COMPLETO */}
-      <div className="relative overflow-hidden hero-water w-full shadow-inner"> 
+      {/* 1. HERO NARANJA - Z-Index 0 para que el modal lo tape */}
+      <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
           <div className="flex justify-center mb-6">
@@ -85,7 +85,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
           </div>
 
-          {/* BADGE DE UBICACIÓN RECUPERADO */}
           <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8 text-white">
             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             <span className="text-[11px] font-bold uppercase tracking-wider">Puerto Ayora, Galápagos</span>
@@ -110,7 +109,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all">Ver todo <ChevronRight size={12}/></button>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1 bg-orange-50 px-2.5 py-1.5 rounded-lg">Ver todo <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {QUICK_CATEGORIES.map((cat) => (
@@ -126,7 +125,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS (CARRUSEL CON SWIPE NATIVO) */}
+      {/* 4. LOS MÁS PEDIDOS (SWIPE NATIVO) */}
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
@@ -165,7 +164,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. INFO STRIP (ICONOS RECUPERADOS) */}
+      {/* 5. INFO STRIP (ICONOS) */}
       <div className="px-4 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
