@@ -11,12 +11,11 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
-  const [customerAvatar, setCustomerAvatar] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerAvatar, setCustomerAvatar] = useState('');
 
   useEffect(() => {
-    // LLAVES UNIFICADAS
     const p = localStorage.getItem('pollazo_customer_phone');
     const n = localStorage.getItem('pollazo_customer_name');
     const a = localStorage.getItem('pollazo_customer_avatar');
@@ -26,19 +25,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setUserData = (phone: string, name: string, avatar: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    setCustomerPhone(cleanPhone);
+    const clean = phone.replace(/\D/g, '');
+    setCustomerPhone(clean);
     setCustomerName(name);
     setCustomerAvatar(avatar);
-    
-    localStorage.setItem('pollazo_customer_phone', cleanPhone);
+    localStorage.setItem('pollazo_customer_phone', clean);
     localStorage.setItem('pollazo_customer_name', name);
     localStorage.setItem('pollazo_customer_avatar', avatar);
   };
 
   const logout = () => {
-    setCustomerPhone(''); setCustomerName(''); setCustomerAvatar('');
     localStorage.clear();
+    setCustomerPhone(''); setCustomerName(''); setCustomerAvatar('');
   };
 
   return (
@@ -50,6 +48,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (!context) throw new Error('useUser must be used within UserProvider');
+  if (!context) throw new Error('useUser debe usarse dentro de UserProvider');
   return context;
 };
