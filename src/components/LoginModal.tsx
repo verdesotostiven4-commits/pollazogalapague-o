@@ -18,56 +18,6 @@ const AVATARS = [
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=b6e3f4' 
 ];
 
-// 🛠️ TRITURADOR V4 (Sin candados paranoicos)
-const compressImageNative = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    // ✅ FIX: Quitamos el "instanceof Blob" que bloqueaba los celulares. 
-    // Solo verificamos que el archivo exista.
-    if (!file) {
-      return reject(new Error("No se detectó ningún archivo."));
-    }
-
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const MAX_SIZE = 96; 
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.6));
-        } else {
-          reject(new Error("No se pudo procesar la imagen en el lienzo."));
-        }
-      };
-      img.onerror = () => reject(new Error("El archivo no se pudo leer como imagen."));
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error("Error leyendo el archivo desde tu dispositivo."));
-    reader.readAsDataURL(file); // Leemos el archivo directamente
-  });
-};
-
 export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
   const { customerName, customerPhone, customerAvatar } = useUser();
   const [name, setName] = useState('');
@@ -95,25 +45,70 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   if (!isOpen) return null;
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files ? e.target.files : null; 
+  // 🛠️ FUNCIÓN VIEJA ESCUELA (Adaptada a tu código actual)
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 1. Extraemos el archivo exacto (el), que es el verdadero "Blob"
+    const file = e.target.files && e.target.files.length > 0 ? e.target.files : null;
     
+    // 2. Validación de seguridad (si se cancela, no hace nada)
     if (!file) return;
 
     setIsCompressing(true);
 
-    try {
-      const base64data = await compressImageNative(file);
-      setUploadedImage(base64data);
-      setSelectedAvatar(base64data);
-    } catch (error: any) {
-      console.error('Error al procesar la foto:', error);
-      alert(`No pudimos cargar la foto: ${error.message || 'Intenta con otra.'}`);
-    } finally {
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // 3. Crear el Canvas para achicar la foto
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 96; // 96x96 se ve mejor que 40x40 sin hacer pesada la app
+        
+        let width = img.width;
+        let height = img.height;
+
+        // Calculamos la escala manteniendo la proporción
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Dibujamos la imagen pequeña
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // 4. Convertimos a Base64 súper ligero
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          setUploadedImage(compressedBase64);
+          setSelectedAvatar(compressedBase64);
+        }
+        
+        setIsCompressing(false);
+        // Limpiamos el input para la próxima vez
+        if (e.target) e.target.value = '';
+      };
+      
+      img.src = event.target?.result as string;
+    };
+
+    reader.onerror = () => {
+      alert("Hubo un error al leer la foto desde el celular.");
       setIsCompressing(false);
-      // Limpiamos el input para que puedas volver a elegir la misma foto si quieres
-      if (e.target) e.target.value = ''; 
-    }
+    };
+
+    // 5. Iniciar la lectura (¡Aquí es donde antes fallaba porque no era un Blob!)
+    reader.readAsDataURL(file);
   };
 
   const handleSave = () => {
