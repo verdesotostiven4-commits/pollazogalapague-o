@@ -15,11 +15,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAvatar, setCustomerAvatar] = useState<string>('');
 
-  // 💾 Carga inicial ultra-segura
   useEffect(() => {
-    const p = localStorage.getItem('pollazo_phone');
-    const n = localStorage.getItem('pollazo_name');
-    const a = localStorage.getItem('pollazo_avatar');
+    // LLAVES UNIFICADAS
+    const p = localStorage.getItem('pollazo_customer_phone');
+    const n = localStorage.getItem('pollazo_customer_name');
+    const a = localStorage.getItem('pollazo_customer_avatar');
     if (p) setCustomerPhone(p);
     if (n) setCustomerName(n);
     if (a) setCustomerAvatar(a);
@@ -31,15 +31,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerName(name);
     setCustomerAvatar(avatar);
     
-    localStorage.setItem('pollazo_phone', cleanPhone);
-    localStorage.setItem('pollazo_name', name);
-    localStorage.setItem('pollazo_avatar', avatar);
+    localStorage.setItem('pollazo_customer_phone', cleanPhone);
+    localStorage.setItem('pollazo_customer_name', name);
+    localStorage.setItem('pollazo_customer_avatar', avatar);
   };
 
   const logout = () => {
-    setCustomerPhone('');
-    setCustomerName('');
-    setCustomerAvatar('');
+    setCustomerPhone(''); setCustomerName(''); setCustomerAvatar('');
     localStorage.clear();
   };
 
@@ -52,6 +50,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (!context) throw new Error('useUser debe usarse dentro de UserProvider');
+  if (!context) throw new Error('useUser must be used within UserProvider');
   return context;
 };
