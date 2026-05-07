@@ -33,11 +33,15 @@ export default function LoginModal({
   subtitle = 'Acumula puntos y gana con tus compras',
 }: LoginModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+
   const { customerName, customerPhone, customerAvatar } = useUser();
 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+
+  // FIX: iniciar con un avatar individual, no con el array completo
   const [avatar, setAvatar] = useState(DEFAULT_AVATARS[0]);
+
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -53,32 +57,39 @@ export default function LoginModal({
   const handleFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = e.target.files;
+    // FIX móvil: usar e.target.files
+    const selectedFile = e.target.files;
 
-    if (!file || !file[0]) return;
+    if (!selectedFile || !selectedFile[0]) return;
 
-    const selectedFile = file[0];
     setIsProcessing(true);
 
     try {
-      const imageUrl = URL.createObjectURL(selectedFile);
+      const file = selectedFile[0];
 
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = reject;
-        image.src = imageUrl;
-      });
+      const objectUrl = URL.createObjectURL(file);
+
+      const img = await new Promise<HTMLImageElement>(
+        (resolve, reject) => {
+          const image = new Image();
+
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = objectUrl;
+        }
+      );
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
-        URL.revokeObjectURL(imageUrl);
+        URL.revokeObjectURL(objectUrl);
         return;
       }
 
+      // Center Crop 256x256
       const SIZE = 256;
+
       canvas.width = SIZE;
       canvas.height = SIZE;
 
@@ -86,6 +97,7 @@ export default function LoginModal({
       ctx.imageSmoothingQuality = 'high';
 
       const cropSize = Math.min(img.width, img.height);
+
       const cropX = (img.width - cropSize) / 2;
       const cropY = (img.height - cropSize) / 2;
 
@@ -101,19 +113,27 @@ export default function LoginModal({
         SIZE
       );
 
-      setAvatar(canvas.toDataURL('image/jpeg', 0.8));
-      URL.revokeObjectURL(imageUrl);
-    } catch (err) {
-      console.error('Error al procesar la imagen:', err);
+      const finalImage = canvas.toDataURL(
+        'image/jpeg',
+        0.85
+      );
+
+      setAvatar(finalImage);
+
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Error procesando imagen:', error);
     } finally {
       setIsProcessing(false);
+
+      // permitir volver a subir misma imagen
       e.target.value = '';
     }
   };
 
   const handleLogin = () => {
     if (!name.trim() || !whatsapp.trim()) {
-      setError('Por favor, completa los campos');
+      setError('Por favor completa todos los campos');
       return;
     }
 
@@ -132,15 +152,22 @@ export default function LoginModal({
     <>
       <style>
         {`
-          @keyframes soft-heartbeat {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+          @keyframes softPulse {
+            0%,100% {
+              transform: scale(1);
+            }
+
+            50% {
+              transform: scale(1.05);
+            }
           }
         `}
       </style>
 
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 p-4 backdrop-blur-xl">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 p-4 backdrop-blur-md">
         <div className="relative w-full max-w-sm rounded-[32px] bg-white p-5 shadow-2xl">
+
+          {/* Cerrar */}
           <button
             type="button"
             onClick={onClose}
@@ -150,9 +177,14 @@ export default function LoginModal({
             <X size={20} />
           </button>
 
-          <div className="mb-4 pr-10">
+          {/* Header dinámico */}
+          <div className="mb-5 pr-10">
             <div className="flex items-center gap-2">
-              <Sparkles className="text-orange-500" size={20} />
+              <Sparkles
+                size={20}
+                className="text-orange-500"
+              />
+
               <h2 className="text-xl font-black text-slate-900">
                 {title}
               </h2>
@@ -163,22 +195,30 @@ export default function LoginModal({
             </p>
           </div>
 
+          {/* Avatar principal */}
           <div className="mb-5 flex flex-col items-center">
             <img
               src={avatar}
-              alt="Avatar del cliente"
-              className="h-24 w-24 rounded-[32px] object-cover ring-4 ring-orange-500 shadow-lg"
+              alt="Avatar cliente"
+              className="h-24 w-24 rounded-[28px] object-cover ring-4 ring-orange-500 shadow-lg"
             />
 
+            {/* Botón compacto */}
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={isProcessing}
-              className="mx-auto mt-4 flex w-fit items-center justify-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/40 transition hover:bg-orange-600 hover:shadow-orange-500/60 active:scale-95 disabled:opacity-70"
-              style={{ animation: 'soft-heartbeat 2s ease-in-out infinite' }}
+              className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600 active:scale-95 disabled:opacity-70"
+              style={{
+                animation:
+                  'softPulse 2s ease-in-out infinite',
+              }}
             >
-              <Camera size={22} />
-              {isProcessing ? 'PROCESANDO...' : 'SUBIR MI FOTO'}
+              <Camera size={20} />
+
+              {isProcessing
+                ? 'PROCESANDO...'
+                : 'SUBIR MI FOTO'}
             </button>
           </div>
 
@@ -190,38 +230,45 @@ export default function LoginModal({
             onChange={handleFileChange}
           />
 
-          <div className="mb-4 grid grid-cols-4 gap-3">
-            {DEFAULT_AVATARS.map((item, index) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setAvatar(item)}
-                className={`aspect-square overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition duration-200 active:scale-95 ${
-                  avatar === item
-                    ? 'scale-110 border-orange-500 ring-2 ring-orange-200'
-                    : 'border-transparent'
-                }`}
-              >
-                <img
-                  src={item}
-                  alt={`Avatar ${index + 1}`}
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            ))}
+          {/* Avatares */}
+          <div className="mb-5 grid grid-cols-4 gap-3">
+            {DEFAULT_AVATARS.map(
+              (item, index) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setAvatar(item)}
+                  className={`aspect-square overflow-hidden rounded-2xl border-2 transition active:scale-95 ${
+                    avatar === item
+                      ? 'scale-105 border-orange-500 ring-2 ring-orange-200'
+                      : 'border-transparent'
+                  }`}
+                >
+                  <img
+                    src={item}
+                    alt={`Avatar ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              )
+            )}
           </div>
 
+          {/* Inputs */}
           <div className="space-y-3">
             <div className="relative">
               <User
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
+
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) =>
+                  setName(e.target.value)
+                }
                 placeholder="Ej: Stiven Verdesoto"
-                className="h-12 w-full rounded-2xl border-2 border-transparent bg-slate-50 pl-12 pr-4 text-base font-bold text-slate-800 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                className="h-12 w-full rounded-2xl bg-slate-50 pl-12 pr-4 font-bold text-slate-800 outline-none ring-2 ring-transparent transition focus:bg-white focus:ring-orange-500"
               />
             </div>
 
@@ -230,16 +277,20 @@ export default function LoginModal({
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
+
               <input
                 value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="Tu WhatsApp"
+                onChange={(e) =>
+                  setWhatsapp(e.target.value)
+                }
                 inputMode="tel"
-                className="h-12 w-full rounded-2xl border-2 border-transparent bg-slate-50 pl-12 pr-4 text-base font-bold text-slate-800 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                placeholder="Tu # de WhatsApp"
+                className="h-12 w-full rounded-2xl bg-slate-50 pl-12 pr-4 font-bold text-slate-800 outline-none ring-2 ring-transparent transition focus:bg-white focus:ring-orange-500"
               />
             </div>
           </div>
 
+          {/* Error */}
           <div className="mt-3 min-h-[20px]">
             {error && (
               <p className="text-center text-sm font-bold text-red-500">
@@ -248,13 +299,15 @@ export default function LoginModal({
             )}
           </div>
 
+          {/* Guardar */}
           <button
             type="button"
             onClick={handleLogin}
             className="mt-2 w-full rounded-2xl bg-orange-500 py-4 text-base font-black text-white shadow-xl shadow-orange-500/30 transition hover:bg-orange-600 active:scale-95"
           >
-            Guardar
+            GUARDAR
           </button>
+
         </div>
       </div>
     </>
