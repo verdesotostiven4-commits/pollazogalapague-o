@@ -18,31 +18,18 @@ import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking'; 
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { Category, Screen } from './types';
-import { BarChart2, Star } from 'lucide-react';
 
 function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
-  const [pointNotification, setPointNotification] = useState<{show: boolean, pts: number}>({show: false, pts: 0});
   
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, loading, fetchOrders } = useAdmin();
-  const { customerPhone, customerName, customerAvatar, customerPoints, setUserData } = useUser();
+  const { upsertCustomer, createOrder, loading } = useAdmin();
+  const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const prevPoints = useRef(customerPoints);
-
-  // 🔔 NOTIFICACIÓN DE PUNTOS
-  useEffect(() => {
-    if (customerPoints > prevPoints.current) {
-      const diff = customerPoints - prevPoints.current;
-      setPointNotification({ show: true, pts: diff });
-      setTimeout(() => setPointNotification({ show: false, pts: 0 }), 8000);
-    }
-    prevPoints.current = customerPoints;
-  }, [customerPoints]);
 
   useEffect(() => {
     if (!customerPhone) {
@@ -77,33 +64,26 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
-    setTimeout(() => { fetchOrders(); setShowTracking(true); }, 2000);
+    setShowTracking(true);
+  };
+
+  const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
+    setUserData(userData.whatsapp, userData.name, userData.avatarUrl);
+    setShowLoginModal(false);
+    await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
   if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
 
   return (
-    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden relative">
-      
-      {/* 🎊 AVISO DE PUNTOS */}
-      {pointNotification.show && (
-        <div className="fixed top-20 left-4 right-4 z- bg-gray-900 text-white p-6 rounded-[32px] shadow-2xl border-2 border-orange-500 animate-in slide-in-from-top-10">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg animate-bounce">
-              <Star size={30} fill="currentColor" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-black text-lg uppercase italic leading-none">¡Puntos Recibidos!</h4>
-              <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase">Has ganado <span className="text-orange-500">{pointNotification.pts}</span> puntos.</p>
-            </div>
-          </div>
-          <button onClick={() => { setScreen('ranking'); setPointNotification({show: false, pts: 0}); }} className="w-full mt-4 py-3 bg-white text-gray-900 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2">
-            <BarChart2 size={14}/> Ver mi lugar en el Ranking
-          </button>
-        </div>
-      )}
-
-      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} onOpenTracking={() => setShowTracking(true)} />
+    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar}
+        onOpenTracking={() => setShowTracking(true)}
+      />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
@@ -115,13 +95,11 @@ function AppShell() {
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
 
+      {/* 🚀 MODALES MOVIDOS AL FINAL PARA DOMINAR EL Z-INDEX */}
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={(data) => {
-          setUserData(data.whatsapp, data.name, data.avatarUrl);
-          setShowLoginModal(false);
-          upsertCustomer(data.whatsapp, data.name, data.avatarUrl);
-      }} />
-      <OrderConfirmation visible={showConfirmation} onClose={() => setShowConfirmation(false)} onWhatsApp={handleWhatsApp} />
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
+      <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
+      
       <FlyParticleLayer />
     </div>
   );
@@ -135,7 +113,6 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  // ✅ CORRECCIÓN ADMIN: Si la ruta es /admin, forzamos el Dashboard
   if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
   if (!landingDone) {
