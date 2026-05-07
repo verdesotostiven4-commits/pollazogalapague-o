@@ -18,42 +18,55 @@ const AVATARS = [
   'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=b6e3f4' 
 ];
 
-// 🛠️ TRITURADOR NATIVO: Aplasta la foto a 96x96 para que no pese nada
+// 🛠️ TRITURADOR NATIVO V2.0: Ahora usa una "burbuja de datos" (Blob)
+// Esto es mucho más suave para el navegador y achica la foto a 96x96 sin trabas.
 const compressImageNative = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const MAX_SIZE = 96; // Tamaño ultra ligero
-        let width = img.width;
-        let height = img.height;
+    const img = new Image();
+    // 1. Creamos una URL temporal para la burbuja de datos del archivo
+    img.src = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const MAX_SIZE = 96; // Tamaño ultra-ligero final
+      let width = img.width;
+      let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
         }
-        
-        canvas.width = width;
-        canvas.height = height;
-        ctx?.drawImage(img, 0, 0, width, height);
-        // Exportamos a JPG con calidad 0.7 para que sea un Base64 enano
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-      img.onerror = (error) => reject(error);
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // ✅ MEJORA: Calidad baja inicial (imageSmoothingQuality) para acelerar
+      if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'low';
+          ctx.drawImage(img, 0, 0, width, height);
+      }
+      
+      // 2. Exportamos a Base64 en calidad muy baja (0.6) para que sea instantáneo
+      const base64 = canvas.toDataURL('image/jpeg', 0.6);
+      
+      // 3. Limpiamos la URL temporal para no gastar memoria
+      URL.revokeObjectURL(img.src);
+      
+      resolve(base64);
     };
-    reader.onerror = (error) => reject(error);
+    img.onerror = (error) => {
+      URL.revokeObjectURL(img.src);
+      reject(error);
+    };
   });
 };
 
@@ -63,7 +76,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [isCompressing, setIsCompressing] = useState(false); // ✅ Ruedita de carga
+  const [isCompressing, setIsCompressing] = useState(false); // Ruedita de carga
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,17 +106,17 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       return;
     }
 
-    setIsCompressing(true);
+    setIsCompressing(true); // Aparece la ruedita
 
     try {
-      // Pasamos la foto por el triturador nativo
+      // 🚀 Pasamos la foto por el triturador nativo V2.0
       const base64data = await compressImageNative(file);
       setUploadedImage(base64data);
       setSelectedAvatar(base64data);
-      setIsCompressing(false);
+      setIsCompressing(false); // Se quita la ruedita
     } catch (error) {
       console.error('Error al procesar la foto:', error);
-      alert('Hubo un error con esa foto. Intenta con otra.');
+      alert('Hubo un error con esa foto. Intenta con otra más pequeña.');
       setIsCompressing(false);
     }
   };
@@ -113,12 +126,13 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       alert('Por favor completa tus datos.');
       return;
     }
+    // Sincronizamos con el App.tsx
     onLogin({ name, whatsapp, avatarUrl: selectedAvatar });
     onClose(); 
   };
 
   return (
-    /* ✅ FIX: z- agregado para que el modal no se deje aplastar por el catálogo */
+    /* ✅ FIX: z- para estar por encima del Catálogo */
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -168,12 +182,12 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         </div>
 
         <button 
-          type="button" 
+          type="submit" 
           onClick={handleSave} 
           disabled={isCompressing}
           className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
         >
-          {isCompressing ? 'Procesando...' : 'Guardar Cambios'}
+          {isCompressing ? 'Procesando...' : 'Guardar y Sincronizar'}
         </button>
       </div>
     </div>
