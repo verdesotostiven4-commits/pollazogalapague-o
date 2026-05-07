@@ -20,10 +20,21 @@ export interface ExtraSettings {
   ranking_title: string;
   prize_description: string;
   ranking_end_date: string;
+  winner_photo_url: string; // ✅ Campo para el muro de fama rápido
 }
 
 export interface ExtendedCustomer extends Customer {
   avatar_url?: string | null;
+}
+
+// Estructura de la temporada basada en tu tabla de Supabase
+export interface Season {
+  id: string;
+  name: string;
+  prize: string;
+  winners: any[];
+  is_published: boolean;
+  created_at: string;
 }
 
 interface AdminContextValue {
@@ -32,9 +43,9 @@ interface AdminContextValue {
   overrides: Record<string, ProductOverride>;
   settings: AppSettings;
   extraSettings: ExtraSettings; 
-  announcement: string;
   customers: ExtendedCustomer[];
   orders: Order[];
+  seasons: Season[]; // ✅ Lista de eventos anteriores
   loading: boolean;
   setAnnouncement: (text: string) => Promise<void>;
   updateSetting: (key: keyof AppSettings, value: string) => Promise<void>;
@@ -47,6 +58,11 @@ interface AdminContextValue {
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
   createOrder: (order: Omit<Order, 'created_at'>) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
+  // ✅ Nuevas funciones de control total
+  finalizeSeason: (name: string, prize: string, winners: any[]) => Promise<void>;
+  deleteSeason: (id: string) => Promise<void>;
+  toggleSeasonVisibility: (id: string, published: boolean) => Promise<void>;
+  updateSeasonWinners: (id: string, winners: any[]) => Promise<void>;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -60,30 +76,10 @@ const DEFAULT_EXTRA: ExtraSettings = {
   ranking_title: 'Ranking de Clientes',
   prize_description: '¡Gana un Combo Familiar!',
   ranking_end_date: '',
+  winner_photo_url: '',
 };
 
-const AdminContext = createContext<AdminContextValue>({
-  products: seedProducts,
-  categories: [...seedCategories],
-  overrides: {},
-  settings: DEFAULT_SETTINGS,
-  extraSettings: DEFAULT_EXTRA,
-  announcement: '',
-  customers: [],
-  orders: [],
-  loading: true,
-  setAnnouncement: async () => {},
-  updateSetting: async () => {},
-  updateExtraSettings: async () => {},
-  setOverride: async () => {},
-  addProduct: async () => {},
-  updateProduct: async () => {},
-  deleteProduct: async () => {},
-  upsertCustomer: async () => null,
-  addCustomerPoints: async () => {},
-  createOrder: async () => {},
-  updateOrderStatus: async () => {},
-});
+const AdminContext = createContext<AdminContextValue>(null as any);
 
 export function useAdmin() { return useContext(AdminContext); }
 
@@ -97,6 +93,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [extraSettings, setExtraSettings] = useState<ExtraSettings>(DEFAULT_EXTRA);
   const [customers, setCustomers] = useState<ExtendedCustomer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]); // ✅ Estado para temporadas
   const [loading, setLoading] = useState(true);
 
   const products = useMemo(() => {
@@ -112,13 +109,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     
     try {
-      const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
+      const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes, seasonsRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: true }),
         supabase.from('product_overrides').select('id, price, available'),
         supabase.from('app_settings').select('key, value'),
-        supabase.from('settings').select('*').single(), 
+        supabase.from('settings').select('*').eq('id', 'global').maybeSingle(), 
         supabase.from('customers').select('*').order('points', { ascending: false }),
         supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('seasons').select('*').order('created_at', { ascending: false }), // ✅ Cargar historial
       ]);
       
       if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
@@ -138,6 +136,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
       if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
       if (orderRes.data) setOrders(orderRes.data as Order[]);
+      if (seasonsRes.data) setSeasons(seasonsRes.data as Season[]);
     } catch (error) {
       console.error("❌ Error cargando datos:", error);
     } finally {
@@ -147,6 +146,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // ✅ Listener en tiempo real para todas las tablas, incluyendo seasons
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     
@@ -155,6 +155,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, () => load())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -172,6 +173,41 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) await supabase.from('settings').upsert({ id: 'global', ...next });
   }, [extraSettings]);
 
+  // ✅ FUNCIONES DE TEMPORADA (SALÓN DE LA FAMA)
+  const finalizeSeason = useCallback(async (name: string, prize: string, winners: any[]) => {
+    if (isSupabaseConfigured) {
+      await supabase.from('seasons').insert({
+        name,
+        prize,
+        winners,
+        is_published: false // Inicia oculto por defecto
+      });
+      await load();
+    }
+  }, [load]);
+
+  const deleteSeason = useCallback(async (id: string) => {
+    if (isSupabaseConfigured) {
+      await supabase.from('seasons').delete().eq('id', id);
+      await load();
+    }
+  }, [load]);
+
+  const toggleSeasonVisibility = useCallback(async (id: string, published: boolean) => {
+    if (isSupabaseConfigured) {
+      await supabase.from('seasons').update({ is_published: published }).eq('id', id);
+      await load();
+    }
+  }, [load]);
+
+  const updateSeasonWinners = useCallback(async (id: string, winners: any[]) => {
+    if (isSupabaseConfigured) {
+      await supabase.from('seasons').update({ winners }).eq('id', id);
+      await load();
+    }
+  }, [load]);
+
+  // Mantengo el resto de tus funciones de puntos, órdenes y productos igual...
   const setOverride = useCallback(async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => {
     const current = overrides[id] ?? { id, price: null, available: true };
     const updated = { ...current, ...patch, id };
@@ -232,9 +268,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   return (
     <AdminContext.Provider value={{ 
       products, categories, overrides, settings, extraSettings, announcement: settings.announcement, 
-      customers, orders, loading, setAnnouncement: (t) => updateSetting('announcement', t), 
+      customers, orders, seasons, loading, setAnnouncement: (t) => updateSetting('announcement', t), 
       updateSetting, updateExtraSettings, setOverride, addProduct, updateProduct, deleteProduct, 
-      upsertCustomer, addCustomerPoints, createOrder, updateOrderStatus 
+      upsertCustomer, addCustomerPoints, createOrder, updateOrderStatus,
+      finalizeSeason, deleteSeason, toggleSeasonVisibility, updateSeasonWinners
     }}>
       {children}
     </AdminContext.Provider>
