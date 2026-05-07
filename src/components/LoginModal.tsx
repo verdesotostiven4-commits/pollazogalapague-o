@@ -44,7 +44,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.;
+    const file = e.target.files ? e.target.files : null;
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -85,14 +85,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
-      {/* ✅ FONDO BORROSO (Glassmorphism) */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
-      
       <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-        <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
+        <button type="button" onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90">
           <X size={20} />
         </button>
-
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <Sparkles size={40} />
@@ -100,24 +97,16 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           <h2 className="text-2xl font-black text-gray-900 uppercase italic">Únete al Club</h2>
           <p className="text-sm font-bold text-gray-400 mt-2">Acumula puntos y gana con tus compras</p>
         </div>
-
         <div className="space-y-4">
           <div className="relative">
             <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" 
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" 
-            />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" />
           </div>
           <div className="relative">
             <Phone size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" 
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" 
-            />
+            <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 text-gray-900" />
           </div>
         </div>
-
         <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mt-8 mb-4 text-center">Avatar o Foto</p>
         <div className="grid grid-cols-4 gap-3">
           <button type="button" onClick={() => fileInputRef.current?.click()} className={`relative aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${uploadedImage ? 'border-orange-500' : 'border-dashed border-gray-200 bg-gray-50'}`}>
@@ -125,13 +114,12 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           </button>
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           {AVATARS.map((avatar, idx) => (
-            <button key={idx} onClick={() => { setSelectedAvatar(avatar); setUploadedImage(null); }} className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${selectedAvatar === avatar && !uploadedImage ? 'border-orange-500 scale-105' : 'border-transparent opacity-60'}`}>
+            <button key={idx} type="button" onClick={() => { setSelectedAvatar(avatar); setUploadedImage(null); }} className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${selectedAvatar === avatar && !uploadedImage ? 'border-orange-500 scale-105 shadow-lg' : 'border-transparent opacity-60'}`}>
               <img src={avatar} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
-
-        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl shadow-orange-200 active:scale-95 transition-all uppercase tracking-widest text-sm">
+        <button onClick={handleSave} className="mt-8 w-full py-5 bg-orange-500 text-white font-black rounded-[28px] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
           Guardar Cambios
         </button>
       </div>
