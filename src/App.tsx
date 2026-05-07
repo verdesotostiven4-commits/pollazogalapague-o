@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { CartProvider } from './context/CartContext';
+import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
-import { AdminProvider } from './context/AdminContext';
+import { AdminProvider, useAdmin } from './context/AdminContext';
+import { UserProvider, useUser } from './context/UserContext'; 
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -12,244 +13,121 @@ import AppHeader from './components/AppHeader';
 import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
-import LoginModal from './components/LoginModal'; // IMPORTAMOS LA NUEVA PIEZA
-import { useCart } from './context/CartContext';
+import LoginModal from './components/LoginModal';
+import OrderTracking from './components/OrderTracking';
+import Ranking from './pages/Ranking'; 
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
-import { supabase } from './lib/supabase';
-import { Category } from './types';
-import { useAdmin } from './context/AdminContext';
+import { Category, Screen } from './types';
 
-type Screen = 'home' | 'catalog' | 'cart' | 'info';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-const LANDING_DISMISSED_KEY = 'pollazo_landing_dismissed';
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    ('standalone' in window.navigator && (window.navigator as unknown as { standalone: boolean }).standalone === true)
-  );
-}
-
-function isAdminRoute(): boolean {
-  return window.location.pathname === '/admin';
-}
-
-function AppShell({ initialCategory, onClearCategory }: { initialCategory: Category | null; onClearCategory: () => void }) {
+function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall: boolean }) {
   const [screen, setScreen] = useState<Screen>('home');
+  const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [canInstall, setCanInstall] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>(initialCategory ?? 'Todos');
+  const [showTracking, setShowTracking] = useState(false);
+  
   const { items, clearCart } = useCart();
-  const { upsertCustomer, createOrder, addCustomerPoints } = useAdmin();
+  const { upsertCustomer, createOrder, loading } = useAdmin();
+  const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
-
-  // NUEVO ESTADO: Información completa del cliente
-  const [customerInfo, setCustomerInfo] = useState<{name: string, phone: string, avatarUrl: string} | null>(() => {
-    const phone = localStorage.getItem('pollazo_customer_phone');
-    const name = localStorage.getItem('pollazo_customer_name');
-    const avatarUrl = localStorage.getItem('pollazo_customer_avatar');
-    if (phone) return { phone, name: name || '', avatarUrl: avatarUrl || '' };
-    return null;
-  });
-
-  // NUEVOS ESTADOS: Control del Modal de Login
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'checkout' | null>(null);
 
   useEffect(() => {
-    if (initialCategory) {
-      setScreen('catalog');
-      onClearCategory();
+    if (!customerPhone) {
+      const timer = setTimeout(() => setShowLoginModal(true), 2500);
+      return () => clearTimeout(timer);
     }
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setCanInstall(true);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    if (choice.outcome === 'dismissed') sessionStorage.setItem('pwa_install_dismissed', '1');
-    setDeferredPrompt(null);
-    setCanInstall(false);
-  };
-
-  // LÓGICA DE BARRERA: Control de checkout modificado
-  const handleCheckout = () => {
-    if (items.length === 0) return;
-    
-    // Si NO está registrado, abrimos el modal de login y dejamos el checkout en "espera"
-    if (!customerInfo || !customerInfo.phone) {
-      setPendingAction('checkout');
-      setShowLoginModal(true);
-      return;
-    }
-    
-    // Si ya está registrado, pasa directo a confirmación
-    setShowConfirmation(true);
-  };
-
-  // Función que se ejecuta cuando el usuario termina de poner su avatar y datos
-  const handleLoginDone = (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
-    const cleanPhone = userData.whatsapp.replace(/\D/g, ''); // Limpiamos el número
-    
-    // Guardamos en la memoria del celular
-    localStorage.setItem('pollazo_customer_phone', cleanPhone);
-    localStorage.setItem('pollazo_customer_name', userData.name);
-    localStorage.setItem('pollazo_customer_avatar', userData.avatarUrl);
-
-    // Actualizamos el estado actual
-    setCustomerInfo({ name: userData.name, phone: cleanPhone, avatarUrl: userData.avatarUrl });
-    setShowLoginModal(false);
-
-    // Si el usuario venía del botón de pedir, le abrimos la confirmación mágicamente
-    if (pendingAction === 'checkout') {
-      setShowConfirmation(true);
-    }
-    setPendingAction(null);
-  };
-
-  const handleCloseLogin = () => {
-    setShowLoginModal(false);
-    setPendingAction(null);
-  };
-
-  const handleWhatsApp = async () => {
-    const phone = customerInfo?.phone || localStorage.getItem('pollazo_customer_phone') || '';
-    const code = orderCode();
-    const subtotal = subtotalOf(items);
-    const delivery_fee = deliveryFeeOf(subtotal);
-    const total = subtotal + delivery_fee;
-    const customer = phone ? await upsertCustomer(phone) : null;
-    
-    // NOTA: Más adelante actualizaremos upsertCustomer para guardar también el nombre y el avatar en tu Base de Datos
-    await createOrder({
-      id: crypto.randomUUID(),
-      order_code: code,
-      customer_id: customer?.id ?? null,
-      customer_phone: phone,
-      items,
-      subtotal,
-      delivery_fee,
-      total,
-      status: 'Recibido',
-      preorder: !isStoreOpen(),
-    });
-    
-    if (customer?.id && subtotal > 0) await addCustomerPoints(customer.id, Math.floor(subtotal));
-    supabase.rpc('increment_metric', { metric_id: 'total_orders' }).then(() => {});
-    window.open(buildWhatsAppUrl(items, phone, code, !isStoreOpen()), '_blank');
-    clearCart();
-    setShowConfirmation(false);
-    setScreen('home');
-  };
+  }, [customerPhone]);
 
   const handleNavigate = useCallback((s: Screen) => {
     setScreen(s);
+    if (s !== 'catalog') setActiveCategory('Todos');
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, []);
 
-  const handleNavigateToCategory = useCallback((cat: Category) => {
-    setActiveCategory(cat);
-    setScreen('catalog');
-    if (mainRef.current) mainRef.current.scrollTop = 0;
-  }, []);
+  const handleWhatsApp = async () => {
+    const code = orderCode();
+    const subtotal = subtotalOf(items);
+    await createOrder({
+      id: crypto.randomUUID(),
+      order_code: code,
+      customer_phone: customerPhone,
+      items, subtotal, 
+      delivery_fee: deliveryFeeOf(subtotal),
+      total: subtotal + deliveryFeeOf(subtotal),
+      status: 'Recibido', preorder: !isStoreOpen(),
+    });
+    window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
+    clearCart(); setShowConfirmation(false); setScreen('home');
+    setShowTracking(true);
+  };
 
   return (
-    <div
-      className="flex flex-col bg-gray-50"
-      style={{ minHeight: '100dvh', maxHeight: '100dvh', fontFamily: 'Inter, sans-serif' }}
-    >
-      {/* Puedes pasarle onOpenProfile={() => setShowLoginModal(true)} a AppHeader más adelante */}
-      <AppHeader screen={screen} onNavigate={handleNavigate} scrolled={false} />
-
-      <main
-        ref={mainRef}
-        className="flex-1 overflow-y-auto pb-20"
-        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
-      >
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
+    <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
+      <AppHeader 
+        screen={screen} 
+        onNavigate={handleNavigate} 
+        onOpenProfile={() => setShowLoginModal(true)} 
+        customerAvatar={customerAvatar}
+        onOpenTracking={() => setShowTracking(true)}
+      />
+      
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={(cat) => { setActiveCategory(cat); setScreen('catalog'); }} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
-        {screen === 'cart' && <CartScreen onCheckout={handleCheckout} onNavigate={handleNavigate} />}
-        {screen === 'info' && <InfoScreen onInstall={handleInstall} canInstall={canInstall} />}
+        {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
+        {screen === 'info' && <InfoScreen onInstall={onInstall} canInstall={canInstall} />}
+        {screen === 'ranking' && <Ranking />}
       </main>
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
-      <FlyParticleLayer />
-      
-      {/* AQUÍ CONECTAMOS LA VENTANA DE AVATARES */}
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={handleCloseLogin} 
-        onLogin={handleLoginDone} 
-      />
 
+      <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={async (data) => {
+          setUserData(data.whatsapp, data.name, data.avatarUrl);
+          setShowLoginModal(false);
+          await upsertCustomer(data.whatsapp, data.name, data.avatarUrl);
+      }} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
+      <FlyParticleLayer />
     </div>
   );
 }
 
 export default function App() {
-  const [isAdmin] = useState(isAdminRoute);
+  const isDashboard = window.location.pathname === '/admin';
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [landingDone, setLandingDone] = useState(() => {
-    return isStandalone() || !!sessionStorage.getItem(LANDING_DISMISSED_KEY);
+    return !!localStorage.getItem('pollazo_landing_dismissed') || !!localStorage.getItem('pollazo_customer_phone');
   });
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [canInstall, setCanInstall] = useState(false);
-  const [pendingCategory, setPendingCategory] = useState<Category | null>(null);
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handler = (e: any) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setCanInstall(true);
+      setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const handleInstall = async () => {
+  const handleInstallApp = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    setCanInstall(false);
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
-  const handleContinueWeb = () => {
-    sessionStorage.setItem(LANDING_DISMISSED_KEY, '1');
-    setLandingDone(true);
-  };
-
-  if (isAdmin) {
-    return (
-      <AdminProvider>
-        <AdminDashboard />
-      </AdminProvider>
-    );
-  }
+  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage
-          onInstall={handleInstall}
-          canInstall={canInstall}
-          onContinueWeb={handleContinueWeb}
+        <LandingPage 
+          onInstall={handleInstallApp} 
+          canInstall={!!deferredPrompt} 
+          onContinueWeb={() => { 
+            localStorage.setItem('pollazo_landing_dismissed', '1'); 
+            setLandingDone(true); 
+          }} 
         />
       </AdminProvider>
     );
@@ -257,14 +135,13 @@ export default function App() {
 
   return (
     <AdminProvider>
-      <CartProvider>
-        <FlyToCartProvider>
-          <AppShell
-            initialCategory={pendingCategory}
-            onClearCategory={() => setPendingCategory(null)}
-          />
-        </FlyToCartProvider>
-      </CartProvider>
+      <UserProvider> 
+        <CartProvider>
+          <FlyToCartProvider>
+            <AppShell onInstall={handleInstallApp} canInstall={!!deferredPrompt} />
+          </FlyToCartProvider>
+        </CartProvider>
+      </UserProvider>
     </AdminProvider>
   );
 }
