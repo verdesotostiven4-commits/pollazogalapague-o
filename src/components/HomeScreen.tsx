@@ -1,4 +1,5 @@
-import { MessageCircle, Clock, Truck, ChevronRight, Star, MapPin } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { MessageCircle, Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import ProductCard from './ProductCard';
@@ -11,113 +12,145 @@ interface Props {
   onNavigateToCategory: (cat: Category) => void;
 }
 
-function getDynamicGreeting(): string {
-  const h = new Date().getHours();
-  if (h >= 7 && h < 12) return '¡Buenos días! ☀️';
-  if (h >= 12 && h < 19) return '¡Buenas tardes! 🍗';
-  if (h >= 19 && h < 21) return '¡Buenas noches! 🌙';
-  return '¡Bienvenido! 🍗';
-}
+// IDs de los productos para el carrusel (Incluidos los nuevos que pediste)
+const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
-export default function HomeScreen({ onNavigate }: Props) {
-  const greeting = getDynamicGreeting();
+const QUICK_CATEGORIES: { label: Category; icon: string }[] = [
+  { label: 'Pollos', icon: '🍗' },
+  { label: 'Embutidos', icon: '🥓' },
+  { label: 'Bebidas', icon: '🥤' },
+  { label: 'Lácteos y refrigerados', icon: '🥛' },
+  { label: 'Abarrotes y básicos', icon: '🌾' },
+  { label: 'Snacks y dulces', icon: '🍫' },
+];
+
+export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
   const { customerName } = useUser();
   const { products } = useAdmin();
-  // Mostramos los primeros 4 productos como "Más pedidos"
-  const bestsellers = products.slice(0, 4);
+  const [index, setIndex] = useState(0);
+  
+  // Filtrar solo los productos destacados
+  const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
+  // Agrupar de 2 en 2 para el carrusel
+  const pairs = [];
+  for (let i = 0; i < bestsellers.length; i += 2) {
+    pairs.push(bestsellers.slice(i, i + 2));
+  }
+
+  // Lógica del carrusel automático (4 segundos)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % pairs.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [pairs.length]);
 
   const openWhatsApp = () => {
     window.open(`https://wa.me/${WHATSAPP.replace(/\D/g, '')}?text=Hola%2C%20quiero%20hacer%20un%20pedido%20en%20La%20Casa%20del%20Pollazo%20El%20Mirador.`, '_blank');
   };
 
   return (
-    <div className="flex flex-col bg-gray-50">
+    <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. BIENVENIDA PERSONALIZADA FUERA DEL HERO */}
-      <div className="px-6 pt-6 pb-5 bg-white">
-        <p className="text-gray-400 text-xs font-bold uppercase tracking-[0.2em] leading-none">{greeting}</p>
-        <h2 className="text-4xl font-black text-gray-900 italic mt-2 tracking-tight">
-          Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
-        </h2>
-      </div>
-
-      {/* 2. HERO NARANJA - FULL WIDTH (SIN BORDES) */}
+      {/* 1. HERO NARANJA COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
-          
-          <p className="text-white/80 text-[11px] font-bold uppercase tracking-[0.2em] mb-4">
-            Bienvenido a La Casa del Pollazo 🍗
-          </p>
-
+          <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
           <div className="flex justify-center mb-6">
-            <img src="/logo-final.png" alt="logo" className="w-40 h-40 object-contain animate-float-gen drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]" />
+            <img src="/logo-final.png" alt="logo" className="w-40 h-40 object-contain animate-float-gen drop-shadow-2xl" />
           </div>
-
           <div className="space-y-1">
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
             <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
           </div>
-
-          <p className="text-white/90 text-sm font-bold mt-4 mb-6">Pedidos rápidos por WhatsApp</p>
-
-          {/* BADGE DE UBICACIÓN RECUPERADO */}
-          <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mb-6">
+          <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8">
             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             <span className="text-white text-[11px] font-bold uppercase tracking-wider">Puerto Ayora, Galápagos</span>
           </div>
-
-          {/* FILA DE ICONOS RECUPERADA */}
-          <div className="flex gap-2 flex-wrap justify-center mb-8">
-            <div className="flex items-center gap-1.5 bg-black/15 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
-              <Clock size={12} className="text-white" />
-              <span className="text-white text-[10px] font-bold">7 AM – 9 PM</span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-black/15 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
-              <Truck size={12} className="text-white" />
-              <span className="text-white text-[10px] font-bold">Delivery</span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-black/15 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
-              <Star size={12} className="text-yellow-300 fill-yellow-300" />
-              <span className="text-white text-[10px] font-bold">Calidad garantizada</span>
-            </div>
-          </div>
-          
-          {/* BOTONES RECUPERADOS */}
           <div className="w-full max-w-sm flex gap-3">
-             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-wider">
-               Ver Catálogo
-             </button>
-             <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
-               <MessageCircle size={18} fill="white" className="text-[#25D366]" /> WhatsApp
-             </button>
+             <button onClick={() => onNavigate('catalog')} className="flex-1 bg-white text-orange-600 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform text-xs uppercase tracking-widest">Ver Catálogo</button>
+             <button onClick={openWhatsApp} className="flex-1 bg-[#25D366] text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs uppercase tracking-widest">WhatsApp</button>
           </div>
         </div>
       </div>
 
-      {/* 3. SECCIÓN DE PRODUCTOS */}
-      <div className="px-4 py-10">
+      {/* 2. SALUDO PERSONALIZADO (DONDE QUEDA BIEN) */}
+      <div className="px-6 pt-8 pb-2">
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none">Bienvenido al club,</p>
+        <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
+          Hola, <span className="text-orange-500">{customerName.split(' ') || 'Cliente'}</span> 👋
+        </h2>
+      </div>
+
+      {/* 3. CATEGORÍAS RÁPIDAS (6 ITEMS QUE LLEVAN AL CATÁLOGO) */}
+      <div className="px-4 py-6">
+        <div className="flex items-center justify-between mb-4 px-2">
+          <h3 className="font-black text-gray-900 uppercase italic text-xs tracking-widest">Explorar Categorías</h3>
+          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1">Ver todo <ChevronRight size={12}/></button>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {QUICK_CATEGORIES.map((cat) => (
+            <button 
+              key={cat.label} 
+              onClick={() => onNavigateToCategory(cat.label)}
+              className="bg-white border border-orange-50 p-4 rounded-[24px] flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all active:bg-orange-50"
+            >
+              <span className="text-2xl">{cat.icon}</span>
+              <span className="text-[9px] font-black text-gray-600 uppercase text-center leading-none">{cat.label.split(' ')}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. LOS MÁS PEDIDOS (CARRUSEL DINÁMICO) */}
+      <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">🔥</span>
             <h3 className="font-black text-gray-900 uppercase italic tracking-tight text-lg">Los más pedidos</h3>
           </div>
-          <button onClick={() => onNavigate('catalog')} className="text-orange-500 text-xs font-black uppercase flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-lg">
-            Ver todo <ChevronRight size={14} strokeWidth={3} />
-          </button>
+          <div className="flex gap-1.5">
+            <button onClick={() => setIndex((prev) => (prev - 1 + pairs.length) % pairs.length)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronLeft size={16}/></button>
+            <button onClick={() => setIndex((prev) => (prev + 1) % pairs.length)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 text-orange-500"><ChevronRight size={16}/></button>
+          </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
-          {bestsellers.map(p => (
-            <ProductCard key={p.id} product={p} compact />
-          ))}
+        <div className="relative overflow-hidden">
+          <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
+            {pairs.map((pair, i) => (
+              <div key={i} className="min-w-full grid grid-cols-2 gap-4 px-1">
+                {pair.map(p => (
+                  <ProductCard key={p.id} product={p} compact />
+                ))}
+              </div>
+            ))}
+          </div>
+          {/* Indicador de puntitos */}
+          <div className="flex justify-center gap-1.5 mt-6">
+            {pairs.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-6 bg-orange-500' : 'w-1.5 bg-gray-200'}`} />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* FOOTER DEL HOME */}
-      <div className="px-6 py-10 bg-white border-t border-gray-100 mb-10 text-center">
-        <img src="/logo-final.png" className="w-12 h-12 mx-auto opacity-20 grayscale mb-4" />
-        <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.3em]">Pollazo El Mirador</p>
+      {/* 5. INFO STRIP (HORARIO, DELIVERY) */}
+      <div className="px-4 py-6">
+         <div className="grid grid-cols-3 gap-2 bg-white p-4 rounded-[28px] border border-orange-100 shadow-sm">
+            <div className="flex flex-col items-center text-center gap-1.5">
+               <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Clock size={18}/></div>
+               <span className="text-[9px] font-black text-gray-800 uppercase">7 AM - 9 PM</span>
+            </div>
+            <div className="flex flex-col items-center text-center gap-1.5 border-x border-gray-50">
+               <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Truck size={18}/></div>
+               <span className="text-[9px] font-black text-gray-800 uppercase">Delivery</span>
+            </div>
+            <div className="flex flex-col items-center text-center gap-1.5">
+               <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><Star size={18} fill="currentColor"/></div>
+               <span className="text-[9px] font-black text-gray-800 uppercase">Garantía</span>
+            </div>
+         </div>
       </div>
     </div>
   );
