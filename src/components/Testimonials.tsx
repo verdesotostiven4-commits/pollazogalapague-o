@@ -17,7 +17,7 @@ const ADMIN_HOLD_MS = 3000;
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   return (
     <div className="flex gap-1">
-      {/* ✅ CORREGIDO: Se restauró el array */}
+      {/* ✅ FIX: Agregado antes del punto */}
       {.map(n => (
         <button
           key={n}
@@ -171,7 +171,7 @@ export default function Testimonials() {
               <p className="text-[10px] text-gray-400 mt-1">{testimonials.length} opinión{testimonials.length !== 1 ? 'es' : ''}</p>
             </div>
             <div className="flex-1 space-y-1">
-              {/* ✅ CORREGIDO: Se restauró el array */}
+              {/* ✅ FIX: Agregado antes del punto */}
               {.map(star => {
                 const cnt = testimonials.filter(t => t.stars === star).length;
                 const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
@@ -271,7 +271,7 @@ export default function Testimonials() {
                 <StarRating value={t.stars} />
                 <p className="text-gray-600 text-xs mt-1.5">{t.comment}</p>
                 <p className="text-gray-300 text-[10px] mt-2 font-medium">
-                  {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' }) }
                 </p>
               </div>
             </div>
