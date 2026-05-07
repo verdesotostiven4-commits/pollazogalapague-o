@@ -111,51 +111,51 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     
-    const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
-      supabase.from('products').select('*').order('created_at', { ascending: true }),
-      supabase.from('product_overrides').select('id, price, available'),
-      supabase.from('app_settings').select('key, value'),
-      supabase.from('settings').select('*').single(), 
-      supabase.from('customers').select('*').order('points', { ascending: false }),
-      supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
-    ]);
-    
-    if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
-    if (ovRes.data) {
-      const map: Record<string, ProductOverride> = {};
-      ovRes.data.forEach(row => { map[row.id] = row as ProductOverride; });
-      setOverrides(map);
+    try {
+      const [prodRes, ovRes, settingsRes, extraRes, custRes, orderRes] = await Promise.all([
+        supabase.from('products').select('*').order('created_at', { ascending: true }),
+        supabase.from('product_overrides').select('id, price, available'),
+        supabase.from('app_settings').select('key, value'),
+        supabase.from('settings').select('*').single(), 
+        supabase.from('customers').select('*').order('points', { ascending: false }),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
+      ]);
+      
+      if (prodRes.data) setRemoteProducts(prodRes.data as Product[]);
+      if (ovRes.data) {
+        const map: Record<string, ProductOverride> = {};
+        ovRes.data.forEach(row => { map[row.id] = row as ProductOverride; });
+        setOverrides(map);
+      }
+      if (settingsRes.data) {
+        const next = { ...DEFAULT_SETTINGS };
+        settingsRes.data.forEach((s: { key: string; value: string }) => {
+          if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
+        });
+        setSettings(next);
+        document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
+      }
+      if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
+      if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
+      if (orderRes.data) setOrders(orderRes.data as Order[]);
+    } catch (error) {
+      console.error("❌ Error cargando datos:", error);
+    } finally {
+      setLoading(false);
     }
-    if (settingsRes.data) {
-      const next = { ...DEFAULT_SETTINGS };
-      settingsRes.data.forEach((s: { key: string; value: string }) => {
-        if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
-      });
-      setSettings(next);
-      document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
-    }
-    if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
-    if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
-    if (orderRes.data) setOrders(orderRes.data as Order[]);
-    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // 🔔 BLOQUE REALTIME MEJORADO CON LOGS
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     
     const channel = supabase.channel('pollazo_admin_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        console.log("🔔 Pedido actualizado:", payload);
-        load(); 
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
-      .subscribe((status) => {
-        console.log("📡 Conexión Realtime:", status);
-      });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => load())
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [load]);
