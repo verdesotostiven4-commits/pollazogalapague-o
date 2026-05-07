@@ -160,10 +160,10 @@ export default function LoginModal({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={isProcessing}
-            className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600 active:scale-95 disabled:opacity-70"
+            className="mt-4 flex w-fit max-w-[220px] items-center justify-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/40 transition hover:bg-orange-600 hover:shadow-orange-500/60 active:scale-95 disabled:opacity-70 animate-pulse"
           >
-            <Camera size={24} />
-            {isProcessing ? 'PROCESANDO FOTO...' : 'SUBIR MI FOTO'}
+            <Camera size={22} />
+            {isProcessing ? 'PROCESANDO...' : 'SUBIR MI FOTO'}
           </button>
 
           <input
