@@ -19,7 +19,6 @@ import Ranking from './pages/Ranking';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode, subtotalOf } from './utils/whatsapp';
 import { Category, Screen } from './types';
 
-// Componente principal de la interfaz
 function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall: boolean }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
@@ -45,12 +44,6 @@ function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, []);
 
-  const handleNavigateToCategory = useCallback((cat: Category) => {
-    setActiveCategory(cat);
-    setScreen('catalog');
-    if (mainRef.current) mainRef.current.scrollTop = 0;
-  }, []);
-
   const handleWhatsApp = async () => {
     const code = orderCode();
     const subtotal = subtotalOf(items);
@@ -68,14 +61,6 @@ function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall
     setShowTracking(true);
   };
 
-  const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
-    setUserData(userData.whatsapp, userData.name, userData.avatarUrl);
-    setShowLoginModal(false);
-    await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
-  };
-
-  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO EL POLLAZO...</div>;
-
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] overflow-hidden">
       <AppHeader 
@@ -87,7 +72,7 @@ function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall
       />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative z-0">
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={(cat) => { setActiveCategory(cat); setScreen('catalog'); }} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={onInstall} canInstall={canInstall} />}
@@ -97,36 +82,30 @@ function AppShell({ onInstall, canInstall }: { onInstall: () => void; canInstall
       <BottomNav current={screen} onNavigate={handleNavigate} />
 
       <OrderTracking isOpen={showTracking} onClose={() => setShowTracking(false)} />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={async (data) => {
+          setUserData(data.whatsapp, data.name, data.avatarUrl);
+          setShowLoginModal(false);
+          await upsertCustomer(data.whatsapp, data.name, data.avatarUrl);
+      }} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
       <FlyParticleLayer />
     </div>
   );
 }
 
-// COMPONENTE RAÍZ — Maneja la instalación y el Landing
 export default function App() {
   const isDashboard = window.location.pathname === '/admin';
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [landingDone, setLandingDone] = useState(() => {
-    const skip = localStorage.getItem('pollazo_landing_dismissed');
-    const hasUser = localStorage.getItem('pollazo_customer_phone');
-    return !!skip || !!hasUser;
+    return !!localStorage.getItem('pollazo_landing_dismissed') || !!localStorage.getItem('pollazo_customer_phone');
   });
 
-  // 🔄 Manejo Global de Instalación PWA
   useEffect(() => {
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
-    
-    // Auto-actualización del Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((reg) => reg.update());
-    }
-
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
@@ -137,25 +116,25 @@ export default function App() {
     if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
+  const handleContinue = () => {
+    localStorage.setItem('pollazo_landing_dismissed', '1');
+    setLandingDone(true);
+  };
+
   if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
-  // Pantalla de Landing
   if (!landingDone) {
     return (
       <AdminProvider>
         <LandingPage 
           onInstall={handleInstallApp} 
           canInstall={!!deferredPrompt} 
-          onContinueWeb={() => { 
-            localStorage.setItem('pollazo_landing_dismissed', '1'); 
-            setLandingDone(true); 
-          }} 
+          onContinueWeb={handleContinue} 
         />
       </AdminProvider>
     );
   }
 
-  // App Principal
   return (
     <AdminProvider>
       <UserProvider> 
