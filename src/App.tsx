@@ -42,7 +42,7 @@ function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products, upsertCustomer } = useAdmin(); // ✅ Añadido
+  const { createOrder, loading, products, upsertCustomer } = useAdmin(); 
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -62,11 +62,10 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  // ✅ NUEVA LÓGICA: Sincroniza foto/nombre con Supabase
   const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
-    setUserData(u.whatsapp, u.name, u.avatarUrl); // Guarda local
+    setUserData(u.whatsapp, u.name, u.avatarUrl); 
     try {
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); // Sube a la nube
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
     } catch (e) {
       console.error("Error sincronizando perfil:", e);
     }
@@ -119,7 +118,7 @@ function AppShell() {
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
-        onLogin={handleLogin} // ✅ Nueva función
+        onLogin={handleLogin} 
       />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
