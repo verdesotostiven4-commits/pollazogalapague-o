@@ -38,6 +38,7 @@ export default function Ranking() {
             <div key={c.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl border border-white shadow-sm">
               <span className="font-black text-orange-500 w-6 text-center text-xs">{i + 1}º</span>
               
+              {/* ✅ BURBUJA DE FOTO AGREGADA */}
               <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-100 border-2 border-white shadow-sm flex-shrink-0">
                 {c.avatar_url ? (
                   <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" />
