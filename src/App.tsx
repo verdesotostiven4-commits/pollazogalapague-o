@@ -23,6 +23,8 @@ function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isTrackingMinimized, setIsTrackingMinimized] = useState(false); // ✅ Nuevo
+  
   const { items, clearCart } = useCart();
   const { upsertCustomer, createOrder, loading } = useAdmin();
   const { customerPhone, customerName, customerAvatar, setUserData } = useUser();
@@ -62,6 +64,7 @@ function AppShell() {
     });
     window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
     clearCart(); setShowConfirmation(false); setScreen('home');
+    setIsTrackingMinimized(false); // Reset al pedir
   };
 
   const handleLoginDone = async (userData: { name: string; whatsapp: string; avatarUrl: string }) => {
@@ -70,55 +73,35 @@ function AppShell() {
     await upsertCustomer(userData.whatsapp, userData.name, userData.avatarUrl);
   };
 
-  if (loading) return (
-    <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl text-center p-6">
-      CARGANDO EL POLLAZO...
-    </div>
-  );
+  if (loading) return <div className="h-screen bg-orange-500 flex items-center justify-center text-white font-black italic animate-pulse text-xl">CARGANDO...</div>;
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
       <AppHeader 
         screen={screen} 
         onNavigate={handleNavigate} 
-        scrolled={false} 
         onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar} 
+        customerAvatar={customerAvatar}
+        isTrackingMinimized={isTrackingMinimized} // ✅ Pasamos estado
+        onShowTracking={() => setIsTrackingMinimized(false)} // ✅ Para volver a abrirlo
       />
       
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
-        <OrderTracking />
+        <OrderTracking 
+          isMinimized={isTrackingMinimized} 
+          onMinimize={() => setIsTrackingMinimized(true)} 
+        />
         
-        {screen === 'home' && (
-           <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />
-        )}
-
-        {screen === 'catalog' && (
-          <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />
-        )}
-
-        {screen === 'cart' && (
-          <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />
-        )}
-
-        {screen === 'info' && (
-          <InfoScreen onInstall={() => {}} canInstall={false} />
-        )}
-
-        {screen === 'ranking' && (
-          <Ranking />
-        )}
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleNavigateToCategory} />}
+        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={setActiveCategory} />}
+        {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
+        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
+        {screen === 'ranking' && <Ranking />}
       </main>
 
       <BottomNav current={screen} onNavigate={handleNavigate} />
       <FlyParticleLayer />
-      
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
-        onLogin={handleLoginDone} 
-      />
-      
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLoginDone} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -132,25 +115,15 @@ export default function App() {
     return !!skip || !!hasUser;
   });
 
-  if (isDashboard) {
-    return (
-      <AdminProvider>
-        <AdminDashboard />
-      </AdminProvider>
-    );
-  }
+  if (isDashboard) return <AdminProvider><AdminDashboard /></AdminProvider>;
 
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage 
-          onInstall={() => {}} 
-          canInstall={false} 
-          onContinueWeb={() => { 
-            localStorage.setItem('pollazo_landing_dismissed', '1'); 
-            setLandingDone(true); 
-          }} 
-        />
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { 
+          localStorage.setItem('pollazo_landing_dismissed', '1'); 
+          setLandingDone(true); 
+        }} />
       </AdminProvider>
     );
   }
