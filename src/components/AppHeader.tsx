@@ -32,7 +32,7 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
   const isHome = screen === 'home';
 
   return (
-    <header className="flex-shrink-0 safe-area-top bg-white border-b border-orange-50 shadow-sm z-40">
+    <header className="flex-shrink-0 safe-area-top bg-white/80 backdrop-blur-md border-b border-orange-50 shadow-sm z-40 sticky top-0">
       <div className="flex items-center justify-between px-4 h-14 relative">
         {isHome ? (
           <div className="flex items-center gap-2">
@@ -51,18 +51,21 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
         {!isHome && <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic">{screenTitles[screen]}</span>}
 
         <div className="flex items-center gap-2">
-          <button 
-            onClick={onOpenTracking}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-green-50 text-green-600 border border-green-100 active:scale-90 transition-transform"
-          >
-            <PackageSearch size={18} />
-          </button>
+          {/* ✅ SOLO APARECE EN EL INICIO */}
+          {isHome && (
+            <button 
+              onClick={onOpenTracking}
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 border border-orange-100 active:scale-90 transition-transform"
+            >
+              <PackageSearch size={18} />
+            </button>
+          )}
 
-          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md shadow-orange-100' : 'bg-gray-100 text-gray-400'}`}>
+          <button onClick={() => onNavigate('ranking')} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
             <BarChart2 size={18} />
           </button>
 
-          <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center active:scale-90">
+          <button onClick={onOpenProfile} className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center">
             {customerAvatar ? <img src={customerAvatar} className="w-full h-full object-cover" /> : <User size={18} className="text-orange-500" />}
           </button>
 
