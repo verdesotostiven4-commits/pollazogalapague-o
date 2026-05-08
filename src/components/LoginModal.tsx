@@ -30,9 +30,8 @@ export default function LoginModal({
   const [avatar, setAvatar] = useState(PRESET_AVATARS?.url || '');
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false); // ✅ Controla el "Ver más"
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filtramos: 3 destacados + Galería = Fila perfecta de 4
   const featuredAvatars = PRESET_AVATARS.slice(0, 3);
   const moreAvatars = PRESET_AVATARS.slice(3).filter(a => a.id !== 'wink');
 
@@ -51,7 +50,7 @@ export default function LoginModal({
     setIsProcessing(true);
 
     try {
-      const file = files; // ✅ FIX: Capturamos el primer archivo correctamente
+      const file = files; // ✅ FIX DEFINITIVO
       const objectUrl = URL.createObjectURL(file);
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
@@ -62,23 +61,20 @@ export default function LoginModal({
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) { URL.revokeObjectURL(objectUrl); return; }
+      if (!ctx) return;
 
-      const SIZE = 400; // Calidad un poco mayor
+      const SIZE = 400; 
       canvas.width = SIZE; canvas.height = SIZE;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
       const cropSize = Math.min(img.width, img.height);
       const cropX = (img.width - cropSize) / 2;
       const cropY = (img.height - cropSize) / 2;
 
       ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, SIZE, SIZE);
       const finalImage = canvas.toDataURL('image/jpeg', 0.9);
-      setAvatar(finalImage); // ✅ Se refleja inmediatamente
+      setAvatar(finalImage); 
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      console.error('Error procesando imagen:', error);
+      console.error('Error:', error);
     } finally {
       setIsProcessing(false);
       e.target.value = '';
@@ -100,101 +96,98 @@ export default function LoginModal({
     <>
       <style>
         {`
-          @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
+          @keyframes popIn {
+            0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
           }
-          .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+          .animate-pop-in { animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
           .hide-scrollbar::-webkit-scrollbar { display: none; }
           .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         `}
       </style>
 
-      <div className="fixed inset-0 z- flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4">
-        <div className="relative w-full max-w-md rounded-t-[40px] sm:rounded-[45px] bg-white shadow-2xl flex flex-col max-h-[95vh] animate-slide-up sm:animate-in sm:zoom-in-95 sm:fade-in">
+      {/* ✅ Z-INDEX AL MÁXIMO PARA TAPAR TODO */}
+      <div className="fixed inset-0 z- flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-xl p-0 sm:p-4 overflow-hidden">
+        <div className="relative w-full max-w-md rounded-t-[45px] sm:rounded-[50px] bg-white shadow-[0_-20px_60px_rgba(0,0,0,0.3)] flex flex-col max-h-[92vh] animate-pop-in">
           
-          {/* Indicador de arrastre para móvil */}
-          <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mt-4 mb-2 sm:hidden" />
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-4 mb-2 opacity-50" />
 
-          {/* Header Compacto */}
-          <div className="px-8 pt-4 pb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="bg-orange-100 p-1.5 rounded-xl">
-                <Sparkles size={18} className="text-orange-600 fill-orange-500" />
+          {/* Header Elegante */}
+          <div className="px-8 pt-4 pb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-orange-100 p-2 rounded-2xl shadow-inner">
+                <Sparkles size={20} className="text-orange-600 fill-orange-500" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-900 leading-none uppercase italic">{title}</h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">{title}</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{subtitle}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 text-slate-300 hover:bg-slate-50 rounded-full transition-colors">
-              <X size={24} />
+            <button onClick={onClose} className="p-2 bg-slate-50 text-slate-400 rounded-full hover:bg-orange-50 hover:text-orange-500 transition-all">
+              <X size={22} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto hide-scrollbar px-8 py-4 space-y-6">
+          <div className="flex-1 overflow-y-auto hide-scrollbar px-8 space-y-8 pb-10">
             
-            {/* SECCIÓN 1: FOTO Y DATOS (TODO JUNTO) */}
-            <div className="flex items-center gap-6 bg-orange-50/50 p-4 rounded-[30px] border border-orange-100/50">
-              <div className="relative flex-shrink-0">
-                <div className="h-24 w-24 rounded-[28px] overflow-hidden ring-[4px] ring-white shadow-xl bg-white">
+            {/* PANEL DE CONTROL DEL GUERRERO */}
+            <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-sm">
+              <div className="relative flex-shrink-0 group">
+                <div className="h-24 w-24 rounded-[30px] overflow-hidden ring-[5px] ring-white shadow-2xl bg-white transition-transform group-hover:scale-105 duration-500">
                   <img src={avatar} alt="Preview" className="h-full w-full object-cover" />
                   {isProcessing && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-[28px]">
-                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-[30px]">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1 rounded-lg shadow-lg border-2 border-white">
-                  <Check size={12} strokeWidth={4} />
+                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-2 border-white animate-bounce">
+                  <Check size={14} strokeWidth={4} />
                 </div>
               </div>
 
               <div className="flex-1 space-y-3">
                 <div className="relative group">
-                  <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500" />
+                  <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu Nombre"
-                    className="h-11 w-full rounded-xl bg-white pl-10 pr-4 text-sm font-bold text-slate-800 outline-none border border-slate-100 focus:border-orange-500 transition-all"
+                    placeholder="Tu Alias"
+                    className="h-11 w-full rounded-xl bg-white/80 pl-10 pr-4 text-sm font-black text-slate-800 outline-none border border-slate-200 focus:border-orange-500 transition-all"
                   />
                 </div>
                 <div className="relative group">
-                  <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500" />
+                  <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
                   <input
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     inputMode="tel"
-                    placeholder="WhatsApp"
-                    className="h-11 w-full rounded-xl bg-white pl-10 pr-4 text-sm font-bold text-slate-800 outline-none border border-slate-100 focus:border-orange-500 transition-all"
+                    placeholder="Tu # de WhatsApp"
+                    className="h-11 w-full rounded-xl bg-white/80 pl-10 pr-4 text-sm font-black text-slate-800 outline-none border border-slate-200 focus:border-orange-500 transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            {/* SECCIÓN 2: AVATARES (PANTALLA LIMPIA) */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Elige tu Guerrero</h3>
-              </div>
+            {/* SECCIÓN AVATARES */}
+            <div className="space-y-5">
+              <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] ml-2 italic opacity-60">Escoge tu Identidad</h3>
 
-              {/* Grid Compacto: 3 destacados + Galería */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-4">
                 <button
                   onClick={() => inputRef.current?.click()}
-                  className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all active:scale-90"
+                  className="aspect-square rounded-[24px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 hover:bg-orange-50 hover:border-orange-500 transition-all active:scale-90"
                 >
-                  <Camera size={18} />
-                  <span className="text-[6px] font-black uppercase mt-1">Galería</span>
+                  <Camera size={22} />
+                  <span className="text-[7px] font-black uppercase mt-1">Galería</span>
                 </button>
 
                 {featuredAvatars.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setAvatar(item.url)}
-                    className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-90 overflow-hidden ${
-                      avatar === item.url ? 'border-orange-500 ring-2 ring-orange-100' : 'border-transparent opacity-80'
+                    className={`relative aspect-square rounded-[24px] border-2 transition-all active:scale-95 overflow-hidden shadow-sm ${
+                      avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10' : 'border-transparent opacity-80'
                     }`}
                   >
                     <img src={item.url} alt={item.id} className="h-full w-full object-cover" />
@@ -202,26 +195,22 @@ export default function LoginModal({
                 ))}
               </div>
 
-              {/* Acordeón "Ver más" */}
+              {/* Botón Ver Más */}
               <button 
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full py-2 flex items-center justify-center gap-2 text-orange-600 font-black text-[10px] uppercase tracking-widest hover:bg-orange-50 rounded-xl transition-all"
+                className="w-full py-4 flex items-center justify-center gap-3 text-orange-600 font-black text-[10px] uppercase tracking-[0.2em] bg-orange-50/30 rounded-[22px] border border-orange-100/50 hover:bg-orange-50 transition-all active:scale-95"
               >
-                {isExpanded ? (
-                  <><ChevronUp size={14}/> Menos opciones</>
-                ) : (
-                  <><ChevronDown size={14}/> Ver más guerreros</>
-                )}
+                {isExpanded ? <><ChevronUp size={16}/> Menos Opciones</> : <><ChevronDown size={16}/> Explorar Avatares</>}
               </button>
 
               {isExpanded && (
-                <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="grid grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
                   {moreAvatars.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setAvatar(item.url)}
-                      className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-90 overflow-hidden ${
-                        avatar === item.url ? 'border-orange-500 ring-2 ring-orange-100' : 'border-transparent opacity-70'
+                      className={`relative aspect-square rounded-[24px] border-2 transition-all active:scale-95 overflow-hidden shadow-sm ${
+                        avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10' : 'border-transparent opacity-70 hover:opacity-100'
                       }`}
                     >
                       <img src={item.url} alt={item.id} className="h-full w-full object-cover" />
@@ -234,15 +223,16 @@ export default function LoginModal({
             <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
 
-          {/* Botón de Acción Fijo al fondo */}
-          <div className="p-8 pt-2 bg-white border-t border-slate-50">
-            {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-4 animate-bounce">{error}</p>}
+          {/* FOOTER PREMIUM */}
+          <div className="p-8 pt-4 bg-white border-t border-slate-50 flex-shrink-0 pb-10">
+            {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-4 animate-shake">{error}</p>}
             <button
               onClick={handleLogin}
               disabled={isProcessing}
-              className="w-full rounded-[20px] bg-gradient-to-r from-orange-500 to-orange-600 py-4 text-xs font-black text-white shadow-xl shadow-orange-500/30 active:scale-[0.98] disabled:opacity-50 uppercase tracking-[0.2em] transition-all"
+              className="group relative w-full overflow-hidden rounded-[26px] bg-slate-900 py-5 text-[11px] font-black text-white shadow-2xl active:scale-95 disabled:opacity-50 uppercase tracking-[0.3em] transition-all"
             >
-              ¡GUARDAR Y CONTINUAR! 🚀
+              <span className="relative z-10">¡Empezar mi Aventura! 🚀</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           </div>
 
