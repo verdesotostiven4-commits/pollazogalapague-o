@@ -1,100 +1,164 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Camera, User, Phone, X, Sparkles, Check } from 'lucide-react';
 import { PRESET_AVATARS } from '../constants/avatars';
-import { useUser } from '@/context/UserContext'; 
+import { useUser } from '@/context/UserContext';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (data: {
     name: string;
-    phone: string;
-    avatar: string;
+    whatsapp: string;
+    avatarUrl: string;
   }) => void;
 }
 
-const DEFAULT_AVATAR = PRESET_AVATARS.url;
+const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
+const LoginModal: React.FC<LoginModalProps> = ({
+  isOpen,
+  onClose,
+  onLogin,
+}) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { customerName, customerPhone, customerAvatar } = useUser();
+
+  const {
+    customerName,
+    customerPhone,
+    customerAvatar,
+  } = useUser();
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
+
     setName(customerName || '');
-    setPhone(customerPhone || '');
+    setWhatsapp(customerPhone || '');
     setAvatar(customerAvatar || DEFAULT_AVATAR);
     setIsExpanded(false);
+    setError('');
   }, [isOpen, customerName, customerPhone, customerAvatar]);
 
   const visibleAvatars = useMemo(() => {
-    return isExpanded ? PRESET_AVATARS : PRESET_AVATARS.slice(0, 3);
+    if (isExpanded) {
+      return PRESET_AVATARS;
+    }
+    return PRESET_AVATARS.slice(0, 3);
   }, [isExpanded]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.; // ✅ SINTAXIS VERIFICADA
+  const processImage = (file: File) => {
     if (!file) return;
 
     setIsProcessing(true);
     const reader = new FileReader();
+
     reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
+      const result = event.target?.result;
+      if (!result || typeof result !== 'string') {
+        setIsProcessing(false);
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
         const canvas = document.createElement('canvas');
         const SIZE = 400;
-        canvas.width = SIZE; canvas.height = SIZE;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        const min = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, SIZE, SIZE);
-        setAvatar(canvas.toDataURL('image/jpeg', 0.9));
+
+        if (!ctx) {
+          setIsProcessing(false);
+          return;
+        }
+
+        const minSide = Math.min(image.width, image.height);
+        const sx = (image.width - minSide) / 2;
+        const sy = (image.height - minSide) / 2;
+
+        ctx.clearRect(0, 0, SIZE, SIZE);
+        ctx.drawImage(image, sx, sy, minSide, minSide, 0, 0, SIZE, SIZE);
+
+        const finalImage = canvas.toDataURL('image/jpeg', 0.9);
+        setAvatar(finalImage);
         setIsProcessing(false);
       };
-      img.src = event.target?.result as string;
+      image.onerror = () => setIsProcessing(false);
+      image.src = result;
     };
+    reader.onerror = () => setIsProcessing(false);
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImage(file);
+    }
     e.target.value = '';
   };
 
   const handleSubmit = () => {
-    if (!name.trim() || !phone.trim()) {
-      alert('Completa tu nombre y WhatsApp para continuar.');
+    const trimmedName = name.trim();
+    const trimmedWhatsapp = whatsapp.trim();
+
+    if (!trimmedName || !trimmedWhatsapp) {
+      setError('Escribe tu nombre y WhatsApp');
       return;
     }
-    onLogin({ name: name.trim(), phone: phone.trim(), avatar });
+
+    onLogin({
+      name: trimmedName,
+      whatsapp: trimmedWhatsapp,
+      avatarUrl: avatar,
+    });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z- overflow-hidden bg-white/40 backdrop-blur-3xl flex items-center justify-center p-4">
-      <div className="relative flex w-full max-w-sm flex-col rounded-[40px] border border-white/60 bg-white/80 p-5 shadow-2xl backdrop-blur-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Fondo de Vidrio que tapa TODO (incluyendo BottomNav) */}
+      <div 
+        className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" 
+        onClick={onClose} 
+      />
+      
+      <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         
-        <button onClick={onClose} className="absolute right-5 top-5 p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-all">
-          <X size={20} />
-        </button>
-
-        <div className="mb-4 text-center">
-          <h1 className="text-2xl font-black text-orange-600 flex items-center justify-center gap-2 italic uppercase tracking-tighter">
-            <Sparkles size={24} fill="currentColor"/> ¡BIENVENIDO!
-          </h1>
-          <p className="mt-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Personaliza tu perfil de Guerrero</p>
+        {/* HEADER COMPACTO */}
+        <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200">
+              <Sparkles size={18} className="text-white fill-white" />
+            </div>
+            <div className="text-left leading-none">
+              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Únete al Club</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sabor Galapagueño 🏝️</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all">
+            <X size={18}/>
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto hide-scrollbar space-y-6 pr-1">
-          <div className="flex justify-center">
+        <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-5 custom-scrollbar">
+          
+          {/* SECCIÓN DATOS Y FOTO */}
+          <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
             <div className="relative">
-              <div className="h-28 w-28 overflow-hidden rounded-[35px] border-[6px] border-white bg-orange-50 shadow-xl">
-                <img src={avatar} alt="Avatar" className="h-full w-full object-cover animate-in zoom-in duration-300" />
+              <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group">
+                <img src={avatar} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Preview" />
                 {isProcessing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-[32px]">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
                   </div>
                 )}
               </div>
@@ -102,49 +166,91 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
                 <Check size={14} strokeWidth={4} />
               </div>
             </div>
+
+            <div className="w-full space-y-2.5">
+              <div className="relative group">
+                <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
+                <input 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  placeholder="Tu Nombre o Alias" 
+                  className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" 
+                />
+              </div>
+              <div className="relative group">
+                <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
+                <input 
+                  value={whatsapp} 
+                  onChange={(e) => setWhatsapp(e.target.value)} 
+                  inputMode="tel" 
+                  placeholder="Tu # de WhatsApp" 
+                  className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" 
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="relative">
-              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu Nombre o Alias" className="h-12 w-full rounded-2xl border-none bg-white/90 px-11 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-orange-500" />
-            </div>
-            <div className="relative">
-              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Tu # de WhatsApp" className="h-12 w-full rounded-2xl border-none bg-white/90 px-11 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-orange-500" />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">Selecciona tu Avatar</p>
+          {/* SECCIÓN SELECCIÓN AVATARES */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">Personaliza tu Guerrero</h3>
+            
             <div className="grid grid-cols-4 gap-3 px-1">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex aspect-square flex-col items-center justify-center rounded-2xl border-2 border-dashed border-orange-200 bg-slate-50/50 text-orange-400 active:scale-95 transition-all">
-                <Camera size={20} />
-                <span className="text-[7px] font-black uppercase">Galería</span>
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()} 
+                className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50"
+              >
+                <Camera size={18}/>
+                <span className="text-[6px] font-black uppercase mt-0.5">Galería</span>
               </button>
-
-              {visibleAvatars.map((item) => (
-                <button key={item.id} type="button" onClick={() => setAvatar(item.url)} className={`relative aspect-square overflow-hidden rounded-2xl border-2 transition-all active:scale-95 ${avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10 shadow-lg' : 'border-transparent opacity-80'}`}>
-                  <img src={item.url} alt={item.id} className="h-full w-full object-cover" />
+              
+              {visibleAvatars.map(item => (
+                <button 
+                  key={item.id} 
+                  type="button"
+                  onClick={() => setAvatar(item.url)} 
+                  className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10' : 'border-transparent opacity-80'}`}
+                >
+                  <img src={item.url} className="h-full w-full object-cover" alt={item.id} />
                 </button>
               ))}
             </div>
 
-            <button type="button" onClick={() => setIsExpanded(!isExpanded)} className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-100/50 py-3 text-[10px] font-black uppercase tracking-widest text-orange-600 transition-all hover:bg-orange-100 active:scale-95">
-              {isExpanded ? <><ChevronUp size={16}/> Ocultar</> : <><ChevronDown size={16}/> VER MÁS AVATARES</>}
+            <button 
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)} 
+              className="w-full py-2.5 flex items-center justify-center gap-2 text-orange-600 font-black text-[10px] uppercase tracking-widest bg-orange-50/50 rounded-2xl border border-orange-100 active:scale-[0.98] transition-all"
+            >
+              {isExpanded ? <><ChevronUp size={14}/> Ver menos</> : <><ChevronDown size={14}/> VER MÁS AVATARES</>}
             </button>
           </div>
+          
+          <input 
+            ref={fileInputRef} 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={handleFileChange} 
+          />
         </div>
 
-        <div className="pt-6">
-          <button type="button" onClick={handleSubmit} disabled={isProcessing} className="w-full h-14 rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 text-xs font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-orange-500/40 border-b-4 border-orange-700 active:translate-y-1 active:border-b-0 transition-all disabled:opacity-50">
+        {/* FOOTER FIJO */}
+        <div className="p-6 pt-2 bg-white flex-shrink-0 border-t border-slate-50">
+          {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce">{error}</p>}
+          <button 
+            type="button"
+            onClick={handleSubmit}
+            className="w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 py-4.5 text-[11px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-[0.25em] transition-all border-b-4 border-orange-700"
+          >
             {isProcessing ? 'PROCESANDO...' : '¡COMENZAR AVENTURA! 🚀'}
           </button>
         </div>
-        
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
       </div>
-      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };
