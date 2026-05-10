@@ -146,7 +146,8 @@ function AppShell() {
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-      <BottomNav current={screen} onNavigate={handleNavigate} />
+      {/* Solo mostramos la barra si NO estamos en el ranking */}
+{screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
       
       <LoginModal 
