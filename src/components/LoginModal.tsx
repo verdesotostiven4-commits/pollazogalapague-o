@@ -1,161 +1,329 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Phone, User, X, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { useUser } from '../context/UserContext';
+// src/components/LoginModal.tsx
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Image as ImageIcon } from 'lucide-react';
+
 import { PRESET_AVATARS } from '../constants/avatars';
+import { useUser } from '../hooks/useUser';
 
-type LoginModalProps = {
+interface LoginModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onLogin: (payload: { name: string; whatsapp: string; avatarUrl: string; }) => void;
-  title?: string;
-  subtitle?: string;
-};
+  onLogin: (data: {
+    name: string;
+    phone: string;
+    avatar: string;
+  }) => void;
+}
 
-export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete al Club', subtitle = 'Acumula puntos y gana con tus compras' }: LoginModalProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const { customerName, customerPhone, customerAvatar } = useUser();
+const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
+
+const LoginModal: React.FC<LoginModalProps> = ({
+  isOpen,
+  onLogin,
+}) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { user } = useUser();
+
   const [name, setName] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [avatar, setAvatar] = useState(PRESET_AVATARS.url);
-  const [error, setError] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
 
-  const featured = PRESET_AVATARS.slice(0, 3);
-  const remaining = PRESET_AVATARS.slice(3);
+  const [showAllAvatars, setShowAllAvatars] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    setName(customerName || '');
-    setWhatsapp(customerPhone || '');
-    setAvatar(customerAvatar || PRESET_AVATARS.url);
-    setIsExpanded(false);
-  }, [isOpen, customerName, customerPhone, customerAvatar]);
 
-  // 🔥 ARREGLO DEFINITIVO DE GALERÍA (USANDO FILEREADER) 🔥
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.;
+    setName(user?.name || '');
+    setPhone(user?.phone || '');
+    setAvatar(user?.avatar || DEFAULT_AVATAR);
+  }, [isOpen, user]);
+
+  const visibleAvatars = useMemo(() => {
+    if (showAllAvatars) {
+      return PRESET_AVATARS;
+    }
+
+    return PRESET_AVATARS.slice(0, 3);
+  }, [showAllAvatars]);
+
+  const processImage = (file: File) => {
     if (!file) return;
-    
-    setIsProcessing(true);
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const SIZE = 400;
-        canvas.width = SIZE; canvas.height = SIZE;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
 
-        const min = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, SIZE, SIZE);
-        
-        setAvatar(canvas.toDataURL('image/jpeg', 0.9)); // ✅ Se refleja al instante
+    setIsProcessing(true);
+
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const result = event.target?.result;
+
+      if (!result || typeof result !== 'string') {
+        setIsProcessing(false);
+        return;
+      }
+
+      const image = new Image();
+
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+
+        const SIZE = 400;
+
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          setIsProcessing(false);
+          return;
+        }
+
+        const width = image.width;
+        const height = image.height;
+
+        const squareSize = Math.min(width, height);
+
+        const sx = (width - squareSize) / 2;
+        const sy = (height - squareSize) / 2;
+
+        ctx.clearRect(0, 0, SIZE, SIZE);
+
+        ctx.drawImage(
+          image,
+          sx,
+          sy,
+          squareSize,
+          squareSize,
+          0,
+          0,
+          SIZE,
+          SIZE
+        );
+
+        const finalImage = canvas.toDataURL('image/jpeg', 0.95);
+
+        setAvatar(finalImage);
         setIsProcessing(false);
       };
-      img.src = event.target?.result as string;
+
+      image.onerror = () => {
+        setIsProcessing(false);
+      };
+
+      image.src = result;
     };
+
+    reader.onerror = () => {
+      setIsProcessing(false);
+    };
+
     reader.readAsDataURL(file);
   };
 
-  if (!isOpen) return null;
+  const handleGalleryClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    processImage(file);
+
+    event.target.value = '';
+  };
+
+  const handleSubmit = () => {
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName || !trimmedPhone || !avatar) {
+      alert('Completa todos los campos para continuar.');
+      return;
+    }
+
+    onLogin({
+      name: trimmedName,
+      phone: trimmedPhone,
+      avatar,
+    });
+  };
+
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z- flex items-center justify-center p-4">
-      {/* FONDO VIDRIO TOTAL (Cubre BottomNav) */}
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" onClick={onClose} />
-      
-      <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.2)] border border-white flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
-        
-        {/* HEADER */}
-        <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3 text-left">
-            <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200">
-              <Sparkles size={18} className="text-white fill-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 leading-none uppercase italic tracking-tighter">{title}</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-transform"><X size={18}/></button>
-        </div>
+    <div className="fixed inset-0 z-[9999] overflow-hidden bg-white/40 backdrop-blur-3xl">
+      <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-4">
+        <div className="relative flex w-full max-w-sm flex-col rounded-3xl border border-white/40 bg-white/70 p-4 shadow-2xl backdrop-blur-2xl">
+          {/* HEADER */}
+          <div className="mb-3 text-center">
+            <h1 className="text-2xl font-black text-orange-600">
+              ¡BIENVENIDO!
+            </h1>
 
-        <div className="flex-1 overflow-y-auto hide-scrollbar p-6 space-y-5">
-          
-          {/* SECCIÓN DATOS Y FOTO (COMPACTO) */}
-          <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
+            <p className="mt-1 text-xs font-medium text-gray-600">
+              Personaliza tu perfil para comenzar
+            </p>
+          </div>
+
+          {/* AVATAR PRINCIPAL */}
+          <div className="mb-3 flex justify-center">
             <div className="relative">
-              <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group">
-                <img src={avatar} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Preview" />
-                {isProcessing && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>}
+              <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-orange-100 shadow-xl">
+                <img
+                  src={avatar}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                />
               </div>
-              <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white animate-bounce"><Check size={14} strokeWidth={4} /></div>
-            </div>
 
-            <div className="w-full space-y-2.5">
-              <div className="relative group">
-                <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
-                <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Tu Nombre o Alias" className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
-              </div>
-              <div className="relative group">
-                <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
-                <input value={whatsapp} onChange={(e)=>setWhatsapp(e.target.value)} inputMode="tel" placeholder="Tu # de WhatsApp" className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
-              </div>
+              {isProcessing && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* SECCIÓN SELECCIÓN AVATARES */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Elige tu Identidad</h3>
-            <div className="grid grid-cols-4 gap-3">
-              {/* Botón Galería */}
-              <button onClick={()=>inputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50">
-                <Camera size={18}/><span className="text-[6px] font-black uppercase">Galería</span>
-              </button>
-              
-              {/* Top 3 */}
-              {featured.map(item => (
-                <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10 shadow-lg' : 'border-transparent opacity-80'}`}>
-                  <img src={item.url} className="h-full w-full object-cover" alt={item.id} />
-                </button>
-              ))}
+          {/* INPUTS */}
+          <div className="space-y-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-700">
+                Nombre
+              </label>
+
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Tu nombre"
+                className="h-11 w-full rounded-2xl border border-orange-200 bg-white/90 px-4 text-sm font-medium outline-none transition-all focus:border-orange-500 focus:ring-4 focus:ring-orange-200"
+              />
             </div>
 
-            <button onClick={()=>setIsExpanded(!isExpanded)} className="w-full py-2.5 flex items-center justify-center gap-2 text-orange-600 font-black text-[10px] uppercase tracking-widest bg-orange-50/50 rounded-2xl border border-orange-100 active:scale-[0.98] transition-all">
-              {isExpanded ? <><ChevronUp size={14}/> Menos Opciones</> : <><ChevronDown size={14}/> Ver más Avatares</>}
-            </button>
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-700">
+                WhatsApp
+              </label>
 
-            {isExpanded && (
-              <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-                {remaining.map(item => (
-                  <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-2 ring-orange-100' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                    <img src={item.url} className="h-full w-full object-cover" alt={item.id} />
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0999999999"
+                className="h-11 w-full rounded-2xl border border-orange-200 bg-white/90 px-4 text-sm font-medium outline-none transition-all focus:border-orange-500 focus:ring-4 focus:ring-orange-200"
+              />
+            </div>
+          </div>
+
+          {/* AVATARES */}
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-black text-gray-800">
+                Selecciona un avatar
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {/* BOTÓN GALERÍA */}
+              <button
+                type="button"
+                onClick={handleGalleryClick}
+                disabled={isProcessing}
+                className="flex aspect-square flex-col items-center justify-center rounded-2xl border-2 border-dashed border-orange-300 bg-white/80 transition-all hover:scale-105 hover:border-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ImageIcon className="h-5 w-5 text-orange-600" />
+
+                <span className="mt-1 text-[10px] font-bold text-orange-700">
+                  Galería
+                </span>
+              </button>
+
+              {/* AVATARES */}
+              {visibleAvatars.map((item) => {
+                const isSelected = avatar === item.url;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setAvatar(item.url)}
+                    className={`relative aspect-square overflow-hidden rounded-2xl border-4 transition-all ${
+                      isSelected
+                        ? 'scale-105 border-orange-500 shadow-lg'
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                  >
+                    <img
+                      src={item.url}
+                      alt={item.id}
+                      className="h-full w-full object-cover"
+                    />
                   </button>
-                ))}
-              </div>
+                );
+              })}
+            </div>
+
+            {/* VER MÁS */}
+            {PRESET_AVATARS.length > 3 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setShowAllAvatars((prev) => !prev)
+                }
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-100 py-3 text-xs font-black uppercase tracking-wide text-orange-700 transition-all hover:bg-orange-200"
+              >
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    showAllAvatars ? 'rotate-180' : ''
+                  }`}
+                />
+
+                {showAllAvatars
+                  ? 'Ocultar avatares'
+                  : 'Ver más avatares'}
+              </button>
             )}
           </div>
-          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-        </div>
 
-        {/* FOOTER CON BOTÓN */}
-        <div className="p-6 pt-2 bg-white flex-shrink-0">
-          {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce">{error}</p>}
-          <button 
-            onClick={() => {
-              if(!name.trim() || !whatsapp.trim()) { setError('Completa tus datos de Guerrero'); return; }
-              onLogin({ name, whatsapp, avatarUrl: avatar });
-            }}
-            className="w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 py-4.5 text-xs font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700"
+          {/* INPUT FILE */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {/* ESPACIADO PARA BOTÓN FIJO */}
+          <div className="h-24" />
+        </div>
+      </div>
+
+      {/* BOTÓN FIJO INFERIOR */}
+      <div className="fixed bottom-0 left-0 right-0 z-[10000] px-4 pb-4">
+        <div className="mx-auto w-full max-w-sm">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isProcessing}
+            className="flex h-14 w-full items-center justify-center rounded-2xl border-b-4 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 px-6 text-sm font-black uppercase tracking-wide text-white shadow-2xl transition-all active:translate-y-[2px] active:border-b-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            ¡COMENZAR AVENTURA! 🚀
+            {isProcessing
+              ? 'Procesando imagen...'
+              : '¡COMENZAR AVENTURA!'}
           </button>
         </div>
       </div>
-      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
     </div>
   );
-}
+};
+
+export default LoginModal;
