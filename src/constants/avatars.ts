@@ -1,3 +1,5 @@
+// 📁 src/constants/avatars.ts
+
 export const PRESET_AVATARS = [
   { id: 'pollo-oficial', url: 'https://blogger.googleusercontent.com/img/a/AVvXsEiBwRgks1UE-jvKCVKNY_omjECZ5qmrGryE9XrX9aO3Orn-ba59Em6Lt1_izm3H7Uy1o9Vx1ToU5R0mgs6BF0_m7VNKXtEpAKwnuG01XCMh03V7xgLstLZbJlFeoiRWJC5edg0h_OufrEbAD6ag2koCLrpN3qQVTrgMw_UmGnmK5DXrrbvT5-HhJmhYqc4' },
   { id: 'chef', url: 'https://blogger.googleusercontent.com/img/a/AVvXsEh7EsqKk5qbx_tIh8kjD-rL22uRJnIGMgXCEDmmopSTWLOe_NHRvtk6no_8n5ZzDFHO5Khr-P1yYFoRBkCacNui9m1QiG4_utanMsqhC-0q5_ihkuTq_skSj0I2shSZNAFTcV4BZafwtkJoGvdD-NQ1dEAuUXnsuY7xrTw2jihj2FhDUeCV-BKsihuAmJQ' },
