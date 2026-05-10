@@ -11,12 +11,11 @@ type LoginModalProps = {
   subtitle?: string;
 };
 
-export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete al Club', subtitle = 'Gana puntos con tus compras' }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete al Club', subtitle = 'Acumula puntos y gana con tus compras' }: LoginModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { customerName, customerPhone, customerAvatar } = useUser();
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  // ✅ Inicialización corregida
   const [avatar, setAvatar] = useState(PRESET_AVATARS.url);
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -50,11 +49,10 @@ export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete a
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Recorte cuadrado perfecto
         const min = Math.min(img.width, img.height);
         ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, SIZE, SIZE);
         
-        setAvatar(canvas.toDataURL('image/jpeg', 0.9)); // ✅ Ahora se refleja sí o sí
+        setAvatar(canvas.toDataURL('image/jpeg', 0.9)); // ✅ Se refleja al instante
         setIsProcessing(false);
       };
       img.src = event.target?.result as string;
@@ -67,9 +65,9 @@ export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete a
   return (
     <div className="fixed inset-0 z- flex items-center justify-center p-4">
       {/* FONDO VIDRIO TOTAL (Cubre BottomNav) */}
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-2xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" onClick={onClose} />
       
-      <div className="relative w-full max-w-sm bg-white/90 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.2)] border border-white flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
+      <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.2)] border border-white flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         
         {/* HEADER */}
         <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
@@ -85,26 +83,26 @@ export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete a
           <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-transform"><X size={18}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto hide-scrollbar p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto hide-scrollbar p-6 space-y-5">
           
-          {/* SECCIÓN DATOS Y FOTO */}
-          <div className="bg-gradient-to-br from-orange-50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-4">
+          {/* SECCIÓN DATOS Y FOTO (COMPACTO) */}
+          <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
             <div className="relative">
               <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group">
-                <img src={avatar} className="h-full w-full object-cover transition-transform group-hover:scale-110" alt="Preview" />
+                <img src={avatar} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Preview" />
                 {isProcessing && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>}
               </div>
               <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white animate-bounce"><Check size={14} strokeWidth={4} /></div>
             </div>
 
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-2.5">
               <div className="relative group">
-                <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
                 <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Tu Nombre o Alias" className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
               </div>
               <div className="relative group">
-                <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
-                <input value={whatsapp} onChange={(e)=>setWhatsapp(e.target.value)} placeholder="Tu # de WhatsApp" className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
+                <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
+                <input value={whatsapp} onChange={(e)=>setWhatsapp(e.target.value)} inputMode="tel" placeholder="Tu # de WhatsApp" className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
               </div>
             </div>
           </div>
@@ -113,9 +111,16 @@ export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete a
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Elige tu Identidad</h3>
             <div className="grid grid-cols-4 gap-3">
-              <button onClick={()=>inputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50"><Camera size={18}/><span className="text-[6px] font-black uppercase">Galería</span></button>
+              {/* Botón Galería */}
+              <button onClick={()=>inputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50">
+                <Camera size={18}/><span className="text-[6px] font-black uppercase">Galería</span>
+              </button>
+              
+              {/* Top 3 */}
               {featured.map(item => (
-                <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10' : 'border-transparent opacity-80'}`}><img src={item.url} className="h-full w-full object-cover" /></button>
+                <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10 shadow-lg' : 'border-transparent opacity-80'}`}>
+                  <img src={item.url} className="h-full w-full object-cover" alt={item.id} />
+                </button>
               ))}
             </div>
 
@@ -126,7 +131,9 @@ export default function LoginModal({ isOpen, onClose, onLogin, title = 'Únete a
             {isExpanded && (
               <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
                 {remaining.map(item => (
-                  <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-2 ring-orange-100' : 'border-transparent opacity-60 hover:opacity-100'}`}><img src={item.url} className="h-full w-full object-cover" /></button>
+                  <button key={item.id} onClick={()=>setAvatar(item.url)} className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${avatar === item.url ? 'border-orange-500 ring-2 ring-orange-100' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+                    <img src={item.url} className="h-full w-full object-cover" alt={item.id} />
+                  </button>
                 ))}
               </div>
             )}
