@@ -67,9 +67,10 @@ function TeamCarousel() {
 interface Props {
   onInstall?: () => void;
   canInstall?: boolean;
+  onNavigate: (screen: any) => void; // ✅ AGREGADO PROPIEDAD DE NAVEGACIÓN
 }
 
-export default function InfoScreen({ onInstall, canInstall }: Props) {
+export default function InfoScreen({ onInstall, canInstall, onNavigate }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const touchStartX = useRef<number | null>(null);
 
@@ -142,7 +143,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <TeamCarousel />
       </div>
 
-      {/* ✅ GALERÍA: MINIATURAS CON TÍTULOS SIEMPRE VISIBLES */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden p-3">
         <div className="px-3 py-2 flex items-center gap-2 mb-2"><Star className="text-orange-500 fill-orange-500" size={14} /><h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">Galería</h3></div>
         <div className="space-y-2">
@@ -171,11 +171,11 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
+      {/* ✅ SE PASA onNavigate CORRECTAMENTE AHORA */}
       <Testimonials onNavigateRanking={() => onNavigate('ranking')} />
 
       <div className="flex items-center justify-center gap-1.5 py-6 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]"><span>Hecho con</span><Heart size={12} className="text-orange-400 fill-orange-400" /><span>en Galápagos</span></div>
 
-      {/* ✅ LIGHTBOX: MIX-BLEND-MODE PARA EL TEXTO INTELIGENTE */}
       {lightboxIndex !== null && (
         <div 
           className="fixed inset-0 z-[35] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
@@ -187,7 +187,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
             <div className="mt-6 text-center px-4">
                 <p className="text-gray-900 text-base font-black uppercase tracking-tighter italic">{galleryPhotos[lightboxIndex].caption}</p>
                 <div className="flex justify-center gap-2 mt-4">{galleryPhotos.map((_, i) => (<div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'}`} />))}</div>
-                {/* TEXTO CAMALEÓN: mix-blend-difference para que se vea siempre */}
                 <p className="text-white text-[9px] mt-8 font-black uppercase tracking-[0.2em] mix-blend-difference">← desliza para cambiar →</p>
             </div>
           </div>
