@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import ProductCard from './ProductCard';
 import AnnouncementBanner from './AnnouncementBanner';
@@ -83,7 +83,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     setActiveCategory(next);
     onCategoryChange?.(next);
     
-    // Scrollear al inicio al cambiar categoría
     const main = document.querySelector('main');
     main?.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -104,15 +103,15 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   }, [activeCategory, changeCategory, ALL_CATS]);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches.clientX;
-    touchStartY.current = e.touches.clientY;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.changedTouches.clientX - touchStartX.current;
-    const dy = e.changedTouches.clientY - touchStartY.current;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) handleSwipeLeft();
       else handleSwipeRight();
     }
@@ -139,108 +138,122 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col bg-gray-50 min-h-full">
       <AnnouncementBanner />
       
-      {/* BUSCADOR — Reducimos z-index a 10 para que el modal (z-100) lo cubra */}
-      <div className="px-4 pt-3 pb-2 bg-white sticky top-0 z-10 border-b border-gray-50">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
-            onFocus={() => search && setShowSuggestions(true)}
-            placeholder="Buscar productos..."
-            className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-gray-50 focus:ring-2 focus:ring-orange-200 transition-all"
-          />
-          {search && (
-            <button onClick={() => { setSearch(''); setShowSuggestions(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 active:text-gray-700">
-              <X size={15} />
-            </button>
-          )}
+      {/* 🟢 HEADER FIJO (BUSCADOR + TABS) CON Z-INDEX CORRECTO */}
+      <div className="sticky top-0 z-[100] bg-white shadow-sm">
+        {/* BUSCADOR */}
+        <div className="px-4 pt-3 pb-2 border-b border-gray-50">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => search && setShowSuggestions(true)}
+              placeholder="Buscar productos..."
+              className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-gray-50 focus:ring-2 focus:ring-orange-200 transition-all"
+            />
+            {search && (
+              <button onClick={() => { setSearch(''); setShowSuggestions(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 active:text-gray-700">
+                <X size={15} />
+              </button>
+            )}
 
-          {showSuggestions && suggestions.length > 0 && (
-            <div
-              ref={suggestionsRef}
-              className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-20"
-            >
-              {suggestions.map(p => (
-                <button
-                  key={p.id}
-                  onMouseDown={() => { setSearch(p.name); setShowSuggestions(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 active:bg-orange-100 transition-colors text-left border-b border-gray-50 last:border-b-0"
-                >
-                  {p.image && (
-                    <img src={p.image} alt={p.name} className="w-9 h-9 rounded-xl object-contain bg-gray-50 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
-                    <p className="text-xs text-gray-400">{p.category}</p>
-                  </div>
-                  <span className="text-xs text-orange-500 font-bold flex-shrink-0">
-                    {p.price}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[110]"
+              >
+                {suggestions.map(p => (
+                  <button
+                    key={p.id}
+                    onMouseDown={() => { setSearch(p.name); setShowSuggestions(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 active:bg-orange-100 transition-colors text-left border-b border-gray-50 last:border-b-0"
+                  >
+                    {p.image && (
+                      <img src={p.image} alt={p.name} className="w-9 h-9 rounded-xl object-contain bg-gray-50 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.category}</p>
+                    </div>
+                    <span className="text-xs text-orange-500 font-bold flex-shrink-0">
+                      {p.price}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* TABS DE CATEGORÍAS */}
+        {!isSearching && (
+          <div className="bg-white border-b border-gray-100">
+            <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1.5 px-4 py-2.5" style={{ width: 'max-content' }}>
+                {ALL_CATS.map(cat => {
+                  const isActive = activeCategory === cat;
+                  const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
+                  const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => changeCategory(cat)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
+                          : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                      }`}
+                    >
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="text-center text-[9px] text-gray-300 pb-1 font-medium uppercase tracking-widest">← desliza para cambiar →</p>
+          </div>
+        )}
       </div>
 
-      {/* TABS DE CATEGORÍAS — Reducimos z-index a 5 */}
-      {!isSearching && (
-        <div className="bg-white border-b border-gray-100 sticky top-[57px] z-">
-          <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-1.5 px-4 py-2.5" style={{ width: 'max-content' }}>
-              {ALL_CATS.map(cat => {
-                const isActive = activeCategory === cat;
-                const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
-                const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => changeCategory(cat)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
-                        : 'bg-gray-100 text-gray-600 active:bg-gray-200'
-                    }`}
-                  >
-                    <span>{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <p className="text-center text-[10px] text-gray-300 pb-1 font-medium">← desliza para cambiar →</p>
-        </div>
-      )}
-
-      {/* GRID DE PRODUCTOS */}
+      {/* GRID DE PRODUCTOS — Soporta Swipe */}
       <div
-        className="px-3 pt-3 pb-4 overflow-hidden"
+        className="px-3 pt-3 pb-24"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <p className="text-xs text-gray-400 font-medium mb-3 px-1">
-          {isSearching
-            ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''} para "${search}"`
-            : `${displayedProducts.length} producto${displayedProducts.length !== 1 ? 's' : ''}`
-          }
-        </p>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-tight">
+            {isSearching
+              ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}`
+              : `${displayedProducts.length} producto${displayedProducts.length !== 1 ? 's' : ''}`
+            }
+          </p>
+          {activeCategory !== 'Todos' && !isSearching && (
+            <div className="flex items-center gap-1 text-orange-500 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">
+               <MapPin size={10} />
+               <span className="text-[9px] font-black uppercase tracking-tighter">{activeCategory}</span>
+            </div>
+          )}
+        </div>
 
         {displayedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <span className="text-5xl mb-4">🔍</span>
-            <p className="text-gray-500 font-semibold">Sin resultados</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <span className="text-6xl mb-4 grayscale">🔍</span>
+            <p className="text-gray-400 font-black uppercase text-xs tracking-widest">Sin resultados</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3" style={getGridStyle()}>
+          /* ✅ GRID CORREGIDO PARA IPHONE (No Zoom) */
+          <div className="grid grid-cols-2 gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', ...getGridStyle() }}>
             {displayedProducts.map(product => (
-              <ProductCard key={`${product.id}-${activeCategory}`} product={product} />
+              <div key={`${product.id}-${activeCategory}`} className="w-full min-w-0">
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
         )}
@@ -248,13 +261,15 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
 
       <style>{`
         @keyframes slideInLeft {
-          from { opacity: 0.4; transform: translateX(48px); }
+          from { opacity: 0.2; transform: translateX(30px); }
           to   { opacity: 1; transform: translateX(0); }
         }
         @keyframes slideInRight {
-          from { opacity: 0.4; transform: translateX(-48px); }
+          from { opacity: 0.2; transform: translateX(-30px); }
           to   { opacity: 1; transform: translateX(0); }
         }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );
