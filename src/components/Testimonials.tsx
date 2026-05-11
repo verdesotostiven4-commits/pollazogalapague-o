@@ -14,21 +14,21 @@ interface Testimonial {
 
 const ADMIN_HOLD_MS = 3000;
 
-// ✅ ESTRELLAS MEJORADAS: Resaltan y tienen brillo dorado al seleccionar
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
-  const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-300' : 'cursor-default';
+  const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-200 hover:drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'cursor-default';
   
   return (
     <div className="flex gap-1.5 py-1">
-      {[1, 2, 3, 4, 5].map((num) => (
-        <button key={num} type="button" onClick={() => onChange?.(num)} className={btnClass}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button 
+          key={star}
+          type="button" 
+          onClick={() => onChange?.(star)} 
+          className={btnClass}
+        >
           <Star 
-            size={num <= value ? 24 : 18} 
-            className={`transition-all duration-300 ${
-              num <= value 
-                ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]' 
-                : 'text-gray-200 fill-gray-100'
-            }`} 
+            size={star <= value && onChange ? 24 : 18} 
+            className={`${star <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} transition-all`} 
           />
         </button>
       ))}
@@ -41,7 +41,7 @@ function StarStatRow({ star, testimonials }: { star: number, testimonials: Testi
   const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-500 w-2">{star}</span>
+      <span className="text-[10px] text-gray-500 w-2 font-bold">{star}</span>
       <Star size={8} className="text-yellow-400 fill-yellow-400 flex-shrink-0" />
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className="h-full bg-yellow-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
@@ -71,14 +71,14 @@ export default function Testimonials() {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  // Verificar si ya comentó para ocultar el banner
+  // Verificar si el usuario ya ganó sus puntos
   useEffect(() => {
-    async function checkReview() {
+    const checkReviewStatus = async () => {
       if (!customerPhone) return;
       const { data } = await supabase.from('customers').select('has_reviewed').eq('whatsapp', customerPhone).single();
-      if (data) setHasReviewed(data.has_reviewed);
-    }
-    checkReview();
+      if (data) setHasReviewed(!!data.has_reviewed);
+    };
+    checkReviewStatus();
   }, [customerPhone]);
 
   useEffect(() => {
@@ -89,11 +89,7 @@ export default function Testimonials() {
   }, [showForm, customerName, customerAvatar]);
 
   const fetchTestimonials = useCallback(async () => {
-    const { data } = await supabase
-      .from('testimonials')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const { data } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false }).limit(50);
     if (data) setTestimonials(data as Testimonial[]);
     setLoading(false);
   }, []);
@@ -107,13 +103,12 @@ export default function Testimonials() {
     setSubmitting(true);
     setError('');
 
-    // 1. Guardar testimonio
+    // 1. Guardar testimonio (Insert normal sin columnas extra para evitar error)
     const { error: err } = await supabase.from('testimonials').insert({
       author_name: name.trim(),
       stars,
       comment: comment.trim(),
       photo_url: photoUrl.trim() || null,
-      customer_phone: customerPhone
     });
 
     if (err) {
@@ -122,20 +117,22 @@ export default function Testimonials() {
       return;
     }
 
-    // 2. Si es su primer comentario, darle puntos
-    if (!hasReviewed && customerPhone) {
+    // 2. Lógica de puntos (Solo si es la primera vez)
+    if (customerPhone && !hasReviewed) {
         const { data: customer } = await supabase.from('customers').select('points').eq('whatsapp', customerPhone).single();
-        await supabase.from('customers').update({ 
-            points: (customer?.points || 0) + 10,
-            has_reviewed: true 
-        }).eq('whatsapp', customerPhone);
-        setHasReviewed(true);
+        if (customer) {
+            await supabase.from('customers').update({ 
+                points: (customer.points || 0) + 10,
+                has_reviewed: true 
+            }).eq('whatsapp', customerPhone);
+            setHasReviewed(true);
+        }
     }
 
     setSubmitting(false);
     setSuccess(true);
     setComment('');
-    setTimeout(() => { setSuccess(false); setShowForm(false); }, 3500);
+    setTimeout(() => { setSuccess(false); setShowForm(false); }, 3000);
     fetchTestimonials();
   };
 
@@ -165,179 +162,108 @@ export default function Testimonials() {
     setHoldProgress(0);
   };
 
-  const avg = testimonials.length > 0
-    ? testimonials.reduce((s, t) => s + t.stars, 0) / testimonials.length
-    : 0;
+  const avg = testimonials.length > 0 ? testimonials.reduce((s, t) => s + t.stars, 0) / testimonials.length : 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-4">
-      
-      {/* 🎁 BANNER DE PUNTOS (Solo si no ha comentado) */}
-      {!hasReviewed && !showForm && (
-        <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 flex items-center gap-3 animate-in fade-in duration-500">
-           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white shrink-0">
-              <Sparkles size={20} fill="currentColor" className="animate-pulse" />
-           </div>
-           <div className="flex-1">
-              <p className="text-white font-black text-[11px] uppercase tracking-tight leading-none">¡Gana puntos hoy!</p>
-              <p className="text-white/90 text-[10px] font-bold mt-1">Danos tu opinión y recibe <span className="underline">+10 PUNTOS</span> al instante.</p>
-           </div>
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* 🎁 BANNER DE PUNTOS (Solo sale si no ha comentado) */}
+      {!hasReviewed && customerName && (
+        <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top duration-500">
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0">
+                <Sparkles size={20} fill="currentColor" />
+            </div>
+            <div className="flex-1 leading-tight">
+                <p className="text-white font-black text-xs uppercase">¡Regalo de puntos!</p>
+                <p className="text-white/90 text-[10px] font-bold uppercase">Opina y recibe <span className="underline">+10 PUNTOS</span> para el Ranking.</p>
+            </div>
         </div>
       )}
 
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-        <div
-          className="select-none"
-          onMouseDown={startHold}
-          onMouseUp={cancelHold}
-          onMouseLeave={cancelHold}
-          onTouchStart={startHold}
-          onTouchEnd={cancelHold}
-        >
-          <h3 className="font-black text-gray-900 text-base italic uppercase tracking-tighter">Opiniones de clientes</h3>
+      <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between">
+        <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}>
+          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight">Opiniones de clientes</h3>
           {holdProgress > 0 && (
-            <div className="h-0.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden w-32">
-              <div className="h-full bg-orange-400 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} />
+            <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32">
+              <div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} />
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
           {adminMode && (
-            <button onClick={() => setAdminMode(false)} className="text-[10px] text-red-400 font-semibold bg-red-50 px-2 py-1 rounded-lg border border-red-100">
-              Salir admin
-            </button>
+            <button onClick={() => setAdminMode(false)} className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded-lg">Salir admin</button>
           )}
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-1.5 bg-orange-500 text-white text-[10px] font-black uppercase px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-100 active:scale-95 transition-all"
-          >
-            <Star size={12} className="fill-white" />
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-transform uppercase tracking-wider">
             {showForm ? 'Cerrar' : 'Opinar'}
           </button>
         </div>
       </div>
 
       {testimonials.length > 0 && !showForm && (
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center gap-4 bg-gradient-to-br from-orange-50 to-white rounded-2xl px-4 py-4 border border-orange-100/50">
+        <div className="px-5 pt-4 pb-2">
+          <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-4 border border-orange-100">
             <div className="text-center min-w-[64px]">
               <p className="text-4xl font-black text-orange-500 leading-none">{avg.toFixed(1)}</p>
-              <div className="flex justify-center mt-2 scale-75 origin-center">
-                <StarRating value={Math.round(avg)} />
-              </div>
-              <p className="text-[9px] text-gray-400 mt-1 font-bold uppercase">{testimonials.length} opiniones</p>
+              <div className="flex justify-center mt-2 scale-75 origin-center"><StarRating value={Math.round(avg)} /></div>
+              <p className="text-[10px] text-gray-400 mt-1 font-bold">{testimonials.length} opiniones</p>
             </div>
             <div className="flex-1 space-y-1">
-              <StarStatRow star={5} testimonials={testimonials} />
-              <StarStatRow star={4} testimonials={testimonials} />
-              <StarStatRow star={3} testimonials={testimonials} />
-              <StarStatRow star={2} testimonials={testimonials} />
-              <StarStatRow star={1} testimonials={testimonials} />
+              {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
             </div>
           </div>
         </div>
       )}
 
       {showForm && (
-        <div className="px-4 py-5 border-b border-gray-100 bg-orange-50/20">
+        <div className="px-5 py-5 border-b border-gray-100 bg-orange-50/20">
           {success ? (
             <div className="flex flex-col items-center py-6 gap-3 animate-in zoom-in duration-300">
-              <div className="w-14 h-14 bg-green-500 rounded-3xl flex items-center justify-center shadow-xl shadow-green-100 rotate-12">
-                <Star size={30} className="text-white fill-white" />
-              </div>
-              <div className="text-center px-4">
-                 <p className="text-green-700 font-black text-sm uppercase tracking-tight">¡Opinión Publicada!</p>
-                 <p className="text-green-800/60 text-[11px] font-bold mt-1">
-                    {hasReviewed 
-                      ? "Has ganado 10 puntos, revisa el ranking al lado de tu foto de perfil. 🏆" 
-                      : "¡Gracias por tu valiosa opinión! ⭐"}
-                 </p>
+              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg"><Star size={28} className="text-white fill-white" /></div>
+              <div className="text-center">
+                <p className="text-green-700 font-black text-base uppercase">¡Gracias por tu opinión!</p>
+                {hasReviewed && (
+                    <p className="text-green-600/70 text-[11px] font-bold uppercase mt-1 px-4">¡Has ganado 10 puntos! Revisa el Ranking junto a tu foto de perfil.</p>
+                )}
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-orange-100 shadow-sm">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200">
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">
                   {photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Publicando como:</p>
-                  <p className="text-sm font-bold text-gray-800 truncate mt-1">{name || 'Invitado'}</p>
-                </div>
+                <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
               </div>
-              
               <div className="text-center">
-                <p className="text-[10px] text-gray-500 mb-2 font-black uppercase tracking-widest">¿Cuántas estrellas nos das?</p>
-                <div className="flex justify-center">
-                  <StarRating value={stars} onChange={setStars} />
-                </div>
+                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase">¿Cuántas estrellas nos das?</p>
+                <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
-
-              <textarea
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                placeholder="Cuéntanos tu experiencia con el Pollazo..."
-                maxLength={300}
-                rows={3}
-                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-800 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 resize-none shadow-sm transition-all"
-              />
-              {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tighter">{error}</p>}
-              
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white font-black py-4.5 rounded-[20px] shadow-lg shadow-orange-200 active:scale-95 transition-all disabled:opacity-60 uppercase text-[11px] tracking-[0.15em]"
-              >
-                <Send size={14} />
-                {submitting ? 'Enviando...' : 'Publicar mi opinión'}
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={3} className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-orange-500 resize-none shadow-sm" />
+              {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
+              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white font-black py-4.5 rounded-[22px] shadow-lg active:scale-95 transition-all disabled:opacity-60 uppercase text-xs tracking-widest">
+                <Send size={14} /> {submitting ? 'Enviando...' : 'Publicar mi opinión'}
               </button>
             </form>
           )}
         </div>
       )}
 
-      <div className="divide-y divide-gray-50 bg-white">
-        {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : testimonials.length === 0 ? (
-          <div className="flex flex-col items-center py-12 gap-2">
-            <span className="text-4xl grayscale opacity-20">💬</span>
-            <p className="text-gray-300 text-[10px] font-black uppercase tracking-widest">Aún no hay opiniones</p>
-          </div>
-        ) : (
-          testimonials.map(t => (
-            <div key={t.id} className="flex gap-4 px-4 py-5 hover:bg-orange-50/20 transition-colors">
-              <div className="w-10 h-10 rounded-2xl overflow-hidden flex-shrink-0 border-2 border-orange-50 bg-gray-50">
-                {t.photo_url ? (
-                  <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm">
-                    {t.author_name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-black text-gray-900 truncate uppercase tracking-tight">{t.author_name}</p>
-                  {adminMode && (
-                    <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-500 rounded-lg flex items-center justify-center active:scale-75">
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-                <div className="scale-75 origin-left opacity-90 -mt-1 -mb-1">
-                    <StarRating value={t.stars} />
-                </div>
-                <p className="text-gray-600 text-[13px] font-medium leading-relaxed mt-1">{t.comment}</p>
-                <p className="text-gray-300 text-[9px] mt-3 font-black uppercase tracking-widest">
-                  {new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </p>
-              </div>
+      <div className="divide-y divide-gray-50">
+        {!loading && testimonials.map(t => (
+          <div key={t.id} className="flex gap-4 px-5 py-5 hover:bg-gray-50/50 transition-colors">
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50">
+              {t.photo_url ? <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm uppercase">{t.author_name.charAt(0)}</div>}
             </div>
-          ))
-        )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-gray-900 truncate">{t.author_name}</p>
+                {adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center"><Trash2 size={13} /></button>}
+              </div>
+              <div className="scale-75 origin-left opacity-80"><StarRating value={t.stars} /></div>
+              <p className="text-gray-600 text-xs mt-1 font-medium leading-relaxed">{t.comment}</p>
+              <p className="text-gray-300 text-[9px] mt-2 font-bold uppercase">{new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
