@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Star, Send, Trash2, X, User, Sparkles } from 'lucide-react';
+import { Star, Send, Trash2, X, User, Sparkles, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUser } from '../context/UserContext'; 
 
@@ -14,21 +14,20 @@ interface Testimonial {
 
 const ADMIN_HOLD_MS = 3000;
 
+interface Props {
+  onNavigateRanking?: () => void;
+}
+
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
-  const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-200 hover:drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'cursor-default';
+  const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-200' : 'cursor-default';
   
   return (
-    <div className="flex gap-1.5 py-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button 
-          key={star}
-          type="button" 
-          onClick={() => onChange?.(star)} 
-          className={btnClass}
-        >
+    <div className="flex gap-2 py-1">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <button key={s} type="button" onClick={() => onChange?.(s)} className={btnClass}>
           <Star 
-            size={star <= value && onChange ? 24 : 18} 
-            className={`${star <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'} transition-all`} 
+            size={onChange ? 28 : 18} 
+            className={`${s <= value ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]' : 'text-gray-200 fill-gray-100'} transition-all`} 
           />
         </button>
       ))}
@@ -41,7 +40,7 @@ function StarStatRow({ star, testimonials }: { star: number, testimonials: Testi
   const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-500 w-2 font-bold">{star}</span>
+      <span className="text-[10px] text-gray-500 w-2">{star}</span>
       <Star size={8} className="text-yellow-400 fill-yellow-400 flex-shrink-0" />
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className="h-full bg-yellow-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
@@ -51,13 +50,14 @@ function StarStatRow({ star, testimonials }: { star: number, testimonials: Testi
   );
 }
 
-export default function Testimonials() {
+export default function Testimonials({ onNavigateRanking }: Props) {
   const { customerName, customerAvatar, customerPhone } = useUser(); 
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [pointsGainedNow, setPointsGainedNow] = useState(false);
   
   const [name, setName] = useState('');
   const [stars, setStars] = useState(5);
@@ -71,15 +71,16 @@ export default function Testimonials() {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  // Verificar si el usuario ya ganó sus puntos
-  useEffect(() => {
-    const checkReviewStatus = async () => {
-      if (!customerPhone) return;
-      const { data } = await supabase.from('customers').select('has_reviewed').eq('whatsapp', customerPhone).single();
-      if (data) setHasReviewed(!!data.has_reviewed);
-    };
-    checkReviewStatus();
+  //🔎 Verificar estado del cliente en Supabase
+  const checkReviewStatus = useCallback(async () => {
+    if (!customerPhone) return;
+    try {
+        const { data } = await supabase.from('customers').select('has_reviewed').eq('whatsapp', customerPhone).single();
+        if (data) setHasReviewed(!!data.has_reviewed);
+    } catch (e) { console.error(e); }
   }, [customerPhone]);
+
+  useEffect(() => { checkReviewStatus(); }, [checkReviewStatus]);
 
   useEffect(() => {
     if (showForm) {
@@ -99,11 +100,10 @@ export default function Testimonials() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !comment.trim()) { setError('Completa tu nombre y comentario.'); return; }
-    
     setSubmitting(true);
     setError('');
 
-    // 1. Guardar testimonio (Insert normal sin columnas extra para evitar error)
+    // 1. Enviar testimonio
     const { error: err } = await supabase.from('testimonials').insert({
       author_name: name.trim(),
       stars,
@@ -111,28 +111,27 @@ export default function Testimonials() {
       photo_url: photoUrl.trim() || null,
     });
 
-    if (err) {
-      setSubmitting(false);
-      setError('Error al enviar. Intenta de nuevo.');
-      return;
-    }
+    if (err) { setSubmitting(false); setError('Error al enviar. Intenta de nuevo.'); return; }
 
-    // 2. Lógica de puntos (Solo si es la primera vez)
+    // 2. Lógica de Puntos (Sumar +10 si es primera vez)
     if (customerPhone && !hasReviewed) {
-        const { data: customer } = await supabase.from('customers').select('points').eq('whatsapp', customerPhone).single();
-        if (customer) {
-            await supabase.from('customers').update({ 
-                points: (customer.points || 0) + 10,
-                has_reviewed: true 
-            }).eq('whatsapp', customerPhone);
+        const { data: user } = await supabase.from('customers').select('points').eq('whatsapp', customerPhone).single();
+        const currentPoints = user?.points || 0;
+        
+        const { error: upError } = await supabase.from('customers').update({ 
+            points: currentPoints + 10, 
+            has_reviewed: true 
+        }).eq('whatsapp', customerPhone);
+
+        if (!upError) {
             setHasReviewed(true);
+            setPointsGainedNow(true);
         }
     }
 
     setSubmitting(false);
     setSuccess(true);
     setComment('');
-    setTimeout(() => { setSuccess(false); setShowForm(false); }, 3000);
     fetchTestimonials();
   };
 
@@ -147,12 +146,8 @@ export default function Testimonials() {
       const elapsed = now - holdStartRef.current;
       const pct = Math.min(100, (elapsed / ADMIN_HOLD_MS) * 100);
       setHoldProgress(pct);
-      if (elapsed < ADMIN_HOLD_MS) {
-        holdRafRef.current = requestAnimationFrame(tick);
-      } else {
-        setAdminMode(true);
-        setHoldProgress(0);
-      }
+      if (elapsed < ADMIN_HOLD_MS) holdRafRef.current = requestAnimationFrame(tick);
+      else { setAdminMode(true); setHoldProgress(0); }
     };
     holdRafRef.current = requestAnimationFrame(tick);
   };
@@ -166,41 +161,36 @@ export default function Testimonials() {
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* 🎁 BANNER DE PUNTOS (Solo sale si no ha comentado) */}
-      {!hasReviewed && customerName && (
-        <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top duration-500">
-            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0">
-                <Sparkles size={20} fill="currentColor" />
-            </div>
-            <div className="flex-1 leading-tight">
-                <p className="text-white font-black text-xs uppercase">¡Regalo de puntos!</p>
-                <p className="text-white/90 text-[10px] font-bold uppercase">Opina y recibe <span className="underline">+10 PUNTOS</span> para el Ranking.</p>
+      
+      {/* 🚀 BANNER CAZADOR DE PUNTOS (Atractivo y desaparece al ganar) */}
+      {!hasReviewed && customerPhone && (
+        <div className="relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
+            <div className="relative p-4 flex items-center gap-4">
+                <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner">
+                    <Sparkles size={24} className="animate-pulse" fill="currentColor" />
+                </div>
+                <div className="flex-1">
+                    <p className="text-white font-black text-sm uppercase tracking-tighter leading-none mb-1">¡Puntos Gratis para ti!</p>
+                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
+                </div>
             </div>
         </div>
       )}
 
       <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between">
         <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}>
-          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight">Opiniones de clientes</h3>
-          {holdProgress > 0 && (
-            <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32">
-              <div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} />
-            </div>
-          )}
+          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>
+          {holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}
         </div>
-        <div className="flex items-center gap-2">
-          {adminMode && (
-            <button onClick={() => setAdminMode(false)} className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded-lg">Salir admin</button>
-          )}
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-transform uppercase tracking-wider">
-            {showForm ? 'Cerrar' : 'Opinar'}
-          </button>
-        </div>
+        <button onClick={() => { setSuccess(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg shadow-orange-100 uppercase tracking-widest">
+          {showForm ? 'Cerrar' : 'Opinar'}
+        </button>
       </div>
 
       {testimonials.length > 0 && !showForm && (
         <div className="px-5 pt-4 pb-2">
-          <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-4 border border-orange-100">
+          <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-5 border border-orange-100">
             <div className="text-center min-w-[64px]">
               <p className="text-4xl font-black text-orange-500 leading-none">{avg.toFixed(1)}</p>
               <div className="flex justify-center mt-2 scale-75 origin-center"><StarRating value={Math.round(avg)} /></div>
@@ -214,14 +204,24 @@ export default function Testimonials() {
       )}
 
       {showForm && (
-        <div className="px-5 py-5 border-b border-gray-100 bg-orange-50/20">
+        <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20">
           {success ? (
-            <div className="flex flex-col items-center py-6 gap-3 animate-in zoom-in duration-300">
-              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg"><Star size={28} className="text-white fill-white" /></div>
-              <div className="text-center">
-                <p className="text-green-700 font-black text-base uppercase">¡Gracias por tu opinión!</p>
-                {hasReviewed && (
-                    <p className="text-green-600/70 text-[11px] font-bold uppercase mt-1 px-4">¡Has ganado 10 puntos! Revisa el Ranking junto a tu foto de perfil.</p>
+            <div className="flex flex-col items-center py-6 gap-5 animate-in zoom-in duration-300">
+              <div className="w-16 h-16 bg-green-500 rounded-[20px] flex items-center justify-center shadow-xl shadow-green-100 rotate-12"><Trophy size={32} className="text-white" /></div>
+              <div className="text-center space-y-4">
+                <p className="text-green-700 font-black text-lg uppercase tracking-tight leading-none">¡Opinión Publicada!</p>
+                {pointsGainedNow ? (
+                    <div className="space-y-3">
+                        <p className="text-green-600 text-xs font-bold uppercase px-4 leading-tight">Has ganado tus primeros 10 puntos por ser parte activa del club.</p>
+                        <button 
+                            onClick={onNavigateRanking}
+                            className="bg-green-600 text-white px-6 py-4 rounded-[22px] font-black text-xs uppercase shadow-xl active:scale-95 transition-transform flex items-center gap-3 mx-auto"
+                        >
+                            Ver mis puntos en Ranking <Trophy size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    <p className="text-green-600/60 text-xs font-bold uppercase">¡Gracias por volver a compartir!</p>
                 )}
               </div>
             </div>
@@ -231,16 +231,19 @@ export default function Testimonials() {
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">
                   {photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}
                 </div>
-                <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p>
+                    <p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p>
+                </div>
               </div>
               <div className="text-center">
-                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase">¿Cuántas estrellas nos das?</p>
+                <p className="text-[11px] text-gray-500 mb-3 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
                 <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
-              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={3} className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-orange-500 resize-none shadow-sm" />
-              {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
-              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white font-black py-4.5 rounded-[22px] shadow-lg active:scale-95 transition-all disabled:opacity-60 uppercase text-xs tracking-widest">
-                <Send size={14} /> {submitting ? 'Enviando...' : 'Publicar mi opinión'}
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia con nosotros..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[24px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
+              {error && <p className="text-red-500 text-xs font-black text-center uppercase">{error}</p>}
+              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">
+                {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}
               </button>
             </form>
           )}
@@ -249,22 +252,33 @@ export default function Testimonials() {
 
       <div className="divide-y divide-gray-50">
         {!loading && testimonials.map(t => (
-          <div key={t.id} className="flex gap-4 px-5 py-5 hover:bg-gray-50/50 transition-colors">
+          <div key={t.id} className="flex gap-4 px-5 py-6 hover:bg-gray-50/50 transition-colors">
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50">
               {t.photo_url ? <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm uppercase">{t.author_name.charAt(0)}</div>}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 mb-1">
                 <p className="text-sm font-bold text-gray-900 truncate">{t.author_name}</p>
                 {adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center"><Trash2 size={13} /></button>}
               </div>
-              <div className="scale-75 origin-left opacity-80"><StarRating value={t.stars} /></div>
-              <p className="text-gray-600 text-xs mt-1 font-medium leading-relaxed">{t.comment}</p>
-              <p className="text-gray-300 text-[9px] mt-2 font-bold uppercase">{new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              <div className="scale-75 origin-left opacity-80 mb-1"><StarRating value={t.stars} /></div>
+              <p className="text-gray-600 text-[13px] font-medium leading-relaxed">{t.comment}</p>
+              <p className="text-gray-300 text-[9px] mt-2 font-bold uppercase tracking-widest">{new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
             </div>
           </div>
         ))}
       </div>
+
+      <style>{`
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 3s ease infinite;
+        }
+      `}</style>
     </div>
   );
 }
