@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { 
   Edit3, LogOut, Package, Plus, Save, Search, Send, 
   Settings, Star, Trash2, Users, Image, Trophy, 
-  Calendar, Link, User, Crown, Medal, CheckCircle2, Eye, EyeOff, ClipboardList 
+  Calendar, Link, User, Crown, Medal, CheckCircle2, Eye, EyeOff, ClipboardList, Clock, PackageSearch 
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { Category, OrderStatus, Product } from '../types';
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans">
+    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900">
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -138,7 +138,6 @@ export default function AdminDashboard() {
           })}
         </div>
 
-        {/* 🏆 CONFIGURACIÓN DE CONCURSO (FIXED BLANK SCREEN) */}
         {tab === 'ranking_config' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             <section className="bg-white rounded-[32px] border border-gray-100 p-6 space-y-6 shadow-sm">
@@ -216,21 +215,18 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-                        <p className="text-[10px] font-black text-orange-600 uppercase italic tracking-widest flex items-center gap-1"><Image size={12}/> Editor de Evidencia</p>
                         {s.winners.map((w: any, idx: number) => (
-                          <div key={idx} className="space-y-2">
-                             <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${idx===0?'bg-yellow-400':idx===1?'bg-slate-300':'bg-orange-900 text-white'}`}>{idx+1}º</div>
-                                <div className="flex-1 min-w-0">
-                                   <p className="text-[10px] font-black text-gray-800 truncate leading-none mb-1">{w.name}</p>
-                                   <input placeholder="Link de foto..." className="w-full bg-transparent text-[9px] font-bold outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => {
-                                       const newWinners = [...s.winners];
-                                       newWinners[idx].photo_url = e.target.value;
-                                       updateSeasonWinners(s.id, newWinners);
-                                     }} />
-                                </div>
-                                {w.photo_url && <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-100"><img src={w.photo_url} className="w-full h-full object-cover" /></div>}
-                             </div>
+                          <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${idx===0?'bg-yellow-400':idx===1?'bg-slate-300':'bg-orange-900 text-white'}`}>{idx+1}º</div>
+                            <div className="flex-1 min-w-0">
+                               <p className="text-[10px] font-black text-gray-800 truncate leading-none mb-1">{w.name}</p>
+                               <input placeholder="Link de foto..." className="w-full bg-transparent text-[9px] font-bold outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => {
+                                   const newWinners = [...s.winners];
+                                   newWinners[idx].photo_url = e.target.value;
+                                   updateSeasonWinners(s.id, newWinners);
+                                 }} />
+                            </div>
+                            {w.photo_url && <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-100"><img src={w.photo_url} className="w-full h-full object-cover" /></div>}
                           </div>
                         ))}
                       </div>
@@ -245,7 +241,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 📦 PEDIDOS (FIXED TOTAL 0 & ADDED ITEM LIST) */}
         {tab === 'orders' && (
            <section className="space-y-4 animate-in fade-in duration-500 pb-10">
              <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2 uppercase italic text-sm"><Send size={20} className="text-green-500"/> Pedidos Entrantes</h2>
@@ -256,27 +251,34 @@ export default function AdminDashboard() {
                   </div>
                 ) : orders.map(o => {
                   const customer = customers.find(c => (c.phone || '').replace(/\D/g, '') === (o.customer_phone || '').replace(/\D/g, ''));
+                  const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                  
                   return (
                     <div key={o.id} className="bg-white rounded-[32px] border border-gray-100 p-5 space-y-4 shadow-sm animate-in fade-in">
                       <div className="flex items-center justify-between border-b border-gray-50 pb-3">
                          <div className="flex items-center gap-3">
                             <img src={customer?.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${o.customer_phone}`} className="w-10 h-10 rounded-full object-cover border-2 border-orange-100 shadow-sm" />
                             <div>
-                               <p className="font-black text-gray-900 uppercase italic text-xs truncate">{customer?.name || o.customer_phone}</p>
+                               <div className="flex items-center gap-2">
+                                  <p className="font-black text-gray-900 uppercase italic text-xs truncate">{customer?.name || o.customer_phone}</p>
+                                  <div className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                     <Clock size={8} />
+                                     <span className="text-[8px] font-black">{time}</span>
+                                  </div>
+                               </div>
                                <p className="text-[8px] text-gray-400 font-black mt-0.5 tracking-tighter uppercase">Código: {o.order_code}</p>
                             </div>
                          </div>
                          <div className="text-right">
                             <p className="font-black text-orange-600 text-sm italic">${Number(o.total || 0).toFixed(2)}</p>
-                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{o.status}</p>
+                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none">{o.status}</p>
                          </div>
                       </div>
 
-                      {/* ✅ LISTA DE PRODUCTOS (TICKET DE COMPRA) */}
-                      <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/50 space-y-2">
+                      <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30 space-y-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <ClipboardList size={12} className="text-orange-500" />
-                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest">Resumen del Pedido</p>
+                          <PackageSearch size={14} className="text-orange-500" />
+                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Detalle del Pedido</p>
                         </div>
                         {o.items && o.items.length > 0 ? (
                           <div className="space-y-1.5">
@@ -288,7 +290,7 @@ export default function AdminDashboard() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-gray-400 font-bold italic">No hay detalles de productos</p>
+                          <p className="text-[9px] text-gray-400 font-bold italic">Cargando productos...</p>
                         )}
                       </div>
 
@@ -307,18 +309,17 @@ export default function AdminDashboard() {
            </section>
         )}
 
-        {/* ... (Otros tabs se mantienen iguales para preservar lógica) ... */}
         {tab === 'customers' && (
-          <section className="space-y-4 animate-in fade-in duration-500">
+          <section className="space-y-4 animate-in fade-in duration-500 pb-10">
             <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm space-y-4">
               <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 uppercase italic text-sm"><Users size={20} className="text-blue-500"/> Usuarios Registrados</h2>
               <div className="relative">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/><input value={custSearch} onChange={e => setCustSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full bg-gray-50 rounded-2xl pl-11 pr-4 py-4 text-sm font-bold border-2 border-transparent focus:border-orange-500 focus:bg-white transition-all outline-none" />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 pb-10">
+            <div className="grid grid-cols-1 gap-3">
               {ranking.filter(c => `${c.name} ${c.phone}`.toLowerCase().includes(custSearch.toLowerCase())).map((c, i) => (
-                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm">
+                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
                   <div className={`w-14 h-14 rounded-2xl overflow-hidden border-2 ${i === 0 ? 'border-yellow-400' : i === 1 ? 'border-gray-300' : i === 2 ? 'border-orange-300' : 'border-gray-100'}`}>
                      <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-full h-full object-cover" />
                   </div>
