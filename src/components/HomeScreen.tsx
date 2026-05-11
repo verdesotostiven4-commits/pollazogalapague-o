@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-// ✅ IMPORTACIÓN CORREGIDA: Añadimos Sparkles aquí
 import { Clock, Truck, ChevronRight, Star, ChevronLeft, Sparkles } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -24,6 +23,13 @@ const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
   { label: 'Snacks', target: 'Snacks y dulces', icon: '🍫' },
 ];
 
+// 🔊 URLs de sonidos para las animaciones
+const SOUNDS = [
+  "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3", // Swish (Giro)
+  "https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3", // Boing (Salto)
+  "https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3", // Shine (Flip 3D)
+];
+
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
   const { customerName } = useUser();
   const { products } = useAdmin();
@@ -41,10 +47,19 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   };
   const greeting = getGreeting();
 
+  // 🔥 LÓGICA DE CLICK CON SONIDO
   const handleLogoClick = () => {
     if (isAnimating) return;
+    
+    const nextIndex = (logoAnimIndex + 1) % 3;
+    
+    // Reproducir sonido
+    const audio = new Audio(SOUNDS[logoAnimIndex]);
+    audio.volume = 0.4; // Volumen al 40% para que no asuste
+    audio.play().catch(e => console.log("Audio bloqueado por navegador", e));
+
     setIsAnimating(true);
-    setLogoAnimIndex((prev) => (prev + 1) % 3);
+    setLogoAnimIndex(nextIndex);
     setTimeout(() => setIsAnimating(false), 700);
   };
 
@@ -108,13 +123,13 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 ${isAnimating && logoAnimIndex === 2 ? 'animate-logo-flip' : ''}
               `} 
             />
-            {/* Ahora Sparkles sí está importado y no dará error */}
             {isAnimating && <Sparkles className="absolute top-0 right-0 text-yellow-300 animate-ping" size={40} />}
           </div>
 
           <div className="space-y-1">
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
-            <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
+            {/* ✅ TEXTO CAMBIADO Y TAMAÑO AJUSTADO */}
+            <h2 className="font-black text-[22px] leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a la puerta de tu casa</h2>
           </div>
 
           <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8 text-white">
