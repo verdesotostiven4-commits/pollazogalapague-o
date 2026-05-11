@@ -50,22 +50,16 @@ function AppShell() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  // 🔥 SOLUCIÓN BOTÓN ATRÁS (Manejo del Historial)
   useEffect(() => {
     const handlePopState = () => {
-      // Si el usuario da "atrás", forzamos el regreso al home si no estamos ahí
       if (screen !== 'home') {
         setScreen('home');
       }
     };
-
     window.addEventListener('popstate', handlePopState);
-
-    // Si entramos a cualquier pantalla que NO sea home, añadimos una entrada al historial
     if (screen !== 'home') {
       window.history.pushState({ screen }, '');
     }
-
     return () => window.removeEventListener('popstate', handlePopState);
   }, [screen]);
 
@@ -114,19 +108,32 @@ function AppShell() {
       return acc + (p ? Number(p.price) * item.quantity : 0);
     }, 0);
 
-    await createOrder({
-      order_code: code,
-      customer_phone: customerPhone,
-      items,
-      subtotal,
-      total: subtotal + deliveryFeeOf(subtotal),
-      status: 'Recibido',
-      preorder: !isStoreOpen()
-    });
-    window.open(buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen()), '_blank');
-    clearCart();
-    setShowConfirmation(false);
-    setScreen('home');
+    // 🚀 MEJORA PARA IPHONE: Construimos la URL antes del await
+    const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
+
+    try {
+      await createOrder({
+        order_code: code,
+        customer_phone: customerPhone,
+        items,
+        subtotal,
+        total: subtotal + deliveryFeeOf(subtotal),
+        status: 'Recibido',
+        preorder: !isStoreOpen()
+      });
+    } catch (err) {
+      console.error("Error al guardar orden:", err);
+    }
+
+    // ✅ SOLUCIÓN IPHONE: Usamos location.href para evitar el bloqueo de Safari
+    window.location.href = whatsappUrl;
+    
+    // Limpiamos y mandamos al home después de un pequeño delay para asegurar la redirección
+    setTimeout(() => {
+        clearCart();
+        setShowConfirmation(false);
+        setScreen('home');
+    }, 100);
   };
 
   return (
@@ -159,7 +166,6 @@ function AppShell() {
         {screen === 'ranking' && <Ranking />}
       </main>
       
-      {/* Solo mostramos la barra si NO estamos en el ranking */}
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       
       <FlyParticleLayer />
