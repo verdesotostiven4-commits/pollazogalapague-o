@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900">
+    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900 overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -138,6 +138,7 @@ export default function AdminDashboard() {
           })}
         </div>
 
+        {/* 🏆 CONFIGURACIÓN DE CONCURSO (SUPER BULLETPROOF) */}
         {tab === 'ranking_config' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             <section className="bg-white rounded-[32px] border border-gray-100 p-6 space-y-6 shadow-sm">
@@ -145,8 +146,8 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-orange-100 rounded-2xl text-orange-600"><Trophy size={24}/></div>
                   <div>
-                    <h2 className="font-black text-xl text-gray-900 uppercase italic">Gestión de Premios</h2>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-1">Configura el concurso en vivo</p>
+                    <h2 className="font-black text-xl text-gray-900 uppercase italic leading-none">Premios del Evento</h2>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Configura el concurso en vivo</p>
                   </div>
                 </div>
               </div>
@@ -164,17 +165,26 @@ export default function AdminDashboard() {
                 <div className="md:col-span-2 space-y-4 pt-4 border-t border-gray-50">
                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2">🎁 Lista de Recompensas</p>
                    <div className="grid grid-cols-1 gap-4">
-                      <div className="flex items-center gap-3 bg-yellow-50/50 p-3 rounded-2xl border border-yellow-100">
+                      <div className="flex items-center gap-3 bg-yellow-50/50 p-3 rounded-2xl border border-yellow-100 shadow-sm">
                          <Crown size={20} className="text-yellow-500 shrink-0" />
-                         <input placeholder="Premio 1er Lugar (Oro)" value={extraSettings?.prize_1 || ''} onChange={e=>updateExtraSettings({prize_1: e.target.value})} className="flex-1 bg-transparent text-sm font-bold outline-none" />
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-yellow-600 uppercase mb-0.5">1er Lugar (Oro)</p>
+                            <input placeholder="Escribe el premio..." value={extraSettings?.prize_1 || ''} onChange={e=>updateExtraSettings({prize_1: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none" />
+                         </div>
                       </div>
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-sm">
                          <Medal size={20} className="text-slate-400 shrink-0" />
-                         <input placeholder="Premio 2do Lugar (Plata)" value={extraSettings?.prize_2 || ''} onChange={e=>updateExtraSettings({prize_2: e.target.value})} className="flex-1 bg-transparent text-sm font-bold outline-none" />
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5">2do Lugar (Plata)</p>
+                            <input placeholder="Escribe el premio..." value={extraSettings?.prize_2 || ''} onChange={e=>updateExtraSettings({prize_2: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none" />
+                         </div>
                       </div>
-                      <div className="flex items-center gap-3 bg-orange-50/50 p-3 rounded-2xl border border-orange-100">
+                      <div className="flex items-center gap-3 bg-orange-50/50 p-3 rounded-2xl border border-orange-100 shadow-sm">
                          <Medal size={20} className="text-orange-500 shrink-0" />
-                         <input placeholder="Premio 3er Lugar (Bronce)" value={extraSettings?.prize_3 || ''} onChange={e=>updateExtraSettings({prize_3: e.target.value})} className="flex-1 bg-transparent text-sm font-bold outline-none" />
+                         <div className="flex-1">
+                            <p className="text-[8px] font-black text-orange-600 uppercase mb-0.5">3er Lugar (Bronce)</p>
+                            <input placeholder="Escribe el premio..." value={extraSettings?.prize_3 || ''} onChange={e=>updateExtraSettings({prize_3: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none" />
+                         </div>
                       </div>
                    </div>
                 </div>
@@ -187,51 +197,48 @@ export default function AdminDashboard() {
               </div>
             </section>
 
-            <section className="space-y-4">
-              <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2 uppercase italic">
-                <History size={20} className="text-orange-500"/> Historial de Ganadores
-              </h2>
+            <section className="space-y-4 px-2">
+              <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 uppercase italic"><History size={20} className="text-orange-500"/> Historial de Ganadores</h2>
               {seasons.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-[32px] border-2 border-dashed border-gray-200">
+                <div className="text-center py-12 bg-white rounded-[32px] border-2 border-dashed border-gray-200 shadow-inner">
                   <Trophy size={40} className="mx-auto text-gray-200 mb-2" />
                   <p className="text-gray-400 font-bold text-xs uppercase">Aún no hay temporadas finalizadas</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {seasons.map((s) => (
                     <div key={s.id} className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm space-y-4">
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start border-b border-gray-50 pb-3">
                         <div className="flex gap-3">
-                          <div className={`p-2 rounded-xl ${s.is_published ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                            {s.is_published ? <Eye size={18}/> : <EyeOff size={18}/>}
+                          <div className={`p-2.5 rounded-xl ${s.is_published ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                            {s.is_published ? <Eye size={20}/> : <EyeOff size={20}/>}
                           </div>
                           <div>
                             <p className="font-black text-gray-900 uppercase italic leading-none">{s.name}</p>
-                            <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{new Date(s.created_at).toLocaleDateString()}</p>
+                            <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{new Date(s.created_at).toLocaleDateString('es-EC', {day:'long', month:'short', year:'numeric'})}</p>
                           </div>
                         </div>
-                        <button onClick={() => confirm("¿Borrar temporada?") && deleteSeason(s.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
-                          <Trash2 size={18}/>
-                        </button>
+                        <button onClick={() => confirm("¿Borrar temporada permanentemente?") && deleteSeason(s.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={20}/></button>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
+                        <p className="text-[10px] font-black text-orange-600 uppercase italic tracking-[0.15em] mb-2 flex items-center gap-1.5"><Image size={14}/> Fotos de Entrega</p>
                         {s.winners.map((w: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${idx===0?'bg-yellow-400':idx===1?'bg-slate-300':'bg-orange-900 text-white'}`}>{idx+1}º</div>
+                          <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 ${idx===0?'bg-yellow-400 text-black':idx===1?'bg-slate-300 text-slate-700':'bg-orange-900 text-white'}`}>{idx+1}º</div>
                             <div className="flex-1 min-w-0">
-                               <p className="text-[10px] font-black text-gray-800 truncate leading-none mb-1">{w.name}</p>
-                               <input placeholder="Link de foto..." className="w-full bg-transparent text-[9px] font-bold outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => {
+                               <p className="text-[10px] font-black text-gray-800 truncate leading-none mb-1.5 uppercase">{w.name}</p>
+                               <input placeholder="Pega el link de la foto..." className="w-full bg-transparent text-[9px] font-bold outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => {
                                    const newWinners = [...s.winners];
                                    newWinners[idx].photo_url = e.target.value;
                                    updateSeasonWinners(s.id, newWinners);
                                  }} />
                             </div>
-                            {w.photo_url && <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-100"><img src={w.photo_url} className="w-full h-full object-cover" /></div>}
+                            {w.photo_url && <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-gray-100 shadow-sm shrink-0"><img src={w.photo_url} className="w-full h-full object-cover" /></div>}
                           </div>
                         ))}
                       </div>
-                      <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md ${s.is_published ? 'bg-green-500 text-white' : 'bg-white border-2 border-gray-100 text-gray-400'}`}>
-                        {s.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}
+                      <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md ${s.is_published ? 'bg-green-500 text-white shadow-green-100' : 'bg-white border-2 border-gray-100 text-gray-400'}`}>
+                        {s.is_published ? '✅ Visible en la App' : 'Publicar Resultados'}
                       </button>
                     </div>
                   ))}
@@ -241,13 +248,14 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* 📦 PEDIDOS (FIXED PRICE & TICKETS) */}
         {tab === 'orders' && (
            <section className="space-y-4 animate-in fade-in duration-500 pb-10">
              <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 px-2 uppercase italic text-sm"><Send size={20} className="text-green-500"/> Pedidos Entrantes</h2>
              <div className="space-y-4">
                 {orders.length === 0 ? (
                   <div className="text-center py-10 bg-white rounded-[32px] border border-gray-100 shadow-sm">
-                    <p className="text-gray-400 font-bold text-sm uppercase italic">Sin pedidos hoy</p>
+                    <p className="text-gray-400 font-bold text-sm uppercase italic">Sin pedidos registrados</p>
                   </div>
                 ) : orders.map(o => {
                   const customer = customers.find(c => (c.phone || '').replace(/\D/g, '') === (o.customer_phone || '').replace(/\D/g, ''));
@@ -256,51 +264,48 @@ export default function AdminDashboard() {
                   return (
                     <div key={o.id} className="bg-white rounded-[32px] border border-gray-100 p-5 space-y-4 shadow-sm animate-in fade-in">
                       <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-                         <div className="flex items-center gap-3">
+                         <div className="flex items-center gap-3 flex-1 min-w-0">
                             <img src={customer?.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${o.customer_phone}`} className="w-10 h-10 rounded-full object-cover border-2 border-orange-100 shadow-sm" />
-                            <div>
+                            <div className="flex-1 min-w-0">
                                <div className="flex items-center gap-2">
-                                  <p className="font-black text-gray-900 uppercase italic text-xs truncate">{customer?.name || o.customer_phone}</p>
-                                  <div className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                     <Clock size={8} />
-                                     <span className="text-[8px] font-black">{time}</span>
+                                  <p className="font-black text-gray-900 uppercase italic text-xs truncate leading-none">{customer?.name || o.customer_phone}</p>
+                                  <div className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                     <Clock size={8} /><span className="text-[8px] font-black">{time}</span>
                                   </div>
                                </div>
-                               <p className="text-[8px] text-gray-400 font-black mt-0.5 tracking-tighter uppercase">Código: {o.order_code}</p>
+                               <p className="text-[8px] text-gray-400 font-black mt-1 tracking-tighter uppercase">ID: {o.order_code}</p>
                             </div>
                          </div>
-                         <div className="text-right">
-                            <p className="font-black text-orange-600 text-sm italic">${Number(o.total || 0).toFixed(2)}</p>
-                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none">{o.status}</p>
+                         <div className="text-right shrink-0">
+                            <p className="font-black text-orange-600 text-sm italic leading-none">${Number(o.total || 0).toFixed(2)}</p>
+                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest mt-1">{o.status}</p>
                          </div>
                       </div>
 
-                      <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30 space-y-2">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30 space-y-2.5">
+                        <div className="flex items-center gap-2 mb-1 border-b border-orange-100/50 pb-1.5">
                           <PackageSearch size={14} className="text-orange-500" />
-                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Resumen de Compra</p>
+                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Detalle de Compra</p>
                         </div>
                         {o.items && o.items.length > 0 ? (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {o.items.map((item: any, idx: number) => (
                               <div key={idx} className="flex justify-between items-center text-[10px] font-bold text-gray-700 uppercase">
-                                <span className="flex-1 truncate"><span className="text-orange-600 font-black">{item.quantity}x</span> {item.name || item.product?.name || 'Producto'}</span>
-                                <span className="ml-2 text-gray-400 font-black">${(Number(item.price || item.product?.price || 0) * item.quantity).toFixed(2)}</span>
+                                <span className="flex-1 truncate"><span className="text-orange-600 font-black mr-1">{item.quantity}x</span> {item.name || item.product?.name || 'Producto'}</span>
+                                <span className="ml-2 text-gray-400 font-black shrink-0">${(Number(item.price || item.product?.price || 0) * item.quantity).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-gray-400 font-bold italic">Sin detalles de productos</p>
+                          <p className="text-[9px] text-gray-400 font-bold italic">No se guardó el detalle (pedido antiguo)</p>
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-2">
                         <select value={o.status} onChange={(e) => updateOrderStatus(o.id, e.target.value as OrderStatus)} className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-3 text-[10px] font-black text-gray-700 outline-none">
                           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <a href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)} target="_blank" className="bg-[#25D366] text-white rounded-xl px-4 py-3 font-black text-[10px] flex items-center gap-2 active:scale-95 transition-all shadow-md">
-                          <Send size={14}/> Notificar
-                        </a>
+                        <a href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)} target="_blank" className="bg-[#25D366] text-white rounded-xl px-5 py-3 font-black text-[10px] flex items-center gap-2 active:scale-95 transition-all shadow-md"><Send size={14}/> Notificar</a>
                       </div>
                     </div>
                   )
@@ -317,9 +322,9 @@ export default function AdminDashboard() {
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/><input value={custSearch} onChange={e => setCustSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full bg-gray-50 rounded-2xl pl-11 pr-4 py-4 text-sm font-bold border-2 border-transparent focus:border-orange-500 focus:bg-white transition-all outline-none" />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 pb-10">
+            <div className="grid grid-cols-1 gap-3">
               {ranking.filter(c => `${c.name} ${c.phone}`.toLowerCase().includes(custSearch.toLowerCase())).map((c, i) => (
-                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm">
+                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
                   <div className={`w-14 h-14 rounded-2xl overflow-hidden border-2 ${i === 0 ? 'border-yellow-400' : i === 1 ? 'border-gray-300' : i === 2 ? 'border-orange-300' : 'border-gray-100'}`}>
                      <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-full h-full object-cover" />
                   </div>
@@ -330,7 +335,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex items-center gap-1 bg-gray-50 p-1.5 rounded-xl">
                     <input type="number" value={points[c.id] ?? ''} onChange={e=>setPoints({...points,[c.id]:e.target.value})} className="w-12 bg-white border border-gray-100 rounded-lg py-2 text-center text-xs font-black" placeholder="+5" />
-                    <button onClick={()=>{addCustomerPoints(c.id, Number(points[c.id]||0)); setPoints({...points,[c.id]:''});}} className="bg-black text-white rounded-lg p-2 active:scale-90"><Plus size={18}/></button>
+                    <button onClick={()=>{addCustomerPoints(c.id, Number(points[c.id]||0)); setPoints({...points,[c.id]:''});}} className="bg-black text-white rounded-lg p-2 active:scale-90 shadow-sm"><Plus size={18}/></button>
                   </div>
                 </div>
               ))}
@@ -354,7 +359,6 @@ export default function AdminDashboard() {
                 {editing && <button onClick={()=>{setEditing(null);setDraft(emptyProduct)}} className="bg-gray-100 text-gray-500 rounded-2xl px-6 py-5 font-bold text-[10px]">Cerrar</button>}
               </div>
             </div>
-
             <div className="bg-white rounded-[32px] border border-gray-100 p-5 shadow-sm">
               <div className="relative mb-6"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filtrar platos..." className="w-full bg-gray-50 rounded-2xl pl-12 pr-4 py-4 text-[11px] font-bold outline-none border-2 border-transparent focus:border-orange-500 transition-all"/></div>
               <div className="space-y-4">
