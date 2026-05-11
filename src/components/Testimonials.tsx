@@ -71,12 +71,12 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  // 🔎 NORMALIZACIÓN: Solo nos importan los últimos 9 dígitos para el match
-  const getMatchPhone = (phone: string) => phone.replace(/\D/g, '').slice(-9);
+  // 🔎 Match por últimos 9 dígitos
+  const getCleanPhone = (phone: string) => phone.replace(/\D/g, '').slice(-9);
 
   const checkReviewStatus = useCallback(async () => {
     if (!customerPhone) return;
-    const clean = getMatchPhone(customerPhone);
+    const clean = getCleanPhone(customerPhone);
     try {
         const { data } = await supabase
             .from('customers')
@@ -85,7 +85,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
             .maybeSingle();
         
         if (data) setHasReviewed(!!data.has_reviewed);
-    } catch (e) { console.error("Error check:", e); }
+    } catch (e) { console.error(e); }
   }, [customerPhone]);
 
   useEffect(() => { checkReviewStatus(); }, [checkReviewStatus]);
@@ -114,42 +114,41 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     setSubmitting(true);
     setError('');
 
+    const clean = getCleanPhone(customerPhone || "");
+
     try {
-        // 1. Enviar testimonio (sin guardar el telefono aquí para evitar errores de esquema)
-        const { error: err } = await supabase.from('testimonials').insert({
+        // 1. Verificar si el usuario existe en customers antes de comentar
+        const { data: user, error: userFetchErr } = await supabase
+            .from('customers')
+            .select('id, points, has_reviewed')
+            .ilike('whatsapp', `%${clean}`)
+            .maybeSingle();
+
+        if (userFetchErr) throw new Error("Error de conexión con clientes.");
+        if (!user) throw new Error("Número no encontrado en la tabla clientes. Inicia sesión de nuevo.");
+
+        // 2. Enviar testimonio
+        const { error: testimonialErr } = await supabase.from('testimonials').insert({
             author_name: name.trim(),
             stars,
             comment: comment.trim(),
             photo_url: photoUrl.trim() || null,
         });
 
-        if (err) throw new Error("No se pudo publicar la opinión.");
+        if (testimonialErr) throw new Error("No se pudo publicar tu opinión.");
 
-        // 2. Lógica de Puntos con Match de 9 dígitos
-        if (customerPhone) {
-            const clean = getMatchPhone(customerPhone);
-            // Buscamos al usuario real
-            const { data: user, error: userErr } = await supabase
+        // 3. Sumar puntos si es su primera vez
+        if (!user.has_reviewed) {
+            const { error: upError } = await supabase
                 .from('customers')
-                .select('id, points, has_reviewed')
-                .ilike('whatsapp', `%${clean}`)
-                .maybeSingle();
+                .update({ 
+                    points: (user.points || 0) + 10, 
+                    has_reviewed: true 
+                })
+                .eq('id', user.id);
 
-            if (user && !user.has_reviewed) {
-                const { error: upError } = await supabase
-                    .from('customers')
-                    .update({ 
-                        points: (user.points || 0) + 10, 
-                        has_reviewed: true 
-                    })
-                    .eq('id', user.id);
-
-                if (!upError) {
-                    setPointsGainedNow(true);
-                } else {
-                    console.error("Error up points:", upError);
-                }
-            }
+            if (upError) throw new Error("No tienes permisos para actualizar tus puntos.");
+            setPointsGainedNow(true);
         }
 
         setSubmitting(false);
@@ -157,7 +156,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         setComment('');
         fetchTestimonials();
 
-        // Cerrar ventana tras mostrar el premio
+        // Cierre automático tras mostrar premio
         setTimeout(() => {
             setSuccess(false);
             setPointsGainedNow(false);
@@ -166,9 +165,9 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
     } catch (err: any) {
         setSubmitting(false);
-        setHasReviewed(false); // Si falló, volvemos a mostrar el banner
-        setError(err.message || 'Error al enviar.');
-        alert("🚨 ERROR: " + err.message); // Alerta para depurar en celular
+        setHasReviewed(false); // Mostrar banner de nuevo si falló
+        setError(err.message);
+        alert("⚠️ ATENCIÓN: " + err.message); // Alerta crítica para Stiven
     }
   };
 
@@ -201,7 +200,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       
       {/* 🚀 BANNER CAZADOR DE PUNTOS */}
       {!hasReviewed && customerPhone && (
-        <div className="relative overflow-hidden">
+        <div className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
             <div className="relative p-5 flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner">
@@ -237,13 +236,13 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                         <p className="text-green-600 text-[13px] font-black uppercase px-4 leading-tight">¡RECLAMA TUS 10 PUNTOS!</p>
                         <button 
                             onClick={onNavigateRanking}
-                            className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
+                            className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl shadow-green-200 active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
                         >
                             VER MIS PUNTOS EN RANKING <Trophy size={18} />
                         </button>
                     </div>
                 ) : (
-                    <p className="text-green-600/60 text-xs font-bold uppercase px-6 leading-relaxed">¡Gracias por compartir tu experiencia con nosotros!</p>
+                    <p className="text-green-600/60 text-xs font-bold uppercase px-6 leading-relaxed">¡Gracias por compartir tu experiencia!</p>
                 )}
               </div>
             </div>
@@ -269,21 +268,6 @@ export default function Testimonials({ onNavigateRanking }: Props) {
               </button>
             </form>
           )}
-        </div>
-      )}
-
-      {testimonials.length > 0 && !showForm && (
-        <div className="px-5 pt-4 pb-2">
-          <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-5 border border-orange-100">
-            <div className="text-center min-w-[64px]">
-              <p className="text-4xl font-black text-orange-500 leading-none">{avg.toFixed(1)}</p>
-              <div className="flex justify-center mt-2 scale-75 origin-center"><StarRating value={Math.round(avg)} /></div>
-              <p className="text-[10px] text-gray-400 mt-1 font-bold tracking-tighter">{testimonials.length} opiniones</p>
-            </div>
-            <div className="flex-1 space-y-1">
-              {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
-            </div>
-          </div>
         </div>
       )}
 
