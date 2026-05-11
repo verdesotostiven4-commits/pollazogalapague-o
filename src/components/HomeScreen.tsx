@@ -23,11 +23,18 @@ const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
   { label: 'Snacks', target: 'Snacks y dulces', icon: '🍫' },
 ];
 
-// 🔊 URLs de sonidos para las animaciones
+// 🔊 URLs de sonidos mejoradas
 const SOUNDS = [
   "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3", // Swish (Giro)
-  "https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3", // Boing (Salto)
+  "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3", // Pop (Salto) - ¡CORREGIDO!
   "https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3", // Shine (Flip 3D)
+];
+
+// ✨ Posiciones para la estrella por cada toque
+const SPARKLE_POSITIONS = [
+  "top-0 right-0",      // Posición 1
+  "bottom-0 left-0",   // Posición 2
+  "top-0 left-0",      // Posición 3
 ];
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
@@ -47,19 +54,18 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   };
   const greeting = getGreeting();
 
-  // 🔥 LÓGICA DE CLICK CON SONIDO
   const handleLogoClick = () => {
     if (isAnimating) return;
     
-    const nextIndex = (logoAnimIndex + 1) % 3;
-    
-    // Reproducir sonido
+    // Reproducir sonido antes de activar animación
     const audio = new Audio(SOUNDS[logoAnimIndex]);
-    audio.volume = 0.4; // Volumen al 40% para que no asuste
-    audio.play().catch(e => console.log("Audio bloqueado por navegador", e));
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Audio bloqueado", e));
 
     setIsAnimating(true);
-    setLogoAnimIndex(nextIndex);
+    // Cambiamos al siguiente efecto (0, 1, 2)
+    setLogoAnimIndex((prev) => (prev + 1) % 3);
+    
     setTimeout(() => setIsAnimating(false), 700);
   };
 
@@ -123,13 +129,19 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 ${isAnimating && logoAnimIndex === 2 ? 'animate-logo-flip' : ''}
               `} 
             />
-            {isAnimating && <Sparkles className="absolute top-0 right-0 text-yellow-300 animate-ping" size={40} />}
+            {/* ✨ LA ESTRELLA AHORA CAMBIA DE LUGAR SEGÚN EL TOQUE ✨ */}
+            {isAnimating && (
+              <Sparkles 
+                className={`absolute text-yellow-300 animate-ping ${SPARKLE_POSITIONS[logoAnimIndex]}`} 
+                size={50} 
+              />
+            )}
           </div>
 
           <div className="space-y-1">
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
-            {/* ✅ TEXTO CAMBIADO Y TAMAÑO AJUSTADO */}
-            <h2 className="font-black text-[22px] leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a la puerta de tu casa</h2>
+            {/* ✅ TEXTO CORREGIDO Y TAMAÑO REDUCIDO */}
+            <h2 className="font-black text-[19px] leading-none text-yellow-300 drop-shadow-md tracking-tight uppercase mt-1">Directo a la puerta de tu casa</h2>
           </div>
 
           <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 mt-6 mb-8 text-white">
