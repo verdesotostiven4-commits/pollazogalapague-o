@@ -74,21 +74,20 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState<string | null>(null);
   const [points, setPoints] = useState<Record<string, string>>({});
 
-  const filteredProducts = useMemo(() => (products || []).filter(p => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase())), [products, search]);
   const ranking = useMemo(() => Array.from(customers || []).sort((a,b) => (b.points || 0) - (a.points || 0)), [customers]);
+  const filteredProducts = useMemo(() => (products || []).filter(p => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase())), [products, search]);
 
   const handleFinalizeSeason = async () => {
-    if (!confirm("¿Deseas finalizar el evento actual?")) return;
-    const top3Winners = ranking.slice(0, 3).map((c, i) => ({
-      name: c.name || 'Cliente',
-      points: c.points,
-      avatar_url: c.avatar_url,
-      photo_url: '', 
+    if (!confirm("¿Deseas finalizar la temporada?")) return;
+    const top3 = ranking.slice(0, 3).map((c, i) => ({
+      name: c.name || 'Guerrero',
+      points: c.points || 0,
+      avatar_url: c.avatar_url || '',
       rank: i + 1,
       prize_won: i === 0 ? (extraSettings?.prize_1 || '') : i === 1 ? (extraSettings?.prize_2 || '') : (extraSettings?.prize_3 || '')
     }));
-    await finalizeSeason(extraSettings?.ranking_title || 'Ranking VIP', "Premios VIP Entregados", top3Winners);
-    alert("¡Temporada finalizada!");
+    await finalizeSeason(extraSettings?.ranking_title || 'Temporada Finalizada', "Premios Entregados", top3);
+    alert("Temporada guardada.");
   };
 
   const saveProduct = async () => {
@@ -98,12 +97,6 @@ export default function AdminDashboard() {
     setDraft(emptyProduct); setEditing(null);
   };
 
-  const edit = (p: Product) => {
-    setEditing(p.id);
-    setDraft({ id: p.id, name: p.name, category: p.category, price: p.price ?? '', description: p.description ?? '', image: p.image ?? '', badge: p.badge ?? '', available: p.available !== false });
-    setTab('products');
-  };
-
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
 
   return (
@@ -111,7 +104,7 @@ export default function AdminDashboard() {
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src={extraSettings?.logo_url || '/logo-final.png'} className="w-10 h-10 object-contain rounded-lg" />
-          <p className="font-black text-gray-900 leading-none text-xs uppercase italic tracking-tighter">Admin Panel VIP</p>
+          <p className="font-black text-gray-900 leading-none text-xs uppercase italic tracking-tighter">Admin VIP</p>
         </div>
         <button onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); }} className="p-2 text-gray-400 active:scale-75 transition-colors"><LogOut size={20}/></button>
       </header>
@@ -119,7 +112,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto px-4 py-5 space-y-6">
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id as any)} className={`flex-shrink-0 rounded-2xl px-5 py-3 text-xs font-black flex items-center gap-2 transition-all ${tab===t.id?'bg-orange-500 text-white shadow-lg shadow-orange-200':'bg-white text-gray-600 border border-gray-100'}`}>
+            <button key={t.id} onClick={() => setTab(t.id as any)} className={`flex-shrink-0 rounded-2xl px-5 py-3 text-xs font-black flex items-center gap-2 transition-all ${tab===t.id?'bg-orange-500 text-white shadow-lg':'bg-white text-gray-600 border border-gray-100'}`}>
               <t.Icon size={16}/>{t.label}
             </button>
           ))}
@@ -130,15 +123,15 @@ export default function AdminDashboard() {
             <section className="bg-white rounded-[32px] border border-gray-100 p-6 space-y-6 shadow-sm">
               <div className="flex items-center gap-3 border-b border-gray-50 pb-4">
                 <div className="p-3 bg-orange-100 rounded-2xl text-orange-600"><Trophy size={24}/></div>
-                <h2 className="font-black text-xl uppercase italic">Evento en Vivo</h2>
+                <h2 className="font-black text-xl uppercase italic">Premios en Vivo</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase italic ml-1">Título del Ranking</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase italic ml-1">Título Ranking</label>
                   <input value={extraSettings?.ranking_title || ''} onChange={e=>updateExtraSettings({ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-2 border-transparent focus:border-orange-500 outline-none transition-all" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase italic ml-1">Fecha de Finalización</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase italic ml-1">Fecha Límite</label>
                   <input type="datetime-local" value={extraSettings?.ranking_end_date || ''} onChange={e=>updateExtraSettings({ranking_end_date: e.target.value})} className="w-full bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-2 border-transparent focus:border-orange-500 outline-none transition-all" />
                 </div>
                 <div className="md:col-span-2 grid grid-cols-1 gap-4 pt-4 border-t border-gray-50">
@@ -160,22 +153,22 @@ export default function AdminDashboard() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="font-black text-lg px-2 uppercase italic text-gray-900"><History size={18} className="inline mr-2 text-orange-500"/> Historial de Ganadores</h2>
-              {(seasons || []).length === 0 ? <div className="text-center py-10 bg-white rounded-[32px] text-gray-300 font-bold uppercase text-xs">Historial Vacío</div> : (
+              <h2 className="font-black text-lg px-2 uppercase italic text-gray-900">Historial</h2>
+              {(seasons || []).length === 0 ? <div className="text-center py-10 bg-white rounded-[32px] border-2 border-dashed border-gray-100 text-gray-300 font-bold text-xs uppercase">No hay historial</div> : (
                 <div className="space-y-4">
                   {(seasons || []).map((s) => (
                     <div key={s.id} className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm space-y-4">
-                      <div className="flex justify-between items-center"><p className="font-black uppercase italic text-sm">{s.name}</p><button onClick={()=>deleteSeason(s.id)} className="text-red-400 p-2 active:scale-75"><Trash2 size={18}/></button></div>
+                      <div className="flex justify-between items-center"><p className="font-black uppercase italic text-sm">{s.name}</p><button onClick={()=>deleteSeason(s.id)} className="text-red-400 p-2 active:scale-75 transition-all"><Trash2 size={18}/></button></div>
                       <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
                         {(s.winners || []).map((w: any, idx: number) => (
                           <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] shrink-0 ${idx===0?'bg-yellow-400':idx===1?'bg-slate-300':'bg-orange-900 text-white'}`}>{idx+1}º</div>
-                            <div className="flex-1 min-w-0"><p className="text-[10px] font-black truncate">{w.name}</p><input placeholder="Link de foto..." className="w-full text-[9px] outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => { const n = [...s.winners]; n[idx].photo_url = e.target.value; updateSeasonWinners(s.id, n); }} /></div>
+                            <div className="flex-1 min-w-0"><p className="text-[10px] font-black truncate">{w.name}</p><input placeholder="Link foto..." className="w-full text-[9px] outline-none text-blue-500 italic" value={w.photo_url || ''} onChange={(e) => { const n = [...s.winners]; n[idx].photo_url = e.target.value; updateSeasonWinners(s.id, n); }} /></div>
                             {w.photo_url && <img src={w.photo_url} className="w-8 h-8 rounded-lg object-cover border border-gray-50" />}
                           </div>
                         ))}
                       </div>
-                      <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${s.is_published ? 'bg-green-500 text-white shadow-green-100' : 'bg-gray-100 text-gray-400'}`}>{s.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}</button>
+                      <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${s.is_published ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{s.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}</button>
                     </div>
                   ))}
                 </div>
@@ -188,7 +181,7 @@ export default function AdminDashboard() {
            <section className="space-y-4 animate-in fade-in duration-500 pb-10">
              <h2 className="font-black text-lg px-2 uppercase italic text-gray-900"><Send size={18} className="inline mr-2 text-green-500"/> Pedidos Entrantes</h2>
              <div className="space-y-4">
-                {(orders || []).length === 0 ? <p className="text-gray-400 text-center py-20 uppercase font-black text-xs">Sin pedidos hoy</p> : (orders || []).map(o => {
+                {(orders || []).length === 0 ? <p className="text-gray-400 text-center py-20 uppercase font-black text-xs italic">Sin pedidos hoy</p> : (orders || []).map(o => {
                   const customer = (customers || []).find(c => (c.phone || '').replace(/\D/g, '') === (o.customer_phone || '').replace(/\D/g, ''));
                   const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--';
                   
@@ -202,7 +195,7 @@ export default function AdminDashboard() {
                             <img src={customer?.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${o.customer_phone}`} className="w-10 h-10 rounded-full object-cover border-2 border-orange-100" />
                             <div>
                                <div className="flex items-center gap-2">
-                                  <p className="font-black text-gray-900 uppercase text-xs truncate leading-none">{customer?.name || o.customer_phone}</p>
+                                  <p className="font-black text-gray-900 uppercase italic text-xs truncate leading-none">{customer?.name || o.customer_phone}</p>
                                   <div className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
                                      <Clock size={8} /><span className="text-[8px] font-black">{time}</span>
                                   </div>
@@ -222,15 +215,18 @@ export default function AdminDashboard() {
                           <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Detalle de Compra</p>
                         </div>
                         {(o.items || []).length > 0 ? (o.items || []).map((item: any, idx: number) => {
-                           const itemPrice = parseFloat(item.price || item.product?.price || '0') || 0;
+                           // Buscar nombre y precio en múltiples campos por si vienen de versiones viejas o nuevas
+                           const rawPrice = item.price || item.product?.price || '0';
+                           const itemPrice = parseFloat(rawPrice as any) || 0;
                            const itemName = item.name || item.product?.name || `Producto #${item.id || idx}`;
+                           
                            return (
                              <div key={idx} className="flex justify-between items-center text-[10px] font-bold text-gray-700 uppercase">
                                 <span className="flex-1 truncate"><span className="text-orange-600 font-black mr-1">{item.quantity}x</span> {itemName}</span>
                                 <span className="ml-2 text-gray-400 font-black shrink-0">${(itemPrice * item.quantity).toFixed(2)}</span>
                              </div>
                            );
-                        }) : <p className="text-[9px] text-gray-400 font-bold italic">Pedido sin detalle (formato antiguo)</p>}
+                        }) : <p className="text-[9px] text-gray-400 font-bold italic">Sin detalle guardado (Pedido antiguo)</p>}
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -255,7 +251,7 @@ export default function AdminDashboard() {
                 <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
                   <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-14 h-14 rounded-2xl object-cover border border-orange-100" />
                   <div className="flex-1 min-w-0"><p className="font-black text-gray-900 text-sm truncate uppercase italic">{i + 1}º {c.name || 'Guerrero'}</p><p className="text-[9px] font-black text-gray-400">{c.phone}</p><span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase mt-1 inline-block">{(c.points || 0)} Pts</span></div>
-                  <div className="flex items-center gap-1 bg-gray-50 p-1.5 rounded-xl"><input type="number" value={points[c.id] ?? ''} onChange={e=>setPoints({...points,[c.id]:e.target.value})} className="w-12 bg-white border border-gray-100 rounded-lg py-2 text-center text-xs font-black outline-none" placeholder="+5" /><button onClick={()=>{addCustomerPoints(c.id, Number(points[c.id]||0)); setPoints({...points,[c.id]:''});}} className="bg-black text-white rounded-lg p-2 active:scale-90"><Plus size={18}/></button></div>
+                  <div className="flex items-center gap-1 bg-gray-50 p-1.5 rounded-xl"><input type="number" value={points[c.id] ?? ''} onChange={e=>setPoints({...points,[c.id]:e.target.value})} className="w-12 bg-white border border-gray-100 rounded-lg py-2 text-center text-xs font-black outline-none" placeholder="+5" /><button onClick={()=>{addCustomerPoints(c.id, Number(points[c.id]||0)); setPoints({...points,[c.id]:''});}} className="bg-black text-white rounded-lg p-2 active:scale-90 shadow-sm"><Plus size={18}/></button></div>
                 </div>
               ))}
             </div>
@@ -289,7 +285,7 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0"><p className="font-black text-[11px] text-gray-900 truncate uppercase italic">{p.name}</p></div>
                       <div className="flex gap-1">
                         <button onClick={()=>setOverride(p.id,{available:!available})} className={`p-2.5 rounded-xl transition-all ${available?'text-green-500 bg-green-50':'text-red-500 bg-red-50'}`}><Package size={18}/></button>
-                        <button onClick={()=>setEditing(p.id)} className="p-2.5 bg-white text-gray-400 border border-gray-100 rounded-xl active:scale-75 transition-all"><Edit3 size={18}/></button>
+                        <button onClick={()=>edit(p)} className="p-2.5 bg-white text-gray-400 border border-gray-100 rounded-xl active:scale-75 transition-all"><Edit3 size={18}/></button>
                         <button onClick={()=>deleteProduct(p.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-75 transition-all"><Trash2 size={18}/></button>
                       </div>
                     </div>
@@ -309,11 +305,10 @@ export default function AdminDashboard() {
                  <p className="text-[10px] font-black text-gray-400 uppercase italic">Vista Previa Logo</p>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase italic ml-1">URL del Logo (.png)</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase italic">URL del Logo (.png)</label>
                 <input type="text" value={extraSettings?.logo_url || ''} onChange={(e) => updateExtraSettings({logo_url: e.target.value})} className="w-full bg-gray-50 border-2 border-transparent focus:border-orange-500 rounded-2xl px-4 py-4 text-[11px] font-black outline-none transition-all shadow-inner" />
               </div>
             </div>
-            <button onClick={() => alert("Identidad actualizada")} className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-[10px] active:scale-95 shadow-xl">Guardar Cambios</button>
           </section>
         )}
       </main>
