@@ -13,6 +13,7 @@ interface AdminContextValue {
   toggleSeasonVisibility: (id: string, published: boolean) => Promise<void>; updateSeasonWinners: (id: string, winners: any[]) => Promise<void>;
   addCustomerPoints: (customerId: string, points: number) => Promise<void>; createOrder: (order: Omit<Order, 'created_at'>) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
+  upsertCustomer: (phone: string, name?: string | null, avatar_url?: string | null) => Promise<ExtendedCustomer | null>;
 }
 
 const DEFAULT_EXTRA: ExtraSettings = { logo_url: '/logo-final.png', ranking_title: 'Ranking VIP', prize_description: 'Premios', ranking_end_date: '', winner_photo_url: '', prize_1: '', prize_2: '', prize_3: '' };
@@ -56,11 +57,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const addCustomerPoints = useCallback(async (id: any, pts: any) => { const c = customers.find(x => x.id === id); const n = Math.max(0, (c?.points || 0) + pts); await supabase.from('customers').update({ points: n }).eq('id', id); load(); }, [customers, load]);
   const createOrder = useCallback(async (o: any) => { await supabase.from('orders').insert(o); load(); }, [load]);
   const updateOrderStatus = useCallback(async (id: any, s: any) => { setOrders(v => v.map(o => o.id === id ? { ...o, status: s } : o)); await supabase.from('orders').update({ status: s }).eq('id', id); }, []);
+  const upsertCustomer = useCallback(async (phone: string, name?: string | null, avatar_url?: string | null) => { const { data } = await supabase.from('customers').upsert({ phone: phone.replace(/\D/g, ''), name: name ?? null, avatar_url: avatar_url ?? null }, { onConflict: 'phone' }).select().single(); if (data) load(); return data as ExtendedCustomer; }, [load]);
 
   return (
     <AdminContext.Provider value={{ 
       products: remoteProducts, customers, orders, seasons, extraSettings, loading, refreshData: load, 
-      updateExtraSettings, finalizeSeason, deleteSeason, toggleSeasonVisibility, updateSeasonWinners, addCustomerPoints, createOrder, updateOrderStatus 
+      updateExtraSettings, finalizeSeason, deleteSeason, toggleSeasonVisibility, updateSeasonWinners, addCustomerPoints, createOrder, updateOrderStatus, upsertCustomer 
     }}>
       {children}
     </AdminContext.Provider>
