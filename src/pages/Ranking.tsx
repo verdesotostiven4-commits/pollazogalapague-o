@@ -56,14 +56,11 @@ export default function Ranking() {
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
-  // 📡 SENSOR DE VISIBILIDAD (Radar + Salón de la Fama)
   useEffect(() => {
-    // Observer para mi fila
     const rowObserver = new IntersectionObserver(([entry]) => {
       setShowRadar(!entry.isIntersecting && myRankIndex !== -1);
     }, { threshold: 0.1 });
 
-    // Observer para el Salón de la Fama (para ocultar el radar)
     const hallObserver = new IntersectionObserver(([entry]) => {
       setIsInHallOfFame(entry.isIntersecting);
     }, { threshold: 0.05 });
@@ -225,23 +222,23 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN PEPA) --- */}
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN STEALTH) --- */}
       {myData && showRadar && !isInHallOfFame && (
         <button 
           onClick={scrollToMyRank}
-          className="fixed bottom-6 right-6 z- animate-in slide-in-from-bottom-10 fade-in duration-500 group"
+          className="fixed bottom-4 right-4 z- animate-in slide-in-from-bottom-5 fade-in duration-500"
         >
-          <div className="relative flex items-center bg-orange-500 text-white rounded-full p-1.5 pr-5 shadow-[0_15px_40px_rgba(249,115,22,0.5)] border-2 border-white active:scale-90 transition-transform">
+          <div className="flex items-center bg-slate-900/90 backdrop-blur-md text-white rounded-full p-1.5 pr-4 shadow-2xl border border-orange-500/40 active:scale-90 transition-transform">
             <div className="relative shrink-0">
-              <img src={myData.avatar_url} className="w-10 h-10 rounded-full border-2 border-white object-cover" />
-              <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[9px] font-black h-5 w-5 flex items-center justify-center rounded-full border border-orange-500">
+              <img src={myData.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/50 object-cover" />
+              <div className="absolute -top-1 -left-1 bg-orange-600 text-white text-[8px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-slate-900">
                 {myRankIndex + 1}
               </div>
             </div>
-            <div className="ml-3 text-left leading-none">
-              <p className="text-[7px] font-black text-yellow-200 uppercase tracking-widest mb-0.5 italic">Ver mi puesto</p>
-              <p className="text-white font-black text-[11px] italic uppercase tracking-tighter flex items-center gap-1">
-                {myData.points.toLocaleString()} <ArrowDown size={10} className="animate-bounce" />
+            <div className="ml-2 text-left leading-none">
+              <p className="text-[6px] font-black text-orange-400 uppercase tracking-widest mb-0.5 opacity-80">Ver mi puesto</p>
+              <p className="text-white font-black text-[10px] italic flex items-center gap-1">
+                {myData.points.toLocaleString()} <ArrowDown size={8} className="animate-bounce" />
               </p>
             </div>
           </div>
