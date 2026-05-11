@@ -23,8 +23,10 @@ export default function Ranking() {
   const { customerPhone } = useUser();
   const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const myRowRef = useRef<HTMLDivElement>(null);
+  
   const [timeLeft, setTimeLeft] = useState({ d: '0', h: '0', m: '0', s: '0' });
   const [showRadar, setShowRadar] = useState(false);
+  const [isInHallOfFame, setIsInHallOfFame] = useState(false);
 
   const getGuerreroTitle = (index: number) => {
     if (index === 0) return "Guerrero Galapagueño";
@@ -54,13 +56,25 @@ export default function Ranking() {
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
-  // Detector para el Radar (Burbuja flotante)
+  // 📡 SENSOR DE VISIBILIDAD (Radar + Salón de la Fama)
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
+    // Observer para mi fila
+    const rowObserver = new IntersectionObserver(([entry]) => {
       setShowRadar(!entry.isIntersecting && myRankIndex !== -1);
     }, { threshold: 0.1 });
-    if (myRowRef.current) observer.observe(myRowRef.current);
-    return () => observer.disconnect();
+
+    // Observer para el Salón de la Fama (para ocultar el radar)
+    const hallObserver = new IntersectionObserver(([entry]) => {
+      setIsInHallOfFame(entry.isIntersecting);
+    }, { threshold: 0.05 });
+
+    if (myRowRef.current) rowObserver.observe(myRowRef.current);
+    if (hallOfFameRef.current) hallObserver.observe(hallOfFameRef.current);
+
+    return () => {
+      rowObserver.disconnect();
+      hallObserver.disconnect();
+    };
   }, [myRankIndex, ranking]);
 
   const scrollToMyRank = () => {
@@ -108,7 +122,7 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* 🏆 TOP 3 - DISEÑO CORREGIDO 🏆 */}
+      {/* 🏆 TOP 3 🏆 */}
       <div className="px-4 mt-12 space-y-5">
         {ranking.slice(0, 3).map((c, i) => {
           const isMe = c.phone.replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, '');
@@ -122,26 +136,22 @@ export default function Ranking() {
                   'bg-white border-orange-100 shadow-md'
                 } ${isMe ? 'ring-4 ring-orange-500 ring-offset-2' : ''}`}
               >
-                {/* ICONO LADO IZQUIERDO */}
                 <div className="shrink-0 w-10 flex justify-center">
                   {i === 0 ? <Crown className="text-yellow-500 animate-king-bounce" size={40} /> :
                    i === 1 ? <Medal className="text-slate-400" size={32} /> :
                    <Medal className="text-orange-400" size={32} />}
                 </div>
 
-                {/* FOTO 1:1 CON BADGE */}
                 <div className="relative shrink-0">
                   <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-16 h-16 aspect-square rounded-[24px] object-cover border-2 border-white shadow-sm" />
                   <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic shadow-md">#{i + 1}</div>
                 </div>
 
-                {/* DATOS - NOMBRE FIEL */}
                 <div className="flex-1 min-w-0">
                   <p className="font-black italic text-base text-slate-900 leading-tight break-words">{c.name || 'Guerrero'}</p>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{getGuerreroTitle(i)}</p>
                 </div>
 
-                {/* PUNTOS */}
                 <div className="text-right shrink-0">
                   <p className={`text-xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points.toLocaleString()}</p>
                   <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">Puntos 🍗</p>
@@ -215,23 +225,23 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR BURBUJA INTELIGENTE --- */}
-      {myData && showRadar && (
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN PEPA) --- */}
+      {myData && showRadar && !isInHallOfFame && (
         <button 
           onClick={scrollToMyRank}
-          className="fixed bottom-10 right-6 z- animate-in slide-in-from-right-20 fade-in duration-500 group"
+          className="fixed bottom-6 right-6 z- animate-in slide-in-from-bottom-10 fade-in duration-500 group"
         >
-          <div className="relative flex items-center bg-slate-900 text-white rounded-full p-2 pr-6 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-2 border-orange-500 active:scale-90 transition-transform">
+          <div className="relative flex items-center bg-orange-500 text-white rounded-full p-1.5 pr-5 shadow-[0_15px_40px_rgba(249,115,22,0.5)] border-2 border-white active:scale-90 transition-transform">
             <div className="relative shrink-0">
-              <img src={myData.avatar_url} className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover" />
-              <div className="absolute -top-1 -left-1 bg-white text-slate-900 text-[10px] font-black h-5 w-5 flex items-center justify-center rounded-full border border-orange-500">
+              <img src={myData.avatar_url} className="w-10 h-10 rounded-full border-2 border-white object-cover" />
+              <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[9px] font-black h-5 w-5 flex items-center justify-center rounded-full border border-orange-500">
                 {myRankIndex + 1}
               </div>
             </div>
             <div className="ml-3 text-left leading-none">
-              <p className="text-[7px] font-black text-orange-400 uppercase tracking-widest mb-1 italic">Ver mi puesto</p>
-              <p className="text-white font-black text-xs italic uppercase tracking-tighter flex items-center gap-1">
-                {myData.points.toLocaleString()} PTS <ArrowDown size={10} className="animate-bounce" />
+              <p className="text-[7px] font-black text-yellow-200 uppercase tracking-widest mb-0.5 italic">Ver mi puesto</p>
+              <p className="text-white font-black text-[11px] italic uppercase tracking-tighter flex items-center gap-1">
+                {myData.points.toLocaleString()} <ArrowDown size={10} className="animate-bounce" />
               </p>
             </div>
           </div>
