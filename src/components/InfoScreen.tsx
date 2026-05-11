@@ -25,13 +25,10 @@ const galleryPhotos = [
   { url: 'https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg?auto=compress&cs=tinysrgb&w=600', caption: 'Embutidos premium' },
 ];
 
+// 🔥 CARRUSEL 100% AUTOMÁTICO E INFINITO (Sin intervención manual)
 function TeamCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const scrollLeft = useRef(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const speed = 0.9; // ✅ Un poco más rápido
+  const scrollSpeed = 1.2; // ✅ Más rápido
 
   useEffect(() => {
     const container = containerRef.current;
@@ -39,49 +36,16 @@ function TeamCarousel() {
 
     let animationId: number;
     const animate = () => {
-      if (!isPaused && !isDragging.current) {
-        container.scrollLeft += speed;
-        // Bucle infinito: cuando llega al final del primer set, salta al inicio sin que se note
-        if (container.scrollLeft >= container.scrollWidth / 2) {
-          container.scrollLeft = 0;
-        }
+      container.scrollLeft += scrollSpeed;
+      // Reinicio infinito suave (usa el doble de elementos para que no se vea el salto)
+      if (container.scrollLeft >= container.scrollWidth / 2) {
+        container.scrollLeft = 0;
       }
       animationId = requestAnimationFrame(animate);
     };
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [isPaused, speed]);
-
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    isDragging.current = true;
-    setIsPaused(true);
-    const x = 'touches' in e ? e.touches[0].pageX : e.pageX;
-    startX.current = x - (containerRef.current?.offsetLeft || 0);
-    scrollLeft.current = containerRef.current?.scrollLeft || 0;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDragging.current || !containerRef.current) return;
-    const x = 'touches' in e ? e.touches[0].pageX : e.pageX;
-    const walk = (x - (containerRef.current.offsetLeft || 0) - startX.current) * 1.5;
-    containerRef.current.scrollLeft = scrollLeft.current - walk;
-    
-    // ✅ CORRECCIÓN INFINITO AL DESLIZAR: Resetear si el usuario arrastra demasiado
-    if (containerRef.current.scrollLeft >= containerRef.current.scrollWidth / 2) {
-        containerRef.current.scrollLeft = 1;
-        scrollLeft.current = 1;
-        startX.current = x - (containerRef.current.offsetLeft || 0);
-    } else if (containerRef.current.scrollLeft <= 0) {
-        containerRef.current.scrollLeft = containerRef.current.scrollWidth / 2 - 1;
-        scrollLeft.current = containerRef.current.scrollWidth / 2 - 1;
-        startX.current = x - (containerRef.current.offsetLeft || 0);
-    }
-  };
-
-  const handleStop = () => {
-    isDragging.current = false;
-    setTimeout(() => setIsPaused(false), 50);
-  };
+  }, []);
 
   const doubledMembers = [...teamMembers, ...teamMembers];
 
@@ -89,19 +53,12 @@ function TeamCarousel() {
     <div className="py-4 overflow-hidden relative">
       <div
         ref={containerRef}
-        className="flex gap-4 px-4 overflow-x-hidden scrollbar-hide select-none cursor-grab active:cursor-grabbing touch-pan-y"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleStop}
-        onMouseLeave={handleStop}
-        onTouchStart={handleMouseDown}
-        onTouchMove={handleMouseMove}
-        onTouchEnd={handleStop}
+        className="flex gap-4 px-4 overflow-x-hidden scrollbar-hide pointer-events-none"
       >
         {doubledMembers.map((member, i) => (
           <div key={`${member.name}-${i}`} className="flex flex-col items-center gap-2.5 flex-shrink-0" style={{ width: 100 }}>
-            <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white ring-offset-2">
-              <img src={member.photo} alt={member.name} className="w-full h-full object-cover pointer-events-none" loading="lazy" />
+            <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white">
+              <img src={member.photo} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
             </div>
             <div className="text-center">
               <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">{member.name.split(' ')[0]}</p>
@@ -121,31 +78,15 @@ interface Props {
 
 export default function InfoScreen({ onInstall, canInstall }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const touchStartX = useRef<number | null>(null);
 
   const closeLightbox = () => setLightboxIndex(null);
   const prevPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
   const nextPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev + 1) % galleryPhotos.length);
 
-  const handleLightboxTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleLightboxTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) nextPhoto();
-      else prevPhoto();
-    }
-    touchStartX.current = null;
-  };
-
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
 
-      {/* ✅ BRAND CARD: Sin itálicas y con icono MapPin */}
+      {/* BRAND CARD */}
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -166,6 +107,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
 
       <LiveMetrics />
 
+      {/* CONTACT */}
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
           <h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">Contacto Directo</h3>
@@ -194,8 +136,9 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </a>
       </div>
 
+      {/* HOURS + LOCATION */}
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden p-1">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
           <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
             <Clock size={20} className="text-blue-500" />
           </div>
@@ -217,6 +160,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </a>
       </div>
 
+      {/* TEAM SECTION */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
         <div className="px-6 pt-5 pb-2 text-center">
           <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest italic">Nuestro Equipo</h3>
@@ -225,6 +169,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <TeamCarousel />
       </div>
 
+      {/* GALLERY */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden p-3">
         <div className="px-3 py-2 flex items-center gap-2 mb-2">
             <Star className="text-orange-500 fill-orange-500" size={14} />
@@ -256,6 +201,17 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
+      {/* 🎁 BANNER DE PUNTOS POR COMENTAR */}
+      <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 rounded-[28px] shadow-lg flex items-center gap-4">
+        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0">
+          <Star size={24} fill="currentColor" className="animate-spin-slow" />
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-black text-xs uppercase tracking-tight">¡Gana puntos hoy!</p>
+          <p className="text-white/90 text-[10px] font-bold">Danos tu opinión abajo y recibe <span className="underline">+10 PUNTOS</span> para el Ranking.</p>
+        </div>
+      </div>
+
       <Testimonials />
 
       {canInstall && (
@@ -283,48 +239,37 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <span>en Galápagos</span>
       </div>
 
-      {/* ✅ LIGHTBOX: Desenfoque claro (no oscuro), cubre toda la app (z-[1000]) */}
+      {/* ✅ LIGHTBOX: Desenfoque REDUCIDO (No cubre toda la pantalla) y Claro */}
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-0 z-[1000] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          className="fixed inset-x-0 bottom-0 top-[56px] z-[100] bg-white/30 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
           onClick={closeLightbox}
-          onTouchStart={handleLightboxTouchStart}
-          onTouchEnd={handleLightboxTouchEnd}
         >
+          {/* BOTÓN CERRAR */}
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-8 right-6 w-12 h-12 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
+            className="absolute top-6 right-6 w-10 h-10 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
           >
-            <X size={28} />
-          </button>
-
-          <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
-            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 rounded-full items-center justify-center text-gray-900 backdrop-blur-sm active:scale-75 transition-all">
-            <ChevronLeft size={24} />
+            <X size={24} />
           </button>
 
           <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <img 
               src={galleryPhotos[lightboxIndex].url} 
               alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white pointer-events-none select-none" 
+              className="w-full max-h-[60vh] object-contain rounded-[40px] shadow-2xl border-2 border-white pointer-events-none select-none" 
             />
             <div className="mt-6 text-center px-4">
-                <p className="text-gray-900 text-lg font-black uppercase tracking-tighter italic">
+                <p className="text-gray-900 text-base font-black uppercase tracking-tighter italic">
                     {galleryPhotos[lightboxIndex].caption}
                 </p>
                 <div className="flex justify-center gap-2 mt-4">
                     {galleryPhotos.map((_, i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'}`} />
+                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'}`} />
                     ))}
                 </div>
             </div>
           </div>
-
-          <button onClick={e => { e.stopPropagation(); nextPhoto(); }}
-            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 rounded-full items-center justify-center text-gray-900 backdrop-blur-sm active:scale-75 transition-all">
-            <ChevronRight size={24} />
-          </button>
         </div>
       )}
 
@@ -333,6 +278,11 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
           0%, 100% { transform: scale(1); opacity: 0.28; }
           50% { transform: scale(1.3); opacity: 0.1; }
         }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
