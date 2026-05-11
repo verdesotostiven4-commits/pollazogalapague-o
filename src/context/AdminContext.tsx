@@ -42,11 +42,12 @@ interface AdminContextValue {
   overrides: Record<string, ProductOverride>;
   settings: AppSettings;
   extraSettings: ExtraSettings; 
+  announcement: string; // ✅ Asegurado en la interface
   customers: ExtendedCustomer[];
   orders: Order[];
   seasons: Season[];
   loading: boolean;
-  refreshData: () => Promise<void>; // ✅ EXPUETO PARA ACTUALIZACIÓN MANUAL
+  refreshData: () => Promise<void>; // ✅ Sincronización manual expuesta
   setAnnouncement: (text: string) => Promise<void>;
   updateSetting: (key: keyof AppSettings, value: string) => Promise<void>;
   updateExtraSettings: (patch: Partial<ExtraSettings>) => Promise<void>; 
@@ -256,8 +257,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   return (
     <AdminContext.Provider value={{ 
       products, categories, overrides, settings, extraSettings, 
+      announcement: settings.announcement, 
       customers, orders, seasons, loading, 
-      refreshData: load, // ✅ EXPUESTO PARA TODA LA APP
+      refreshData: load, 
       setAnnouncement: (t) => updateSetting('announcement', t), 
       updateSetting, updateExtraSettings, setOverride, addProduct, updateProduct, deleteProduct, 
       upsertCustomer, addCustomerPoints, createOrder, updateOrderStatus,
