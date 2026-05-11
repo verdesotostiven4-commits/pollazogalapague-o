@@ -94,17 +94,18 @@ function AppShell() {
     
     const code = orderCode();
     
-    // ✅ MOTOR DE PRECIOS MEJORADO: Empaquetar nombre y precio real para el Admin
+    // ✅ MOTOR DE PRECIOS MEJORADO: Asegurar que Number() y parseFloat() limpien los datos
     const detailedItems = items.map(item => {
         const p = products.find(prod => prod.id === item.id);
+        const cleanPrice = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
         return {
             ...item,
             name: p?.name || 'Producto del Menú',
-            price: parseFloat(p?.price || '0')
+            price: cleanPrice
         };
     });
 
-    // Calcular subtotal real con números limpios
+    // Calcular totales con precisión numérica
     const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const fee = deliveryFeeOf(subtotal);
     const total = subtotal + fee;
@@ -115,15 +116,15 @@ function AppShell() {
       await createOrder({
         order_code: code,
         customer_phone: customerPhone,
-        items: detailedItems, // ✅ ENVIAMOS EL TICKET DETALLADO
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        total: parseFloat(total.toFixed(2)), // ✅ ENVIAMOS EL TOTAL REAL CALCULADO
+        items: detailedItems, // Ticket detallado para el Admin
+        subtotal: Number(subtotal.toFixed(2)),
+        total: Number(total.toFixed(2)), // Total real enviado a la DB
         status: 'Recibido',
         preorder: !isStoreOpen(),
-        created_at: new Date().toISOString() // ✅ MARCA DE TIEMPO EXACTA
+        created_at: new Date().toISOString()
       });
     } catch (err) { 
-        console.error("Error al guardar orden:", err); 
+        console.error("Error crítico al guardar orden:", err); 
     }
 
     window.location.href = whatsappUrl;
