@@ -31,7 +31,7 @@ function TeamCarousel() {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
   const [isPaused, setIsPaused] = useState(false);
-  const speed = 0.8; // ✅ Más rápido como pediste
+  const speed = 0.9; // ✅ Un poco más rápido
 
   useEffect(() => {
     const container = containerRef.current;
@@ -41,7 +41,7 @@ function TeamCarousel() {
     const animate = () => {
       if (!isPaused && !isDragging.current) {
         container.scrollLeft += speed;
-        // Bucle infinito: si llega al final del primer set, resetea al inicio
+        // Bucle infinito: cuando llega al final del primer set, salta al inicio sin que se note
         if (container.scrollLeft >= container.scrollWidth / 2) {
           container.scrollLeft = 0;
         }
@@ -65,11 +65,21 @@ function TeamCarousel() {
     const x = 'touches' in e ? e.touches[0].pageX : e.pageX;
     const walk = (x - (containerRef.current.offsetLeft || 0) - startX.current) * 1.5;
     containerRef.current.scrollLeft = scrollLeft.current - walk;
+    
+    // ✅ CORRECCIÓN INFINITO AL DESLIZAR: Resetear si el usuario arrastra demasiado
+    if (containerRef.current.scrollLeft >= containerRef.current.scrollWidth / 2) {
+        containerRef.current.scrollLeft = 1;
+        scrollLeft.current = 1;
+        startX.current = x - (containerRef.current.offsetLeft || 0);
+    } else if (containerRef.current.scrollLeft <= 0) {
+        containerRef.current.scrollLeft = containerRef.current.scrollWidth / 2 - 1;
+        scrollLeft.current = containerRef.current.scrollWidth / 2 - 1;
+        startX.current = x - (containerRef.current.offsetLeft || 0);
+    }
   };
 
   const handleStop = () => {
     isDragging.current = false;
-    // Resume auto-scroll after a short delay
     setTimeout(() => setIsPaused(false), 50);
   };
 
@@ -135,7 +145,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
 
-      {/* ✅ BRAND CARD CORREGIDA: No itálica, icono de ubicación */}
+      {/* ✅ BRAND CARD: Sin itálicas y con icono MapPin */}
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -143,11 +153,10 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
             <img src={LOGO_OFFICIAL} alt="logo" className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl" />
           </div>
           <div>
-            {/* Sin inclinación como pediste */}
             <h2 className="text-white font-black text-2xl uppercase tracking-tighter not-italic">
               La Casa del Pollazo
             </h2>
-            <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 mt-2">
+            <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 mt-2">
                 <MapPin className="text-yellow-300" size={14} />
                 <span className="text-white font-bold text-[10px] uppercase tracking-widest">El Mirador</span>
             </div>
@@ -274,7 +283,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <span>en Galápagos</span>
       </div>
 
-      {/* ✅ GALERÍA VIP: Full App Blur (z-1000), Brillo normal (no oscuro), Deslizable (Instagram style) */}
+      {/* ✅ LIGHTBOX: Desenfoque claro (no oscuro), cubre toda la app (z-[1000]) */}
       {lightboxIndex !== null && (
         <div 
           className="fixed inset-0 z-[1000] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
@@ -282,42 +291,39 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
           onTouchStart={handleLightboxTouchStart}
           onTouchEnd={handleLightboxTouchEnd}
         >
-          {/* BOTÓN CERRAR */}
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-6 right-6 w-12 h-12 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
+            className="absolute top-8 right-6 w-12 h-12 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
           >
             <X size={28} />
           </button>
 
-          {/* NAVEGACIÓN IZQUIERDA (Escritorio) */}
           <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
-            className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/50 rounded-full items-center justify-center text-gray-900 shadow-xl active:scale-75 transition-all">
-            <ChevronLeft size={28} />
+            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 rounded-full items-center justify-center text-gray-900 backdrop-blur-sm active:scale-75 transition-all">
+            <ChevronLeft size={24} />
           </button>
 
           <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <img 
               src={galleryPhotos[lightboxIndex].url} 
               alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[70vh] object-contain rounded-[40px] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border-2 border-white pointer-events-none select-none" 
+              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white pointer-events-none select-none" 
             />
-            <div className="mt-8 text-center px-4">
+            <div className="mt-6 text-center px-4">
                 <p className="text-gray-900 text-lg font-black uppercase tracking-tighter italic">
                     {galleryPhotos[lightboxIndex].caption}
                 </p>
-                <div className="flex justify-center gap-2 mt-6">
+                <div className="flex justify-center gap-2 mt-4">
                     {galleryPhotos.map((_, i) => (
-                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-10 bg-orange-500' : 'w-2 bg-gray-300'}`} />
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'}`} />
                     ))}
                 </div>
             </div>
           </div>
 
-          {/* NAVEGACIÓN DERECHA (Escritorio) */}
           <button onClick={e => { e.stopPropagation(); nextPhoto(); }}
-            className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/50 rounded-full items-center justify-center text-gray-900 shadow-xl active:scale-75 transition-all">
-            <ChevronRight size={28} />
+            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 rounded-full items-center justify-center text-gray-900 backdrop-blur-sm active:scale-75 transition-all">
+            <ChevronRight size={24} />
           </button>
         </div>
       )}
