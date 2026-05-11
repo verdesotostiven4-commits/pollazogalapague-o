@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -12,9 +12,10 @@ interface Props {
   onNavigateToCategory: (cat: Category) => void;
 }
 
+const LOGO_URL = "https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0";
+
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
-// CATEGORÍAS ACORTADAS
 const QUICK_CATEGORIES: { label: string; target: Category; icon: string }[] = [
   { label: 'Pollos', target: 'Pollos', icon: '🍗' },
   { label: 'Embutidos', target: 'Embutidos', icon: '🥓' },
@@ -29,6 +30,18 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const { products } = useAdmin();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 🔥 LÓGICA DE SALUDO DINÁMICO
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return { title: "¡Buenos días!", phrase: "¿Qué compraremos para el desayuno? ☕" };
+    } else if (hour >= 12 && hour < 18) {
+      return { title: "¡Buenas tardes!", phrase: "¿Un pollito para el asado? 🍗" };
+    } else {
+      return { title: "¡Buenas noches!", phrase: "¿Qué cenaremos hoy? ✨" };
+    }
+  }, []);
 
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
   const pairs = [];
@@ -71,13 +84,25 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA - ANCHO COMPLETO */}
+      {/* 1. HERO NARANJA */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
-          <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em] mb-4">La Casa del Pollazo 🍗</p>
-          <div className="flex justify-center mb-6">
-            <img src="/logo-final.png" alt="logo" className="w-40 h-40 object-contain animate-float-gen drop-shadow-2xl" />
+          
+          {/* ✅ SALUDO DINÁMICO REEMPLAZANDO "LA CASA DEL POLLAZO" */}
+          <div className="mb-4">
+            <p className="text-white font-black uppercase tracking-[0.2em] text-xs drop-shadow-sm">{greeting.title}</p>
+            <p className="text-white/80 text-[10px] font-bold italic mt-1">{greeting.phrase}</p>
           </div>
+
+          <div className="flex justify-center mb-6">
+            {/* ✅ LOGO OFICIAL ACTUALIZADO */}
+            <img 
+              src={LOGO_URL} 
+              alt="logo" 
+              className="w-40 h-40 object-contain animate-float-gen drop-shadow-2xl" 
+            />
+          </div>
+
           <div className="space-y-1">
             <h1 className="text-white font-black text-4xl leading-none drop-shadow-md tracking-tighter uppercase">Pollo Fresco</h1>
             <h2 className="font-black text-3xl leading-none text-yellow-300 drop-shadow-md tracking-tighter uppercase">Directo a tu puerta</h2>
@@ -95,7 +120,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 2. SALUDO PERSONALIZADO (AQUÍ SÍ PX-6) */}
+      {/* 2. SALUDO PERSONALIZADO */}
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
@@ -103,7 +128,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </h2>
       </div>
 
-      {/* 3. CATEGORÍAS RÁPIDAS (PX-6) */}
+      {/* 3. CATEGORÍAS RÁPIDAS */}
       <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
@@ -123,7 +148,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS (PX-6) */}
+      {/* 4. LOS MÁS PEDIDOS */}
       <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -164,7 +189,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. INFO STRIP (PX-6) */}
+      {/* 5. INFO STRIP */}
       <div className="px-6 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
