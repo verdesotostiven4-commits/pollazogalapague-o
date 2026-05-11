@@ -26,7 +26,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
   const { cartPop, setCartRef } = useFlyToCart();
   const cartBtnRef = useRef<HTMLButtonElement>(null);
 
-  // 🔥 MEJORA DE CARGA: Pre-carga el logo para que no parpadee al iniciar
   useEffect(() => {
     const img = new Image();
     img.src = LOGO_URL;
@@ -34,21 +33,28 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
     if (cartBtnRef.current) setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
   }, [setCartRef]);
 
+  // 🔥 FUNCIÓN MÁGICA: Recarga la página para ver cambios de Vercel al instante
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   const isHome = screen === 'home';
 
   return (
     <header className="flex-shrink-0 safe-area-top bg-white/80 backdrop-blur-md border-b border-orange-50 shadow-sm z-40 sticky top-0">
       <div className="flex items-center justify-between px-4 h-14 relative">
         {isHome ? (
-          <div className="flex items-center gap-2">
-            {/* ✅ LOGO ACTUALIZADO Y OPTIMIZADO */}
+          /* ✅ LOGO CON FUNCIÓN DE REFRESCO AL HACER CLICK */
+          <div 
+            onClick={handleRefresh}
+            className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
+          >
             <img 
               src={LOGO_URL} 
               alt="logo" 
               className="h-10 w-10 object-contain drop-shadow-sm transition-opacity duration-300" 
             />
             <div className="flex flex-col leading-none">
-              {/* ✅ TEXTOS ACTUALIZADOS */}
               <span className="font-black text-[10.5px] text-gray-900 uppercase tracking-tight">La Casa del Pollazo</span>
               <span className="font-black text-[9px] text-orange-500 uppercase tracking-widest mt-1">El # 1 del mercado</span>
             </div>
