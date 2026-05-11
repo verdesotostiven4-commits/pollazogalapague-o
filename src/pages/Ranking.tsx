@@ -19,7 +19,7 @@ function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode, de
 }
 
 export default function Ranking() {
-  const { customers = [], extraSettings, seasons = [], loading } = useAdmin();
+  const { customers = [], extraSettings, seasons = [], loading, refreshData } = useAdmin(); // ✅ AGREGADO refreshData
   const { customerPhone } = useUser();
   const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const myRowRef = useRef<HTMLDivElement>(null);
@@ -28,6 +28,13 @@ export default function Ranking() {
   const [showRadar, setShowRadar] = useState(false);
   const [isInHallOfFame, setIsInHallOfFame] = useState(false);
   const [showPrizeDetails, setShowPrizeDetails] = useState(false);
+
+  // 🚀 RECARGA AUTOMÁTICA AL ENTRAR
+  useEffect(() => {
+    if (refreshData) {
+        refreshData(); 
+    }
+  }, [refreshData]);
 
   const getGuerreroTitle = (index: number) => {
     if (index === 0) return "Guerrero Galapagueño";
@@ -57,7 +64,6 @@ export default function Ranking() {
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
-  // Lógica de Superación (Pique entre clientes)
   const nextUp = myRankIndex > 0 ? ranking[myRankIndex - 1] : null;
   const pointsToLeap = nextUp ? (nextUp.points - (myData?.points || 0)) + 1 : 0;
   const nextUpName = nextUp?.name?.split(' ')[0] || 'Líder';
@@ -83,7 +89,7 @@ export default function Ranking() {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-10">
       <Zap className="text-orange-500 animate-bounce mb-4" size={48} />
-      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest text-center">Iniciando Arena VIP...</p>
+      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest text-center">Sincronizando puntos...</p>
     </div>
   );
 
