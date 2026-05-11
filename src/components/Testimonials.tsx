@@ -140,10 +140,12 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         setComment('');
         fetchTestimonials();
 
+        // Cierre automático extendido para permitir que lean el premio
         setTimeout(() => {
-            setSuccess(false);
-            setPointsGainedNow(false);
-            setShowForm(false);
+            if (!pointsGainedNow) {
+              setSuccess(false);
+              setShowForm(false);
+            }
         }, 5500);
 
     } catch (err: any) {
@@ -183,10 +185,10 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         <div className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
             <div className="relative p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner"><Sparkles size={20} fill="currentColor" /></div>
+                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10"><Sparkles size={20} fill="currentColor" /></div>
                 <div className="flex-1">
-                    <p className="text-white font-black text-xs uppercase">¡Regalo de puntos!</p>
-                    <p className="text-white/90 text-[10px] font-bold uppercase">Opina y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
+                    <p className="text-white font-black text-xs uppercase mb-1">¡Puntos Gratis para ti!</p>
+                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
                 </div>
             </div>
         </div>
@@ -222,7 +224,14 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                 {pointsGainedNow ? (
                     <div className="space-y-4">
                         <p className="text-green-600 text-[13px] font-black uppercase px-4 leading-tight">¡RECLAMA TUS 10 PUNTOS!</p>
-                        <button onClick={onNavigateRanking} className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800">VER MIS PUNTOS EN RANKING <Trophy size={18} /></button>
+                        <button 
+                          onClick={() => {
+                            if (onNavigateRanking) onNavigateRanking();
+                          }} 
+                          className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
+                        >
+                          VER MIS PUNTOS EN RANKING <Trophy size={18} />
+                        </button>
                     </div>
                 ) : (
                     <p className="text-green-600/60 text-xs font-bold uppercase px-6 leading-relaxed">Tu opinión ha sido publicada con éxito.</p>
