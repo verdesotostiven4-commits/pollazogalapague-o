@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -11,8 +11,6 @@ interface Props {
   onNavigate: (s: Screen) => void;
   onNavigateToCategory: (cat: Category) => void;
 }
-
-const LOGO_URL = "https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0";
 
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
@@ -31,17 +29,28 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 🔥 LÓGICA DE SALUDO DINÁMICO
-  const greeting = useMemo(() => {
+  // 1. ESTADO PARA LA TRIPLE ANIMACIÓN DEL LOGO
+  const [logoAnimIndex, setLogoAnimIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // 2. LÓGICA DE SALUDO DINÁMICO
+  const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) {
-      return { title: "¡Buenos días!", phrase: "¿Qué compraremos para el desayuno? ☕" };
-    } else if (hour >= 12 && hour < 18) {
-      return { title: "¡Buenas tardes!", phrase: "¿Un pollito para el asado? 🍗" };
-    } else {
-      return { title: "¡Buenas noches!", phrase: "¿Qué cenaremos hoy? ✨" };
-    }
-  }, []);
+    if (hour >= 6 && hour < 12) return { title: "¡Buenos días!", phrase: "¿Qué compraremos para el desayuno? ☕" };
+    if (hour >= 12 && hour < 18) return { title: "¡Buenas tardes!", phrase: "¿Un pollito para el asado hoy? 🍗" };
+    return { title: "¡Buenas noches!", phrase: "¿Cenamos algo rico del Pollazo? 🌙" };
+  };
+  const greeting = getGreeting();
+
+  const handleLogoClick = () => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    // Cambiamos al siguiente efecto (0, 1, 2)
+    setLogoAnimIndex((prev) => (prev + 1) % 3);
+    
+    // Quitamos la clase después de que termine la animación (600ms aprox)
+    setTimeout(() => setIsAnimating(false), 700);
+  };
 
   const bestsellers = products.filter(p => BESTSELLER_IDS.includes(p.id));
   const pairs = [];
@@ -84,23 +93,30 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA */}
+      {/* 1. HERO NARANJA - ANCHO COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           
-          {/* ✅ SALUDO DINÁMICO REEMPLAZANDO "LA CASA DEL POLLAZO" */}
+          {/* SALUDO DINÁMICO */}
           <div className="mb-4">
-            <p className="text-white font-black uppercase tracking-[0.2em] text-xs drop-shadow-sm">{greeting.title}</p>
-            <p className="text-white/80 text-[10px] font-bold italic mt-1">{greeting.phrase}</p>
+            <p className="text-white font-black text-xl italic drop-shadow-sm leading-none uppercase">{greeting.title}</p>
+            <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-2">{greeting.phrase}</p>
           </div>
 
-          <div className="flex justify-center mb-6">
-            {/* ✅ LOGO OFICIAL ACTUALIZADO */}
+          {/* LOGO GIGANTE CON TRIPLE ANIMACIÓN */}
+          <div className="flex justify-center mb-6 relative cursor-pointer" onClick={handleLogoClick}>
             <img 
-              src={LOGO_URL} 
+              src="https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0" 
               alt="logo" 
-              className="w-40 h-40 object-contain animate-float-gen drop-shadow-2xl" 
+              className={`w-52 h-52 object-contain drop-shadow-2xl transition-all duration-300
+                ${!isAnimating ? 'animate-float-gen' : ''}
+                ${isAnimating && logoAnimIndex === 0 ? 'animate-logo-spin' : ''}
+                ${isAnimating && logoAnimIndex === 1 ? 'animate-logo-jump' : ''}
+                ${isAnimating && logoAnimIndex === 2 ? 'animate-logo-flip' : ''}
+              `} 
             />
+            {/* Pequeño destello VIP opcional al tocar */}
+            {isAnimating && <Sparkles className="absolute top-0 right-0 text-yellow-300 animate-ping" size={40} />}
           </div>
 
           <div className="space-y-1">
@@ -206,6 +222,25 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             </div>
          </div>
       </div>
+
+      {/* ESTILOS CSS PARA LAS ANIMACIONES ESPECIALES */}
+      <style>{`
+        @keyframes logo-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes logo-jump {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-30px) scale(1.1); }
+        }
+        @keyframes logo-flip {
+          0% { transform: rotateY(0deg); }
+          100% { transform: rotateY(360deg); }
+        }
+        .animate-logo-spin { animation: logo-spin 0.6s ease-in-out; }
+        .animate-logo-jump { animation: logo-jump 0.6s ease-in-out; }
+        .animate-logo-flip { animation: logo-flip 0.7s ease-in-out; }
+      `}</style>
     </div>
   );
 }
