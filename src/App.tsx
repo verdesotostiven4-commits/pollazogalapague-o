@@ -18,7 +18,7 @@ import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking';
 import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
-import { Category } from './types'; // ✅ Importamos Category
+import { Category } from './types';
 
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
@@ -41,9 +41,7 @@ class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error
 
 function AppShell() {
   const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
-  // ✅ NUEVO: Estado para recordar la categoría seleccionada
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
-  
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
   const { createOrder, loading, products, upsertCustomer } = useAdmin();
@@ -51,6 +49,25 @@ function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
+
+  // 🔥 SOLUCIÓN BOTÓN ATRÁS (Manejo del Historial)
+  useEffect(() => {
+    const handlePopState = () => {
+      // Si el usuario da "atrás", forzamos el regreso al home si no estamos ahí
+      if (screen !== 'home') {
+        setScreen('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    // Si entramos a cualquier pantalla que NO sea home, añadimos una entrada al historial
+    if (screen !== 'home') {
+      window.history.pushState({ screen }, '');
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [screen]);
 
   useEffect(() => {
     if (!customerName && !loading) {
@@ -60,16 +77,15 @@ function AppShell() {
   }, [customerName, loading]);
 
   const handleNavigate = (s: any) => {
-    if (s !== 'catalog') setActiveCategory('Todos'); // Si salimos del catálogo, reseteamos el filtro
+    if (s !== 'catalog') setActiveCategory('Todos');
     setScreen(s);
     setShowLoginModal(false); 
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  // ✅ NUEVA FUNCIÓN: Maneja el click de categorías desde el Home
   const handleCategoryClick = (cat: Category) => {
-    setActiveCategory(cat); // Guardamos la categoría en memoria
-    setScreen('catalog');   // Saltamos al catálogo
+    setActiveCategory(cat);
+    setScreen('catalog');
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
@@ -125,17 +141,13 @@ function AppShell() {
         <OrderTracking />
         
         {screen === 'home' && (
-          <div className="pt-0">
-            {/* ✅ CORREGIDO: Ahora sí pasamos la función que recibe la categoría */}
-            <HomeScreen 
-              onNavigate={handleNavigate} 
-              onNavigateToCategory={handleCategoryClick} 
-            />
-          </div>
+          <HomeScreen 
+            onNavigate={handleNavigate} 
+            onNavigateToCategory={handleCategoryClick} 
+          />
         )}
 
         {screen === 'catalog' && (
-          /* ✅ CORREGIDO: Le pasamos la categoría que guardamos en memoria */
           <CatalogScreen 
             initialCategory={activeCategory} 
             onCategoryChange={(cat) => setActiveCategory(cat as any)} 
@@ -146,8 +158,10 @@ function AppShell() {
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
         {screen === 'ranking' && <Ranking />}
       </main>
+      
       {/* Solo mostramos la barra si NO estamos en el ranking */}
-{screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
+      {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
+      
       <FlyParticleLayer />
       
       <LoginModal 
