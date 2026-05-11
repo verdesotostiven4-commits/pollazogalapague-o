@@ -21,6 +21,9 @@ export interface ExtraSettings {
   prize_description: string;
   ranking_end_date: string;
   winner_photo_url: string;
+  prize_1?: string; // ✅ Premio Oro
+  prize_2?: string; // ✅ Premio Plata
+  prize_3?: string; // ✅ Premio Bronce
 }
 
 export interface ExtendedCustomer extends Customer {
@@ -42,12 +45,12 @@ interface AdminContextValue {
   overrides: Record<string, ProductOverride>;
   settings: AppSettings;
   extraSettings: ExtraSettings; 
-  announcement: string; // ✅ Asegurado en la interface
+  announcement: string; 
   customers: ExtendedCustomer[];
   orders: Order[];
   seasons: Season[];
   loading: boolean;
-  refreshData: () => Promise<void>; // ✅ Sincronización manual expuesta
+  refreshData: () => Promise<void>; 
   setAnnouncement: (text: string) => Promise<void>;
   updateSetting: (key: keyof AppSettings, value: string) => Promise<void>;
   updateExtraSettings: (patch: Partial<ExtraSettings>) => Promise<void>; 
@@ -74,9 +77,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 const DEFAULT_EXTRA: ExtraSettings = {
   logo_url: '/logo-final.png',
   ranking_title: 'Ranking de Clientes',
-  prize_description: '¡Gana un Combo Familiar!',
+  prize_description: '¡Gana premios exclusivos!',
   ranking_end_date: '',
   winner_photo_url: '',
+  prize_1: 'Pollo Entero + Parrillada',
+  prize_2: 'Medio Pollo + Papas',
+  prize_3: 'Un Cuarto de Pollo',
 };
 
 const AdminContext = createContext<AdminContextValue>(null as any);
