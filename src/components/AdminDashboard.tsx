@@ -86,7 +86,7 @@ export default function AdminDashboard() {
       avatar_url: c.avatar_url,
       photo_url: '', 
       rank: i + 1,
-      prize_won: i === 0 ? extraSettings?.prize_1 : i === 1 ? extraSettings?.prize_2 : extraSettings?.prize_3
+      prize_won: i === 0 ? (extraSettings?.prize_1 || '') : i === 1 ? (extraSettings?.prize_2 || '') : (extraSettings?.prize_3 || '')
     }));
 
     await finalizeSeason(
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
                             <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{new Date(s.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <button onClick={() => confirm("¿Borrar temporada permanentemente?") && deleteSeason(s.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                        <button onClick={() => confirm("¿Borrar temporada?") && deleteSeason(s.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
                           <Trash2 size={18}/>
                         </button>
                       </div>
@@ -231,7 +231,7 @@ export default function AdminDashboard() {
                         ))}
                       </div>
                       <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md ${s.is_published ? 'bg-green-500 text-white' : 'bg-white border-2 border-gray-100 text-gray-400'}`}>
-                        {s.is_published ? '✅ Visible en Ranking VIP' : 'Publicar Ganadores'}
+                        {s.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}
                       </button>
                     </div>
                   ))}
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : orders.map(o => {
                   const customer = customers.find(c => (c.phone || '').replace(/\D/g, '') === (o.customer_phone || '').replace(/\D/g, ''));
-                  const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                  const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--';
                   
                   return (
                     <div key={o.id} className="bg-white rounded-[32px] border border-gray-100 p-5 space-y-4 shadow-sm animate-in fade-in">
@@ -278,19 +278,19 @@ export default function AdminDashboard() {
                       <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30 space-y-2">
                         <div className="flex items-center gap-2 mb-1">
                           <PackageSearch size={14} className="text-orange-500" />
-                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Detalle del Pedido</p>
+                          <p className="text-[9px] font-black text-orange-700 uppercase tracking-[0.1em]">Resumen de Compra</p>
                         </div>
                         {o.items && o.items.length > 0 ? (
                           <div className="space-y-1.5">
                             {o.items.map((item: any, idx: number) => (
                               <div key={idx} className="flex justify-between items-center text-[10px] font-bold text-gray-700 uppercase">
-                                <span className="flex-1 truncate"><span className="text-orange-600 font-black">{item.quantity}x</span> {item.name}</span>
-                                <span className="ml-2 text-gray-400 font-black">${(Number(item.price || 0) * item.quantity).toFixed(2)}</span>
+                                <span className="flex-1 truncate"><span className="text-orange-600 font-black">{item.quantity}x</span> {item.name || item.product?.name || 'Producto'}</span>
+                                <span className="ml-2 text-gray-400 font-black">${(Number(item.price || item.product?.price || 0) * item.quantity).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-gray-400 font-bold italic">Cargando productos...</p>
+                          <p className="text-[9px] text-gray-400 font-bold italic">Sin detalles de productos</p>
                         )}
                       </div>
 
@@ -317,9 +317,9 @@ export default function AdminDashboard() {
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/><input value={custSearch} onChange={e => setCustSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full bg-gray-50 rounded-2xl pl-11 pr-4 py-4 text-sm font-bold border-2 border-transparent focus:border-orange-500 focus:bg-white transition-all outline-none" />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-3 pb-10">
               {ranking.filter(c => `${c.name} ${c.phone}`.toLowerCase().includes(custSearch.toLowerCase())).map((c, i) => (
-                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
+                <div key={c.id} className="bg-white rounded-3xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm">
                   <div className={`w-14 h-14 rounded-2xl overflow-hidden border-2 ${i === 0 ? 'border-yellow-400' : i === 1 ? 'border-gray-300' : i === 2 ? 'border-orange-300' : 'border-gray-100'}`}>
                      <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-full h-full object-cover" />
                   </div>
@@ -378,7 +378,7 @@ export default function AdminDashboard() {
         )}
 
         {tab === 'branding' && (
-          <section className="bg-white rounded-[32px] border border-gray-100 p-6 space-y-6 animate-in fade-in shadow-sm">
+          <section className="bg-white rounded-[32px] border border-gray-100 p-6 space-y-6 animate-in fade-in shadow-sm pb-10">
             <h2 className="font-black text-lg flex items-center gap-2 text-gray-900 uppercase italic text-sm"><Image size={20} className="text-orange-500"/> Identidad Visual</h2>
             <div className="space-y-4">
               <div className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
