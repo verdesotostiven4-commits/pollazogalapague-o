@@ -21,9 +21,9 @@ export interface ExtraSettings {
   prize_description: string;
   ranking_end_date: string;
   winner_photo_url: string;
-  prize_1?: string; // ✅ Premio Oro
-  prize_2?: string; // ✅ Premio Plata
-  prize_3?: string; // ✅ Premio Bronce
+  prize_1?: string; 
+  prize_2?: string; 
+  prize_3?: string; 
 }
 
 export interface ExtendedCustomer extends Customer {
@@ -80,9 +80,9 @@ const DEFAULT_EXTRA: ExtraSettings = {
   prize_description: '¡Gana premios exclusivos!',
   ranking_end_date: '',
   winner_photo_url: '',
-  prize_1: 'Pollo Entero + Parrillada',
-  prize_2: 'Medio Pollo + Papas',
-  prize_3: 'Un Cuarto de Pollo',
+  prize_1: '',
+  prize_2: '',
+  prize_3: '',
 };
 
 const AdminContext = createContext<AdminContextValue>(null as any);
@@ -138,7 +138,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         setSettings(next);
         document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
       }
-      if (extraRes.data) setExtraSettings(extraRes.data as ExtraSettings);
+      
+      // ✅ MEJORA: Fusionar datos de Supabase con los valores por defecto para evitar pantallas blancas
+      if (extraRes.data) {
+          setExtraSettings({ ...DEFAULT_EXTRA, ...extraRes.data });
+      } else {
+          setExtraSettings(DEFAULT_EXTRA);
+      }
+
       if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
       if (orderRes.data) setOrders(orderRes.data as Order[]);
       if (seasonsRes.data) setSeasons(seasonsRes.data as Season[]);
