@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Clock, Truck, ChevronRight, Star, ChevronLeft } from 'lucide-react';
+// ✅ IMPORTACIÓN CORREGIDA: Añadimos Sparkles aquí
+import { Clock, Truck, ChevronRight, Star, ChevronLeft, Sparkles } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import ProductCard from './ProductCard';
@@ -29,11 +30,9 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. ESTADO PARA LA TRIPLE ANIMACIÓN DEL LOGO
   const [logoAnimIndex, setLogoAnimIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // 2. LÓGICA DE SALUDO DINÁMICO
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 6 && hour < 12) return { title: "¡Buenos días!", phrase: "¿Qué compraremos para el desayuno? ☕" };
@@ -45,10 +44,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const handleLogoClick = () => {
     if (isAnimating) return;
     setIsAnimating(true);
-    // Cambiamos al siguiente efecto (0, 1, 2)
     setLogoAnimIndex((prev) => (prev + 1) % 3);
-    
-    // Quitamos la clase después de que termine la animación (600ms aprox)
     setTimeout(() => setIsAnimating(false), 700);
   };
 
@@ -93,18 +89,15 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
       
-      {/* 1. HERO NARANJA - ANCHO COMPLETO */}
       <div className="relative overflow-hidden hero-water w-full shadow-inner z-0"> 
         <div className="px-6 pt-10 pb-12 relative z-10 text-center flex flex-col items-center">
           
-          {/* SALUDO DINÁMICO */}
           <div className="mb-4">
             <p className="text-white font-black text-xl italic drop-shadow-sm leading-none uppercase">{greeting.title}</p>
             <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-2">{greeting.phrase}</p>
           </div>
 
-          {/* LOGO GIGANTE CON TRIPLE ANIMACIÓN */}
-          <div className="flex justify-center mb-6 relative cursor-pointer" onClick={handleLogoClick}>
+          <div className="flex justify-center mb-6 relative cursor-pointer active:scale-95 transition-transform" onClick={handleLogoClick}>
             <img 
               src="https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0" 
               alt="logo" 
@@ -115,7 +108,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 ${isAnimating && logoAnimIndex === 2 ? 'animate-logo-flip' : ''}
               `} 
             />
-            {/* Pequeño destello VIP opcional al tocar */}
+            {/* Ahora Sparkles sí está importado y no dará error */}
             {isAnimating && <Sparkles className="absolute top-0 right-0 text-yellow-300 animate-ping" size={40} />}
           </div>
 
@@ -136,7 +129,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 2. SALUDO PERSONALIZADO */}
       <div className="px-6 pt-8 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">Bienvenido de nuevo,</p>
         <h2 className="text-3xl font-black text-gray-900 italic mt-1 leading-tight">
@@ -144,7 +136,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </h2>
       </div>
 
-      {/* 3. CATEGORÍAS RÁPIDAS */}
       <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black text-gray-900 uppercase italic text-[11px] tracking-widest">Explorar Categorías</h3>
@@ -164,7 +155,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 4. LOS MÁS PEDIDOS */}
       <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -205,7 +195,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      {/* 5. INFO STRIP */}
       <div className="px-6 py-4 mb-4">
          <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
             <div className="flex flex-col items-center text-center gap-1.5">
@@ -223,7 +212,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
          </div>
       </div>
 
-      {/* ESTILOS CSS PARA LAS ANIMACIONES ESPECIALES */}
       <style>{`
         @keyframes logo-spin {
           from { transform: rotate(0deg); }
