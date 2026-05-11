@@ -25,37 +25,19 @@ const galleryPhotos = [
   { url: 'https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg?auto=compress&cs=tinysrgb&w=600', caption: 'Embutidos premium' },
 ];
 
-// 🔥 CARRUSEL 100% AUTOMÁTICO E INFINITO (Sin intervención manual)
 function TeamCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollSpeed = 1.2; // ✅ Más rápido
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let animationId: number;
-    const animate = () => {
-      container.scrollLeft += scrollSpeed;
-      // Reinicio infinito suave (usa el doble de elementos para que no se vea el salto)
-      if (container.scrollLeft >= container.scrollWidth / 2) {
-        container.scrollLeft = 0;
-      }
-      animationId = requestAnimationFrame(animate);
-    };
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, []);
-
-  const doubledMembers = [...teamMembers, ...teamMembers];
+  
+  // ✅ IMPLEMENTACIÓN MARQUEE CSS (100% INFINITO Y SIN BUGS)
+  const tripledMembers = [...teamMembers, ...teamMembers, ...teamMembers];
 
   return (
-    <div className="py-4 overflow-hidden relative">
-      <div
+    <div className="py-4 overflow-hidden relative pointer-events-none">
+      <div 
         ref={containerRef}
-        className="flex gap-4 px-4 overflow-x-hidden scrollbar-hide pointer-events-none"
+        className="flex gap-4 px-4 w-fit animate-marquee"
       >
-        {doubledMembers.map((member, i) => (
+        {tripledMembers.map((member, i) => (
           <div key={`${member.name}-${i}`} className="flex flex-col items-center gap-2.5 flex-shrink-0" style={{ width: 100 }}>
             <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white">
               <img src={member.photo} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
@@ -78,10 +60,26 @@ interface Props {
 
 export default function InfoScreen({ onInstall, canInstall }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const closeLightbox = () => setLightboxIndex(null);
   const prevPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
   const nextPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev + 1) % galleryPhotos.length);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
+    touchStartX.current = null;
+  };
 
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
@@ -160,11 +158,15 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </a>
       </div>
 
-      {/* TEAM SECTION */}
+      {/* ✅ NUESTRO EQUIPO SECTION: Título con colores y frase nueva */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
         <div className="px-6 pt-5 pb-2 text-center">
-          <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest italic">Nuestro Equipo</h3>
-          <p className="text-gray-400 text-[10px] mt-1 uppercase font-bold">Las manos detrás del sabor</p>
+          <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest italic">
+            Nuestro <span className="text-orange-500">Equipo</span>
+          </h3>
+          <p className="text-gray-400 text-[10px] mt-1 uppercase font-black tracking-tight leading-relaxed">
+            Las manos detrás de un buen servicio y calidad
+          </p>
         </div>
         <TeamCarousel />
       </div>
@@ -201,17 +203,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
-      {/* 🎁 BANNER DE PUNTOS POR COMENTAR */}
-      <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 rounded-[28px] shadow-lg flex items-center gap-4">
-        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0">
-          <Star size={24} fill="currentColor" className="animate-spin-slow" />
-        </div>
-        <div className="flex-1">
-          <p className="text-white font-black text-xs uppercase tracking-tight">¡Gana puntos hoy!</p>
-          <p className="text-white/90 text-[10px] font-bold">Danos tu opinión abajo y recibe <span className="underline">+10 PUNTOS</span> para el Ranking.</p>
-        </div>
-      </div>
-
       <Testimonials />
 
       {canInstall && (
@@ -239,16 +230,18 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <span>en Galápagos</span>
       </div>
 
-      {/* ✅ LIGHTBOX: Desenfoque REDUCIDO (No cubre toda la pantalla) y Claro */}
+      {/* ✅ LIGHTBOX: Swipe enabled, Blur behind header bar, Full screen overlay */}
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-x-0 bottom-0 top-[56px] z-[100] bg-white/30 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          className="fixed inset-0 z-[35] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
           onClick={closeLightbox}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {/* BOTÓN CERRAR */}
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-6 right-6 w-10 h-10 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
+            className="absolute top-20 right-6 w-10 h-10 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[40]"
           >
             <X size={24} />
           </button>
@@ -268,21 +261,25 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
                         <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'}`} />
                     ))}
                 </div>
+                <p className="text-gray-400 text-[9px] mt-4 font-black uppercase tracking-widest">← desliza para cambiar →</p>
             </div>
           </div>
         </div>
       )}
 
+      {/* ESTILOS CSS PARA ANIMACIONES */}
       <style>{`
         @keyframes logoGlowPulse {
           0%, 100% { transform: scale(1); opacity: 0.28; }
           50% { transform: scale(1.3); opacity: 0.1; }
         }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-100px * 5 - 1rem * 5)); }
         }
-        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+        .animate-marquee {
+          animation: marquee 15s linear infinite;
+        }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
