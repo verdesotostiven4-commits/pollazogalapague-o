@@ -40,7 +40,7 @@ function StarStatRow({ star, testimonials }: { star: number, testimonials: Testi
   const pct = testimonials.length > 0 ? (cnt / testimonials.length) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-500 w-2">{star}</span>
+      <span className="text-[10px] text-gray-500 w-2 font-bold">{star}</span>
       <Star size={8} className="text-yellow-400 fill-yellow-400 flex-shrink-0" />
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className="h-full bg-yellow-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
@@ -71,16 +71,27 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  //🔎 Verificar estado del cliente en Supabase
+  // 🔎 CONSULTA REAL: Verificar si el cliente ya recibió puntos
   const checkReviewStatus = useCallback(async () => {
     if (!customerPhone) return;
     try {
-        const { data } = await supabase.from('customers').select('has_reviewed').eq('whatsapp', customerPhone).single();
-        if (data) setHasReviewed(!!data.has_reviewed);
-    } catch (e) { console.error(e); }
+        const { data, error: fetchErr } = await supabase
+            .from('customers')
+            .select('has_reviewed')
+            .eq('whatsapp', customerPhone)
+            .maybeSingle(); // Usamos maybeSingle para evitar error si no existe
+        
+        if (data) {
+            setHasReviewed(!!data.has_reviewed);
+        }
+    } catch (e) {
+        console.error("Error verificando puntos:", e);
+    }
   }, [customerPhone]);
 
-  useEffect(() => { checkReviewStatus(); }, [checkReviewStatus]);
+  useEffect(() => {
+    checkReviewStatus();
+  }, [checkReviewStatus]);
 
   useEffect(() => {
     if (showForm) {
@@ -103,7 +114,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     setSubmitting(true);
     setError('');
 
-    // 1. Enviar testimonio
+    // 1. Enviar testimonio normal
     const { error: err } = await supabase.from('testimonials').insert({
       author_name: name.trim(),
       stars,
@@ -111,17 +122,31 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       photo_url: photoUrl.trim() || null,
     });
 
-    if (err) { setSubmitting(false); setError('Error al enviar. Intenta de nuevo.'); return; }
+    if (err) {
+      setSubmitting(false);
+      setError('Error al enviar. Intenta de nuevo.');
+      return;
+    }
 
-    // 2. Lógica de Puntos (Sumar +10 si es primera vez)
+    // 2. LÓGICA DE PUNTOS BLINDADA
     if (customerPhone && !hasReviewed) {
-        const { data: user } = await supabase.from('customers').select('points').eq('whatsapp', customerPhone).single();
+        // Obtenemos los puntos actuales para sumar
+        const { data: user } = await supabase
+            .from('customers')
+            .select('points')
+            .eq('whatsapp', customerPhone)
+            .single();
+
         const currentPoints = user?.points || 0;
         
-        const { error: upError } = await supabase.from('customers').update({ 
-            points: currentPoints + 10, 
-            has_reviewed: true 
-        }).eq('whatsapp', customerPhone);
+        // Actualizamos puntos y marcamos como ya premiado
+        const { error: upError } = await supabase
+            .from('customers')
+            .update({ 
+                points: currentPoints + 10, 
+                has_reviewed: true 
+            })
+            .eq('whatsapp', customerPhone);
 
         if (!upError) {
             setHasReviewed(true);
@@ -133,6 +158,13 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     setSuccess(true);
     setComment('');
     fetchTestimonials();
+
+    // ✅ CERRAR VENTANA AUTOMÁTICAMENTE DESPUÉS DE 4 SEGUNDOS
+    setTimeout(() => {
+        setSuccess(false);
+        setPointsGainedNow(false);
+        setShowForm(false);
+    }, 4500);
   };
 
   const handleDelete = async (id: string) => {
@@ -162,23 +194,23 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
       
-      {/* 🚀 BANNER CAZADOR DE PUNTOS (Atractivo y desaparece al ganar) */}
+      {/* 🚀 BANNER CAZADOR DE PUNTOS - ATRACTIVO Y EFECTIVO */}
       {!hasReviewed && customerPhone && (
         <div className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
-            <div className="relative p-4 flex items-center gap-4">
-                <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner">
+            <div className="relative p-5 flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10">
                     <Sparkles size={24} className="animate-pulse" fill="currentColor" />
                 </div>
                 <div className="flex-1">
                     <p className="text-white font-black text-sm uppercase tracking-tighter leading-none mb-1">¡Puntos Gratis para ti!</p>
-                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
+                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-2 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
                 </div>
             </div>
         </div>
       )}
 
-      <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between">
+      <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between bg-white">
         <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}>
           <h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>
           {holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}
@@ -194,7 +226,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
             <div className="text-center min-w-[64px]">
               <p className="text-4xl font-black text-orange-500 leading-none">{avg.toFixed(1)}</p>
               <div className="flex justify-center mt-2 scale-75 origin-center"><StarRating value={Math.round(avg)} /></div>
-              <p className="text-[10px] text-gray-400 mt-1 font-bold">{testimonials.length} opiniones</p>
+              <p className="text-[10px] text-gray-400 mt-1 font-bold tracking-tighter">{testimonials.length} opiniones</p>
             </div>
             <div className="flex-1 space-y-1">
               {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
@@ -207,41 +239,41 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20">
           {success ? (
             <div className="flex flex-col items-center py-6 gap-5 animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-500 rounded-[20px] flex items-center justify-center shadow-xl shadow-green-100 rotate-12"><Trophy size={32} className="text-white" /></div>
+              <div className="w-20 h-20 bg-green-500 rounded-[28px] flex items-center justify-center shadow-xl shadow-green-100 rotate-12"><Trophy size={40} className="text-white" /></div>
               <div className="text-center space-y-4">
                 <p className="text-green-700 font-black text-lg uppercase tracking-tight leading-none">¡Opinión Publicada!</p>
                 {pointsGainedNow ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         <p className="text-green-600 text-xs font-bold uppercase px-4 leading-tight">Has ganado tus primeros 10 puntos por ser parte activa del club.</p>
                         <button 
                             onClick={onNavigateRanking}
-                            className="bg-green-600 text-white px-6 py-4 rounded-[22px] font-black text-xs uppercase shadow-xl active:scale-95 transition-transform flex items-center gap-3 mx-auto"
+                            className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl shadow-green-200 active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
                         >
-                            Ver mis puntos en Ranking <Trophy size={16} />
+                            Ver mis 10 puntos ahora <Trophy size={18} />
                         </button>
                     </div>
                 ) : (
-                    <p className="text-green-600/60 text-xs font-bold uppercase">¡Gracias por volver a compartir!</p>
+                    <p className="text-green-600/60 text-xs font-bold uppercase">¡Gracias por volver a compartir tu experiencia!</p>
                 )}
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">
-                  {photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="flex items-center gap-3 bg-white p-4 rounded-3xl border border-orange-100 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">
+                  {photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-3 text-gray-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p>
-                    <p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p>
+                    <p className="text-base font-bold text-gray-800 truncate">{name || 'Invitado'}</p>
                 </div>
               </div>
               <div className="text-center">
                 <p className="text-[11px] text-gray-500 mb-3 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
                 <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
-              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia con nosotros..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[24px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-sm" />
-              {error && <p className="text-red-500 text-xs font-black text-center uppercase">{error}</p>}
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia con nosotros..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[28px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
+              {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
               <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">
                 {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}
               </button>
@@ -250,16 +282,16 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         </div>
       )}
 
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-gray-50 bg-white">
         {!loading && testimonials.map(t => (
           <div key={t.id} className="flex gap-4 px-5 py-6 hover:bg-gray-50/50 transition-colors">
-            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50">
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50 shadow-sm">
               {t.photo_url ? <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm uppercase">{t.author_name.charAt(0)}</div>}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <p className="text-sm font-bold text-gray-900 truncate">{t.author_name}</p>
-                {adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center"><Trash2 size={13} /></button>}
+                <p className="text-sm font-bold text-gray-900 truncate tracking-tight">{t.author_name}</p>
+                {adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center border border-red-100 active:scale-75 transition-all"><Trash2 size={13} /></button>}
               </div>
               <div className="scale-75 origin-left opacity-80 mb-1"><StarRating value={t.stars} /></div>
               <p className="text-gray-600 text-[13px] font-medium leading-relaxed">{t.comment}</p>
