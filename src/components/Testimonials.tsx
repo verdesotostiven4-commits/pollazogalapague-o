@@ -71,27 +71,24 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const holdRafRef = useRef<number>();
   const holdStartRef = useRef<number>(0);
 
-  // 🔎 CONSULTA REAL: Verificar si el cliente ya recibió puntos
+  // 🔎 FUNCIÓN PARA NORMALIZAR TELÉFONO (Match por últimos 9 dígitos)
+  const getCleanPhone = (phone: string) => phone.replace(/\D/g, '').slice(-9);
+
   const checkReviewStatus = useCallback(async () => {
     if (!customerPhone) return;
+    const clean = getCleanPhone(customerPhone);
     try {
-        const { data, error: fetchErr } = await supabase
+        const { data } = await supabase
             .from('customers')
             .select('has_reviewed')
-            .eq('whatsapp', customerPhone)
-            .maybeSingle(); // Usamos maybeSingle para evitar error si no existe
+            .ilike('whatsapp', `%${clean}`) // Match flexible
+            .maybeSingle();
         
-        if (data) {
-            setHasReviewed(!!data.has_reviewed);
-        }
-    } catch (e) {
-        console.error("Error verificando puntos:", e);
-    }
+        if (data) setHasReviewed(!!data.has_reviewed);
+    } catch (e) { console.error(e); }
   }, [customerPhone]);
 
-  useEffect(() => {
-    checkReviewStatus();
-  }, [checkReviewStatus]);
+  useEffect(() => { checkReviewStatus(); }, [checkReviewStatus]);
 
   useEffect(() => {
     if (showForm) {
@@ -114,7 +111,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     setSubmitting(true);
     setError('');
 
-    // 1. Enviar testimonio normal
+    // 1. Enviar testimonio
     const { error: err } = await supabase.from('testimonials').insert({
       author_name: name.trim(),
       stars,
@@ -128,29 +125,21 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       return;
     }
 
-    // 2. LÓGICA DE PUNTOS BLINDADA
+    // 2. Lógica de Puntos Blindada (Match por últimos 9 dígitos)
     if (customerPhone && !hasReviewed) {
-        // Obtenemos los puntos actuales para sumar
-        const { data: user } = await supabase
-            .from('customers')
-            .select('points')
-            .eq('whatsapp', customerPhone)
-            .single();
-
-        const currentPoints = user?.points || 0;
+        const clean = getCleanPhone(customerPhone);
+        const { data: user } = await supabase.from('customers').select('points, id').ilike('whatsapp', `%${clean}`).maybeSingle();
         
-        // Actualizamos puntos y marcamos como ya premiado
-        const { error: upError } = await supabase
-            .from('customers')
-            .update({ 
-                points: currentPoints + 10, 
-                has_reviewed: true 
-            })
-            .eq('whatsapp', customerPhone);
+        if (user) {
+            const { error: upError } = await supabase
+                .from('customers')
+                .update({ points: (user.points || 0) + 10, has_reviewed: true })
+                .eq('id', user.id);
 
-        if (!upError) {
-            setHasReviewed(true);
-            setPointsGainedNow(true);
+            if (!upError) {
+                setHasReviewed(true);
+                setPointsGainedNow(true);
+            }
         }
     }
 
@@ -159,12 +148,12 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     setComment('');
     fetchTestimonials();
 
-    // ✅ CERRAR VENTANA AUTOMÁTICAMENTE DESPUÉS DE 4 SEGUNDOS
+    // Auto-cierre a los 5 segundos
     setTimeout(() => {
         setSuccess(false);
         setPointsGainedNow(false);
         setShowForm(false);
-    }, 4500);
+    }, 5000);
   };
 
   const handleDelete = async (id: string) => {
@@ -194,17 +183,17 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
       
-      {/* 🚀 BANNER CAZADOR DE PUNTOS - ATRACTIVO Y EFECTIVO */}
-      {!hasReviewed && customerPhone && (
-        <div className="relative overflow-hidden group">
+      {/* 🚀 BANNER CAZADOR DE PUNTOS */}
+      {!hasReviewed && customerName && (
+        <div className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
             <div className="relative p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner">
                     <Sparkles size={24} className="animate-pulse" fill="currentColor" />
                 </div>
                 <div className="flex-1">
                     <p className="text-white font-black text-sm uppercase tracking-tighter leading-none mb-1">¡Puntos Gratis para ti!</p>
-                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-2 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
+                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Opina y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black">+10 PUNTOS</span> para el Ranking.</p>
                 </div>
             </div>
         </div>
@@ -215,7 +204,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
           <h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>
           {holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}
         </div>
-        <button onClick={() => { setSuccess(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg shadow-orange-100 uppercase tracking-widest">
+        <button onClick={() => { setSuccess(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg uppercase tracking-widest">
           {showForm ? 'Cerrar' : 'Opinar'}
         </button>
       </div>
@@ -226,7 +215,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
             <div className="text-center min-w-[64px]">
               <p className="text-4xl font-black text-orange-500 leading-none">{avg.toFixed(1)}</p>
               <div className="flex justify-center mt-2 scale-75 origin-center"><StarRating value={Math.round(avg)} /></div>
-              <p className="text-[10px] text-gray-400 mt-1 font-bold tracking-tighter">{testimonials.length} opiniones</p>
+              <p className="text-[10px] text-gray-400 mt-1 font-bold">{testimonials.length} opiniones</p>
             </div>
             <div className="flex-1 space-y-1">
               {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
@@ -239,21 +228,21 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20">
           {success ? (
             <div className="flex flex-col items-center py-6 gap-5 animate-in zoom-in duration-300">
-              <div className="w-20 h-20 bg-green-500 rounded-[28px] flex items-center justify-center shadow-xl shadow-green-100 rotate-12"><Trophy size={40} className="text-white" /></div>
+              <div className="w-20 h-20 bg-green-500 rounded-[24px] flex items-center justify-center shadow-xl rotate-12"><Trophy size={40} className="text-white" /></div>
               <div className="text-center space-y-4">
                 <p className="text-green-700 font-black text-lg uppercase tracking-tight leading-none">¡Opinión Publicada!</p>
                 {pointsGainedNow ? (
                     <div className="space-y-4">
-                        <p className="text-green-600 text-xs font-bold uppercase px-4 leading-tight">Has ganado tus primeros 10 puntos por ser parte activa del club.</p>
+                        <p className="text-green-600 text-xs font-bold uppercase px-4 leading-tight italic">¡FELICIDADES! HAS GANADO 10 PUNTOS</p>
                         <button 
                             onClick={onNavigateRanking}
-                            className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl shadow-green-200 active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
+                            className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
                         >
-                            Ver mis 10 puntos ahora <Trophy size={18} />
+                            REVISAR MIS PUNTOS EN RANKING <Trophy size={18} />
                         </button>
                     </div>
                 ) : (
-                    <p className="text-green-600/60 text-xs font-bold uppercase">¡Gracias por volver a compartir tu experiencia!</p>
+                    <p className="text-green-600/60 text-xs font-bold uppercase">¡Gracias por compartir tu experiencia!</p>
                 )}
               </div>
             </div>
@@ -272,9 +261,9 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                 <p className="text-[11px] text-gray-500 mb-3 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
                 <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
-              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia con nosotros..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[28px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia con nosotros..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[28px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all" />
               {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
-              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">
+              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">
                 {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}
               </button>
             </form>
