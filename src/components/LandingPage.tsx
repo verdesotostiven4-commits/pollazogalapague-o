@@ -5,8 +5,7 @@ import {
   Share,
   PlusSquare,
   X,
-  Loader2,
-  Smartphone
+  Loader2
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -33,7 +32,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [installMessage, setInstallMessage] = useState('');
 
-  const logoUrl = LOGO_OFFICIAL;
+  const logoUrl = extraSettings?.logo_url || LOGO_OFFICIAL;
   const primaryColor = settings?.primary_color || '#f97316';
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
       setShowIOSModal(true);
       return;
     }
-
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
@@ -67,7 +65,6 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
       setDeferredPrompt(null);
       return;
     }
-    
     setInstallMessage('Usa el menú de tu navegador para instalar la App.');
     onInstall();
   };
@@ -78,119 +75,93 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         {`
           @keyframes pollazoFloat {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-15px); }
+            50% { transform: translateY(-10px); }
           }
-          .pollazo-logo-float { animation: pollazoFloat 4s ease-in-out infinite; }
-          .ios-modal-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-          @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-          }
+          .pollazo-logo-float { animation: pollazoFloat 6s ease-in-out infinite; }
           * { font-style: normal !important; text-decoration: none !important; }
         `}
       </style>
 
-      {/* HERO / SPLASH SCREEN */}
-      <section className="relative h-full flex flex-col items-center justify-center px-6 text-center bg-gradient-to-br from-orange-600 via-orange-500 to-orange-400">
+      {/* ✅ DISEÑO ORIGINAL RESTAURADO */}
+      <section className="relative h-full flex flex-col items-center justify-center px-6 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-200/20 blur-3xl" />
+          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute -bottom-32 -right-28 w-[420px] h-[420px] rounded-full bg-orange-100/30 blur-3xl" />
         </div>
 
-        <div className="relative z-10 max-w-md mx-auto space-y-8" style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(20px)', transition: 'all 1s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <div className="relative z-10 max-w-md mx-auto space-y-10" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease' }}>
           <div className="relative flex justify-center">
-            <div className="absolute inset-0 bg-white/20 rounded-full blur-2xl transform scale-110" />
-            <img src={logoUrl} className="relative w-56 h-52 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)] pollazo-logo-float" alt="Logo" />
+            <img src={logoUrl} className="relative w-52 h-52 object-contain drop-shadow-2xl pollazo-logo-float" alt="Logo" />
           </div>
 
-          <div className="space-y-3">
-            <div className="inline-block px-3 py-1 bg-black/10 rounded-full backdrop-blur-sm border border-white/10">
-              <p className="text-white font-black uppercase tracking-[0.3em] text-[9px]">Puerto Ayora • Galápagos</p>
-            </div>
-            <h1 className="font-black text-5xl text-white leading-none tracking-tighter drop-shadow-lg">
-              La Casa del Pollazo
-            </h1>
-            <p className="text-white/90 text-base font-bold max-w-xs mx-auto drop-shadow-sm">
-              Pollo fresco y productos esenciales directos a tu puerta.
-            </p>
+          <div className="space-y-4">
+            <p className="text-white/80 font-black uppercase tracking-[0.35em] text-[10px]">GALÁPAGOS • ECUADOR</p>
+            <h1 className="font-black text-5xl text-white leading-none tracking-tighter">Pollazo El Mirador</h1>
+            <p className="text-white/90 text-sm font-semibold max-w-xs mx-auto">Tu market con pollo fresco enfundado y productos esenciales.</p>
           </div>
 
-          <div className="w-full max-w-xs mx-auto space-y-4 pt-4">
+          <div className="w-full max-w-xs mx-auto space-y-4">
             <button 
               onClick={handleInstallClick} 
-              className="w-full py-4.5 bg-white text-orange-600 rounded-[24px] font-black shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 text-lg hover:bg-orange-50"
+              className="w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
             >
               {!deferredPrompt && !/iPhone|iPad|iPod/.test(window.navigator.userAgent) ? (
-                <><Loader2 size={22} className="animate-spin" /> Conectando...</>
+                <><Loader2 size={20} className="animate-spin" /> Preparando...</>
               ) : (
-                <><Smartphone size={22} /> Instalar App</>
+                <><Download size={20} /> Instalar App</>
               )}
             </button>
             
             <button 
               onClick={onContinueWeb} 
-              className="group text-sm font-bold text-white/80 mx-auto flex items-center gap-2 justify-center active:opacity-50 transition-all"
+              className="text-xs font-bold text-white/75 mx-auto flex items-center gap-2 justify-center active:opacity-50 transition-transform hover:scale-105"
             >
-              <Globe size={16} className="group-hover:rotate-12 transition-transform" /> 
-              Continuar en la web
+              <Globe size={14} /> Continuar en la web
             </button>
             
-            {installMessage && <p className="text-white/90 text-[11px] font-black uppercase tracking-wider bg-black/10 py-2 rounded-xl backdrop-blur-sm">{installMessage}</p>}
+            {installMessage && <p className="text-white/75 text-[10px] font-bold uppercase mt-2">{installMessage}</p>}
           </div>
         </div>
       </section>
 
-      {/* MODAL REDISEÑADO PARA IOS (IPHONE) */}
+      {/* ✅ MODAL REDISEÑADO PARA IOS (IPHONE) - LIMPIO Y PROFESIONAL */}
       {showIOSModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4 sm:p-6" onClick={() => setShowIOSModal(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-          
-          <div 
-            className="ios-modal-enter w-full max-w-md bg-white rounded-[40px] p-8 shadow-[0_20px_70px_-10px_rgba(0,0,0,0.5)] relative z-[110] border-t border-orange-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden" />
-            
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4" onClick={() => setShowIOSModal(false)}>
+          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl relative animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
             <button 
               onClick={() => setShowIOSModal(false)} 
-              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center transition-all active:scale-75 hover:bg-gray-100"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center transition-transform active:scale-90"
             >
-              <X size={20} className="text-gray-400" />
+              <X size={20} />
             </button>
 
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-orange-50 rounded-[28px] flex items-center justify-center mx-auto mb-4 border-2 border-orange-100">
-                <img src={logoUrl} className="w-14 h-14 object-contain" alt="Icono" />
-              </div>
-              <h2 className="text-2xl font-black text-gray-900 leading-tight">Instalar en tu iPhone</h2>
-              <p className="text-gray-500 font-medium text-sm mt-1">Acceso directo desde tu pantalla</p>
+               <div className="w-20 h-20 bg-orange-50 rounded-[24px] flex items-center justify-center mx-auto mb-4 border-2 border-orange-100">
+                  <img src={logoUrl} className="w-14 h-14 object-contain" alt="Logo" />
+               </div>
+               <h2 className="text-2xl font-black text-gray-950 leading-tight">Instalar en iPhone</h2>
+               <p className="text-gray-500 font-medium text-sm mt-1">Sigue estos pasos en Safari</p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-5 bg-gray-50 border border-gray-100 rounded-3xl p-5 hover:border-orange-200 transition-colors">
-                <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-4 bg-orange-50 border border-orange-100 rounded-2xl p-5">
+                <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
                   <Share className="text-orange-500" size={24} />
                 </div>
-                <div className="text-left">
-                  <p className="font-black text-[14px] text-gray-900 uppercase tracking-tight leading-none">Paso 1</p>
-                  <p className="text-[13px] text-gray-600 mt-1 font-medium italic">Pulsa el botón 'Compartir' de Safari abajo.</p>
-                </div>
+                <p className="font-black text-[14px] text-gray-950">1. Pulsa el botón 'Compartir' en la barra de Safari.</p>
               </div>
 
-              <div className="flex items-center gap-5 bg-gray-50 border border-gray-100 rounded-3xl p-5 hover:border-orange-200 transition-colors">
-                <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-4 bg-orange-50 border border-orange-100 rounded-2xl p-5">
+                <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
                   <PlusSquare className="text-orange-500" size={24} />
                 </div>
-                <div className="text-left">
-                  <p className="font-black text-[14px] text-gray-900 uppercase tracking-tight leading-none">Paso 2</p>
-                  <p className="text-[13px] text-gray-600 mt-1 font-medium italic">Busca y selecciona 'Agregar a inicio'.</p>
-                </div>
+                <p className="font-black text-[14px] text-gray-950">2. Desliza y selecciona 'Agregar al inicio'.</p>
               </div>
             </div>
 
             <button 
               onClick={() => setShowIOSModal(false)} 
-              className="w-full mt-8 py-4.5 rounded-[22px] bg-orange-500 text-white font-black text-base shadow-xl shadow-orange-200 transition-all active:scale-95 hover:bg-orange-600"
+              className="w-full mt-8 py-4.5 rounded-2xl bg-orange-500 text-white font-black text-base shadow-lg shadow-orange-200 transition-all active:scale-95"
             >
               ¡Entendido, listo!
             </button>
