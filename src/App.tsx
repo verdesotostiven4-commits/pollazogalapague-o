@@ -51,15 +51,9 @@ function AppShell() {
   const [pendingOrder, setPendingOrder] = useState(false);
 
   useEffect(() => {
-    const handlePopState = () => {
-      if (screen !== 'home') {
-        setScreen('home');
-      }
-    };
+    const handlePopState = () => { if (screen !== 'home') setScreen('home'); };
     window.addEventListener('popstate', handlePopState);
-    if (screen !== 'home') {
-      window.history.pushState({ screen }, '');
-    }
+    if (screen !== 'home') window.history.pushState({ screen }, '');
     return () => window.removeEventListener('popstate', handlePopState);
   }, [screen]);
 
@@ -85,14 +79,9 @@ function AppShell() {
 
   const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
     setUserData(u.whatsapp, u.name, u.avatarUrl); 
-    try {
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
-    } catch (e) { console.error("Error perfil:", e); }
+    try { await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); } catch (e) { console.error("Error perfil:", e); }
     setShowLoginModal(false);
-    if (pendingOrder) {
-      setPendingOrder(false);
-      setShowConfirmation(true);
-    }
+    if (pendingOrder) { setPendingOrder(false); setShowConfirmation(true); }
   };
 
   const handleWhatsApp = async () => {
@@ -108,7 +97,6 @@ function AppShell() {
       return acc + (p ? Number(p.price) * item.quantity : 0);
     }, 0);
 
-    // 🚀 MEJORA PARA IPHONE: Construimos la URL antes del await
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
     try {
@@ -121,14 +109,9 @@ function AppShell() {
         status: 'Recibido',
         preorder: !isStoreOpen()
       });
-    } catch (err) {
-      console.error("Error al guardar orden:", err);
-    }
+    } catch (err) { console.error("Error al guardar orden:", err); }
 
-    // ✅ SOLUCIÓN IPHONE: Usamos location.href para evitar el bloqueo de Safari
     window.location.href = whatsappUrl;
-    
-    // Limpiamos y mandamos al home después de un pequeño delay para asegurar la redirección
     setTimeout(() => {
         clearCart();
         setShowConfirmation(false);
@@ -138,46 +121,19 @@ function AppShell() {
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
-      <AppHeader 
-        screen={screen} 
-        onNavigate={handleNavigate} 
-        onOpenProfile={() => setShowLoginModal(true)} 
-        customerAvatar={customerAvatar} 
-      />
+      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
-        
-        {screen === 'home' && (
-          <HomeScreen 
-            onNavigate={handleNavigate} 
-            onNavigateToCategory={handleCategoryClick} 
-          />
-        )}
-
-        {screen === 'catalog' && (
-          <CatalogScreen 
-            initialCategory={activeCategory} 
-            onCategoryChange={(cat) => setActiveCategory(cat as any)} 
-          />
-        )}
-
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
+        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={(cat) => setActiveCategory(cat as any)} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} />}
+        {/* ✅ PASANDO onNavigate A INFOSCREEN */}
+        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-      
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
-      
       <FlyParticleLayer />
-      
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} 
-        onLogin={handleLogin}
-        title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"}
-        subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"}
-      />
-      
+      <LoginModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} onLogin={handleLogin} title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
@@ -191,9 +147,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(reg => reg.update());
-    }
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
   }, []);
 
   if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
@@ -201,14 +155,10 @@ export default function App() {
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage 
-          onInstall={() => {}} 
-          canInstall={false} 
-          onContinueWeb={() => {
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => {
             localStorage.setItem('pollazo_landing_dismissed', '1');
             setLandingDone(true);
-          }} 
-        />
+        }} />
       </AdminProvider>
     );
   }
