@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error
       return (
         <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
           <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
-          <p className="text-gray-600 mt-2">Estamos sincronizando el sistema de puntos...</p>
+          <p className="text-gray-600 mt-2 italic font-bold">Recuperando el Imperio...</p>
           <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform">
             LIMPIAR Y REINTENTAR
           </button>
@@ -44,7 +44,7 @@ function AppShell() {
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, loading, products, upsertCustomer } = useAdmin();
+  const { createOrder, products, upsertCustomer, loading } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -91,11 +91,23 @@ function AppShell() {
       setShowLoginModal(true);
       return;
     }
+    
     const code = orderCode();
-    const subtotal = items.reduce((acc, item) => {
-      const p = products.find(prod => prod.id === item.id);
-      return acc + (p ? Number(p.price) * item.quantity : 0);
-    }, 0);
+    
+    // ✅ MOTOR DE PRECIOS MEJORADO: Empaquetar nombre y precio real para el Admin
+    const detailedItems = items.map(item => {
+        const p = products.find(prod => prod.id === item.id);
+        return {
+            ...item,
+            name: p?.name || 'Producto del Menú',
+            price: parseFloat(p?.price || '0')
+        };
+    });
+
+    // Calcular subtotal real con números limpios
+    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const fee = deliveryFeeOf(subtotal);
+    const total = subtotal + fee;
 
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
@@ -103,15 +115,19 @@ function AppShell() {
       await createOrder({
         order_code: code,
         customer_phone: customerPhone,
-        items,
-        subtotal,
-        total: subtotal + deliveryFeeOf(subtotal),
+        items: detailedItems, // ✅ ENVIAMOS EL TICKET DETALLADO
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        total: parseFloat(total.toFixed(2)), // ✅ ENVIAMOS EL TOTAL REAL CALCULADO
         status: 'Recibido',
-        preorder: !isStoreOpen()
+        preorder: !isStoreOpen(),
+        created_at: new Date().toISOString() // ✅ MARCA DE TIEMPO EXACTA
       });
-    } catch (err) { console.error("Error al guardar orden:", err); }
+    } catch (err) { 
+        console.error("Error al guardar orden:", err); 
+    }
 
     window.location.href = whatsappUrl;
+    
     setTimeout(() => {
         clearCart();
         setShowConfirmation(false);
@@ -127,7 +143,6 @@ function AppShell() {
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={(cat) => setActiveCategory(cat as any)} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        {/* ✅ PASANDO onNavigate A INFOSCREEN */}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
       </main>
