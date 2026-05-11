@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { 
   Edit3, LogOut, Package, Plus, Search, Send, Trash2, Users, Image, Trophy, 
-  Crown, Medal, Eye, EyeOff, ClipboardList, Clock, PackageSearch, RefreshCw, Save, X, History
+  Crown, Medal, Eye, EyeOff, ClipboardList, Clock, PackageSearch, RefreshCw, Save, X, History, Zap
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { Category, OrderStatus, Product } from '../types';
@@ -16,22 +16,16 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
   const add = (d: string) => {
     const next = (pin + d).slice(0, 4);
     setPin(next);
-    if (next.length === 4) {
-      if (next === ADMIN_PIN) { sessionStorage.setItem(PIN_KEY, '1'); onAuth(); }
-      else { setTimeout(() => setPin(''), 350); }
-    }
+    if (next === ADMIN_PIN) { sessionStorage.setItem(PIN_KEY, '1'); onAuth(); }
+    else if (next.length === 4) setPin('');
   };
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 text-white text-center">
       <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500">
-        <img src="/logo-final.png" className="w-24 h-24 mx-auto object-contain" />
-        <h1 className="text-2xl font-black italic uppercase tracking-widest">Admin VIP</h1>
-        <div className="flex justify-center gap-4">
-          {[0,1,2,3].map(i => <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all ${i < pin.length ? 'bg-orange-500 scale-125 shadow-[0_0_10px_#f97316]' : 'bg-white/10'}`} />)}
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d,i) => d ? <button key={i} onClick={() => d === '⌫' ? setPin(p => p.slice(0,-1)) : add(d)} className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-bold active:scale-90 transition-all hover:bg-white/10">{d}</button> : <div key={i} />)}
-        </div>
+        <img src="/logo-final.png" className="w-20 h-20 mx-auto object-contain" />
+        <h1 className="text-2xl font-black italic uppercase tracking-widest leading-none">Admin VIP</h1>
+        <div className="flex justify-center gap-4">{[0,1,2,3].map(i => <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all ${i < pin.length ? 'bg-orange-500 scale-125 shadow-[0_0_10px_#f97316]' : 'bg-white/10'}`} />)}</div>
+        <div className="grid grid-cols-3 gap-4">{['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d,i) => d ? <button key={i} onClick={() => d === '⌫' ? setPin(p => p.slice(0,-1)) : add(d)} className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-bold active:scale-90 transition-all">{d}</button> : <div key={i}/>)}</div>
       </div>
     </div>
   );
@@ -40,27 +34,26 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const context = useAdmin();
-  const [tab, setTab] = useState<'products' | 'branding' | 'customers' | 'orders' | 'ranking_config'>('orders');
+  const [tab, setTab] = useState('orders');
   const [search, setSearch] = useState('');
+  const [savingPrizes, setSavingPrizes] = useState(false);
+  
   const [draft, setDraft] = useState({ name: '', category: 'Pollos', price: '', description: '', image: '', available: true });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
+  if (!context) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black italic">Cargando...</div>;
   
-  if (!context) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black italic uppercase">Cargando Imperio...</div>;
-  
-  const products = context.products || [];
-  const categories = context.categories || [];
-  const customers = context.customers || [];
-  const orders = context.orders || [];
-  const seasons = context.seasons || [];
-  const extraSettings = context.extraSettings || {};
-  const loading = context.loading || false;
+  const { products = [], categories = [], customers = [], orders = [], seasons = [], extraSettings = {}, updateExtraSettings, finalizeSeason, deleteSeason, toggleSeasonVisibility, updateSeasonWinners, refreshData, updateOrderStatus, addCustomerPoints, addProduct, updateProduct, deleteProduct, loading } = context;
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black animate-pulse uppercase tracking-[0.2em]">Sincronizando Imperio...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black animate-pulse">Sincronizando Imperio...</div>;
 
   const ranking = [...customers].sort((a,b) => (b.points || 0) - (a.points || 0));
 
+  // ✅ ORDEN CRONOLÓGICO: Newest First
+  const sortedSeasons = [...seasons].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+  // ✅ ORDEN MENÚ: Agrupar por categoría
   const sortedProducts = [...products]
     .filter(p => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
@@ -71,14 +64,21 @@ export default function AdminDashboard() {
         return a.name.localeCompare(b.name);
     });
 
-  const sortedSeasons = [...seasons].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  // ✅ BOTÓN PUSH: Guardar Premios y Título en vivo
+  const handlePushPrizes = async () => {
+    setSavingPrizes(true);
+    try {
+        await updateExtraSettings(extraSettings);
+        alert("¡Ranking actualizado con éxito para todos los clientes! 🍗🔥");
+    } catch (e) { alert("Error al publicar"); }
+    finally { setSavingPrizes(false); }
+  };
 
-  // ✅ FUNCIÓN CORREGIDA: Finalizar Temporada con los premios actuales
   const handleFinalizeSeason = async () => {
     const title = extraSettings.ranking_title || 'Temporada Finalizada';
-    if (!confirm(`¿Finalizar "${title}" y guardar el Top 3?`)) return;
+    if (!confirm(`¿Finalizar "${title}" y guardar Top 3 con los premios actuales?`)) return;
     
-    // Capturamos el Top 3 actual con sus puntos y premios correspondientes
+    // Captura de datos inmutable (los premios de HOY se guardan en el historial de HOY)
     const top3 = ranking.slice(0, 3).map((c, i) => ({
       name: c.name || 'Guerrero',
       points: c.points || 0,
@@ -88,18 +88,18 @@ export default function AdminDashboard() {
     }));
 
     try {
-      await context.finalizeSeason(title, "Premios VIP Entregados", top3);
-      alert("¡Temporada guardada en el historial!");
-    } catch (e) { alert("Error al finalizar"); }
+      await finalizeSeason(title, "Premios de Temporada Entregados", top3);
+      alert("¡Temporada finalizada y enviada al final de la lista! (Aparecerá arriba en el historial)");
+    } catch (e) { alert("Error"); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900 overflow-x-hidden leading-tight">
+    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900 overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-white border-b p-4 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-2"><img src={extraSettings.logo_url || '/logo-final.png'} className="w-8 h-8 object-contain"/><p className="font-black text-xs uppercase italic">Admin Panel VIP</p></div>
+        <div className="flex items-center gap-2"><img src={extraSettings?.logo_url || '/logo-final.png'} className="w-8 h-8 object-contain"/><p className="font-black text-xs uppercase italic tracking-tighter">Admin VIP</p></div>
         <div className="flex gap-2">
-            <button onClick={context.refreshData} className="p-2 bg-orange-50 text-orange-600 rounded-xl active:scale-75 transition-all"><RefreshCw size={18}/></button>
-            <button onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); }} className="p-2 text-gray-400 active:scale-75"><LogOut size={18}/></button>
+            <button onClick={refreshData} className="p-2.5 bg-orange-50 text-orange-600 rounded-xl active:scale-75 transition-all"><RefreshCw size={18}/></button>
+            <button onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); }} className="p-2.5 text-gray-400 active:scale-75"><LogOut size={18}/></button>
         </div>
       </header>
 
@@ -109,70 +109,89 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'ranking_config' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            <section className="bg-white rounded-[32px] p-6 shadow-xl border border-gray-100 space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 leading-tight">
+            <section className="bg-white rounded-[32px] p-6 shadow-xl border border-orange-100 space-y-6">
+              <div className="flex items-center gap-3 border-b pb-4 border-gray-50">
+                <div className="p-3 bg-orange-100 rounded-2xl text-orange-600"><Trophy size={22}/></div>
+                <h2 className="font-black text-lg uppercase italic">Control de Concurso</h2>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1"><label className="text-[9px] font-black uppercase text-gray-400">Título del Ranking</label><input value={extraSettings.ranking_title || ''} onChange={e=>context.updateExtraSettings({ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-xl p-4 text-sm font-bold border-none outline-none shadow-inner"/></div>
-                <div className="space-y-1"><label className="text-[9px] font-black uppercase text-gray-400">Fecha de Finalización</label><input type="datetime-local" value={extraSettings.ranking_end_date || ''} onChange={e=>context.updateExtraSettings({ranking_end_date: e.target.value})} className="w-full bg-gray-50 rounded-xl p-4 text-sm font-bold border-none outline-none shadow-inner"/></div>
+                <div className="space-y-1"><label className="text-[9px] font-black uppercase text-gray-400">Título Actual</label><input value={extraSettings.ranking_title || ''} onChange={e=>updateExtraSettings({ranking_title: e.target.value})} className="w-full bg-gray-50 rounded-xl p-4 text-sm font-bold border-none outline-none shadow-inner"/></div>
+                <div className="space-y-1"><label className="text-[9px] font-black uppercase text-gray-400">Fecha Límite</label><input type="datetime-local" value={extraSettings.ranking_end_date || ''} onChange={e=>updateExtraSettings({ranking_end_date: e.target.value})} className="w-full bg-gray-50 rounded-xl p-4 text-sm font-bold border-none outline-none shadow-inner"/></div>
                 
-                <div className="md:col-span-2 space-y-3 pt-4 border-t">
-                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">🎁 Configurar Premios (Se verán en la App)</p>
-                  <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-100 flex items-center gap-3 shadow-sm"><Crown size={16} className="text-yellow-500"/><input placeholder="Premio 1er Lugar" value={extraSettings.prize_1 || ''} onChange={e=>context.updateExtraSettings({prize_1: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm"><Medal size={16} className="text-slate-400"/><input placeholder="Premio 2do Lugar" value={extraSettings.prize_2 || ''} onChange={e=>context.updateExtraSettings({prize_2: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
-                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 flex items-center gap-3 shadow-sm"><Medal size={16} className="text-orange-500"/><input placeholder="Premio 3er Lugar" value={extraSettings.prize_3 || ''} onChange={e=>context.updateExtraSettings({prize_3: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
+                <div className="md:col-span-2 space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1 italic">Edita los premios que verán los clientes:</p>
+                  <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-100 flex items-center gap-3"><Crown size={16} className="text-yellow-500"/><input placeholder="Premio Oro" value={extraSettings.prize_1 || ''} onChange={e=>updateExtraSettings({prize_1: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3"><Medal size={16} className="text-slate-400"/><input placeholder="Premio Plata" value={extraSettings.prize_2 || ''} onChange={e=>updateExtraSettings({prize_2: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
+                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 flex items-center gap-3"><Medal size={16} className="text-orange-500"/><input placeholder="Premio Bronce" value={extraSettings.prize_3 || ''} onChange={e=>updateExtraSettings({prize_3: e.target.value})} className="w-full bg-transparent text-sm font-bold outline-none"/></div>
                 </div>
               </div>
-              <button onClick={handleFinalizeSeason} className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl">Finalizar Temporada Actual</button>
+
+              {/* ✅ BOTÓN PUSH MAESTRO */}
+              <button onClick={handlePushPrizes} className={`w-full py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 ${savingPrizes ? 'bg-gray-400 text-white' : 'bg-orange-600 text-white shadow-orange-200'}`}>
+                <Zap size={18} className={savingPrizes ? 'animate-spin' : 'animate-pulse'}/>
+                {savingPrizes ? 'SINCRO EN CURSO...' : 'ACTUALIZAR RANKING EN VIVO (PUSH)'}
+              </button>
+
+              <button onClick={handleFinalizeSeason} className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl mt-2 opacity-80">Finalizar y Guardar Top 3</button>
             </section>
             
             <section className="space-y-4">
-               <h2 className="font-black uppercase italic px-2 text-gray-400 text-xs">Salón de la Fama (Historial)</h2>
+               <h2 className="font-black uppercase italic px-2 text-gray-400 text-xs flex items-center gap-2"><History size={16}/> Historial Cronológico</h2>
                {sortedSeasons.map((s, idx) => (
                  <div key={s.id} className="bg-white rounded-[32px] p-5 shadow-sm border border-gray-100 space-y-4">
-                   <div className="flex justify-between items-center border-b pb-3 border-gray-50"><p className="font-black text-sm uppercase italic">#{sortedSeasons.length - idx} {s.name}</p><button onClick={() => confirm("¿Borrar?") && context.deleteSeason(s.id)} className="text-red-400 p-2 active:scale-75 transition-all"><Trash2 size={16}/></button></div>
+                   <div className="flex justify-between items-center border-b pb-3 border-gray-50">
+                      <div className="flex items-center gap-2">
+                         <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center font-black text-[10px]">#{sortedSeasons.length - idx}</div>
+                         <p className="font-black text-sm uppercase italic">{s.name}</p>
+                      </div>
+                      <button onClick={() => confirm("¿Borrar?") && deleteSeason(s.id)} className="text-red-400 p-2"><Trash2 size={16}/></button>
+                   </div>
                    <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
                      {(s.winners || []).map((w: any, i: number) => (
-                       <div key={i} className="bg-white p-2.5 rounded-xl flex items-center gap-2 shadow-sm border border-gray-100">
-                         <span className="font-black text-[10px] w-6 italic">{i+1}º</span>
-                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black uppercase truncate leading-none">{w.name}</p>
-                            <input placeholder="Pegar link de foto..." className="w-full text-[9px] font-bold text-blue-500 outline-none bg-transparent mt-1 italic" value={w.photo_url || ''} onChange={e => { const n = [...s.winners]; n[i].photo_url = e.target.value; context.updateSeasonWinners(s.id, n); }} />
+                       <div key={i} className="bg-white p-2.5 rounded-xl flex items-center gap-3 shadow-sm border border-gray-100">
+                         <span className="font-black text-[10px] w-6 italic text-gray-400">{i+1}º</span>
+                         <div className="flex-1 min-w-0 leading-none">
+                            <p className="text-[10px] font-black uppercase truncate">{w.name}</p>
+                            <p className="text-[8px] font-bold text-orange-500 mt-1 uppercase truncate">Premio: {w.prize_won || 'Entregado'}</p>
+                            <input placeholder="Pegar link de foto..." className="w-full text-[9px] font-bold text-blue-500 outline-none bg-transparent mt-2 italic" value={w.photo_url || ''} onChange={e => { const n = [...s.winners]; n[i].photo_url = e.target.value; updateSeasonWinners(s.id, n); }} />
                          </div>
                        </div>
                      ))}
                    </div>
-                   <button onClick={() => context.toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase shadow-md transition-all ${s.is_published ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{s.is_published ? '✅ Publicado en App' : 'Publicar Ganadores'}</button>
+                   <button onClick={() => toggleSeasonVisibility(s.id, !s.is_published)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase shadow-md transition-all ${s.is_published ? 'bg-green-500 text-white shadow-green-100' : 'bg-gray-100 text-gray-400'}`}>{s.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}</button>
                  </div>
                ))}
             </section>
           </div>
         )}
 
+        {/* ... (Orders y Menu se mantienen iguales pero ordenados) ... */}
         {tab === 'products' && (
           <div className="space-y-6 pb-20">
             <section className="bg-white rounded-[32px] p-6 shadow-xl border border-orange-100 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input placeholder="Nombre..." value={draft.name} onChange={e=>setDraft({...draft, name: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold outline-none" />
-                <select value={draft.category} onChange={e=>setDraft({...draft, category: e.target.value as Category})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold outline-none">
+                <input placeholder="Nombre..." value={draft.name} onChange={e=>setDraft({...draft, name: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold border-none outline-none shadow-inner" />
+                <select value={draft.category} onChange={e=>setDraft({...draft, category: e.target.value as any})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold border-none outline-none shadow-inner">
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <input placeholder="Precio..." value={draft.price} onChange={e=>setDraft({...draft, price: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold outline-none" />
-                <input placeholder="Link imagen..." value={draft.image} onChange={e=>setDraft({...draft, image: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold outline-none" />
+                <input placeholder="Precio..." value={draft.price} onChange={e=>setDraft({...draft, price: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold border-none outline-none shadow-inner" />
+                <input placeholder="Link imagen..." value={draft.image} onChange={e=>setDraft({...draft, image: e.target.value})} className="bg-gray-50 rounded-2xl p-4 text-sm font-bold border-none outline-none shadow-inner" />
               </div>
-              <button onClick={async () => { if(!draft.name.trim()) return; if(editingId) await context.updateProduct(editingId, draft); else await context.addProduct(draft); setDraft({name:'',category:'Pollos',price:'',description:'',image:'',available:true}); setEditingId(null); }} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black shadow-lg">GUARDAR PLATO</button>
+              <button onClick={async () => { if(!draft.name.trim()) return; if(editingId) await updateProduct(editingId, draft); else await addProduct(draft); setDraft({name:'',category:'Pollos',price:'',description:'',image:'',available:true}); setEditingId(null); }} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black shadow-lg">GUARDAR PLATO</button>
             </section>
             <div className="space-y-3">
               {sortedProducts.map(p => (
-                <div key={p.id} className="bg-white p-3 rounded-[28px] border flex items-center gap-4 shadow-sm">
+                <div key={p.id} className="bg-white p-3 rounded-[28px] border border-gray-100 flex items-center gap-4 shadow-sm group">
                   <img src={p.image || '/logo-final.png'} className="w-14 h-14 rounded-2xl object-cover border shadow-sm"/>
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-[11px] truncate uppercase italic">{p.name}</p>
                     <div className="flex items-center gap-1.5 mt-1"><span className="text-[7px] font-black text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full uppercase border border-orange-100">{p.category}</span><span className="text-[10px] font-black text-gray-400">${parseFloat(p.price || '0').toFixed(2)}</span></div>
                   </div>
                   <div className="flex gap-1 pr-1">
-                    <button onClick={() => context.updateProduct(p.id, { available: !p.available })} className={`p-2.5 rounded-xl ${p.available ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 shadow-inner'}`}><Package size={16}/></button>
-                    <button onClick={() => { setEditingId(p.id); setDraft({...p}); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl active:scale-75"><Edit3 size={16}/></button>
-                    <button onClick={() => confirm("¿Borrar?") && context.deleteProduct(p.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-75"><Trash2 size={16}/></button>
+                    <button onClick={() => updateProduct(p.id, { available: !p.available })} className={`p-2.5 rounded-xl ${p.available ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 shadow-inner'}`}><Package size={16}/></button>
+                    <button onClick={() => { setEditingId(p.id); setDraft({...p}); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl active:scale-75"><Edit3 size={16}/></button>
+                    <button onClick={() => confirm("¿Eliminar?") && deleteProduct(p.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-75"><Trash2 size={16}/></button>
                   </div>
                 </div>
               ))}
@@ -185,18 +204,19 @@ export default function AdminDashboard() {
              {orders.map(o => {
                const customer = customers.find(c => (c.phone || '').replace(/\D/g, '') === (o.customer_phone || '').replace(/\D/g, ''));
                return (
-                 <div key={o.id} className="bg-white rounded-[32px] border p-5 space-y-4 shadow-sm animate-in fade-in">
+                 <div key={o.id} className="bg-white rounded-[32px] border p-5 space-y-4 shadow-sm border-gray-100">
                     <div className="flex justify-between items-center border-b pb-3 border-gray-50">
                        <div className="flex items-center gap-3"><img src={customer?.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${o.customer_phone}`} className="w-11 h-11 rounded-full border-2 border-orange-100 shadow-sm" /><div><p className="font-black text-xs uppercase leading-none">{customer?.name || o.customer_phone}</p><div className="flex items-center gap-1 text-[8px] font-black text-blue-500 mt-1"><Clock size={10}/>{o.created_at ? new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:true}) : '--'}</div></div></div>
                        <div className="text-right leading-none"><p className="font-black text-orange-600 text-sm italic">${Number(o.total || 0).toFixed(2)}</p><p className="text-[7px] font-black text-slate-300 uppercase mt-1">{o.status}</p></div>
                     </div>
                     <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30">
+                       <p className="text-[9px] font-black text-orange-700 uppercase mb-2 flex items-center gap-2"><PackageSearch size={14}/> Detalle Compra</p>
                        {(o.items || []).length > 0 ? (o.items || []).map((item: any, i: number) => (
                          <div key={i} className="flex justify-between text-[10px] font-bold uppercase py-1 border-b border-orange-100/20 last:border-0"><span className="flex-1 truncate mr-2"><span className="text-orange-600 font-black">{item.quantity}x</span> {item.name || 'Producto'}</span><span className="text-gray-400 font-black">${(parseFloat(item.price || '0') * item.quantity).toFixed(2)}</span></div>
-                       )) : <p className="text-[9px] text-gray-400 font-bold italic text-center uppercase">Pedido antiguo o sin detalle</p>}
+                       )) : <p className="text-[9px] text-gray-400 font-bold italic text-center uppercase">Pedido antiguo</p>}
                     </div>
                     <div className="flex gap-2">
-                       <select value={o.status} onChange={e => context.updateOrderStatus(o.id, e.target.value as any)} className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none">{['Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'].map(s => <option key={s} value={s}>{s}</option>)}</select>
+                       <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value as any)} className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none">{['Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'].map(s => <option key={s} value={s}>{s}</option>)}</select>
                        <a href={buildStatusWhatsAppUrl(o.customer_phone, o.order_code, o.status)} target="_blank" className="bg-[#25D366] text-white px-5 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-md active:scale-95 transition-all"><Send size={14}/> Notificar</a>
                     </div>
                  </div>
