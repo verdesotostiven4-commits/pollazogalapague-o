@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { products as seedProducts, categories as seedCategories } from '../data/products';
-import { Customer, Order, Product } from '../types';
+import { Customer, Order, Product, ExtraSettings } from '../types';
 
 export interface ProductOverride {
   id: string;
@@ -13,17 +13,6 @@ export interface AppSettings {
   announcement: string;
   primary_color: string;
   banner_link: string;
-}
-
-export interface ExtraSettings {
-  logo_url: string;
-  ranking_title: string;
-  prize_description: string;
-  ranking_end_date: string;
-  winner_photo_url: string;
-  prize_1?: string; 
-  prize_2?: string; 
-  prize_3?: string; 
 }
 
 export interface ExtendedCustomer extends Customer {
@@ -76,13 +65,13 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 const DEFAULT_EXTRA: ExtraSettings = {
   logo_url: '/logo-final.png',
-  ranking_title: 'Ranking de Clientes',
-  prize_description: '¡Gana premios exclusivos!',
+  ranking_title: 'Ranking VIP',
+  prize_description: 'Premios de Temporada',
   ranking_end_date: '',
   winner_photo_url: '',
-  prize_1: '',
-  prize_2: '',
-  prize_3: '',
+  prize_1: 'Premio Oro',
+  prize_2: 'Premio Plata',
+  prize_3: 'Premio Bronce',
 };
 
 const AdminContext = createContext<AdminContextValue>(null as any);
@@ -139,12 +128,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
       }
       
-      // ✅ MEJORA: Fusionar datos de Supabase con los valores por defecto para evitar pantallas blancas
-      if (extraRes.data) {
-          setExtraSettings({ ...DEFAULT_EXTRA, ...extraRes.data });
-      } else {
-          setExtraSettings(DEFAULT_EXTRA);
-      }
+      // ✅ BLINDAJE: Si el registro no existe o faltan columnas, se usan los defaults.
+      const dbExtra = extraRes.data || {};
+      setExtraSettings({
+          ...DEFAULT_EXTRA,
+          ...dbExtra,
+          // Forzar que los premios sean strings válidos
+          prize_1: dbExtra.prize_1 || DEFAULT_EXTRA.prize_1,
+          prize_2: dbExtra.prize_2 || DEFAULT_EXTRA.prize_2,
+          prize_3: dbExtra.prize_3 || DEFAULT_EXTRA.prize_3,
+      });
 
       if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
       if (orderRes.data) setOrders(orderRes.data as Order[]);
