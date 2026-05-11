@@ -28,8 +28,7 @@ class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error
       return (
         <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
           <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
-          <p className="text-gray-600 mt-2">Estamos sincronizando el sistema de puntos...</p>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform">
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black">
             LIMPIAR Y REINTENTAR
           </button>
         </div>
@@ -93,18 +92,11 @@ function AppShell() {
     }
     
     const code = orderCode();
-    
-    // 🛠️ MAPEAMOS LOS PRODUCTOS CON NOMBRE Y PRECIO REAL PARA EL ADMIN
     const itemsWithFullDetails = items.map(item => {
         const p = products.find(prod => prod.id === item.id);
-        return {
-            ...item,
-            name: p?.name || 'Producto del Menú',
-            price: Number(p?.price || 0)
-        };
+        return { ...item, name: p?.name || 'Producto', price: Number(p?.price || 0) };
     });
 
-    // CALCULAMOS EL SUBTOTAL REAL BASADO EN EL MENÚ
     const subtotal = itemsWithFullDetails.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const fee = deliveryFeeOf(subtotal);
     const total = subtotal + fee;
@@ -115,24 +107,17 @@ function AppShell() {
       await createOrder({
         order_code: code,
         customer_phone: customerPhone,
-        items: itemsWithFullDetails, // ✅ ENVIAMOS LA LISTA COMPLETA
+        items: itemsWithFullDetails,
         subtotal: Number(subtotal.toFixed(2)),
-        total: Number(total.toFixed(2)), // ✅ ENVIAMOS EL TOTAL REAL
+        total: Number(total.toFixed(2)),
         status: 'Recibido',
         preorder: !isStoreOpen(),
-        created_at: new Date().toISOString() // ✅ GUARDAMOS LA HORA EXACTA
+        created_at: new Date().toISOString()
       });
-    } catch (err) { 
-        console.error("Error al guardar orden:", err); 
-    }
+    } catch (err) { console.error("Error saving:", err); }
 
     window.location.href = whatsappUrl;
-    
-    setTimeout(() => {
-        clearCart();
-        setShowConfirmation(false);
-        setScreen('home');
-    }, 100);
+    setTimeout(() => { clearCart(); setShowConfirmation(false); setScreen('home'); }, 100);
   };
 
   return (
@@ -148,7 +133,7 @@ function AppShell() {
       </main>
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} onLogin={handleLogin} title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} />
+      <LoginModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} onLogin={handleLogin} title={pendingOrder ? "¡Ya casi!" : "Únete al Club"} subtitle="Acumula puntos y gana" />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
