@@ -22,7 +22,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
   const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-200' : 'cursor-default';
   return (
     <div className="flex gap-1.5 py-1">
-      {.map((s) => (
+      {[1, 2, 3, 4, 5].map((s) => (
         <button key={s} type="button" onClick={() => onChange?.(s)} className={btnClass}>
           <Star 
             size={onChange ? 26 : 18} 
@@ -118,18 +118,20 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
         if (testErr) throw new Error("Error al publicar opinión.");
 
-        // 2. Sumar Puntos
+        // 2. Sumar Puntos si es la primera vez
         if (customerPhone && !hasReviewed) {
             const { data: user } = await supabase.from('customers').select('id, points').ilike('phone', `%${clean}`).maybeSingle();
             
             if (user) {
-                await supabase.from('customers').update({ 
+                const { error: upError } = await supabase.from('customers').update({ 
                     points: (user.points || 0) + 10, 
                     has_reviewed: true 
                 }).eq('id', user.id);
-                
-                setHasReviewed(true);
-                setPointsGainedNow(true);
+
+                if (!upError) {
+                    setHasReviewed(true);
+                    setPointsGainedNow(true);
+                }
             }
         }
 
@@ -147,7 +149,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     } catch (err: any) {
         setSubmitting(false);
         setError(err.message);
-        alert("🚨 ERROR DETECTADO: " + err.message);
+        alert("🚨 ERROR: " + err.message);
     }
   };
 
@@ -181,7 +183,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         <div className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
             <div className="relative p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0"><Sparkles size={20} fill="currentColor" /></div>
+                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner"><Sparkles size={20} fill="currentColor" /></div>
                 <div className="flex-1">
                     <p className="text-white font-black text-xs uppercase">¡Regalo de puntos!</p>
                     <p className="text-white/90 text-[10px] font-bold uppercase">Opina y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
@@ -191,16 +193,10 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       )}
 
       <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between">
-        <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}>
-          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>
-          {holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}
-        </div>
-        <button onClick={() => { setSuccess(false); setPointsGainedNow(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg uppercase">
-          {showForm ? 'Cerrar' : 'Opinar'}
-        </button>
+        <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}><h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>{holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}</div>
+        <button onClick={() => { setSuccess(false); setPointsGainedNow(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg uppercase">{showForm ? 'Cerrar' : 'Opinar'}</button>
       </div>
 
-      {/* 📊 CUADRO DE ESTADÍSTICAS RECUPERADO */}
       {testimonials.length > 0 && !showForm && (
         <div className="px-5 pt-4 pb-2">
           <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-5 border border-orange-100">
@@ -210,7 +206,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
               <p className="text-[10px] text-gray-400 mt-1 font-bold">{testimonials.length} opiniones</p>
             </div>
             <div className="flex-1 space-y-1">
-              {.map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
+              {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
             </div>
           </div>
         </div>
@@ -219,28 +215,30 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       {showForm && (
         <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20">
           {success ? (
-            <div className="flex flex-col items-center py-6 gap-4 animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-100 rotate-12"><Trophy size={32} className="text-white" /></div>
+            <div className="flex flex-col items-center py-6 gap-5 animate-in zoom-in duration-300">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl rotate-12"><Trophy size={32} className="text-white" /></div>
               <div className="text-center space-y-4">
-                <p className="text-green-700 font-black text-lg uppercase tracking-tight">¡Gracias por compartir tu experiencia!</p>
-                {pointsGainedNow && (
-                    <button onClick={onNavigateRanking} className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800">¡RECLAMA TUS 10 PUNTOS! <Trophy size={18} /></button>
+                <p className="text-green-700 font-black text-lg uppercase tracking-tight">¡Gracias por tu aporte!</p>
+                {pointsGainedNow ? (
+                    <div className="space-y-4">
+                        <p className="text-green-600 text-[13px] font-black uppercase px-4 leading-tight">¡RECLAMA TUS 10 PUNTOS!</p>
+                        <button onClick={onNavigateRanking} className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800">VER MIS PUNTOS EN RANKING <Trophy size={18} /></button>
+                    </div>
+                ) : (
+                    <p className="text-green-600/60 text-xs font-bold uppercase px-6 leading-relaxed">Tu opinión ha sido publicada con éxito.</p>
                 )}
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-3 text-gray-400" />}</div>
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100 shadow-sm">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}</div>
                 <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
               </div>
-              <div className="text-center">
-                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
-                <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
-              </div>
-              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[28px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
+              <div className="text-center"><p className="text-[11px] text-gray-500 mb-2 font-black uppercase">¿Qué calificación nos das?</p><div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div></div>
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-2xl px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
               {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
-              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">{submitting ? 'Enviando...' : 'Publicar opinión'}</button>
+              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">{submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}</button>
             </form>
           )}
         </div>
