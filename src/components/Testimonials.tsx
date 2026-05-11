@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Star, Send, Trash2, X, User, Sparkles, Trophy } from 'lucide-react';
+import { Star, Send, Trash2, X, User, Sparkles, Trophy, PartyPopper } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUser } from '../context/UserContext'; 
 
@@ -16,6 +16,26 @@ const ADMIN_HOLD_MS = 3000;
 
 interface Props {
   onNavigateRanking?: () => void;
+}
+
+// ✅ COMPONENTE DE CONFETI PARA CELEBRACIÓN
+function Confetti() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-50">
+      {[...Array(20)].map((_, i) => (
+        <div 
+          key={i} 
+          className="confetti-piece"
+          style={{
+            left: `${Math.random() * 100}%`,
+            backgroundColor: i % 2 === 0 ? '#f97316' : '#fbbf24',
+            animationDelay: `${Math.random() * 3}s`,
+            transform: `rotate(${Math.random() * 360}deg)`
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
@@ -119,6 +139,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         if (testErr) throw new Error("Error al publicar opinión.");
 
         // 2. Sumar Puntos si es la primera vez
+        let isFirstTime = false;
         if (customerPhone && !hasReviewed) {
             const { data: user } = await supabase.from('customers').select('id, points').ilike('phone', `%${clean}`).maybeSingle();
             
@@ -131,6 +152,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                 if (!upError) {
                     setHasReviewed(true);
                     setPointsGainedNow(true);
+                    isFirstTime = true;
                 }
             }
         }
@@ -140,18 +162,16 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         setComment('');
         fetchTestimonials();
 
-        // Cierre automático extendido para permitir que lean el premio
+        // ⏱️ TIEMPO INTELIGENTE: 10 seg si ganó puntos, 5.5 seg si no.
         setTimeout(() => {
-            if (!pointsGainedNow) {
-              setSuccess(false);
-              setShowForm(false);
-            }
-        }, 5500);
+            setSuccess(false);
+            setPointsGainedNow(false);
+            setShowForm(false);
+        }, isFirstTime ? 10000 : 5500);
 
     } catch (err: any) {
         setSubmitting(false);
         setError(err.message);
-        alert("🚨 ERROR: " + err.message);
     }
   };
 
@@ -181,14 +201,23 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      
+      {/* 🚀 BANNER CAZADOR DE PUNTOS VIP */}
       {!hasReviewed && customerName && (
-        <div className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
-            <div className="relative p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10"><Sparkles size={20} fill="currentColor" /></div>
+        <div className="relative overflow-hidden group bg-orange-600">
+            {/* Animación de brillo (Shine) */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shine-banner" />
+            
+            <div className="relative p-5 flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10 animate-pulse">
+                    <Sparkles size={24} fill="currentColor" />
+                </div>
                 <div className="flex-1">
-                    <p className="text-white font-black text-xs uppercase mb-1">¡Puntos Gratis para ti!</p>
-                    <p className="text-white/90 text-[10px] font-bold uppercase leading-tight">Envía tu primera opinión y recibe <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded-md font-black shadow-sm">+10 PUNTOS</span></p>
+                    <p className="text-white font-black text-xs uppercase tracking-tight mb-1 leading-none">¡Gana puntos gratis para ganar premios!</p>
+                    <p className="text-white/80 text-[10px] font-bold uppercase leading-tight">
+                        Envía tu primera opinión y recibe 
+                        <span className="inline-block ml-1.5 bg-yellow-400 text-orange-800 px-2 py-0.5 rounded-md font-black shadow-lg animate-glow-points">+10 PUNTOS</span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -215,26 +244,34 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       )}
 
       {showForm && (
-        <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20">
+        <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20 relative">
           {success ? (
-            <div className="flex flex-col items-center py-6 gap-5 animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl rotate-12"><Trophy size={32} className="text-white" /></div>
-              <div className="text-center space-y-4">
-                <p className="text-green-700 font-black text-lg uppercase tracking-tight">¡Gracias por tu aporte!</p>
+            <div className="flex flex-col items-center py-6 gap-6 animate-in zoom-in duration-500 relative">
+              {pointsGainedNow && <Confetti />}
+              
+              <div className={`w-24 h-24 rounded-[30px] flex items-center justify-center shadow-2xl relative z-10 ${pointsGainedNow ? 'bg-gradient-to-br from-yellow-400 to-orange-600 animate-bounce' : 'bg-green-500'}`}>
+                {pointsGainedNow ? <Trophy size={48} className="text-white drop-shadow-md animate-king-bounce" /> : <PartyPopper size={48} className="text-white" />}
+              </div>
+              
+              <div className="text-center space-y-4 relative z-10">
+                <p className={`font-black text-xl uppercase tracking-tighter leading-none ${pointsGainedNow ? 'text-orange-700' : 'text-green-700'}`}>
+                    {pointsGainedNow ? '¡FELICIDADES!' : '¡Opinión Publicada!'}
+                </p>
+                
                 {pointsGainedNow ? (
-                    <div className="space-y-4">
-                        <p className="text-green-600 text-[13px] font-black uppercase px-4 leading-tight">¡RECLAMA TUS 10 PUNTOS!</p>
+                    <div className="space-y-6">
+                        <div className="bg-white/60 backdrop-blur-sm p-4 rounded-3xl border-2 border-orange-200">
+                            <p className="text-orange-900 text-xs font-black uppercase px-2">Has ganado 10 Puntos por ser parte activa del club.</p>
+                        </div>
                         <button 
-                          onClick={() => {
-                            if (onNavigateRanking) onNavigateRanking();
-                          }} 
-                          className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
+                          onClick={() => onNavigateRanking?.()} 
+                          className="bg-orange-600 text-white px-8 py-5 rounded-full font-black text-sm uppercase shadow-2xl shadow-orange-300 active:scale-95 transition-all flex items-center gap-3 mx-auto border-b-4 border-orange-800 animate-pulse-slow"
                         >
-                          VER MIS PUNTOS EN RANKING <Trophy size={18} />
+                          RECLAMAR MIS PUNTOS EN RANKING <Trophy size={20} />
                         </button>
                     </div>
                 ) : (
-                    <p className="text-green-600/60 text-xs font-bold uppercase px-6 leading-relaxed">Tu opinión ha sido publicada con éxito.</p>
+                    <p className="text-green-600/70 text-xs font-bold uppercase px-6">¡Gracias por compartir tu experiencia con nosotros!</p>
                 )}
               </div>
             </div>
@@ -244,7 +281,10 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}</div>
                 <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
               </div>
-              <div className="text-center"><p className="text-[11px] text-gray-500 mb-2 font-black uppercase">¿Qué calificación nos das?</p><div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div></div>
+              <div className="text-center">
+                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
+                <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
+              </div>
               <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-2xl px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
               {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
               <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">{submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}</button>
@@ -270,6 +310,24 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       <style>{`
         @keyframes gradient-x { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         .animate-gradient-x { background-size: 200% 200%; animation: gradient-x 3s ease infinite; }
+        
+        @keyframes shine-banner { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+        .animate-shine-banner { animation: shine-banner 4s infinite linear; }
+        
+        @keyframes glow-points { 0%, 100% { box-shadow: 0 0 5px #fbbf24; transform: scale(1); } 50% { box-shadow: 0 0 20px #fbbf24; transform: scale(1.05); } }
+        .animate-glow-points { animation: glow-points 2s infinite ease-in-out; }
+        
+        .confetti-piece { 
+          position: absolute; width: 8px; height: 8px; top: -10px;
+          opacity: 0; animation: confetti-fall 4s ease-out forwards;
+        }
+        @keyframes confetti-fall {
+          0% { transform: translateY(0) rotate(0); opacity: 1; }
+          100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+        }
+        
+        @keyframes pulse-slow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        .animate-pulse-slow { animation: pulse-slow 2s infinite ease-in-out; }
       `}</style>
     </div>
   );
