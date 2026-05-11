@@ -91,11 +91,23 @@ function AppShell() {
       setShowLoginModal(true);
       return;
     }
+    
     const code = orderCode();
-    const subtotal = items.reduce((acc, item) => {
-      const p = products.find(prod => prod.id === item.id);
-      return acc + (p ? Number(p.price) * item.quantity : 0);
-    }, 0);
+    
+    // 🛠️ MAPEAMOS LOS PRODUCTOS CON NOMBRE Y PRECIO REAL PARA EL ADMIN
+    const itemsWithFullDetails = items.map(item => {
+        const p = products.find(prod => prod.id === item.id);
+        return {
+            ...item,
+            name: p?.name || 'Producto del Menú',
+            price: Number(p?.price || 0)
+        };
+    });
+
+    // CALCULAMOS EL SUBTOTAL REAL BASADO EN EL MENÚ
+    const subtotal = itemsWithFullDetails.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const fee = deliveryFeeOf(subtotal);
+    const total = subtotal + fee;
 
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
@@ -103,15 +115,19 @@ function AppShell() {
       await createOrder({
         order_code: code,
         customer_phone: customerPhone,
-        items,
-        subtotal,
-        total: subtotal + deliveryFeeOf(subtotal),
+        items: itemsWithFullDetails, // ✅ ENVIAMOS LA LISTA COMPLETA
+        subtotal: Number(subtotal.toFixed(2)),
+        total: Number(total.toFixed(2)), // ✅ ENVIAMOS EL TOTAL REAL
         status: 'Recibido',
-        preorder: !isStoreOpen()
+        preorder: !isStoreOpen(),
+        created_at: new Date().toISOString() // ✅ GUARDAMOS LA HORA EXACTA
       });
-    } catch (err) { console.error("Error al guardar orden:", err); }
+    } catch (err) { 
+        console.error("Error al guardar orden:", err); 
+    }
 
     window.location.href = whatsappUrl;
+    
     setTimeout(() => {
         clearCart();
         setShowConfirmation(false);
@@ -127,7 +143,6 @@ function AppShell() {
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
         {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={(cat) => setActiveCategory(cat as any)} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
-        {/* ✅ PASANDO onNavigate A INFOSCREEN */}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
       </main>
