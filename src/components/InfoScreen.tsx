@@ -1,38 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download, Sparkles } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
 
 const WHATSAPP = '+593989795628';
 const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
 const WA_HELLO = `https://wa.me/${WHATSAPP}?text=Hola%2C%20quisiera%20m%C3%A1s%20informaci%C3%B3n%20sobre%20La%20Casa%20del%20Pollazo%20El%20Mirador%20%F0%9F%8D%97`;
+const LOGO_OFFICIAL = "https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0";
 
 const teamMembers = [
-  {
-    name: 'Edgar Verdesoto',
-    role: 'Encargado',
-    photo: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
-  },
-  {
-    name: 'Mery Loyola',
-    role: 'Encargada',
-    photo: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
-  },
-  {
-    name: 'Paola',
-    role: 'Parte del equipo',
-    photo: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
-  },
-  {
-    name: 'Matias Verdesoto',
-    role: 'Parte del equipo',
-    photo: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
-  },
-  {
-    name: 'Stiven Verdesoto',
-    role: 'Marketing',
-    photo: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
-  },
+  { name: 'Edgar Verdesoto', role: 'Encargado', photo: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop' },
+  { name: 'Mery Loyola', role: 'Encargada', photo: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop' },
+  { name: 'Paola', role: 'Parte del equipo', photo: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop' },
+  { name: 'Matias Verdesoto', role: 'Parte del equipo', photo: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop' },
+  { name: 'Stiven Verdesoto', role: 'Marketing', photo: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop' },
 ];
 
 const galleryPhotos = [
@@ -44,72 +25,56 @@ const galleryPhotos = [
   { url: 'https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg?auto=compress&cs=tinysrgb&w=600', caption: 'Embutidos premium' },
 ];
 
-// Very slow auto-scroll team carousel
+// 🔥 CARRUSEL MEJORADO (SMOOTH & DRAGGABLE)
 function TeamCarousel() {
-  const offsetRef = useRef(0);
-  const [offset, setOffset] = useState(0);
-  const animRef = useRef<number>();
-  const pausedRef = useRef(false);
-  const resumeRef = useRef<ReturnType<typeof setTimeout>>();
-  const CARD_W = 96 + 16; // w-24 + gap-4
-  const SPEED = 0.08; // extremely slow
-  const doubled = [...teamMembers, ...teamMembers];
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsInPaused] = useState(false);
+  const scrollSpeed = 0.45; // Velocidad ajustada un pelín más lenta
 
   useEffect(() => {
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = now - last;
-      last = now;
-      if (!pausedRef.current) {
-        offsetRef.current += SPEED * dt;
-        if (offsetRef.current >= CARD_W * teamMembers.length) offsetRef.current = 0;
-        setOffset(offsetRef.current);
+    const container = containerRef.current;
+    if (!container) return;
+
+    let animationFrameId: number;
+
+    const autoScroll = () => {
+      if (!isPaused) {
+        container.scrollLeft += scrollSpeed;
+        // Reinicio infinito suave
+        if (container.scrollLeft >= container.scrollWidth / 2) {
+          container.scrollLeft = 0;
+        }
       }
-      animRef.current = requestAnimationFrame(step);
+      animationFrameId = requestAnimationFrame(autoScroll);
     };
-    animRef.current = requestAnimationFrame(step);
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      if (resumeRef.current) clearTimeout(resumeRef.current);
-    };
-  }, []);
 
-  const pause = () => {
-    pausedRef.current = true;
-    if (resumeRef.current) clearTimeout(resumeRef.current);
-  };
+    animationFrameId = requestAnimationFrame(autoScroll);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isPaused]);
 
-  const resume = () => {
-    if (resumeRef.current) clearTimeout(resumeRef.current);
-    resumeRef.current = setTimeout(() => { pausedRef.current = false; }, 3000);
-  };
+  // Duplicamos el array para el efecto infinito
+  const doubledMembers = [...teamMembers, ...teamMembers];
 
   return (
-    <div
-      className="overflow-hidden py-4"
-      onTouchStart={pause}
-      onTouchEnd={resume}
-      onMouseDown={pause}
-      onMouseUp={resume}
-      onMouseLeave={resume}
-    >
+    <div className="py-4 relative group">
       <div
-        className="flex gap-4 px-4"
-        style={{ transform: `translateX(-${offset}px)`, willChange: 'transform' }}
+        ref={containerRef}
+        className="flex gap-4 px-4 overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing touch-pan-y"
+        onMouseEnter={() => setIsInPaused(true)}
+        onMouseLeave={() => setIsInPaused(false)}
+        onTouchStart={() => setIsInPaused(true)}
+        onTouchEnd={() => {
+            // Espera 2 segundos después de soltar para seguir
+            setTimeout(() => setIsInPaused(false), 2000);
+        }}
       >
-        {doubled.map((member, i) => (
-          <div key={`${member.name}-${i}`} className="flex flex-col items-center gap-2.5 flex-shrink-0" style={{ width: 96 }}>
-            <div
-              className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0"
-              style={{
-                border: '4px solid #f97316',
-                boxShadow: '0 0 0 3px white, 0 4px 16px rgba(249,115,22,0.4)',
-              }}
-            >
+        {doubledMembers.map((member, i) => (
+          <div key={`${member.name}-${i}`} className="flex flex-col items-center gap-2.5 flex-shrink-0" style={{ width: 100 }}>
+            <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white ring-offset-2">
               <img
                 src={member.photo}
                 alt={member.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover pointer-events-none"
                 loading="lazy"
                 onError={e => {
                   (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=f97316&color=fff&size=128`;
@@ -117,10 +82,8 @@ function TeamCarousel() {
               />
             </div>
             <div className="text-center">
-              <p className="text-[11px] font-bold text-gray-900 leading-tight text-center" style={{ maxWidth: 96 }}>
-                {member.name.split(' ')[0]}
-              </p>
-              <p className="text-[10px] text-orange-500 font-semibold leading-tight mt-0.5 text-center">{member.role}</p>
+              <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">{member.name.split(' ')}</p>
+              <p className="text-[9px] text-orange-500 font-bold leading-tight mt-0.5">{member.role}</p>
             </div>
           </div>
         ))}
@@ -142,24 +105,23 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
   const nextPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev + 1) % galleryPhotos.length);
 
   return (
-    <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full">
+    <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
 
       {/* BRAND CARD — matches Home hero */}
-      <div className="rounded-3xl overflow-hidden hero-water">
-        <div className="px-5 py-6 flex flex-col items-center text-center gap-3">
+      <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
+        <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
-            <div className="absolute inset-0 rounded-full" style={{
-              background: 'radial-gradient(circle, rgba(255,255,255,0.28) 0%, transparent 70%)',
-              animation: 'logoGlowPulse 2.8s ease-in-out infinite',
-            }} />
-            <img src="/logo-final.png" alt="logo" className="w-20 h-20 object-contain relative z-10 drop-shadow-xl" />
+            <div className="absolute inset-0 rounded-full bg-white/20 animate-pulse blur-xl" />
+            <img src={LOGO_OFFICIAL} alt="logo" className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl" />
           </div>
           <div>
-            <h2 className="text-white font-black text-xl leading-tight" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <h2 className="text-white font-black text-2xl uppercase tracking-tighter italic">
               La Casa del Pollazo
             </h2>
-            <p className="text-white/90 font-bold text-sm mt-0.5">El Mirador</p>
-            <p className="text-white/70 text-xs mt-1">Puerto Ayora, Galápagos</p>
+            <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 mt-2">
+                <ShieldCheck className="text-yellow-300" size={14} />
+                <span className="text-white font-bold text-[10px] uppercase tracking-widest">El Mirador VIP</span>
+            </div>
           </div>
         </div>
       </div>
@@ -168,172 +130,180 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
       <LiveMetrics />
 
       {/* CONTACT */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 text-sm">Contacto</h3>
+      <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">Contacto Directo</h3>
+          <Sparkles className="text-orange-500" size={16} />
         </div>
         <a href={WA_HELLO} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 active:bg-gray-50 transition-colors">
-          <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <MessageCircle size={18} className="text-green-600" />
+          className="flex items-center gap-3 px-4 py-4 border-b border-gray-50 active:bg-orange-50 transition-colors">
+          <div className="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <MessageCircle size={20} className="text-green-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-800">WhatsApp</p>
-            <p className="text-xs text-gray-400">+593 989 795 628</p>
+            <p className="text-sm font-black text-gray-800">WhatsApp Oficial</p>
+            <p className="text-xs text-gray-400">Atención inmediata</p>
           </div>
-          <span className="text-xs text-green-500 font-semibold bg-green-50 px-2 py-1 rounded-lg">Abrir</span>
+          <span className="text-[10px] text-green-600 font-black bg-green-100 px-3 py-1.5 rounded-full uppercase">Chatear</span>
         </a>
-        <a href={`tel:${WHATSAPP}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 transition-colors">
-          <div className="w-9 h-9 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Phone size={18} className="text-orange-500" />
+        <a href={`tel:${WHATSAPP}`} className="flex items-center gap-3 px-4 py-4 active:bg-orange-50 transition-colors">
+          <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Phone size={20} className="text-orange-500" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-800">Llamar</p>
+            <p className="text-sm font-black text-gray-800">Línea Telefónica</p>
             <p className="text-xs text-gray-400">+593 989 795 628</p>
           </div>
-          <span className="text-xs text-orange-500 font-semibold bg-orange-50 px-2 py-1 rounded-lg">Llamar</span>
+          <span className="text-[10px] text-orange-600 font-black bg-orange-100 px-3 py-1.5 rounded-full uppercase">Llamar</span>
         </a>
       </div>
 
-      {/* HOURS + LOCATION + DELIVERY */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
-          <div className="w-9 h-9 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Clock size={18} className="text-orange-500" />
+      {/* HOURS + LOCATION */}
+      <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden p-1">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
+          <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Clock size={20} className="text-blue-500" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-800">7:00 AM – 8/9 PM</p>
-            <p className="text-xs text-gray-500">Todos los días de la semana</p>
+            <p className="text-sm font-black text-gray-800 uppercase leading-none">Horario de Atención</p>
+            <p className="text-xs text-gray-500 mt-1">7:00 AM – 9:00 PM | Todos los días</p>
           </div>
         </div>
         <a href={MAPS_URL} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 active:bg-gray-50 transition-colors">
-          <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <MapPin size={18} className="text-red-500" />
+          className="flex items-center gap-3 px-4 py-4 border-b border-gray-50 active:bg-gray-50 transition-colors">
+          <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <MapPin size={20} className="text-red-500" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-800">El Mirador, Calle Delfín</p>
-            <p className="text-xs text-gray-500">Puerto Ayora, Santa Cruz</p>
+            <p className="text-sm font-black text-gray-800 uppercase leading-none">Ubicación</p>
+            <p className="text-xs text-gray-500 mt-1">El Mirador, Puerto Ayora</p>
           </div>
-          <span className="text-xs text-red-500 font-semibold bg-red-50 px-2 py-1 rounded-lg">Mapa</span>
+          <ChevronRight className="text-gray-300" size={18} />
         </a>
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Truck size={18} className="text-blue-500" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-gray-800">Puerto Ayora</p>
-            <p className="text-xs text-gray-500">Delivery a domicilio disponible</p>
-          </div>
-        </div>
       </div>
 
-      {/* TEAM CAROUSEL */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-4 pt-4 pb-1 text-center">
-          <h3 className="font-black text-gray-900 text-base">Las personas detrás</h3>
-          <p className="text-orange-500 font-bold text-xs mt-0.5">Nuestro equipo</p>
-          <p className="text-gray-400 text-xs mt-1 leading-relaxed">Somos una familia comprometida con traerte lo mejor de Galápagos.</p>
+      {/* TEAM SECTION */}
+      <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
+        <div className="px-6 pt-5 pb-2 text-center">
+          <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest italic">Nuestro Equipo</h3>
+          <p className="text-gray-400 text-[10px] mt-1 uppercase font-bold">Las manos detrás del sabor</p>
         </div>
         <TeamCarousel />
       </div>
 
-      {/* BENTO GALLERY */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 text-sm">Galería fotográfica</h3>
+      {/* GALLERY */}
+      <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden p-3">
+        <div className="px-3 py-2 flex items-center gap-2 mb-2">
+            <Star className="text-orange-500 fill-orange-500" size={14} />
+            <h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">Galería</h3>
         </div>
-        <div className="p-3 space-y-2">
+        <div className="space-y-2">
           <div className="flex gap-2" style={{ height: 180 }}>
-            <button onClick={() => setLightboxIndex(0)} className="flex-[2] rounded-2xl overflow-hidden relative active:opacity-90 transition-opacity group">
-              <img src={galleryPhotos[0].url} alt={galleryPhotos[0].caption} className="w-full h-full object-cover" loading="lazy" />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/65 to-transparent px-3 py-2.5">
-                <p className="text-white text-xs font-bold">{galleryPhotos[0].caption}</p>
+            <button onClick={() => setLightboxIndex(0)} className="flex- rounded-3xl overflow-hidden relative active:scale-[0.98] transition-all shadow-md">
+              <img src={galleryPhotos.url} alt={galleryPhotos.caption} className="w-full h-full object-cover" loading="lazy" />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <p className="text-white text-[10px] font-black uppercase italic">{galleryPhotos.caption}</p>
               </div>
             </button>
             <div className="flex-1 flex flex-col gap-2">
-              {[1, 2].map(i => (
-                <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-xl overflow-hidden relative active:opacity-90 transition-opacity">
+              {.map(i => (
+                <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm">
                   <img src={galleryPhotos[i].url} alt={galleryPhotos[i].caption} className="w-full h-full object-cover" loading="lazy" />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
-                    <p className="text-white text-[10px] font-bold truncate">{galleryPhotos[i].caption}</p>
-                  </div>
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex gap-2" style={{ height: 110 }}>
-            {[3, 4, 5].map(i => (
-              <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-xl overflow-hidden relative active:opacity-90 transition-opacity">
+          <div className="flex gap-2" style={{ height: 100 }}>
+            {.map(i => (
+              <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm">
                 <img src={galleryPhotos[i].url} alt={galleryPhotos[i].caption} className="w-full h-full object-cover" loading="lazy" />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
-                  <p className="text-white text-[10px] font-bold truncate">{galleryPhotos[i].caption}</p>
-                </div>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* TESTIMONIALS */}
-      <Testimonials />
-
       {/* PWA INSTALL */}
       {canInstall && (
         <button
           onClick={onInstall}
-          className="w-full flex items-center justify-between font-bold px-5 py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-transform text-white"
-          style={{ background: 'linear-gradient(135deg, #ea580c, #f97316, #f59e0b)', boxShadow: '0 6px 24px rgba(249,115,22,0.35)' }}
+          className="w-full flex items-center justify-between font-black px-6 py-5 rounded-[28px] shadow-lg active:scale-[0.96] transition-all text-white relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', boxShadow: '0 10px 30px rgba(234,88,12,0.3)' }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Download size={20} />
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
+              <Download size={22} />
             </div>
-            <div className="text-left">
-              <div className="font-black text-sm">Instalar Aplicación</div>
-              <div className="text-white/80 text-xs">Acceso rápido desde tu pantalla</div>
+            <div className="text-left leading-tight">
+              <div className="text-sm uppercase tracking-tighter">Instalar App</div>
+              <div className="text-white/70 text-[9px] font-bold uppercase tracking-widest">Acceso directo en tu móvil</div>
             </div>
           </div>
-          <div className="text-white/80 text-xs font-semibold bg-white/20 rounded-lg px-2 py-1">Instalar</div>
+          <div className="bg-white/20 px-4 py-2 rounded-2xl text-[10px] uppercase relative z-10">¡Obtener!</div>
         </button>
       )}
 
       {/* FOOTER */}
-      <div className="flex items-center justify-center gap-1.5 py-4 text-gray-300 text-xs">
+      <div className="flex items-center justify-center gap-1.5 py-6 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]">
         <span>Hecho con</span>
-        <Heart size={11} className="text-orange-400" />
+        <Heart size={12} className="text-orange-400 fill-orange-400" />
         <span>en Galápagos</span>
       </div>
 
-      {/* LIGHTBOX */}
+      {/* 🔥 LIGHTBOX CON FONDO BORROSO (BLUR) */}
       {lightboxIndex !== null && (
-        <div className="fixed inset-0 z-[100] bg-black/92 flex items-center justify-center" onClick={closeLightbox}>
-          <button onClick={e => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-5 right-5 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:bg-white/20">
-            <X size={20} />
+        <div 
+          className="fixed inset-0 z- bg-black/70 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          onClick={closeLightbox}
+        >
+          {/* BOTÓN CERRAR */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+            className="absolute top-8 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-"
+          >
+            <X size={28} />
           </button>
+
+          {/* NAVEGACIÓN */}
           <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:bg-white/20">
-            <ChevronLeft size={22} />
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
+            <ChevronLeft size={24} />
           </button>
-          <div className="px-14 w-full" onClick={e => e.stopPropagation()}>
-            <img src={galleryPhotos[lightboxIndex].url} alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[70vh] object-contain rounded-2xl" />
-            <p className="text-white/90 text-sm font-bold text-center mt-4">{galleryPhotos[lightboxIndex].caption}</p>
-            <div className="flex justify-center gap-1.5 mt-3">
-              {galleryPhotos.map((_, i) => (
-                <button key={i} onClick={() => setLightboxIndex(i)}
-                  className={`rounded-full transition-all duration-200 ${i === lightboxIndex ? 'w-5 h-1.5 bg-orange-400' : 'w-1.5 h-1.5 bg-white/30'}`}
-                />
-              ))}
+
+          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <img 
+              src={galleryPhotos[lightboxIndex].url} 
+              alt={galleryPhotos[lightboxIndex].caption}
+              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white/20" 
+            />
+            <div className="mt-6 text-center">
+                <p className="text-white text-base font-black uppercase italic tracking-tighter drop-shadow-md">
+                    {galleryPhotos[lightboxIndex].caption}
+                </p>
+                <div className="flex justify-center gap-2 mt-4">
+                    {galleryPhotos.map((_, i) => (
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-white/20'}`} />
+                    ))}
+                </div>
             </div>
           </div>
+
           <button onClick={e => { e.stopPropagation(); nextPhoto(); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:bg-white/20">
-            <ChevronRight size={22} />
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
+            <ChevronRight size={24} />
           </button>
         </div>
       )}
+
+      {/* ESTILOS CSS PARA ANIMACIONES */}
+      <style>{`
+        @keyframes logoGlowPulse {
+          0%, 100% { transform: scale(1); opacity: 0.28; }
+          50% { transform: scale(1.3); opacity: 0.1; }
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }
