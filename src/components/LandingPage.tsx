@@ -5,7 +5,8 @@ import {
   Share,
   PlusSquare,
   X,
-  Loader2
+  Loader2,
+  MapPin
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -82,7 +83,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         `}
       </style>
 
-      {/* ✅ DISEÑO ORIGINAL RESTAURADO */}
+      {/* Hero Section con el diseño que te gusta */}
       <section className="relative h-full flex flex-col items-center justify-center px-6 text-center bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-white/20 blur-3xl" />
@@ -96,7 +97,12 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
 
           <div className="space-y-4">
             <p className="text-white/80 font-black uppercase tracking-[0.35em] text-[10px]">GALÁPAGOS • ECUADOR</p>
-            <h1 className="font-black text-5xl text-white leading-none tracking-tighter">Pollazo El Mirador</h1>
+            {/* Texto recto, sin inclinación */}
+            <h1 className="font-black text-5xl text-white leading-none tracking-tighter not-italic">La Casa del Pollazo</h1>
+            <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 w-fit mx-auto">
+                <MapPin className="text-yellow-300" size={14} />
+                <span className="text-white font-bold text-[11px] uppercase tracking-widest">El Mirador</span>
+            </div>
             <p className="text-white/90 text-sm font-semibold max-w-xs mx-auto">Tu market con pollo fresco enfundado y productos esenciales.</p>
           </div>
 
@@ -124,7 +130,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
         </div>
       </section>
 
-      {/* ✅ MODAL REDISEÑADO PARA IOS (IPHONE) - LIMPIO Y PROFESIONAL */}
+      {/* ✅ MODAL REDISEÑADO PARA IOS (IPHONE) - DISEÑO LIMPIO Y VIP */}
       {showIOSModal && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4" onClick={() => setShowIOSModal(false)}>
           <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl relative animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
@@ -136,32 +142,38 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             </button>
 
             <div className="text-center mb-8">
-               <div className="w-20 h-20 bg-orange-50 rounded-[24px] flex items-center justify-center mx-auto mb-4 border-2 border-orange-100">
-                  <img src={logoUrl} className="w-14 h-14 object-contain" alt="Logo" />
+               <div className="w-24 h-24 bg-orange-50 rounded-[30px] flex items-center justify-center mx-auto mb-4 border-2 border-orange-100 shadow-inner">
+                  <img src={LOGO_OFFICIAL} className="w-16 h-16 object-contain" alt="Logo" />
                </div>
-               <h2 className="text-2xl font-black text-gray-950 leading-tight">Instalar en iPhone</h2>
-               <p className="text-gray-500 font-medium text-sm mt-1">Sigue estos pasos en Safari</p>
+               <h2 className="text-2xl font-black text-gray-950 leading-tight uppercase tracking-tighter">Instalar en iPhone</h2>
+               <p className="text-gray-500 font-bold text-xs mt-1 uppercase tracking-widest">Sigue estos pasos en Safari</p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-4 bg-orange-50 border border-orange-100 rounded-2xl p-5">
-                <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
-                  <Share className="text-orange-500" size={24} />
+              <div className="flex items-center gap-5 bg-orange-50 border border-orange-100 rounded-3xl p-5 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center flex-shrink-0 border border-orange-100">
+                  <Share className="text-orange-500" size={28} />
                 </div>
-                <p className="font-black text-[14px] text-gray-950">1. Pulsa el botón 'Compartir' en la barra de Safari.</p>
+                <div className="text-left">
+                  <p className="font-black text-[15px] text-gray-900 uppercase leading-none">Paso 1</p>
+                  <p className="text-[13px] text-gray-600 mt-1 font-medium">Pulsa el botón de <b>'Compartir'</b> en Safari abajo.</p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-4 bg-orange-50 border border-orange-100 rounded-2xl p-5">
-                <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
-                  <PlusSquare className="text-orange-500" size={24} />
+              <div className="flex items-center gap-5 bg-orange-50 border border-orange-100 rounded-3xl p-5 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center flex-shrink-0 border border-orange-100">
+                  <PlusSquare className="text-orange-500" size={28} />
                 </div>
-                <p className="font-black text-[14px] text-gray-950">2. Desliza y selecciona 'Agregar al inicio'.</p>
+                <div className="text-left">
+                  <p className="font-black text-[15px] text-gray-900 uppercase leading-none">Paso 2</p>
+                  <p className="text-[13px] text-gray-600 mt-1 font-medium">Desliza y selecciona <b>'Agregar a inicio'</b>.</p>
+                </div>
               </div>
             </div>
 
             <button 
               onClick={() => setShowIOSModal(false)} 
-              className="w-full mt-8 py-4.5 rounded-2xl bg-orange-500 text-white font-black text-base shadow-lg shadow-orange-200 transition-all active:scale-95"
+              className="w-full mt-8 py-5 rounded-3xl bg-orange-500 text-white font-black text-base shadow-xl shadow-orange-200 transition-all active:scale-95 uppercase tracking-widest"
             >
               ¡Entendido, listo!
             </button>
