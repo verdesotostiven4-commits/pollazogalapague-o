@@ -21,10 +21,8 @@ function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode, de
 export default function Ranking() {
   const { customers = [], extraSettings, seasons = [], loading } = useAdmin();
   const { customerPhone } = useUser();
-  
   const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const myRowRef = useRef<HTMLDivElement>(null);
-  
   const [timeLeft, setTimeLeft] = useState({ d: '0', h: '0', m: '0', s: '0' });
   const [showRadar, setShowRadar] = useState(false);
 
@@ -56,13 +54,11 @@ export default function Ranking() {
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
-  // Lógica para mostrar el Radar solo cuando el usuario no está en pantalla
+  // Detector para el Radar (Burbuja flotante)
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
-      // Si mi fila NO es visible y estoy más abajo del puesto 3, mostrar radar
-      setShowRadar(!entry.isIntersecting && myRankIndex > 2);
+      setShowRadar(!entry.isIntersecting && myRankIndex !== -1);
     }, { threshold: 0.1 });
-
     if (myRowRef.current) observer.observe(myRowRef.current);
     return () => observer.disconnect();
   }, [myRankIndex, ranking]);
@@ -79,7 +75,7 @@ export default function Ranking() {
   );
 
   return (
-    <div className="relative min-h-screen pb-60 max-w-4xl mx-auto bg-slate-50 overflow-x-hidden">
+    <div className="relative min-h-screen pb-40 max-w-4xl mx-auto bg-slate-50 overflow-x-hidden">
       
       {/* --- HEADER --- */}
       <div className="bg-gradient-to-b from-orange-500 to-orange-600 p-8 pt-10 rounded-b-[60px] shadow-2xl text-center text-white relative">
@@ -104,128 +100,112 @@ export default function Ranking() {
 
       {/* 📍 BOTÓN HISTORIAL */}
       {publishedSeasons.length > 0 && (
-        <div className="px-6 -mt-6 flex justify-center relative z-20">
-          <button onClick={() => hallOfFameRef.current?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 bg-white text-orange-600 px-6 py-3 rounded-full shadow-xl active:scale-95 transition-all border-2 border-orange-500 group">
+        <div className="px-6 -mt-6 flex justify-center relative z-10">
+          <button onClick={() => hallOfFameRef.current?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 bg-white text-orange-600 px-6 py-3 rounded-full shadow-xl active:scale-95 transition-all border-2 border-orange-500">
             <History size={16} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
             <span className="text-xs font-black uppercase italic tracking-tighter">Historial Ganadores</span>
           </button>
         </div>
       )}
 
-      {/* 🏆 TOP 3 🏆 */}
-      <div className="px-5 mt-14 space-y-8">
-        <h2 className="text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] italic">Los Mejores 3 de Galápagos</h2>
-        
-        <div className="space-y-6">
-          {ranking.slice(0, 3).map((c, i) => {
-            const isMe = c.phone.replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, '');
-            return (
-              <RevealOnScroll key={c.id} delay={i * 100}>
-                <div 
-                  ref={isMe ? myRowRef : null}
-                  className={`relative flex items-center gap-5 p-6 rounded-[45px] border-4 transition-all ${
-                    i === 0 ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-400 shadow-[0_20px_50px_rgba(250,204,21,0.3)] scale-[1.03] z-20' :
-                    i === 1 ? 'bg-white border-slate-200 shadow-xl' :
-                    'bg-white border-orange-100 shadow-lg'
-                  } ${isMe ? 'ring-4 ring-orange-500 ring-offset-4' : ''}`}
-                >
-                  <div className="shrink-0 w-12 flex justify-center">
-                    {i === 0 ? <Crown className="text-yellow-500 animate-king-bounce drop-shadow-md" size={45} /> :
-                     i === 1 ? <Medal className="text-slate-400" size={35} /> :
-                     <Medal className="text-orange-400" size={35} />}
-                  </div>
-
-                  <div className="relative shrink-0">
-                    <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-20 h-20 aspect-square rounded-[30px] object-cover border-4 border-white shadow-md" />
-                    <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border-2 border-white italic">#{i + 1}</div>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    {/* NOMBRE FIEL (CONSERVANDO MAYUS/MIN Y COMPLETO) */}
-                    <p className="font-black italic text-lg text-slate-900 leading-tight break-words pr-2">{c.name || 'Guerrero'}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{getGuerreroTitle(i)}</p>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <p className={`text-2xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points.toLocaleString()}</p>
-                    <p className="text-[7px] font-black text-slate-400 uppercase mt-1">Puntos 🍗</p>
-                  </div>
+      {/* 🏆 TOP 3 - DISEÑO CORREGIDO 🏆 */}
+      <div className="px-4 mt-12 space-y-5">
+        {ranking.slice(0, 3).map((c, i) => {
+          const isMe = c.phone.replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, '');
+          return (
+            <RevealOnScroll key={c.id} delay={i * 100}>
+              <div 
+                ref={isMe ? myRowRef : null}
+                className={`relative flex items-center gap-3 p-5 rounded-[40px] border-4 transition-all ${
+                  i === 0 ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-400 shadow-xl scale-[1.02] z-20' :
+                  i === 1 ? 'bg-white border-slate-200 shadow-lg' :
+                  'bg-white border-orange-100 shadow-md'
+                } ${isMe ? 'ring-4 ring-orange-500 ring-offset-2' : ''}`}
+              >
+                {/* ICONO LADO IZQUIERDO */}
+                <div className="shrink-0 w-10 flex justify-center">
+                  {i === 0 ? <Crown className="text-yellow-500 animate-king-bounce" size={40} /> :
+                   i === 1 ? <Medal className="text-slate-400" size={32} /> :
+                   <Medal className="text-orange-400" size={32} />}
                 </div>
-              </RevealOnScroll>
-            );
-          })}
-        </div>
+
+                {/* FOTO 1:1 CON BADGE */}
+                <div className="relative shrink-0">
+                  <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-16 h-16 aspect-square rounded-[24px] object-cover border-2 border-white shadow-sm" />
+                  <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic shadow-md">#{i + 1}</div>
+                </div>
+
+                {/* DATOS - NOMBRE FIEL */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-black italic text-base text-slate-900 leading-tight break-words">{c.name || 'Guerrero'}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{getGuerreroTitle(i)}</p>
+                </div>
+
+                {/* PUNTOS */}
+                <div className="text-right shrink-0">
+                  <p className={`text-xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points.toLocaleString()}</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">Puntos 🍗</p>
+                </div>
+              </div>
+            </RevealOnScroll>
+          );
+        })}
       </div>
 
-      {/* --- RESTO DE CLASIFICACIÓN --- */}
-      <div className="px-5 mt-16 space-y-4">
-        <h2 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6 italic">Resto de Clasificación</h2>
-        <div className="space-y-3">
-          {ranking.slice(3).map((c, i) => {
-            const actualIndex = i + 3;
-            const isMe = c.phone.replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, '');
-            return (
-              <RevealOnScroll key={c.id} delay={i * 50}>
-                <div 
-                  ref={isMe ? myRowRef : null}
-                  className={`flex items-center gap-4 p-4 rounded-3xl bg-white border border-slate-100 shadow-sm transition-all ${isMe ? 'ring-2 ring-orange-500 bg-orange-50/30' : ''}`}
-                >
-                  <span className="w-8 text-center font-black text-slate-300 text-sm italic">#{actualIndex + 1}</span>
-                  <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-12 h-12 aspect-square rounded-2xl object-cover border border-slate-100" />
-                  <div className="flex-1 min-w-0">
-                    {/* NOMBRE FIEL EN LISTA GENERAL */}
-                    <p className="font-bold text-slate-800 text-sm break-words leading-tight">{c.name}</p>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">{getGuerreroTitle(actualIndex)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-black text-slate-900 text-lg leading-none">{c.points.toLocaleString()}</p>
-                    <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">Puntos</p>
-                  </div>
+      {/* --- LISTA GENERAL (4 EN ADELANTE) --- */}
+      <div className="px-4 mt-8 space-y-3">
+        {ranking.slice(3).map((c, i) => {
+          const actualIndex = i + 3;
+          const isMe = c.phone.replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, '');
+          return (
+            <RevealOnScroll key={c.id} delay={i * 50}>
+              <div 
+                ref={isMe ? myRowRef : null}
+                className={`flex items-center gap-3 p-4 rounded-3xl bg-white border border-slate-100 shadow-sm transition-all ${isMe ? 'ring-2 ring-orange-500 bg-orange-50' : ''}`}
+              >
+                <span className="w-7 text-center font-black text-slate-300 text-sm italic">#{actualIndex + 1}</span>
+                <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-12 h-12 aspect-square rounded-2xl object-cover border border-slate-100" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-800 text-sm break-words">{c.name}</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">{getGuerreroTitle(actualIndex)}</p>
                 </div>
-              </RevealOnScroll>
-            );
-          })}
-        </div>
+                <div className="text-right">
+                  <p className="font-black text-slate-900 text-lg leading-none">{c.points.toLocaleString()}</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">Puntos</p>
+                </div>
+              </div>
+            </RevealOnScroll>
+          );
+        })}
       </div>
 
-      {/* --- 🏆 SALÓN DE LA FAMA (REINSTALADO) --- */}
+      {/* --- 🏆 SALÓN DE LA FAMA --- */}
       <div ref={hallOfFameRef} className="mt-40 scroll-mt-10 px-5">
-        <div className="text-center mb-16 animate-in fade-in duration-1000">
+        <div className="text-center mb-16">
           <div className="bg-orange-500 w-16 h-1.5 mx-auto mb-6 rounded-full" />
           <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter">Salón de la Fama</h2>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-2">Inmortalizados en el Sabor 🏝️</p>
         </div>
 
-        <div className="space-y-40">
+        <div className="space-y-40 pb-20">
           {publishedSeasons.map((season, sIdx) => (
-            <div key={season.id} className="relative bg-slate-950 rounded-[60px] p-8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] border-2 border-orange-500/20">
+            <div key={season.id} className="relative bg-slate-950 rounded-[60px] p-8 shadow-2xl border-2 border-orange-500/20">
               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-3 rounded-3xl font-black shadow-2xl z-30 border-2 border-slate-950 text-center flex flex-col items-center">
                 <span className="text-[8px] uppercase tracking-widest opacity-80 leading-none mb-1">Temporada</span>
                 <span className="text-lg italic tracking-widest leading-none">#{publishedSeasons.length - sIdx}</span>
               </div>
-
               <div className="text-center pt-8 mb-12">
                 <h3 className="text-white font-black text-3xl uppercase italic tracking-tighter mb-2">{season.name}</h3>
-                <div className="inline-block bg-white/10 px-4 py-1 rounded-full">
-                   <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic">🏆 Premio: {season.prize}</p>
-                </div>
+                <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic">🏆 Premio: {season.prize}</p>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {season.winners.map((winner: any, idx: number) => (
-                  <div key={idx} className={`relative group/winner rounded-[40px] overflow-hidden border-4 ${
-                    idx === 0 ? 'border-yellow-400 ring-4 ring-yellow-400/20' : 
-                    idx === 1 ? 'border-slate-300' : 'border-orange-900'
-                  }`}>
+                  <div key={idx} className={`relative group/winner rounded-[40px] overflow-hidden border-4 ${idx === 0 ? 'border-yellow-400 ring-4 ring-yellow-400/20' : idx === 1 ? 'border-slate-300' : 'border-orange-900'}`}>
                     {idx === 0 && <div className="absolute top-4 left-4 z-20 bg-yellow-400 text-black p-1.5 rounded-xl shadow-lg animate-bounce"><Crown size={24} /></div>}
-                    {winner.photo_url ? (
-                      <img src={winner.photo_url} className="w-full aspect-square object-cover grayscale-[30%] group-hover/winner:grayscale-0 transition-all duration-700 group-hover/winner:scale-110" alt="Ganador" />
-                    ) : (
-                      <div className="w-full aspect-square bg-slate-900 flex flex-col items-center justify-center text-slate-700"><CameraOff size={40} className="opacity-20" /></div>
-                    )}
+                    {winner.photo_url ? <img src={winner.photo_url} className="w-full aspect-square object-cover grayscale-[30%] group-hover/winner:grayscale-0 transition-all duration-700" alt="Ganador" /> : <div className="w-full aspect-square bg-slate-900 flex flex-col items-center justify-center text-slate-700"><CameraOff size={40} className="opacity-20" /></div>}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-6">
-                      <p className="text-white font-black italic text-xl tracking-tighter leading-none mb-1">{winner.name}</p>
-                      <p className="text-orange-500 font-black text-base">{winner.points.toLocaleString()} <span className="text-[8px] text-white/50 uppercase tracking-widest">Puntos</span></p>
+                      <p className="text-white font-black italic text-xl tracking-tighter mb-1">{winner.name}</p>
+                      <p className="text-orange-500 font-black text-base">{winner.points.toLocaleString()} <span className="text-[8px] text-white/50 uppercase tracking-widest pr-1">Pts</span></p>
                     </div>
                   </div>
                 ))}
@@ -235,36 +215,30 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR INTELIGENTE (DUPLICADO FLOTANTE) --- */}
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE --- */}
       {myData && showRadar && (
-        <div 
+        <button 
           onClick={scrollToMyRank}
-          className="fixed bottom-10 left-6 right-6 z- animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer group"
+          className="fixed bottom-10 right-6 z- animate-in slide-in-from-right-20 fade-in duration-500 group"
         >
-          <div className="bg-slate-900/98 backdrop-blur-2xl border-2 border-orange-500 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] rounded-[35px] p-4 flex items-center justify-between transition-all active:scale-95 hover:border-white">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <img src={myData.avatar_url} className="w-12 h-12 rounded-2xl border-2 border-orange-500 object-cover group-hover:animate-pulse" />
-                <div className="absolute -top-2 -left-2 bg-white text-slate-900 text-[10px] font-black h-6 w-6 flex items-center justify-center rounded-full border-2 border-orange-500">
-                  {myRankIndex + 1}
-                </div>
-              </div>
-              <div className="text-left">
-                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-0.5 italic">Estás en el Ranking</p>
-                <p className="text-white font-black text-base italic uppercase tracking-tighter leading-none flex items-center gap-2">
-                  Ver mi puesto <ArrowDown size={14} className="animate-bounce" />
-                </p>
+          <div className="relative flex items-center bg-slate-900 text-white rounded-full p-2 pr-6 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-2 border-orange-500 active:scale-90 transition-transform">
+            <div className="relative shrink-0">
+              <img src={myData.avatar_url} className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover" />
+              <div className="absolute -top-1 -left-1 bg-white text-slate-900 text-[10px] font-black h-5 w-5 flex items-center justify-center rounded-full border border-orange-500">
+                {myRankIndex + 1}
               </div>
             </div>
-            <div className="text-right bg-orange-600/20 px-4 py-1.5 rounded-2xl border border-orange-500/30">
-               <p className="text-xl font-black text-white leading-none">{myData.points.toLocaleString()}</p>
-               <p className="text-[7px] font-black text-yellow-300 uppercase tracking-widest">Puntos 🍗</p>
+            <div className="ml-3 text-left leading-none">
+              <p className="text-[7px] font-black text-orange-400 uppercase tracking-widest mb-1 italic">Ver mi puesto</p>
+              <p className="text-white font-black text-xs italic uppercase tracking-tighter flex items-center gap-1">
+                {myData.points.toLocaleString()} PTS <ArrowDown size={10} className="animate-bounce" />
+              </p>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
-      {/* --- ESTILOS CSS --- */}
+      {/* --- ESTILOS --- */}
       <style>{`
         @keyframes king-bounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-12px) rotate(5deg); } }
         .animate-king-bounce { animation: king-bounce 3s infinite ease-in-out; }
