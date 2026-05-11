@@ -171,7 +171,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
-      <Testimonials />
+      <Testimonials onNavigateRanking={() => onNavigate('ranking')} />
 
       <div className="flex items-center justify-center gap-1.5 py-6 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]"><span>Hecho con</span><Heart size={12} className="text-orange-400 fill-orange-400" /><span>en Galápagos</span></div>
 
