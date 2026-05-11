@@ -33,7 +33,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
     if (cartBtnRef.current) setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
   }, [setCartRef]);
 
-  // 🔥 FUNCIÓN MÁGICA: Recarga la página para ver cambios de Vercel al instante
   const handleRefresh = () => {
     window.location.reload();
   };
@@ -44,7 +43,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
     <header className="flex-shrink-0 safe-area-top bg-white/80 backdrop-blur-md border-b border-orange-50 shadow-sm z-40 sticky top-0">
       <div className="flex items-center justify-between px-4 h-14 relative">
         {isHome ? (
-          /* ✅ LOGO CON FUNCIÓN DE REFRESCO AL HACER CLICK */
           <div 
             onClick={handleRefresh}
             className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
@@ -72,7 +70,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
         )}
 
         <div className="flex items-center gap-2">
-          {/* Botón Ranking */}
           <button 
             onClick={() => onNavigate('ranking')} 
             className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-gray-100 text-gray-400'}`}
@@ -80,7 +77,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
             <BarChart2 size={18} />
           </button>
 
-          {/* Botón Perfil */}
           <button 
             onClick={onOpenProfile} 
             className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center active:scale-90 transition-transform"
@@ -92,7 +88,6 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
             )}
           </button>
 
-          {/* Botón Carrito */}
           <button 
             ref={cartBtnRef} 
             onClick={() => onNavigate('cart')} 
@@ -100,7 +95,8 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
           >
             <ShoppingCart size={18} />
             {total > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-sm border border-white">
+              /* ✅ CORREGIDO: Dimensiones fijas para que el número no se vea delgado */
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-[18px] h-[18px] min-w-[18px] rounded-full flex items-center justify-center shadow-sm border border-white leading-none">
                 {total}
               </span>
             )}
