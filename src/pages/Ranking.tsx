@@ -222,23 +222,23 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN STEALTH) --- */}
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN PEPA NARANJA) --- */}
       {myData && showRadar && !isInHallOfFame && (
         <button 
           onClick={scrollToMyRank}
-          className="fixed bottom-4 right-4 z- animate-in slide-in-from-bottom-5 fade-in duration-500"
+          className="fixed bottom-2 right-4 z- animate-in slide-in-from-bottom-2 fade-in duration-500 group"
         >
-          <div className="flex items-center bg-slate-900/90 backdrop-blur-md text-white rounded-full p-1.5 pr-4 shadow-2xl border border-orange-500/40 active:scale-90 transition-transform">
+          <div className="flex items-center bg-orange-400/95 backdrop-blur-md text-white rounded-full p-1 pr-4 shadow-xl border border-white/50 active:scale-90 transition-transform">
             <div className="relative shrink-0">
-              <img src={myData.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/50 object-cover" />
-              <div className="absolute -top-1 -left-1 bg-orange-600 text-white text-[8px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-slate-900">
+              <img src={myData.avatar_url} className="w-7 h-7 rounded-full border border-white/80 object-cover" />
+              <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[7px] font-black h-3.5 w-3.5 flex items-center justify-center rounded-full border border-orange-400">
                 {myRankIndex + 1}
               </div>
             </div>
             <div className="ml-2 text-left leading-none">
-              <p className="text-[6px] font-black text-orange-400 uppercase tracking-widest mb-0.5 opacity-80">Ver mi puesto</p>
-              <p className="text-white font-black text-[10px] italic flex items-center gap-1">
-                {myData.points.toLocaleString()} <ArrowDown size={8} className="animate-bounce" />
+              <p className="text-[6px] font-black text-slate-900 uppercase tracking-widest mb-0.5 opacity-90">Ver mi puesto</p>
+              <p className="text-white font-black text-[9px] italic flex items-center gap-1">
+                {myData.points.toLocaleString()} <ArrowDown size={7} className="animate-bounce" />
               </p>
             </div>
           </div>
