@@ -52,15 +52,15 @@ export default function Ranking() {
     return () => clearInterval(timer);
   }, [extraSettings?.ranking_end_date]);
 
-  const ranking = useMemo(() => [...customers].sort((a, b) => b.points - a.points), [customers]);
+  const ranking = useMemo(() => [...customers].sort((a, b) => (b.points || 0) - (a.points || 0)), [customers]);
   const myRankIndex = ranking.findIndex(c => (c.phone || '').replace(/\D/g, '') === (customerPhone || '').replace(/\D/g, ''));
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
-  // Lógica de Superación Dinámica
+  // Lógica de Superación (Pique entre clientes)
   const nextUp = myRankIndex > 0 ? ranking[myRankIndex - 1] : null;
   const pointsToLeap = nextUp ? (nextUp.points - (myData?.points || 0)) + 1 : 0;
-  const nextUpName = nextUp?.name?.split(' ') || 'Líder';
+  const nextUpName = nextUp?.name?.split(' ')[0] || 'Líder';
 
   useEffect(() => {
     const rowObserver = new IntersectionObserver(([entry]) => {
@@ -83,7 +83,7 @@ export default function Ranking() {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-10">
       <Zap className="text-orange-500 animate-bounce mb-4" size={48} />
-      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest text-center">Abriendo Arena VIP...</p>
+      <p className="font-black text-orange-500 animate-pulse uppercase italic tracking-widest text-center">Iniciando Arena VIP...</p>
     </div>
   );
 
@@ -98,7 +98,7 @@ export default function Ranking() {
         
         <button 
           onClick={() => setShowPrizeDetails(true)}
-          className="inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2.5 rounded-3xl mb-8 border border-white/10 active:scale-95 transition-all shadow-inner"
+          className="inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2.5 rounded-3xl mb-8 border border-white/10 active:scale-95 transition-all shadow-inner hover:bg-black/30"
         >
           <div className="flex items-center gap-2">
             <Gift size={14} className="text-yellow-300 animate-pulse" />
@@ -116,6 +116,16 @@ export default function Ranking() {
           ))}
         </div>
       </div>
+
+      {/* 📍 BOTÓN HISTORIAL */}
+      {publishedSeasons.length > 0 && (
+        <div className="px-6 -mt-6 flex justify-center relative z-10">
+          <button onClick={() => hallOfFameRef.current?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 bg-white text-orange-600 px-6 py-3 rounded-full shadow-xl active:scale-95 transition-all border-2 border-orange-500">
+            <History size={16} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
+            <span className="text-xs font-black uppercase italic tracking-tighter">Historial Ganadores</span>
+          </button>
+        </div>
+      )}
 
       {/* 🏆 TOP 3 🏆 */}
       <div className="px-4 mt-12 space-y-5">
@@ -139,7 +149,7 @@ export default function Ranking() {
 
                 <div className="relative shrink-0">
                   <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-16 h-16 aspect-square rounded-[24px] object-cover border-2 border-white shadow-sm" />
-                  <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic">#{i + 1}</div>
+                  <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic shadow-md">#{i + 1}</div>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -199,12 +209,12 @@ export default function Ranking() {
         })}
       </div>
 
-      {/* --- SALÓN DE LA FAMA (FIXED) --- */}
-      <div ref={hallOfFameRef} className="mt-40 scroll-mt-10 px-5">
+      {/* --- SALÓN DE LA FAMA --- */}
+      <div ref={hallOfFameRef} className="mt-40 scroll-mt-10 px-5 pb-20">
         <div className="text-center mb-16 animate-in fade-in duration-1000">
           <Sparkles className="mx-auto text-orange-500 mb-4 animate-spin-slow" size={32} />
-          <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter text-center w-full">Salón de la Fama</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic text-center w-full">Leyendas Inmortales 🏝️</p>
+          <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter text-center">Salón de la Fama</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic text-center">Leyendas Inmortales 🏝️</p>
         </div>
 
         <div className="space-y-40 pb-20">
@@ -217,16 +227,16 @@ export default function Ranking() {
               <div className="text-center pt-8 mb-12">
                 <h3 className="text-white font-black text-2xl uppercase italic tracking-tighter mb-2">{season.name}</h3>
                 <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic flex items-center justify-center gap-2">
-                   🥇 Ganador: {season.winners?.?.name || 'Guerrero VIP'}
+                   🥇 Ganador: {season.winners?.[0]?.name || 'Guerrero VIP'}
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {(season.winners || []).slice(0,3).map((winner: any, idx: number) => (
                   <div key={idx} className={`relative group/winner rounded-[40px] overflow-hidden border-4 ${idx === 0 ? 'border-yellow-400' : idx === 1 ? 'border-slate-300' : 'border-orange-900'}`}>
-                    {winner.photo_url ? <img src={winner.photo_url} className="w-full aspect-square object-cover grayscale-[30%]" alt="Ganador" /> : <div className="w-full aspect-square bg-slate-900 flex flex-col items-center justify-center text-slate-700"><CameraOff size={40} className="opacity-20" /></div>}
+                    <img src={winner.photo_url} className="w-full aspect-square object-cover grayscale-[30%]" alt="Ganador" />
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-6">
                       <p className="text-white font-black italic text-xl tracking-tighter mb-1">{winner.name}</p>
-                      <p className="text-orange-500 font-black text-sm">{winner.points.toLocaleString()} PTS</p>
+                      <p className="text-orange-500 font-black text-sm">{winner.points?.toLocaleString()} PTS</p>
                     </div>
                   </div>
                 ))}
@@ -236,17 +246,17 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR BURBUJA --- */}
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE --- */}
       {myData && showRadar && !isInHallOfFame && (
-        <div className="fixed bottom-3 right-4 z- flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
+        <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
           {nextUp && (
             <div className="bg-slate-900 text-white text-[9px] font-black py-1.5 px-4 rounded-full border border-orange-500 shadow-2xl animate-bounce flex items-center gap-2">
               <Target size={10} className="text-orange-500" />
               <span>
                 {myRankIndex === 1 
-                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de ganarle a {nextUpName}!</>
-                  : myRankIndex === 3
+                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de ganar a {nextUpName}!</>
+                  : myRankIndex <= 4
                   ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de entrar al Podio!</>
                   : <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de subir al puesto #{myRankIndex}!</>
                 }
@@ -256,7 +266,7 @@ export default function Ranking() {
 
           <div className="flex gap-2 items-center">
             <button onClick={shareMyRank} className="bg-white text-orange-500 p-2.5 rounded-full shadow-2xl border border-orange-100 active:scale-75 transition-all">
-              <Share2 size={18} strokeWidth={3} />
+              <Share2 size={16} />
             </button>
 
             <button 
@@ -284,13 +294,13 @@ export default function Ranking() {
 
       {/* --- MODAL PREMIOS --- */}
       {showPrizeDetails && (
-        <div className="fixed inset-0 z- flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-sm rounded-[50px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border-4 border-orange-500">
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 text-center text-white relative">
                  <button onClick={() => setShowPrizeDetails(false)} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full active:scale-75 transition-all"><X size={20}/></button>
                  <PartyPopper size={48} className="mx-auto mb-4 text-yellow-300" />
-                 <h2 className="text-3xl font-black uppercase italic tracking-tighter">Premios de Temporada</h2>
-                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Recompensas para los Guerreros VIP</p>
+                 <h2 className="text-3xl font-black uppercase italic tracking-tighter">Premios VIP</h2>
+                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Recompensas para los Mejores</p>
               </div>
               <div className="p-8 space-y-5">
                  <div className="flex items-center gap-4 bg-yellow-50 p-5 rounded-[30px] border-2 border-yellow-200 shadow-sm transform hover:scale-[1.02] transition-transform">
@@ -314,7 +324,7 @@ export default function Ranking() {
                        <p className="text-base font-black text-slate-800 uppercase italic">¡Un Cuarto de Pollo!</p>
                     </div>
                  </div>
-                 <button onClick={() => setShowPrizeDetails(false)} className="w-full bg-slate-950 text-white py-5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all mt-4 border-b-4 border-slate-700 shadow-xl">¡A seguir pidiendo! 🍗🔥</button>
+                 <button onClick={() => setShowPrizeDetails(false)} className="w-full bg-slate-950 text-white py-5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all mt-4 border-b-4 border-slate-700 shadow-xl">¡A por esos premios! 🍗🔥</button>
               </div>
            </div>
         </div>
