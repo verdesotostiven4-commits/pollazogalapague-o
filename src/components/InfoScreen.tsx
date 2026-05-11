@@ -28,11 +28,12 @@ const galleryPhotos = [
 function TeamCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
-  const scrollSpeed = 0.45;
+  const scrollSpeed = 0.5; 
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
     let animationFrameId: number;
 
     const autoScroll = () => {
@@ -94,13 +95,31 @@ interface Props {
 
 export default function InfoScreen({ onInstall, canInstall }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartRef = useRef<number | null>(null);
 
   const closeLightbox = () => setLightboxIndex(null);
   const prevPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
   const nextPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev + 1) % galleryPhotos.length);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartRef.current === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStartRef.current - touchEnd;
+    
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
+    touchStartRef.current = null;
+  };
+
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
+
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -150,7 +169,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
       </div>
 
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden p-1">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
           <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
             <Clock size={20} className="text-blue-500" />
           </div>
@@ -160,7 +179,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
           </div>
         </div>
         <a href={MAPS_URL} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-3 px-4 py-4 border-b border-gray-50 active:bg-gray-50 transition-colors">
+          className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 active:bg-gray-50 transition-colors">
           <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center flex-shrink-0">
             <MapPin size={20} className="text-red-500" />
           </div>
@@ -211,6 +230,8 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
+      <Testimonials />
+
       {canInstall && (
         <button
           onClick={onInstall}
@@ -238,18 +259,20 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
 
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
           onClick={closeLightbox}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-8 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-[110]"
+            className="absolute top-8 right-6 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-[110]"
           >
             <X size={28} />
           </button>
 
           <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
+            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
             <ChevronLeft size={24} />
           </button>
 
@@ -257,7 +280,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
             <img 
               src={galleryPhotos[lightboxIndex].url} 
               alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white/20" 
+              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white/20 pointer-events-none select-none" 
             />
             <div className="mt-6 text-center">
                 <p className="text-white text-base font-black uppercase italic tracking-tighter drop-shadow-md">
@@ -265,14 +288,14 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
                 </p>
                 <div className="flex justify-center gap-2 mt-4">
                     {galleryPhotos.map((_, i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-400' : 'w-2 bg-white/20'}`} />
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-white/20'}`} />
                     ))}
                 </div>
             </div>
           </div>
 
           <button onClick={e => { e.stopPropagation(); nextPhoto(); }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
+            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
             <ChevronRight size={24} />
           </button>
         </div>
