@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download, Sparkles } from 'lucide-react';
+import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download, Sparkles, ShieldCheck, Star } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
 
@@ -25,23 +25,20 @@ const galleryPhotos = [
   { url: 'https://images.pexels.com/photos/616354/pexels-photo-616354.jpeg?auto=compress&cs=tinysrgb&w=600', caption: 'Embutidos premium' },
 ];
 
-// 🔥 CARRUSEL MEJORADO (SMOOTH & DRAGGABLE)
 function TeamCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsInPaused] = useState(false);
-  const scrollSpeed = 0.45; // Velocidad ajustada un pelín más lenta
+  const [isPaused, setIsPaused] = useState(false);
+  const scrollSpeed = 0.45;
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
     let animationFrameId: number;
 
     const autoScroll = () => {
       if (!isPaused) {
         container.scrollLeft += scrollSpeed;
-        // Reinicio infinito suave
-        if (container.scrollLeft >= container.scrollWidth / 2) {
+        if (container.scrollLeft >= (container.scrollWidth / 2)) {
           container.scrollLeft = 0;
         }
       }
@@ -52,20 +49,18 @@ function TeamCarousel() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isPaused]);
 
-  // Duplicamos el array para el efecto infinito
   const doubledMembers = [...teamMembers, ...teamMembers];
 
   return (
-    <div className="py-4 relative group">
+    <div className="py-4 overflow-hidden relative">
       <div
         ref={containerRef}
         className="flex gap-4 px-4 overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing touch-pan-y"
-        onMouseEnter={() => setIsInPaused(true)}
-        onMouseLeave={() => setIsInPaused(false)}
-        onTouchStart={() => setIsInPaused(true)}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={() => setIsPaused(true)}
         onTouchEnd={() => {
-            // Espera 2 segundos después de soltar para seguir
-            setTimeout(() => setIsInPaused(false), 2000);
+          setTimeout(() => setIsPaused(false), 2000);
         }}
       >
         {doubledMembers.map((member, i) => (
@@ -82,7 +77,7 @@ function TeamCarousel() {
               />
             </div>
             <div className="text-center">
-              <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">{member.name.split(' ')}</p>
+              <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">{member.name.split(' ')[0]}</p>
               <p className="text-[9px] text-orange-500 font-bold leading-tight mt-0.5">{member.role}</p>
             </div>
           </div>
@@ -106,8 +101,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
 
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
-
-      {/* BRAND CARD — matches Home hero */}
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -126,10 +119,8 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
-      {/* LIVE METRICS */}
       <LiveMetrics />
 
-      {/* CONTACT */}
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
           <h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">Contacto Directo</h3>
@@ -158,7 +149,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </a>
       </div>
 
-      {/* HOURS + LOCATION */}
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden p-1">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
           <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -182,7 +172,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </a>
       </div>
 
-      {/* TEAM SECTION */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
         <div className="px-6 pt-5 pb-2 text-center">
           <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest italic">Nuestro Equipo</h3>
@@ -191,7 +180,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <TeamCarousel />
       </div>
 
-      {/* GALLERY */}
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden p-3">
         <div className="px-3 py-2 flex items-center gap-2 mb-2">
             <Star className="text-orange-500 fill-orange-500" size={14} />
@@ -199,14 +187,14 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
         <div className="space-y-2">
           <div className="flex gap-2" style={{ height: 180 }}>
-            <button onClick={() => setLightboxIndex(0)} className="flex- rounded-3xl overflow-hidden relative active:scale-[0.98] transition-all shadow-md">
-              <img src={galleryPhotos.url} alt={galleryPhotos.caption} className="w-full h-full object-cover" loading="lazy" />
+            <button onClick={() => setLightboxIndex(0)} className="flex-[2] rounded-3xl overflow-hidden relative active:scale-[0.98] transition-all shadow-md">
+              <img src={galleryPhotos[0].url} alt={galleryPhotos[0].caption} className="w-full h-full object-cover" loading="lazy" />
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                <p className="text-white text-[10px] font-black uppercase italic">{galleryPhotos.caption}</p>
+                <p className="text-white text-[10px] font-black uppercase italic">{galleryPhotos[0].caption}</p>
               </div>
             </button>
             <div className="flex-1 flex flex-col gap-2">
-              {.map(i => (
+              {[1, 2].map(i => (
                 <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm">
                   <img src={galleryPhotos[i].url} alt={galleryPhotos[i].caption} className="w-full h-full object-cover" loading="lazy" />
                 </button>
@@ -214,7 +202,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
             </div>
           </div>
           <div className="flex gap-2" style={{ height: 100 }}>
-            {.map(i => (
+            {[3, 4, 5].map(i => (
               <button key={i} onClick={() => setLightboxIndex(i)} className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm">
                 <img src={galleryPhotos[i].url} alt={galleryPhotos[i].caption} className="w-full h-full object-cover" loading="lazy" />
               </button>
@@ -223,7 +211,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       </div>
 
-      {/* PWA INSTALL */}
       {canInstall && (
         <button
           onClick={onInstall}
@@ -243,28 +230,24 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </button>
       )}
 
-      {/* FOOTER */}
       <div className="flex items-center justify-center gap-1.5 py-6 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]">
         <span>Hecho con</span>
         <Heart size={12} className="text-orange-400 fill-orange-400" />
         <span>en Galápagos</span>
       </div>
 
-      {/* 🔥 LIGHTBOX CON FONDO BORROSO (BLUR) */}
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-0 z- bg-black/70 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
           onClick={closeLightbox}
         >
-          {/* BOTÓN CERRAR */}
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-8 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-"
+            className="absolute top-8 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-[110]"
           >
             <X size={28} />
           </button>
 
-          {/* NAVEGACIÓN */}
           <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
             <ChevronLeft size={24} />
@@ -282,7 +265,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
                 </p>
                 <div className="flex justify-center gap-2 mt-4">
                     {galleryPhotos.map((_, i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-white/20'}`} />
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-400' : 'w-2 bg-white/20'}`} />
                     ))}
                 </div>
             </div>
@@ -295,7 +278,6 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         </div>
       )}
 
-      {/* ESTILOS CSS PARA ANIMACIONES */}
       <style>{`
         @keyframes logoGlowPulse {
           0%, 100% { transform: scale(1); opacity: 0.28; }
