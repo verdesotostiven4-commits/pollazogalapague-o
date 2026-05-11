@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Trophy, Star, Crown, Medal, CameraOff, Sparkles, Zap, History, ShieldCheck, ArrowDown } from 'lucide-react';
+import { Trophy, Star, Crown, Medal, CameraOff, Sparkles, Zap, History, ShieldCheck, ArrowDown, Share2, Target } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 
@@ -56,6 +56,10 @@ export default function Ranking() {
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
   const publishedSeasons = useMemo(() => seasons.filter(s => s.is_published).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [seasons]);
 
+  // Lógica de superación: ¿A cuánto estoy del que está arriba mío?
+  const nextUp = myRankIndex > 0 ? ranking[myRankIndex - 1] : null;
+  const pointsToLeap = nextUp ? (nextUp.points - (myData?.points || 0)) + 1 : 0;
+
   useEffect(() => {
     const rowObserver = new IntersectionObserver(([entry]) => {
       setShowRadar(!entry.isIntersecting && myRankIndex !== -1);
@@ -78,6 +82,12 @@ export default function Ranking() {
     myRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const shareMyRank = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥. ¿Podrás superarme? 😎`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-10">
       <Zap className="text-orange-500 animate-bounce mb-4" size={48} />
@@ -93,9 +103,16 @@ export default function Ranking() {
         <div className="absolute inset-0 opacity-10 pointer-events-none"><Trophy className="absolute -bottom-10 -right-10 rotate-12" size={150} /></div>
         <Trophy size={60} className="mx-auto mb-4 text-yellow-300 drop-shadow-[0_0_15px_rgba(253,224,71,0.6)] animate-bounce" />
         <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-1">{extraSettings?.ranking_title || 'Ranking VIP'}</h1>
-        <div className="inline-flex items-center gap-2 bg-black/20 px-4 py-1 rounded-full mb-8">
-          <Sparkles size={10} className="text-yellow-300 fill-yellow-300" />
-          <p className="text-[9px] font-black uppercase tracking-[0.2em]">Temporada en Curso</p>
+        
+        {/* BOTÍN: Visualización del premio */}
+        <div className="inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2 rounded-3xl mb-8 border border-white/10 animate-soft-pulse">
+          <div className="flex items-center gap-2">
+            <Sparkles size={12} className="text-yellow-300 fill-yellow-300" />
+            <p className="text-[10px] font-black uppercase tracking-[0.15em]">Premio Temporada</p>
+          </div>
+          <p className="text-yellow-300 font-black italic text-xs uppercase pr-1">
+             {extraSettings?.ranking_prize || '¡Sorpresa Especial! 🎁'}
+          </p>
         </div>
 
         {/* RELOJ */}
@@ -222,33 +239,56 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN PEPA NARANJA) --- */}
+      {/* --- 📡 RADAR BURBUJA INTELIGENTE (VERSIÓN SELLO DE ORO) --- */}
       {myData && showRadar && !isInHallOfFame && (
-        <button 
-          onClick={scrollToMyRank}
-          className="fixed bottom-2 right-4 z- animate-in slide-in-from-bottom-2 fade-in duration-500 group"
-        >
-          <div className="flex items-center bg-orange-400/95 backdrop-blur-md text-white rounded-full p-1 pr-4 shadow-xl border border-white/50 active:scale-90 transition-transform">
-            <div className="relative shrink-0">
-              <img src={myData.avatar_url} className="w-7 h-7 rounded-full border border-white/80 object-cover" />
-              <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[7px] font-black h-3.5 w-3.5 flex items-center justify-center rounded-full border border-orange-400">
-                {myRankIndex + 1}
+        <div className="fixed bottom-2 right-4 z- flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
+          
+          {/* Tip de Motivación: "A solo X puntos de..." */}
+          {nextUp && (
+            <div className="bg-slate-900 text-white text-[8px] font-black py-1 px-3 rounded-full border border-orange-500 shadow-lg animate-bounce">
+              🔥 ¡A solo {pointsToLeap} pts de superar a {nextUp.name.split(' ')}!
+            </div>
+          )}
+
+          <div className="flex gap-2 items-center">
+            {/* Botón de Compartir */}
+            <button 
+              onClick={shareMyRank}
+              className="bg-white text-orange-600 p-2 rounded-full shadow-xl border border-orange-200 active:scale-75 transition-all"
+            >
+              <Share2 size={14} />
+            </button>
+
+            {/* Burbuja Principal */}
+            <button 
+              onClick={scrollToMyRank}
+              className="flex items-center bg-orange-300/90 backdrop-blur-md text-white rounded-full p-1 pr-4 shadow-xl border border-white active:scale-90 transition-transform"
+            >
+              <div className="relative shrink-0">
+                <img src={myData.avatar_url} className="w-8 h-8 rounded-full border border-white/80 object-cover" />
+                <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[7px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-orange-400">
+                  {myRankIndex + 1}
+                </div>
               </div>
-            </div>
-            <div className="ml-2 text-left leading-none">
-              <p className="text-[6px] font-black text-slate-900 uppercase tracking-widest mb-0.5 opacity-90">Ver mi puesto</p>
-              <p className="text-white font-black text-[9px] italic flex items-center gap-1">
-                {myData.points.toLocaleString()} <ArrowDown size={7} className="animate-bounce" />
-              </p>
-            </div>
+              <div className="ml-2 text-left leading-none">
+                <p className="text-[6px] font-black text-slate-900 uppercase tracking-widest mb-0.5 opacity-90">
+                   {myRankIndex < 3 ? '¡ERES LEYENDA! 🎉' : 'Ver mi puesto'}
+                </p>
+                <p className="text-white font-black text-[10px] italic flex items-center gap-1 drop-shadow-sm">
+                  {myData.points.toLocaleString()} <ArrowDown size={8} className="animate-bounce" />
+                </p>
+              </div>
+            </button>
           </div>
-        </button>
+        </div>
       )}
 
       {/* --- ESTILOS --- */}
       <style>{`
-        @keyframes king-bounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-12px) rotate(5deg); } }
+        @keyframes king-bounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(5deg); } }
+        @keyframes soft-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.9; transform: scale(0.98); } }
         .animate-king-bounce { animation: king-bounce 3s infinite ease-in-out; }
+        .animate-soft-pulse { animation: soft-pulse 4s infinite ease-in-out; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
