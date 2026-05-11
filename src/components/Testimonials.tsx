@@ -22,7 +22,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
   const btnClass = onChange ? 'cursor-pointer active:scale-125 transition-all duration-200' : 'cursor-default';
   return (
     <div className="flex gap-1.5 py-1">
-      {[1, 2, 3, 4, 5].map((s) => (
+      {.map((s) => (
         <button key={s} type="button" onClick={() => onChange?.(s)} className={btnClass}>
           <Star 
             size={onChange ? 26 : 18} 
@@ -76,7 +76,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     if (!customerPhone) return;
     const clean = getCleanPhone(customerPhone);
     try {
-        const { data } = await supabase.from('customers').select('has_reviewed').ilike('whatsapp', `%${clean}`).maybeSingle();
+        const { data } = await supabase.from('customers').select('has_reviewed').ilike('phone', `%${clean}`).maybeSingle();
         if (data) setHasReviewed(!!data.has_reviewed);
     } catch (e) { console.error(e); }
   }, [customerPhone]);
@@ -118,20 +118,18 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
         if (testErr) throw new Error("Error al publicar opinión.");
 
-        // 2. Sumar Puntos si es la primera vez
+        // 2. Sumar Puntos
         if (customerPhone && !hasReviewed) {
-            const { data: user } = await supabase.from('customers').select('id, points').ilike('whatsapp', `%${clean}`).maybeSingle();
+            const { data: user } = await supabase.from('customers').select('id, points').ilike('phone', `%${clean}`).maybeSingle();
             
             if (user) {
-                const { error: upError } = await supabase.from('customers').update({ 
+                await supabase.from('customers').update({ 
                     points: (user.points || 0) + 10, 
                     has_reviewed: true 
                 }).eq('id', user.id);
-
-                if (!upError) {
-                    setHasReviewed(true);
-                    setPointsGainedNow(true);
-                }
+                
+                setHasReviewed(true);
+                setPointsGainedNow(true);
             }
         }
 
@@ -149,7 +147,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     } catch (err: any) {
         setSubmitting(false);
         setError(err.message);
-        alert("🚨 ERROR: " + err.message);
+        alert("🚨 ERROR DETECTADO: " + err.message);
     }
   };
 
@@ -179,8 +177,6 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-      
-      {/* 🚀 BANNER INCENTIVO */}
       {!hasReviewed && customerName && (
         <div className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 animate-gradient-x" />
@@ -196,7 +192,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
       <div className="px-5 pt-5 pb-4 border-b border-gray-50 flex items-center justify-between">
         <div className="select-none" onMouseDown={startHold} onMouseUp={cancelHold} onTouchStart={startHold} onTouchEnd={cancelHold}>
-          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight">Opiniones del Club</h3>
+          <h3 className="font-black text-gray-900 text-base uppercase tracking-tight italic">Opiniones del Club</h3>
           {holdProgress > 0 && <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden w-32"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${holdProgress}%`, transition: 'none' }} /></div>}
         </div>
         <button onClick={() => { setSuccess(false); setPointsGainedNow(false); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-2xl active:scale-95 transition-all shadow-lg uppercase">
@@ -204,7 +200,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         </button>
       </div>
 
-      {/* 📊 ESTADÍSTICAS */}
+      {/* 📊 CUADRO DE ESTADÍSTICAS RECUPERADO */}
       {testimonials.length > 0 && !showForm && (
         <div className="px-5 pt-4 pb-2">
           <div className="flex items-center gap-5 bg-gradient-to-br from-orange-50/50 to-white rounded-[32px] px-5 py-5 border border-orange-100">
@@ -214,7 +210,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
               <p className="text-[10px] text-gray-400 mt-1 font-bold">{testimonials.length} opiniones</p>
             </div>
             <div className="flex-1 space-y-1">
-              {[5, 4, 3, 2, 1].map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
+              {.map(num => <StarStatRow key={num} star={num} testimonials={testimonials} />)}
             </div>
           </div>
         </div>
@@ -228,30 +224,23 @@ export default function Testimonials({ onNavigateRanking }: Props) {
               <div className="text-center space-y-4">
                 <p className="text-green-700 font-black text-lg uppercase tracking-tight">¡Gracias por compartir tu experiencia!</p>
                 {pointsGainedNow && (
-                    <button 
-                        onClick={onNavigateRanking}
-                        className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800"
-                    >
-                        ¡RECLAMA TUS 10 PUNTOS! <Trophy size={18} />
-                    </button>
+                    <button onClick={onNavigateRanking} className="bg-green-600 text-white px-7 py-4 rounded-[24px] font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-transform flex items-center gap-3 mx-auto border-b-4 border-green-800">¡RECLAMA TUS 10 PUNTOS! <Trophy size={18} /></button>
                 )}
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}</div>
-                <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-3 text-gray-400" />}</div>
+                <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
               </div>
               <div className="text-center">
-                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase">¿Qué calificación nos das?</p>
+                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
                 <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
               <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-[28px] px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
-              {error && <p className="text-red-500 text-xs font-black text-center uppercase">{error}</p>}
-              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">
-                {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}
-              </button>
+              {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
+              <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">{submitting ? 'Enviando...' : 'Publicar opinión'}</button>
             </form>
           )}
         </div>
@@ -262,7 +251,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
           <div key={t.id} className="flex gap-4 px-5 py-6 hover:bg-gray-50/50 transition-colors">
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-orange-100 bg-gray-50 shadow-sm">{t.photo_url ? <img src={t.photo_url} alt={t.author_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500 font-black text-sm uppercase">{t.author_name.charAt(0)}</div>}</div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2 mb-1"><p className="text-sm font-bold text-gray-900 truncate">{t.author_name}</p>{adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center"><Trash2 size={13} /></button>}</div>
+              <div className="flex items-center justify-between gap-2 mb-1"><p className="text-sm font-bold text-gray-900 truncate tracking-tight">{t.author_name}</p>{adminMode && <button onClick={() => handleDelete(t.id)} className="w-7 h-7 bg-red-50 text-red-400 rounded-lg flex items-center justify-center border border-red-100 active:scale-75 transition-all"><Trash2 size={13} /></button>}</div>
               <div className="scale-75 origin-left opacity-80 mb-1"><StarRating value={t.stars} /></div>
               <p className="text-gray-600 text-[13px] font-medium leading-relaxed">{t.comment}</p>
               <p className="text-gray-300 text-[9px] mt-2 font-bold uppercase tracking-widest">{new Date(t.created_at).toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
