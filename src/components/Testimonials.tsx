@@ -18,20 +18,22 @@ interface Props {
   onNavigateRanking?: () => void;
 }
 
-// ✅ COMPONENTE DE CONFETI PARA CELEBRACIÓN
+// ✅ COMPONENTE DE CONFETI MEJORADO (Explosión Central)
 function Confetti() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-50">
-      {[...Array(20)].map((_, i) => (
+      {[...Array(30)].map((_, i) => (
         <div 
           key={i} 
           className="confetti-piece"
           style={{
-            left: `${Math.random() * 100}%`,
-            backgroundColor: i % 2 === 0 ? '#f97316' : '#fbbf24',
-            animationDelay: `${Math.random() * 3}s`,
-            transform: `rotate(${Math.random() * 360}deg)`
-          }}
+            left: '50%',
+            top: '40%',
+            backgroundColor: i % 3 === 0 ? '#f97316' : i % 3 === 1 ? '#fbbf24' : '#ffffff',
+            animationDelay: `${Math.random() * 0.5}s`,
+            '--x': `${(Math.random() - 0.5) * 400}px`,
+            '--y': `${(Math.random() - 0.2) * 400}px`
+          } as any}
         />
       ))}
     </div>
@@ -153,6 +155,9 @@ export default function Testimonials({ onNavigateRanking }: Props) {
                     setHasReviewed(true);
                     setPointsGainedNow(true);
                     isFirstTime = true;
+                    // 🔊 SONIDO DE VICTORIA
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+                    audio.play().catch(() => {});
                 }
             }
         }
@@ -162,12 +167,12 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         setComment('');
         fetchTestimonials();
 
-        // ⏱️ TIEMPO INTELIGENTE: 10 seg si ganó puntos, 5.5 seg si no.
+        // ⏳ TIEMPO DE GLORIA: 12 seg si ganó puntos, 5 seg si no.
         setTimeout(() => {
             setSuccess(false);
             setPointsGainedNow(false);
             setShowForm(false);
-        }, isFirstTime ? 10000 : 5500);
+        }, isFirstTime ? 12000 : 5000);
 
     } catch (err: any) {
         setSubmitting(false);
@@ -202,21 +207,21 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
       
-      {/* 🚀 BANNER CAZADOR DE PUNTOS VIP */}
+      {/* 🚀 BANNER GOLD SWEEP VIP */}
       {!hasReviewed && customerName && (
         <div className="relative overflow-hidden group bg-orange-600">
-            {/* Animación de brillo (Shine) */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shine-banner" />
+            {/* Animación de barrido de oro */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/30 to-transparent -translate-x-full animate-gold-sweep" />
             
             <div className="relative p-5 flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner border border-white/10 animate-pulse">
                     <Sparkles size={24} fill="currentColor" />
                 </div>
                 <div className="flex-1">
-                    <p className="text-white font-black text-xs uppercase tracking-tight mb-1 leading-none">¡Gana puntos gratis para ganar premios!</p>
+                    <p className="text-white font-black text-xs uppercase tracking-tight mb-1 leading-none drop-shadow-sm">¡Gana puntos VIP para canjear premios!</p>
                     <p className="text-white/80 text-[10px] font-bold uppercase leading-tight">
-                        Envía tu primera opinión y recibe 
-                        <span className="inline-block ml-1.5 bg-yellow-400 text-orange-800 px-2 py-0.5 rounded-md font-black shadow-lg animate-glow-points">+10 PUNTOS</span>
+                        Tu primera opinión te regala
+                        <span className="inline-block ml-2 bg-yellow-400 text-orange-900 px-2 py-0.5 rounded-md font-black shadow-[0_0_15px_rgba(250,204,21,0.5)] animate-glow-points">+10 PUNTOS</span>
                     </p>
                 </div>
             </div>
@@ -244,49 +249,49 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       )}
 
       {showForm && (
-        <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20 relative">
+        <div className="px-5 py-6 border-b border-gray-100 bg-orange-50/20 relative min-h-[300px] flex items-center justify-center">
           {success ? (
-            <div className="flex flex-col items-center py-6 gap-6 animate-in zoom-in duration-500 relative">
+            <div className="flex flex-col items-center py-6 gap-6 animate-award-boom relative w-full">
               {pointsGainedNow && <Confetti />}
               
-              <div className={`w-24 h-24 rounded-[30px] flex items-center justify-center shadow-2xl relative z-10 ${pointsGainedNow ? 'bg-gradient-to-br from-yellow-400 to-orange-600 animate-bounce' : 'bg-green-500'}`}>
-                {pointsGainedNow ? <Trophy size={48} className="text-white drop-shadow-md animate-king-bounce" /> : <PartyPopper size={48} className="text-white" />}
+              <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl relative z-10 ${pointsGainedNow ? 'bg-gradient-to-br from-yellow-400 via-orange-500 to-orange-600 animate-king-bounce' : 'bg-green-500'}`}>
+                {pointsGainedNow ? <Trophy size={50} className="text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.3)]" /> : <PartyPopper size={50} className="text-white" />}
               </div>
               
               <div className="text-center space-y-4 relative z-10">
-                <p className={`font-black text-xl uppercase tracking-tighter leading-none ${pointsGainedNow ? 'text-orange-700' : 'text-green-700'}`}>
-                    {pointsGainedNow ? '¡FELICIDADES!' : '¡Opinión Publicada!'}
+                <p className={`font-black text-2xl uppercase tracking-tighter leading-none italic ${pointsGainedNow ? 'text-orange-700' : 'text-green-700'}`}>
+                    {pointsGainedNow ? '¡FELICIDADES!' : '¡Publicado!'}
                 </p>
                 
                 {pointsGainedNow ? (
                     <div className="space-y-6">
-                        <div className="bg-white/60 backdrop-blur-sm p-4 rounded-3xl border-2 border-orange-200">
-                            <p className="text-orange-900 text-xs font-black uppercase px-2">Has ganado 10 Puntos por ser parte activa del club.</p>
-                        </div>
+                        <p className="text-orange-900 text-[11px] font-black uppercase tracking-widest leading-tight px-4">
+                           Has ganado tus primeros 10 puntos VIP.<br/>¡Aprovéchalos Guerrero!
+                        </p>
                         <button 
                           onClick={() => onNavigateRanking?.()} 
-                          className="bg-orange-600 text-white px-8 py-5 rounded-full font-black text-sm uppercase shadow-2xl shadow-orange-300 active:scale-95 transition-all flex items-center gap-3 mx-auto border-b-4 border-orange-800 animate-pulse-slow"
+                          className="bg-orange-600 text-white px-6 py-4 rounded-full font-black text-xs uppercase shadow-xl border-b-4 border-orange-800 active:scale-95 transition-all flex items-center gap-3 mx-auto relative overflow-hidden group"
                         >
-                          RECLAMAR MIS PUNTOS EN RANKING <Trophy size={20} />
+                          <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
+                          VER MI PREMIO EN RANKING <Trophy size={16} />
                         </button>
                     </div>
                 ) : (
-                    <p className="text-green-600/70 text-xs font-bold uppercase px-6">¡Gracias por compartir tu experiencia con nosotros!</p>
+                    <p className="text-green-600/70 text-xs font-bold uppercase px-6 italic">¡Gracias por ser parte del club!</p>
                 )}
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 w-full">
               <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-orange-100 shadow-sm">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border-2 border-orange-200 shrink-0">{photoUrl ? <img src={photoUrl} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}</div>
                 <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Publicando como:</p><p className="text-sm font-bold text-gray-800 truncate">{name || 'Invitado'}</p></div>
               </div>
               <div className="text-center">
-                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase tracking-widest">¿Qué calificación nos das?</p>
+                <p className="text-[11px] text-gray-500 mb-2 font-black uppercase tracking-widest">Danos tu calificación</p>
                 <div className="flex justify-center"><StarRating value={stars} onChange={setStars} /></div>
               </div>
-              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Cuéntanos tu experiencia..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-2xl px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
-              {error && <p className="text-red-500 text-xs font-black text-center uppercase tracking-tight">{error}</p>}
+              <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="¿Cómo estuvo tu experiencia?..." maxLength={300} rows={4} className="w-full bg-white border-2 border-orange-50 rounded-2xl px-5 py-4 text-sm text-gray-800 outline-none focus:border-orange-500 transition-all shadow-inner" />
               <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-3 bg-orange-500 text-white font-black py-5 rounded-[22px] shadow-xl shadow-orange-100 active:scale-95 transition-all disabled:opacity-60 uppercase text-sm tracking-[0.15em]">{submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={18} /> Publicar opinión</>}</button>
             </form>
           )}
@@ -311,23 +316,30 @@ export default function Testimonials({ onNavigateRanking }: Props) {
         @keyframes gradient-x { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         .animate-gradient-x { background-size: 200% 200%; animation: gradient-x 3s ease infinite; }
         
-        @keyframes shine-banner { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-        .animate-shine-banner { animation: shine-banner 4s infinite linear; }
+        @keyframes gold-sweep { 0% { transform: translateX(-150%); } 100% { transform: translateX(250%); } }
+        .animate-gold-sweep { animation: gold-sweep 4s infinite linear; }
         
-        @keyframes glow-points { 0%, 100% { box-shadow: 0 0 5px #fbbf24; transform: scale(1); } 50% { box-shadow: 0 0 20px #fbbf24; transform: scale(1.05); } }
+        @keyframes glow-points { 0%, 100% { box-shadow: 0 0 5px #fbbf24; transform: scale(1); } 50% { box-shadow: 0 0 25px #fbbf24; transform: scale(1.05); } }
         .animate-glow-points { animation: glow-points 2s infinite ease-in-out; }
         
-        .confetti-piece { 
-          position: absolute; width: 8px; height: 8px; top: -10px;
-          opacity: 0; animation: confetti-fall 4s ease-out forwards;
+        @keyframes award-boom {
+          0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+          60% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-        @keyframes confetti-fall {
-          0% { transform: translateY(0) rotate(0); opacity: 1; }
-          100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+        .animate-award-boom { animation: award-boom 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        
+        .confetti-piece { 
+          position: absolute; width: 10px; height: 10px; border-radius: 2px;
+          opacity: 0; animation: confetti-burst 4s ease-out forwards;
+        }
+        @keyframes confetti-burst {
+          0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+          100% { transform: translate(var(--x), var(--y)) rotate(720deg); opacity: 0; }
         }
         
-        @keyframes pulse-slow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
-        .animate-pulse-slow { animation: pulse-slow 2s infinite ease-in-out; }
+        @keyframes king-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-king-bounce { animation: king-bounce 2s infinite ease-in-out; }
       `}</style>
     </div>
   );
