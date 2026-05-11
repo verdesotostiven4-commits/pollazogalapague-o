@@ -19,7 +19,7 @@ function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode, de
 }
 
 export default function Ranking() {
-  const { customers = [], extraSettings, seasons = [], loading, refreshData } = useAdmin(); // ✅ AGREGADO refreshData
+  const { customers = [], extraSettings, seasons = [], loading, refreshData } = useAdmin();
   const { customerPhone } = useUser();
   const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const myRowRef = useRef<HTMLDivElement>(null);
@@ -29,11 +29,16 @@ export default function Ranking() {
   const [isInHallOfFame, setIsInHallOfFame] = useState(false);
   const [showPrizeDetails, setShowPrizeDetails] = useState(false);
 
-  // 🚀 RECARGA AUTOMÁTICA AL ENTRAR
+  // 🚀 RECARGA AUTOMÁTICA AL ENTRAR (Con delay para asegurar sincronización de DB)
   useEffect(() => {
-    if (refreshData) {
-        refreshData(); 
-    }
+    const sync = async () => {
+        if (refreshData) {
+            // Medio segundo de espera para que Supabase asiente los puntos del comentario
+            await new Promise(resolve => setTimeout(resolve, 500));
+            refreshData(); 
+        }
+    };
+    sync();
   }, [refreshData]);
 
   const getGuerreroTitle = (index: number) => {
@@ -227,7 +232,7 @@ export default function Ranking() {
           {publishedSeasons.map((season, sIdx) => (
             <div key={season.id} className="relative bg-slate-950 rounded-[60px] p-8 shadow-2xl border-2 border-orange-500/20">
               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-3 rounded-3xl font-black shadow-2xl z-30 border-2 border-slate-950 text-center flex flex-col items-center min-w-[140px]">
-                <span className="text-[8px] uppercase tracking-widest opacity-80 leading-none mb-1">Temporada</span>
+                <span className="text-[8px] uppercase tracking-widest opacity-80 chip text-white leading-none mb-1">Temporada</span>
                 <span className="text-lg italic tracking-widest leading-none">#{publishedSeasons.length - sIdx}</span>
               </div>
               <div className="text-center pt-8 mb-12">
@@ -280,7 +285,7 @@ export default function Ranking() {
               className="flex items-center bg-orange-300/90 backdrop-blur-md text-white rounded-full p-1.5 pr-5 shadow-2xl border border-white active:scale-90 transition-transform"
             >
               <div className="relative shrink-0">
-                <img src={myData.avatar_url} className="w-8 h-8 rounded-full border border-white/80 object-cover" />
+                <img src={myData.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${myData.name}`} className="w-8 h-8 rounded-full border border-white/80 object-cover" />
                 <div className="absolute -top-1 -left-1 bg-white text-orange-600 text-[8px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-orange-400">
                   {myRankIndex + 1}
                 </div>
