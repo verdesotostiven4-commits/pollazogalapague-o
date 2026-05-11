@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download, Sparkles, ShieldCheck, Star } from 'lucide-react';
+import { MapPin, Clock, MessageCircle, Phone, Heart, Truck, X, ChevronLeft, ChevronRight, Download, Sparkles, Star } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
 
@@ -27,28 +27,51 @@ const galleryPhotos = [
 
 function TeamCarousel() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
   const [isPaused, setIsPaused] = useState(false);
-  const scrollSpeed = 0.5; 
+  const speed = 0.8; // ✅ Más rápido como pediste
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    let animationFrameId: number;
-
-    const autoScroll = () => {
-      if (!isPaused) {
-        container.scrollLeft += scrollSpeed;
-        if (container.scrollLeft >= (container.scrollWidth / 2)) {
+    let animationId: number;
+    const animate = () => {
+      if (!isPaused && !isDragging.current) {
+        container.scrollLeft += speed;
+        // Bucle infinito: si llega al final del primer set, resetea al inicio
+        if (container.scrollLeft >= container.scrollWidth / 2) {
           container.scrollLeft = 0;
         }
       }
-      animationFrameId = requestAnimationFrame(autoScroll);
+      animationId = requestAnimationFrame(animate);
     };
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, [isPaused, speed]);
 
-    animationFrameId = requestAnimationFrame(autoScroll);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isPaused]);
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    isDragging.current = true;
+    setIsPaused(true);
+    const x = 'touches' in e ? e.touches[0].pageX : e.pageX;
+    startX.current = x - (containerRef.current?.offsetLeft || 0);
+    scrollLeft.current = containerRef.current?.scrollLeft || 0;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging.current || !containerRef.current) return;
+    const x = 'touches' in e ? e.touches[0].pageX : e.pageX;
+    const walk = (x - (containerRef.current.offsetLeft || 0) - startX.current) * 1.5;
+    containerRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+
+  const handleStop = () => {
+    isDragging.current = false;
+    // Resume auto-scroll after a short delay
+    setTimeout(() => setIsPaused(false), 50);
+  };
 
   const doubledMembers = [...teamMembers, ...teamMembers];
 
@@ -56,26 +79,19 @@ function TeamCarousel() {
     <div className="py-4 overflow-hidden relative">
       <div
         ref={containerRef}
-        className="flex gap-4 px-4 overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing touch-pan-y"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => {
-          setTimeout(() => setIsPaused(false), 2000);
-        }}
+        className="flex gap-4 px-4 overflow-x-hidden scrollbar-hide select-none cursor-grab active:cursor-grabbing touch-pan-y"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleStop}
+        onMouseLeave={handleStop}
+        onTouchStart={handleMouseDown}
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleStop}
       >
         {doubledMembers.map((member, i) => (
           <div key={`${member.name}-${i}`} className="flex flex-col items-center gap-2.5 flex-shrink-0" style={{ width: 100 }}>
             <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white ring-offset-2">
-              <img
-                src={member.photo}
-                alt={member.name}
-                className="w-full h-full object-cover pointer-events-none"
-                loading="lazy"
-                onError={e => {
-                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=f97316&color=fff&size=128`;
-                }}
-              />
+              <img src={member.photo} alt={member.name} className="w-full h-full object-cover pointer-events-none" loading="lazy" />
             </div>
             <div className="text-center">
               <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">{member.name.split(' ')[0]}</p>
@@ -95,31 +111,31 @@ interface Props {
 
 export default function InfoScreen({ onInstall, canInstall }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const touchStartRef = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const closeLightbox = () => setLightboxIndex(null);
   const prevPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
   const nextPhoto = () => setLightboxIndex(prev => prev === null ? null : (prev + 1) % galleryPhotos.length);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartRef.current = e.touches[0].clientX;
+  const handleLightboxTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartRef.current === null) return;
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStartRef.current - touchEnd;
-    
+  const handleLightboxTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX;
     if (Math.abs(diff) > 50) {
       if (diff > 0) nextPhoto();
       else prevPhoto();
     }
-    touchStartRef.current = null;
+    touchStartX.current = null;
   };
 
   return (
     <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
 
+      {/* ✅ BRAND CARD CORREGIDA: No itálica, icono de ubicación */}
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -127,12 +143,13 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
             <img src={LOGO_OFFICIAL} alt="logo" className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl" />
           </div>
           <div>
-            <h2 className="text-white font-black text-2xl uppercase tracking-tighter italic">
+            {/* Sin inclinación como pediste */}
+            <h2 className="text-white font-black text-2xl uppercase tracking-tighter not-italic">
               La Casa del Pollazo
             </h2>
             <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 mt-2">
-                <ShieldCheck className="text-yellow-300" size={14} />
-                <span className="text-white font-bold text-[10px] uppercase tracking-widest">El Mirador VIP</span>
+                <MapPin className="text-yellow-300" size={14} />
+                <span className="text-white font-bold text-[10px] uppercase tracking-widest">El Mirador</span>
             </div>
           </div>
         </div>
@@ -208,7 +225,7 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
           <div className="flex gap-2" style={{ height: 180 }}>
             <button onClick={() => setLightboxIndex(0)} className="flex-[2] rounded-3xl overflow-hidden relative active:scale-[0.98] transition-all shadow-md">
               <img src={galleryPhotos[0].url} alt={galleryPhotos[0].caption} className="w-full h-full object-cover" loading="lazy" />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-left">
                 <p className="text-white text-[10px] font-black uppercase italic">{galleryPhotos[0].caption}</p>
               </div>
             </button>
@@ -257,46 +274,50 @@ export default function InfoScreen({ onInstall, canInstall }: Props) {
         <span>en Galápagos</span>
       </div>
 
+      {/* ✅ GALERÍA VIP: Full App Blur (z-1000), Brillo normal (no oscuro), Deslizable (Instagram style) */}
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
+          className="fixed inset-0 z-[1000] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" 
           onClick={closeLightbox}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onTouchStart={handleLightboxTouchStart}
+          onTouchEnd={handleLightboxTouchEnd}
         >
+          {/* BOTÓN CERRAR */}
           <button 
             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-            className="absolute top-8 right-6 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md active:scale-75 transition-all z-[110]"
+            className="absolute top-6 right-6 w-12 h-12 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[110]"
           >
             <X size={28} />
           </button>
 
+          {/* NAVEGACIÓN IZQUIERDA (Escritorio) */}
           <button onClick={e => { e.stopPropagation(); prevPhoto(); }}
-            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
-            <ChevronLeft size={24} />
+            className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/50 rounded-full items-center justify-center text-gray-900 shadow-xl active:scale-75 transition-all">
+            <ChevronLeft size={28} />
           </button>
 
           <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <img 
               src={galleryPhotos[lightboxIndex].url} 
               alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border-2 border-white/20 pointer-events-none select-none" 
+              className="w-full max-h-[70vh] object-contain rounded-[40px] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border-2 border-white pointer-events-none select-none" 
             />
-            <div className="mt-6 text-center">
-                <p className="text-white text-base font-black uppercase italic tracking-tighter drop-shadow-md">
+            <div className="mt-8 text-center px-4">
+                <p className="text-gray-900 text-lg font-black uppercase tracking-tighter italic">
                     {galleryPhotos[lightboxIndex].caption}
                 </p>
-                <div className="flex justify-center gap-2 mt-4">
+                <div className="flex justify-center gap-2 mt-6">
                     {galleryPhotos.map((_, i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-white/20'}`} />
+                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === lightboxIndex ? 'w-10 bg-orange-500' : 'w-2 bg-gray-300'}`} />
                     ))}
                 </div>
             </div>
           </div>
 
+          {/* NAVEGACIÓN DERECHA (Escritorio) */}
           <button onClick={e => { e.stopPropagation(); nextPhoto(); }}
-            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full items-center justify-center text-white backdrop-blur-sm active:scale-75 transition-all">
-            <ChevronRight size={24} />
+            className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/50 rounded-full items-center justify-center text-gray-900 shadow-xl active:scale-75 transition-all">
+            <ChevronRight size={28} />
           </button>
         </div>
       )}
