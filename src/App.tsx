@@ -1,8 +1,8 @@
 import { useState, useRef, Component, useEffect } from 'react';
+import { CartProvider } from './context/CartContext';
+import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
 import { UserProvider, useUser } from './context/UserContext'; 
-import { CartProvider, useCart } from './context/CartContext';
-import { FlyToCartProvider } from './context/FlyToCartContext';
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -16,83 +16,157 @@ import AdminDashboard from './components/AdminDashboard';
 import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking'; 
 import Ranking from './pages/Ranking';
+import { useCart } from './context/CartContext';
 import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
+import { Category } from './types';
 
-class ErrorBoundary extends Component<{children: any}, {hasError: boolean}> {
-  constructor(props: any) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
+class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
   render() {
-    if (this.state.hasError) return (
-      <div className="p-10 bg-gray-950 min-h-screen text-center flex flex-col items-center justify-center">
-        <h1 className="text-orange-500 font-black text-xl italic uppercase tracking-widest">Error de Sincronización</h1>
-        <p className="text-white/50 text-xs mt-2 uppercase">Limpiando datos corruptos...</p>
-        <button onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }} className="mt-8 bg-orange-500 text-white px-8 py-4 rounded-full font-black shadow-lg active:scale-95 transition-all">LIMPIAR CACHÉ Y REINTENTAR</button>
-      </div>
-    );
+    if (this.state.hasError) {
+      return (
+        <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
+          <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
+          <p className="text-gray-600 mt-2">Estamos sincronizando el sistema de puntos...</p>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform">
+            LIMPIAR Y REINTENTAR
+          </button>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }
 
 function AppShell() {
-  const [screen, setScreen] = useState('home');
-  const [activeCategory, setActiveCategory] = useState('Todos');
+  const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
+  const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { items, clearCart } = useCart();
-  const { createOrder, products, upsertCustomer, loading: adminLoading } = useAdmin();
+  const { createOrder, loading, products, upsertCustomer } = useAdmin();
   const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
   const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  useEffect(() => { if (!customerName && !adminLoading) { const t = setTimeout(() => setShowLoginModal(true), 3000); return () => clearTimeout(t); } }, [customerName, adminLoading]);
+  useEffect(() => {
+    const handlePopState = () => { if (screen !== 'home') setScreen('home'); };
+    window.addEventListener('popstate', handlePopState);
+    if (screen !== 'home') window.history.pushState({ screen }, '');
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [screen]);
 
-  const handleNavigate = (s: any) => { if (s !== 'catalog') setActiveCategory('Todos'); setScreen(s); if (mainRef.current) mainRef.current.scrollTop = 0; };
-  
-  const handleWhatsApp = async () => {
-    if (!customerName || !customerPhone) { setPendingOrder(true); setShowLoginModal(true); return; }
-    const code = orderCode();
-    const fullItems = items.map(i => { 
-        const p = products.find(x => x.id === i.id); 
-        return { ...i, name: p?.name || 'Producto', price: parseFloat(p?.price || '0') }; 
-    });
-    const subtotal = fullItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-    const total = subtotal + deliveryFeeOf(subtotal);
-    const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
-    try { await createOrder({ order_code: code, customer_phone: customerPhone, items: fullItems, subtotal, total, status: 'Recibido', preorder: !isStoreOpen(), created_at: new Date().toISOString() }); } catch (e) {}
-    window.location.href = whatsappUrl;
-    setTimeout(() => { clearCart(); setShowConfirmation(false); setScreen('home'); }, 100);
+  useEffect(() => {
+    if (!customerName && !loading) {
+      const timer = setTimeout(() => { setShowLoginModal(true); }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [customerName, loading]);
+
+  const handleNavigate = (s: any) => {
+    if (s !== 'catalog') setActiveCategory('Todos');
+    setScreen(s);
+    setShowLoginModal(false); 
+    if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  const [landingDone, setLandingDone] = useState(() => !!localStorage.getItem('pollazo_landing_dismissed'));
+  const handleCategoryClick = (cat: Category) => {
+    setActiveCategory(cat);
+    setScreen('catalog');
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  };
 
-  if (window.location.pathname === '/admin') return <AdminDashboard />;
+  const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
+    setUserData(u.whatsapp, u.name, u.avatarUrl); 
+    try { await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); } catch (e) { console.error("Error perfil:", e); }
+    setShowLoginModal(false);
+    if (pendingOrder) { setPendingOrder(false); setShowConfirmation(true); }
+  };
 
-  if (!landingDone) return <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => { localStorage.setItem('pollazo_landing_dismissed', '1'); setLandingDone(true); }} />;
+  const handleWhatsApp = async () => {
+    if (!customerName || !customerPhone) {
+      setPendingOrder(true);
+      setShowConfirmation(false);
+      setShowLoginModal(true);
+      return;
+    }
+    const code = orderCode();
+    const subtotal = items.reduce((acc, item) => {
+      const p = products.find(prod => prod.id === item.id);
+      return acc + (p ? Number(p.price) * item.quantity : 0);
+    }, 0);
+
+    const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
+
+    try {
+      await createOrder({
+        order_code: code,
+        customer_phone: customerPhone,
+        items,
+        subtotal,
+        total: subtotal + deliveryFeeOf(subtotal),
+        status: 'Recibido',
+        preorder: !isStoreOpen()
+      });
+    } catch (err) { console.error("Error al guardar orden:", err); }
+
+    window.location.href = whatsappUrl;
+    setTimeout(() => {
+        clearCart();
+        setShowConfirmation(false);
+        setScreen('home');
+    }, 100);
+  };
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh]">
       <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
         <OrderTracking />
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={(c) => { setActiveCategory(c); setScreen('catalog'); }} />}
-        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory as any} onCategoryChange={setActiveCategory} />}
+        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
+        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={(cat) => setActiveCategory(cat as any)} />}
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
+        {/* ✅ PASANDO onNavigate A INFOSCREEN */}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
       </main>
-      {screen !== 'ranking' && <BottomNav current={screen as any} onNavigate={handleNavigate} />}
+      {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={async (u) => { setUserData(u.whatsapp, u.name, u.avatarUrl); await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); setShowLoginModal(false); if (pendingOrder) setShowConfirmation(true); }} title={pendingOrder ? "¡Ya casi!" : "Únete al Club"} subtitle="Acumula puntos y gana" />
+      <LoginModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} onLogin={handleLogin} title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
 }
 
 export default function App() {
+  const [landingDone, setLandingDone] = useState(() => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    const isDismissed = !!localStorage.getItem('pollazo_landing_dismissed');
+    return isPWA || isDismissed;
+  });
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
+  }, []);
+
+  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
+  
+  if (!landingDone) {
+    return (
+      <AdminProvider>
+        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => {
+            localStorage.setItem('pollazo_landing_dismissed', '1');
+            setLandingDone(true);
+        }} />
+      </AdminProvider>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AdminProvider>
-        <UserProvider>
+        <UserProvider> 
           <CartProvider>
             <FlyToCartProvider>
               <AppShell />
