@@ -21,9 +21,9 @@ export interface ExtraSettings {
   prize_description: string;
   ranking_end_date: string;
   winner_photo_url: string;
-  prize_1: string; // ✅ Oro
-  prize_2: string; // ✅ Plata
-  prize_3: string; // ✅ Bronce
+  prize_1?: string;
+  prize_2?: string;
+  prize_3?: string;
 }
 
 export interface ExtendedCustomer extends Customer {
@@ -70,19 +70,19 @@ interface AdminContextValue {
 
 const DEFAULT_SETTINGS: AppSettings = {
   announcement: '',
-  primary_color: '#f97316',
+  primary_color: '#E67E22',
   banner_link: '',
 };
 
 const DEFAULT_EXTRA: ExtraSettings = {
   logo_url: '/logo-final.png',
-  ranking_title: 'Ranking VIP',
-  prize_description: '¡Premios de Temporada!',
+  ranking_title: 'Ranking de Clientes',
+  prize_description: '¡Gana un Combo Familiar!',
   ranking_end_date: '',
   winner_photo_url: '',
-  prize_1: 'Combo Pollazo 1', // ✅ Inicializado
-  prize_2: 'Combo Pollazo 2', // ✅ Inicializado
-  prize_3: 'Combo Pollazo 3', // ✅ Inicializado
+  prize_1: '',
+  prize_2: '',
+  prize_3: ''
 };
 
 const AdminContext = createContext<AdminContextValue>(null as any);
@@ -106,7 +106,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     const map = new Map<string, Product>();
     seedProducts.forEach(p => map.set(p.id, normalizeProduct(p)));
     remoteProducts.forEach(p => map.set(p.id, normalizeProduct(p)));
-    return Array.from(map.values());
+    return Array.from(map.values()).filter(p => p.available !== false);
   }, [remoteProducts]);
 
   const categories = useMemo(() => Array.from(new Set([...seedCategories, ...products.map(p => p.category)])).sort(), [products]);
@@ -132,12 +132,23 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       }
       if (settingsRes.data) {
         const next = { ...DEFAULT_SETTINGS };
+        const extraPrizes: Record<string, string> = {};
+        
         settingsRes.data.forEach((s: { key: string; value: string }) => {
           if (s.key in next) (next as Record<string, string>)[s.key] = s.value;
+          // Hack para atrapar los premios de la BD dinámica
+          if (s.key.startsWith('prize_')) extraPrizes[s.key] = s.value;
         });
         setSettings(next);
+        document.documentElement.style.setProperty('--pollazo-primary', next.primary_color);
+        
+        // Inyectamos los premios en extraSettings para que la App los vea
+        if (extraRes.data) {
+          setExtraSettings({ ...DEFAULT_EXTRA, ...extraRes.data, ...extraPrizes });
+        } else {
+          setExtraSettings({ ...DEFAULT_EXTRA, ...extraPrizes });
+        }
       }
-      if (extraRes.data) setExtraSettings({ ...DEFAULT_EXTRA, ...extraRes.data });
       if (custRes.data) setCustomers(custRes.data as ExtendedCustomer[]);
       if (orderRes.data) setOrders(orderRes.data as Order[]);
       if (seasonsRes.data) setSeasons(seasonsRes.data as Season[]);
@@ -150,42 +161,122 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const channel = supabase.channel('pollazo_admin_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
+
+  const updateSetting = useCallback(async (key: keyof AppSettings, value: string) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === 'primary_color') document.documentElement.style.setProperty('--pollazo-primary', value);
+    if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() });
+  }, []);
+
+  // ✅ AQUÍ OCURRE LA MAGIA DEL PUSH
   const updateExtraSettings = useCallback(async (patch: Partial<ExtraSettings>) => {
-    const next = { ...extraSettings, ...patch };
-    setExtraSettings(next);
+    const { prize_1, prize_2, prize_3, ...rest } = patch as any;
+    const next = { ...extraSettings, ...rest };
+    
+    setExtraSettings(prev => ({ ...prev, ...patch }));
+
     if (isSupabaseConfigured) {
-      await supabase.from('settings').upsert({ id: 'global', ...next, updated_at: new Date().toISOString() });
-      await load(); // ✅ Fuerza actualización tras el Push
+      // Guarda configuraciones normales
+      await supabase.from('settings').upsert({ id: 'global', ...next });
+      
+      // Guarda los premios en la tabla dinámica para que no crashee
+      const promises = [];
+      if (prize_1 !== undefined) promises.push(supabase.from('app_settings').upsert({ key: 'prize_1', value: prize_1, updated_at: new Date().toISOString() }));
+      if (prize_2 !== undefined) promises.push(supabase.from('app_settings').upsert({ key: 'prize_2', value: prize_2, updated_at: new Date().toISOString() }));
+      if (prize_3 !== undefined) promises.push(supabase.from('app_settings').upsert({ key: 'prize_3', value: prize_3, updated_at: new Date().toISOString() }));
+      
+      if (promises.length > 0) await Promise.all(promises);
+      await load();
     }
   }, [extraSettings, load]);
 
   const finalizeSeason = useCallback(async (name: string, prize: string, winners: any[]) => {
     if (isSupabaseConfigured) {
-      // ✅ Inserción con marca de tiempo para asegurar orden Newest First
       await supabase.from('seasons').insert({ 
         name, 
         prize, 
         winners, 
         is_published: false,
-        created_at: new Date().toISOString() 
+        created_at: new Date().toISOString() // ✅ ESTO ARREGLA EL ORDEN DE LAS TEMPORADAS
       });
-      await load(); // ✅ Recarga inmediata
+      await load();
     }
   }, [load]);
 
-  // Mantener el resto de funciones (deleteSeason, addProduct, createOrder, etc.) tal cual
-  const deleteSeason = useCallback(async (id: string) => { if (isSupabaseConfigured) { await supabase.from('seasons').delete().eq('id', id); await load(); } }, [load]);
-  const toggleSeasonVisibility = useCallback(async (id: string, published: boolean) => { if (isSupabaseConfigured) { await supabase.from('seasons').update({ is_published: published }).eq('id', id); await load(); } }, [load]);
-  const updateSeasonWinners = useCallback(async (id: string, winners: any[]) => { if (isSupabaseConfigured) { await supabase.from('seasons').update({ winners }).eq('id', id); await load(); } }, [load]);
-  const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => { const newProduct = normalizeProduct({ ...product, id: product.id || slug(product.name) } as Product); setRemoteProducts(prev => [newProduct, ...prev]); if (isSupabaseConfigured) await supabase.from('products').upsert(newProduct); }, []);
-  const updateProduct = useCallback(async (id: string, patch: Partial<Product>) => { setRemoteProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p)); if (isSupabaseConfigured) await supabase.from('products').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id); }, []);
-  const deleteProduct = useCallback(async (id: string) => { setRemoteProducts(prev => prev.filter(p => p.id !== id)); if (isSupabaseConfigured) await supabase.from('products').delete().eq('id', id); }, []);
-  const upsertCustomer = useCallback(async (phone: string, name?: string | null, avatar_url?: string | null) => { const clean = phone.replace(/\D/g, ''); const { data } = await supabase.from('customers').upsert({ phone: clean, name: name ?? null, avatar_url: avatar_url ?? null }, { onConflict: 'phone' }).select().single(); if (data) load(); return data as ExtendedCustomer; }, [load]);
-  const addCustomerPoints = useCallback(async (customerId: string, pointsToAdd: number) => { const current = customers.find(c => c.id === customerId); const nextPoints = Math.max(0, (current?.points ?? 0) + pointsToAdd); if (isSupabaseConfigured) { await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId); load(); } }, [customers, load]);
-  const createOrder = useCallback(async (order: Omit<Order, 'created_at'>) => { if (isSupabaseConfigured) { await supabase.from('orders').insert(order); await load(); } }, [load]);
-  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => { setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o)); if (isSupabaseConfigured) { await supabase.from('orders').update({ status }).eq('id', orderId); } }, []);
-  const updateSetting = useCallback(async (key: keyof AppSettings, value: string) => { setSettings(prev => ({ ...prev, [key]: value })); if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() }); }, []);
-  const setOverride = useCallback(async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => { const current = overrides[id] ?? { id, price: null, available: true }; const updated = { ...current, ...patch, id }; setOverrides(prev => ({ ...prev, [id]: updated })); if (isSupabaseConfigured) await supabase.from('product_overrides').upsert({ ...updated, updated_at: new Date().toISOString() }); }, [overrides]);
+  const deleteSeason = useCallback(async (id: string) => {
+    if (isSupabaseConfigured) { await supabase.from('seasons').delete().eq('id', id); await load(); }
+  }, [load]);
+
+  const toggleSeasonVisibility = useCallback(async (id: string, published: boolean) => {
+    if (isSupabaseConfigured) { await supabase.from('seasons').update({ is_published: published }).eq('id', id); await load(); }
+  }, [load]);
+
+  const updateSeasonWinners = useCallback(async (id: string, winners: any[]) => {
+    if (isSupabaseConfigured) { await supabase.from('seasons').update({ winners }).eq('id', id); await load(); }
+  }, [load]);
+
+  const setOverride = useCallback(async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => {
+    const current = overrides[id] ?? { id, price: null, available: true };
+    const updated = { ...current, ...patch, id };
+    setOverrides(prev => ({ ...prev, [id]: updated }));
+    if (isSupabaseConfigured) await supabase.from('product_overrides').upsert({ ...updated, updated_at: new Date().toISOString() });
+  }, [overrides]);
+
+  const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => {
+    const newProduct = normalizeProduct({ ...product, id: product.id || slug(product.name) } as Product);
+    setRemoteProducts(prev => [newProduct, ...prev]);
+    if (isSupabaseConfigured) await supabase.from('products').upsert(newProduct);
+  }, []);
+
+  const updateProduct = useCallback(async (id: string, patch: Partial<Product>) => {
+    setRemoteProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    if (isSupabaseConfigured) await supabase.from('products').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+  }, []);
+
+  const deleteProduct = useCallback(async (id: string) => {
+    setRemoteProducts(prev => prev.filter(p => p.id !== id));
+    if (isSupabaseConfigured) await supabase.from('products').delete().eq('id', id);
+  }, []);
+
+  const upsertCustomer = useCallback(async (phone: string, name?: string | null, avatar_url?: string | null) => {
+    const clean = phone.replace(/\D/g, '');
+    const { data } = await supabase.from('customers').upsert({ 
+      phone: clean, 
+      name: name ?? null, 
+      avatar_url: avatar_url ?? null 
+    }, { onConflict: 'phone' }).select().single();
+    if (data) load();
+    return data as ExtendedCustomer;
+  }, [load]);
+
+  const addCustomerPoints = useCallback(async (customerId: string, pointsToAdd: number) => {
+    const current = customers.find(c => c.id === customerId);
+    const nextPoints = Math.max(0, (current?.points ?? 0) + pointsToAdd);
+    if (isSupabaseConfigured) {
+      await supabase.from('customers').update({ points: nextPoints }).eq('id', customerId);
+      load();
+    }
+  }, [customers, load]);
+
+  const createOrder = useCallback(async (order: Omit<Order, 'created_at'>) => {
+    if (isSupabaseConfigured) { await supabase.from('orders').insert(order); await load(); }
+  }, [load]);
+
+  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    if (isSupabaseConfigured) { await supabase.from('orders').update({ status }).eq('id', orderId); }
+  }, []);
 
   return (
     <AdminContext.Provider value={{ 
