@@ -94,7 +94,6 @@ function AppShell() {
     
     const code = orderCode();
     
-    // ✅ MOTOR DE PRECIOS MEJORADO: Asegurar que Number() y parseFloat() limpien los datos
     const detailedItems = items.map(item => {
         const p = products.find(prod => prod.id === item.id);
         const cleanPrice = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
@@ -105,7 +104,6 @@ function AppShell() {
         };
     });
 
-    // Calcular totales con precisión numérica
     const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const fee = deliveryFeeOf(subtotal);
     const total = subtotal + fee;
@@ -116,9 +114,9 @@ function AppShell() {
       await createOrder({
         order_code: code,
         customer_phone: customerPhone,
-        items: detailedItems, // Ticket detallado para el Admin
+        items: detailedItems, 
         subtotal: Number(subtotal.toFixed(2)),
-        total: Number(total.toFixed(2)), // Total real enviado a la DB
+        total: Number(total.toFixed(2)), 
         status: 'Recibido',
         preorder: !isStoreOpen(),
         created_at: new Date().toISOString()
@@ -137,12 +135,21 @@ function AppShell() {
   };
 
   return (
-    <div className="flex flex-col bg-gray-50 h-[100dvh]">
+    <div className="flex flex-col bg-gray-50 h-[100dvh] selection:bg-orange-200">
       <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative">
+      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner">
         <OrderTracking />
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
-        {screen === 'catalog' && <CatalogScreen initialCategory={activeCategory} onCategoryChange={(cat) => setActiveCategory(cat as any)} />}
+        
+        {/* ✅ FIX: Pasando la prop onNavigate para que el botón "Ver Canasta" funcione */}
+        {screen === 'catalog' && (
+          <CatalogScreen 
+            initialCategory={activeCategory} 
+            onCategoryChange={(cat) => setActiveCategory(cat as any)} 
+            onNavigate={handleNavigate} 
+          />
+        )}
+        
         {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
