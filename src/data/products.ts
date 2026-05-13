@@ -1,11 +1,3 @@
-Actúa como un Senior Dev Fullstack especializado en React + TypeScript. Debes seguir estas REGLAS DE ORO:
-
-SALIDA ÚNICA: Genera obligatoriamente un archivo .zip que contenga el código completo. Prohibido mostrar fragmentos de código en el chat.
-MISIÓN: Debes tomar el código del archivo products.ts que te adjunto y agregarle la propiedad subcategory: string a cada uno de los más de 100 productos.
-LÓGICA DE CATEGORIZACIÓN (ESTILO PEDIDOSYA): Las subcategorías deben ser específicas (ejemplo: en 'Lácteos' usa 'Leches', 'Yogures', 'Quesos'; en 'Abarrotes' usa 'Harinas', 'Arroz y Granos', 'Fideos').
-PRESERVACIÓN TOTAL: No cambies IDs, no cambies los links de Blogger/Pexels, ni borres las categorías principales. Solo suma la subcategoría.
-ESTÉTICA: El archivo debe estar impecable, listo para el build de Vercel.
-CÓDIGO ORIGINAL PARA PROCESAR:
 import { Product } from '../types';
 
 export const products: Product[] = [
@@ -4252,4 +4244,4 @@ export const categories = [
   'Limpieza y hogar',
 ] as const;
 
-export type CatalogCategory = typeof categories[number];
+export type CatalogCategory = typeof categories[number];  bueno aqui te envio el cdigo de productos recuerda que no debes dañar nada ni tocar lo que ya sirve solo arreglar o agregar lo solicitado. te paso de nuevo el codigo originla pero dame en formato zip para descargar no en mensaje de chat ni links pq los links no se abre ni que diga products_Database_Completa_V28.zip , tiene que ser el formato tippo descaragr archivo osea el odigo entiendes
