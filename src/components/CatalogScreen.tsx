@@ -51,44 +51,58 @@ const getSubcategory = (p: Product): string => {
     if (name.includes('fideo') || name.includes('tallarín') || name.includes('rapidito')) return 'Pastas y Sopas';
     if (name.includes('atún') || name.includes('sardina')) return 'Enlatados del Mar';
     if (name.includes('harina') || name.includes('maizabrosa')) return 'Harinas';
-    if (name.includes('lenteja') || name.includes('garbanzo')) return 'Granos y Menestras';
+    if (name.includes('lenteja') || name.includes('garbanzo') || name.includes('alverja')) return 'Granos y Menestras';
     if (name.includes('azúcar') || name.includes('azucar') || name.includes('panela')) return 'Endulzantes';
+    if (name.includes('maíz') || name.includes('champiñon')) return 'Conservas';
+    if (name.includes('cafe') || name.includes('café') || name.includes('cocoa') || name.includes('ricacao')) return 'Café y Modificadores';
     return 'Básicos de Despensa';
   }
   if (p.category === 'Salsas, aliños y aceites') {
     if (name.includes('aceite')) return 'Aceites';
-    return 'Salsas y Aliños';
+    if (name.includes('achiote')) return 'Achiotes';
+    if (name.includes('salsa') || name.includes('soya') || name.includes('ají') || name.includes('mayonesa') || name.includes('mostaza') || name.includes('bbq')) return 'Salsas y Aderezos';
+    if (name.includes('maggi') || name.includes('sazón') || name.includes('ranchero') || name.includes('caldo')) return 'Sazonadores';
+    return 'Vinagres y Esencias';
   }
   if (p.category === 'Bebidas') {
     if (name.includes('agua') || name.includes('guitig')) return 'Aguas Minerales';
     if (name.includes('cerveza') || name.includes('caña')) return 'Licores';
-    return 'Bebidas Varias';
+    if (name.includes('powerade') || name.includes('ego')) return 'Energizantes e Hidratantes';
+    if (name.includes('cola') || name.includes('sprite') || name.includes('fanta') || name.includes('inca')) return 'Gaseosas';
+    return 'Jugos y Refrescos';
   }
   if (p.category === 'Frutas y verduras') {
-    if (name.includes('papa') || name.includes('cebolla') || name.includes('ajo') || name.includes('tomate') || name.includes('pimiento')) return 'Verduras';
-    return 'Frutas Frescas';
+    if (name.includes('manzana') || name.includes('naranja') || name.includes('guineo') || name.includes('naranjilla')) return 'Frutas Frescas';
+    if (name.includes('papa') || name.includes('cebolla') || name.includes('ajo') || name.includes('pimiento') || name.includes('tomate')) return 'Vegetales y Hortalizas';
+    return 'Hojas y Hierbas';
   }
   if (p.category === 'Snacks y dulces') {
-    if (name.includes('galleta') || name.includes('oreo') || name.includes('ducales')) return 'Galletas';
+    if (name.includes('galleta') || name.includes('oreo')) return 'Galletas';
     if (name.includes('chifle') || name.includes('pipas')) return 'Snacks Salados';
-    return 'Dulces y Golosinas';
+    if (name.includes('chocolate') || name.includes('nutella')) return 'Chocolates';
+    return 'Golosinas y Postres';
   }
   if (p.category === 'Cuidado personal') {
     if (name.includes('toalla')) return 'Cuidado Femenino';
     if (name.includes('colgate') || name.includes('pasta')) return 'Cuidado Bucal';
+    if (name.includes('head') || name.includes('shampoo')) return 'Cuidado Capilar';
     return 'Higiene Personal';
   }
   if (p.category === 'Limpieza y hogar') {
     if (name.includes('detergente') || name.includes('deja') || name.includes('suavitel')) return 'Cuidado de Ropa';
+    if (name.includes('cloro') || name.includes('fabuloso') || name.includes('clorox')) return 'Limpieza de Superficies';
     if (name.includes('papel') || name.includes('servilletas')) return 'Papelería';
-    return 'Limpieza del Hogar';
+    return 'Artículos del Hogar';
   }
   return 'General';
 };
 
+type ActiveCat = 'Todos' | Category;
+type SortOption = 'sugeridos' | 'precio-bajo' | 'precio-alto' | 'mas-pedidos';
+
 interface Props {
-  initialCategory?: 'Todos' | Category;
-  onCategoryChange?: (cat: 'Todos' | Category) => void;
+  initialCategory?: ActiveCat;
+  onCategoryChange?: (cat: ActiveCat) => void;
   onNavigate?: (screen: 'home' | 'catalog' | 'cart' | 'info' | 'ranking') => void;
 }
 
@@ -98,7 +112,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   
   const ALL_CATS = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ('Todos' | Category)[];
   
-  const [activeCategory, setActiveCategory] = useState<'Todos' | Category>(initialCategory);
+  const [activeCategory, setActiveCategory] = useState<ActiveCat>(initialCategory);
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('sugeridos');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -130,7 +144,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return Array.from(new Set(products.filter(p => p.category === activeCategory).map(p => getSubcategory(p))));
   }, [activeCategory, products]);
 
-  // 🚀 RESET DE SCROLL AL CAMBIAR SECCIÓN (SUB O CATEGORÍA)
+  // 🚀 RESET DE SCROLL AL CAMBIAR SECCIÓN
   useEffect(() => {
     const main = document.querySelector('main');
     if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
@@ -225,8 +239,8 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       <AnnouncementBanner />
       
       <div className="sticky top-0 z-[120] bg-white shadow-sm border-b border-gray-100">
-        {/* BUSCADOR CON INPUT SIEMPRE VISIBLE */}
-        <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative z-[160]">
+        {/* BUSCADOR CON FONDO SÓLIDO PARA ELIMINAR BUG "R" */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative z-[160] bg-white">
           <div className="relative flex-1 group">
             <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-orange-500' : 'text-gray-400'}`} />
             <input
@@ -239,7 +253,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           <button onClick={() => setShowSortMenu(!showSortMenu)} className={`p-2.5 rounded-[20px] border transition-all ${showSortMenu ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-inner' : 'bg-white border-gray-200 text-gray-600'}`}><ArrowUpDown size={18} /></button>
         </div>
 
-        {/* 🚀 OVERLAY DE RESULTADOS FULL WIDTH (DEBAJO DEL INPUT) */}
+        {/* 🚀 OVERLAY DE RESULTADOS FULL WIDTH (CORREGIDO PARA NO TAPAR EL INPUT) */}
         {search.length > 0 && (
           <div className="fixed left-0 right-0 top-[60px] bottom-0 bg-white z-[150] overflow-y-auto animate-in fade-in">
             <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">Resultados Globales</div>
@@ -251,7 +265,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
                   <button key={`s-${p.id}`} onClick={() => { setSearch(''); changeCategory(p.category as any); setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100); }}
                     className="flex flex-row items-center p-4 hover:bg-orange-50 active:bg-orange-100 transition-colors w-full text-left gap-4"
                   >
-                    <img src={p.image || ''} alt={p.name} className="w-16 h-14 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
+                    <img src={p.image || ''} alt={p.name} className="w-16 h-16 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-bold text-gray-900 truncate">{p.name}</p>
                       <p className="text-[11px] font-bold uppercase text-orange-500">{getSubcategory(p)}</p>
@@ -332,3 +346,4 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     </div>
   );
 }
+``` 🦾 🍗🔥🚀👑🏝️
