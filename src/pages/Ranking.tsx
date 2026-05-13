@@ -278,6 +278,7 @@ export default function Ranking() {
                  <button onClick={handleClosePrizes} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full active:scale-75"><X size={20}/></button>
                  <PartyPopper size={48} className="mx-auto mb-4 text-yellow-300 animate-bounce" />
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Premios</h2>
+                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Recompensas de Temporada</p>
               </div>
               <div className="p-8 space-y-6">
                  <div className="flex items-center gap-4 bg-yellow-50 p-4 rounded-[30px] border-2 border-yellow-200"><img src="https://blogger.googleusercontent.com/img/a/AVvXsEhe_O03ML1U5KJjdg11ZSwLSJWTXIlnrUkUWzTL1awakYQYWuampHeETS45-2PahAGmlOJKp0W_l1hCvPRnIQn_fDpzcAnDVG3274RC3b_c4QE889BLkdkQfTRbUrrfUvqtw7xZPrjJJoS96AKMEVDJRmeXCH67_5z_LFpvNAEuOUzY2nCGYYI8JzTRk3s" className="w-14 h-14 rounded-xl object-cover border-2 border-yellow-400" /><div><p className="text-[9px] font-black text-yellow-600 uppercase">Campeón Oro</p><p className="text-sm font-black text-slate-800 uppercase italic">¡Un Pollo Entero!</p></div></div>
@@ -289,7 +290,7 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* ✅ RADAR DE POSICIÓN OPCIÓN 2: INDICADOR PULSANTE VIP ✅ */}
+      {/* ✅ RADAR DE POSICIÓN OPCIÓN 2: INDICADOR PULSANTE VIP Y PUNTO ROJO ✅ */}
       {myData && showRadar && !isInHallOfFame && (
         <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
@@ -314,12 +315,12 @@ export default function Ranking() {
               <div className="ml-2 text-left leading-none">
                 <div className="flex items-center gap-1.5">
                    <p className="text-[7px] font-black text-slate-900 uppercase tracking-widest mb-0.5 opacity-90">{myRankIndex < 3 ? '¡ERES LEYENDA! 🎉' : 'Ver mi puesto'}</p>
-                   {/* ✅ PUNTO RADAR VIP PULSANTE */}
+                   {/* ✅ PUNTO RADAR VIP PULSANTE A LA DERECHA DEL TEXTO */}
                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_red]" />
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 mt-0.5">
                    <p className="text-white font-black text-xs italic">{myData.points.toLocaleString()}</p>
-                   <Target size={12} className="text-white opacity-80" />
+                   <p className="text-[7px] font-black text-white/80 uppercase">PTS</p>
                 </div>
               </div>
             </button>
