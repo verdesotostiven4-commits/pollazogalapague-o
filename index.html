@@ -6,7 +6,8 @@
     <meta http-equiv="Expires" content="0" />
 
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- 🛡️ BLOQUEO DE ZOOM VIP -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Pollazo El Mirador</title>
     <meta name="description" content="Tu market de confianza con pollo fresco enfundado en Puerto Ayora." />
 
@@ -26,6 +27,29 @@
     <meta property="og:type" content="website" />
 
     <style>
+      /* =========================================================
+         🛡️ BLOQUEO DE SELECCIÓN DE TEXTO Y MENÚS FLOTANTES NATIVOS
+         ========================================================= */
+      html, body {
+        -webkit-touch-callout: none; /* iOS Safari: Desactiva el menú flotante al mantener pulsado */
+        -webkit-user-select: none;   /* Safari */
+        -khtml-user-select: none;    /* Konqueror HTML */
+        -moz-user-select: none;      /* Firefox antiguo */
+        -ms-user-select: none;       /* IE/Edge */
+        user-select: none;           /* Chrome, Edge, Firefox moderno */
+        -webkit-tap-highlight-color: transparent; /* Quita el cuadro azul en Android al hacer tap */
+        touch-action: pan-x pan-y;   /* Permite scroll fluido pero anula gestos raros como doble-tap-zoom */
+      }
+
+      /* 🔓 EXCEPCIÓN: Los inputs y textareas SÍ deben poder seleccionarse para escribir */
+      input, textarea, select {
+        -webkit-user-select: auto !important;
+        -khtml-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+        user-select: auto !important;
+      }
+
       #html-splash {
         position: fixed;
         inset: 0;
