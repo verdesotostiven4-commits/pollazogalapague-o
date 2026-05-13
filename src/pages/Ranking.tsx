@@ -60,12 +60,11 @@ export default function Ranking() {
     const handleScroll = () => {
       if (!myRowRef.current) return;
       const rect = myRowRef.current.getBoundingClientRect();
-      // Si el top es menor a 150 (la cabecera), significa que subió y quedó arriba de la vista.
-      setIsMyRowAbove(rect.top < 150);
+      // Inteligencia espacial: Si la fila está arriba de la mitad de la pantalla, indica hacia arriba
+      setIsMyRowAbove(rect.top < window.innerHeight / 2);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // Forzar lectura inicial
-    handleScroll();
+    handleScroll(); // Check inicial
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -266,31 +265,33 @@ export default function Ranking() {
                     'bg-orange-900/50 border-2 border-orange-700'
                   }`}>
                     {/* CORONA FÍSICA FLOTANTE SOLO PARA EL 1ERO */}
-                    {idx === 0 && <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-400 fill-yellow-400 animate-crown-float drop-shadow-2xl z-20" size={42} />}
+                    {idx === 0 && <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-400 fill-yellow-400 animate-crown-float drop-shadow-2xl z-30" size={42} />}
                     
-                    {/* ✅ TARJETA CON IMAGEN COMPLETA Y TEXTO DIFUMINADO */}
-                    <div className="bg-slate-900 rounded-[38px] overflow-hidden flex flex-col h-full relative aspect-square">
+                    {/* ✅ FOTO COMPLETA Y OVERLAY ELEGANTE PEQUEÑO */}
+                    <div className="bg-slate-900 rounded-[38px] overflow-hidden flex flex-col h-full relative aspect-square shadow-inner">
                       
-                      {/* IMAGEN DE FONDO (PREMIO) */}
-                      <img src={winner.photo_url || `https://api.dicebear.com/8.x/shapes/svg?seed=${winner.name}&backgroundColor=1e293b`} className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-500" alt="Premio Ganador" />
+                      {/* FOTO FULL COVER */}
+                      <img src={winner.photo_url || `https://api.dicebear.com/8.x/shapes/svg?seed=${winner.name}&backgroundColor=1e293b`} className="w-full h-full object-cover absolute inset-0 grayscale-[15%] group-hover:grayscale-0 transition-all duration-500 z-0" alt="Premio Ganador" />
                       
-                      {/* ✅ DESTELLO DE VIDRIO (SOLO PARA ORO) */}
+                      {/* ✅ DESTELLO VIP SOBRE LA IMAGEN (SOLO ORO) */}
                       {idx === 0 && (
-                         <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-[38px]">
-                           <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg] animate-glass-shine"></div>
-                         </div>
+                        <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-[38px]">
+                          <div className="absolute top-0 left-0 w-[150%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg] animate-glass-shine"></div>
+                        </div>
                       )}
 
-                      {/* MEDALLA */}
-                      <div className={`absolute top-4 right-4 z-20 p-1.5 rounded-full shadow-lg ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-slate-300' : 'bg-orange-700'}`}>
+                      {/* MEDALLA FLOTANTE */}
+                      <div className={`absolute top-4 right-4 z-20 p-1.5 rounded-full shadow-lg ${idx === 0 ? 'bg-yellow-500 border border-yellow-300' : idx === 1 ? 'bg-slate-300 border border-slate-100' : 'bg-orange-700 border border-orange-500'}`}>
                          <Medal size={20} className={idx === 0 ? "text-slate-900" : idx === 1 ? "text-slate-800" : "text-white"} />
                       </div>
                       
-                      {/* TEXTO EN OVERLAY DIFUMINADO */}
-                      <div className="absolute bottom-0 left-0 right-0 p-5 text-center bg-black/50 backdrop-blur-md border-t border-white/10 z-20">
-                        <p className="text-white font-black italic text-lg tracking-tighter mb-0.5 drop-shadow-md">{winner.name}</p>
-                        <p className="text-orange-400 font-black text-xs uppercase drop-shadow-md">{winner.points?.toLocaleString()} PTS</p>
-                        {winner.prize_won && <p className="text-[8px] font-black uppercase text-white/70 mt-1 drop-shadow-md">{winner.prize_won}</p>}
+                      {/* ✅ PÍLDORA DE TEXTO PEQUEÑA Y DIFUMINADA AL FONDO */}
+                      <div className="absolute bottom-3 left-3 right-3 z-20">
+                        <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl p-3 text-center shadow-xl">
+                          <p className="text-white font-black italic text-sm tracking-tighter mb-0.5 truncate drop-shadow-md">{winner.name}</p>
+                          <p className="text-orange-400 font-black text-[10px] uppercase drop-shadow-md">{winner.points?.toLocaleString()} PTS</p>
+                          {winner.prize_won && <p className="text-[8px] font-bold uppercase text-white/70 mt-0.5 drop-shadow-md truncate">{winner.prize_won}</p>}
+                        </div>
                       </div>
 
                     </div>
@@ -339,7 +340,7 @@ export default function Ranking() {
                  {/* PREMIO 3 */}
                  <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-[30px] border-2 border-orange-200 shadow-sm">
                     <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shrink-0 border-2 border-orange-300 shadow-inner">
-                      <p className="text-white font-black text-xl italic">$5</p>
+                      <p className="text-white font-black text-2xl italic">$5</p>
                     </div>
                     <div>
                        <p className="text-[9px] font-black text-orange-600 uppercase">Guerrero Bronce (#3)</p>
@@ -353,11 +354,10 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* 🎯 RADAR DE POSICIÓN RESTAURADO */}
+      {/* 🎯 RADAR DE POSICIÓN RESTAURADO Y CORREGIDO */}
       {myData && showRadar && !isInHallOfFame && (
         <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
-          {/* ✅ BURBUJA NEGRA - ¿CUÁNTOS PUNTOS FALTAN? */}
           {nextUp && (
             <div className="bg-slate-900 text-white text-[9px] font-black py-1.5 px-4 rounded-full border border-orange-500 shadow-2xl animate-bounce flex items-center gap-2">
               <Target size={10} className="text-orange-500" />
@@ -377,7 +377,6 @@ export default function Ranking() {
               <Share2 size={16} />
             </button>
 
-            {/* BOTÓN ROJO PARA VOLVER A TU POSICIÓN */}
             <button 
               onClick={() => { myRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
               className="flex items-center bg-orange-400 backdrop-blur-md text-white rounded-full p-1.5 pr-5 shadow-2xl border-2 border-white active:scale-90 transition-transform"
@@ -396,7 +395,7 @@ export default function Ranking() {
                    <p className="text-white font-black text-xs italic">
                      {myData.points.toLocaleString()}
                    </p>
-                   {/* ✅ FLECHA INTELIGENTE ESPACIAL */}
+                   {/* ✅ FLECHA INTELIGENTE: ESPACIALMENTE CORRECTA */}
                    {isMyRowAbove ? <ArrowUp size={12} className="text-white animate-bounce" /> : <ArrowDown size={12} className="text-white animate-bounce" />}
                 </div>
               </div>
@@ -420,8 +419,8 @@ export default function Ranking() {
         
         /* 🔥 ANIMACIÓN DE DESTELLO DE VIDRIO (SOLO ORO) */
         @keyframes glass-shine {
-          0%, 15% { transform: translateX(-150%) skewX(-25deg); }
-          85%, 100% { transform: translateX(350%) skewX(-25deg); }
+          0%, 10% { transform: translateX(-150%) skewX(-25deg); }
+          90%, 100% { transform: translateX(200%) skewX(-25deg); }
         }
         
         .animate-alert-glow { animation: alert-glow 0.8s ease-in-out 3; z-index: 50; position: relative; }
@@ -431,7 +430,7 @@ export default function Ranking() {
         .animate-king-bounce { animation: king-bounce 3s infinite ease-in-out; }
         .animate-vip-shine { animation: vip-shine 3s infinite ease-in-out; }
         .animate-spin-slow { animation: spin 15s linear infinite; }
-        .animate-glass-shine { animation: glass-shine 4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .animate-glass-shine { animation: glass-shine 4s ease-in-out infinite; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
