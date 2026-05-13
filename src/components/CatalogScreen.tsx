@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle } from 'lucide-react';
+import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle, ChevronDown } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import ProductCard from './ProductCard';
@@ -53,8 +53,6 @@ const getSubcategory = (p: Product): string => {
     if (name.includes('harina') || name.includes('maizabrosa')) return 'Harinas';
     if (name.includes('lenteja') || name.includes('garbanzo') || name.includes('alverja')) return 'Granos y Menestras';
     if (name.includes('azúcar') || name.includes('azucar') || name.includes('panela')) return 'Endulzantes';
-    if (name.includes('maíz') || name.includes('champiñon')) return 'Conservas';
-    if (name.includes('cafe') || name.includes('café') || name.includes('cocoa') || name.includes('ricacao')) return 'Café y Modificadores';
     return 'Básicos de Despensa';
   }
   if (p.category === 'Salsas, aliños y aceites') {
@@ -97,12 +95,9 @@ const getSubcategory = (p: Product): string => {
   return 'General';
 };
 
-type ActiveCat = 'Todos' | Category;
-type SortOption = 'sugeridos' | 'precio-bajo' | 'precio-alto' | 'mas-pedidos';
-
 interface Props {
-  initialCategory?: ActiveCat;
-  onCategoryChange?: (cat: ActiveCat) => void;
+  initialCategory?: 'Todos' | Category;
+  onCategoryChange?: (cat: 'Todos' | Category) => void;
   onNavigate?: (screen: 'home' | 'catalog' | 'cart' | 'info' | 'ranking') => void;
 }
 
@@ -112,7 +107,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   
   const ALL_CATS = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ('Todos' | Category)[];
   
-  const [activeCategory, setActiveCategory] = useState<ActiveCat>(initialCategory);
+  const [activeCategory, setActiveCategory] = useState<'Todos' | Category>(initialCategory);
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('sugeridos');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -144,13 +139,11 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return Array.from(new Set(products.filter(p => p.category === activeCategory).map(p => getSubcategory(p))));
   }, [activeCategory, products]);
 
-  // 🚀 RESET DE SCROLL AL CAMBIAR SECCIÓN
   useEffect(() => {
     const main = document.querySelector('main');
     if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeCategory, activeSubcategory]);
 
-  // 🔥 AUTO-SELECCIÓN DE SUB
   useEffect(() => {
     if (activeCategory !== 'Todos' && subcategories.length > 0 && !activeSubcategory) {
       setActiveSubcategory(subcategories[0]);
@@ -239,7 +232,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       <AnnouncementBanner />
       
       <div className="sticky top-0 z-[120] bg-white shadow-sm border-b border-gray-100">
-        {/* BUSCADOR CON FONDO SÓLIDO PARA ELIMINAR BUG "R" */}
         <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative z-[160] bg-white">
           <div className="relative flex-1 group">
             <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-orange-500' : 'text-gray-400'}`} />
@@ -253,7 +245,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           <button onClick={() => setShowSortMenu(!showSortMenu)} className={`p-2.5 rounded-[20px] border transition-all ${showSortMenu ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-inner' : 'bg-white border-gray-200 text-gray-600'}`}><ArrowUpDown size={18} /></button>
         </div>
 
-        {/* 🚀 OVERLAY DE RESULTADOS FULL WIDTH (CORREGIDO PARA NO TAPAR EL INPUT) */}
         {search.length > 0 && (
           <div className="fixed left-0 right-0 top-[60px] bottom-0 bg-white z-[150] overflow-y-auto animate-in fade-in">
             <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">Resultados Globales</div>
@@ -265,7 +256,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
                   <button key={`s-${p.id}`} onClick={() => { setSearch(''); changeCategory(p.category as any); setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100); }}
                     className="flex flex-row items-center p-4 hover:bg-orange-50 active:bg-orange-100 transition-colors w-full text-left gap-4"
                   >
-                    <img src={p.image || ''} alt={p.name} className="w-16 h-16 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
+                    <img src={p.image || ''} alt={p.name} className="w-16 h-14 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-bold text-gray-900 truncate">{p.name}</p>
                       <p className="text-[11px] font-bold uppercase text-orange-500">{getSubcategory(p)}</p>
@@ -278,7 +269,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         )}
 
-        {/* TABS PRINCIPALES */}
         <div className="bg-white relative z-[100]">
           <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
             <div className="flex gap-1.5" style={{ width: 'max-content' }}>
@@ -293,7 +283,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         </div>
 
-        {/* SUB-CATEGORÍAS CON AUTO-SCROLL */}
         {subcategories.length > 0 && (
           <div className="bg-orange-50/40 border-t border-orange-100/30 relative z-[90]">
             <div ref={subBarRef} className="overflow-x-auto scrollbar-hide py-2.5 px-4">
@@ -311,7 +300,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         )}
       </div>
 
-      {/* ÁREA DE SWIPE TOTAL */}
       <div className="px-3 pt-4 min-h-[80vh] flex flex-col" onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center justify-between mb-4 px-1">
           <h3 className="text-sm font-black text-gray-800 uppercase flex items-center gap-1.5"><MapPin size={14} className="text-orange-500" /> {activeSubcategory || activeCategory}</h3>
@@ -323,11 +311,10 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         </div>
       </div>
 
-      {/* STICKY CART NARANJA VIP */}
       {total > 0 && (
         <div className="fixed bottom-[85px] left-0 right-0 z-[200] px-4 animate-in slide-in-from-bottom-8">
           <div className="max-w-md mx-auto">
-            <button onClick={openCart} className="w-full bg-orange-500 p-3 rounded-[32px] shadow-[0_20px_50px_rgba(249,115,22,0.4)] flex items-center justify-between border border-orange-400 active:scale-95 transition-transform">
+            <button onClick={openCart} className="w-full bg-orange-500 p-3 rounded-[32px] shadow-2xl flex items-center justify-between border border-orange-400 active:scale-95 transition-transform">
               <div className="flex items-center gap-3 pl-3 text-white">
                 <div className="relative bg-white/20 p-2.5 rounded-full shadow-inner">
                   <ShoppingBag size={20} />
@@ -346,4 +333,3 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     </div>
   );
 }
-``` 🦾 🍗🔥🚀👑🏝️
