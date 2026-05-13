@@ -24,9 +24,11 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Limpieza y hogar': '🧹',
 };
 
-// 🧠 Lógica de Mapeo VIP para mantener products.ts limpio
+// 🧠 Lógica para inyectar subcategorías sin ensuciar products.ts
 const getSubcategory = (p: Product): string => {
+  if (p.subcategory) return p.subcategory; // Si ya viene de la BD, la usa
   const name = p.name.toLowerCase();
+  
   if (p.category === 'Pollos') {
     if (name.includes('entero')) return 'Pollo Entero';
     if (name.includes('menudencia')) return 'Menudencia';
@@ -40,10 +42,50 @@ const getSubcategory = (p: Product): string => {
   }
   if (p.category === 'Abarrotes y básicos') {
     if (name.includes('arroz')) return 'Arroz';
-    if (name.includes('azúcar') || name.includes('azucar') || name.includes('panela')) return 'Dulces';
-    if (name.includes('atún') || name.includes('sardina')) return 'Enlatados';
-    if (name.includes('fideo') || name.includes('tallarín') || name.includes('rapidito')) return 'Pastas';
-    return 'Harinas y Otros';
+    if (name.includes('fideo') || name.includes('tallarín') || name.includes('rapidito')) return 'Pastas y Fideos';
+    if (name.includes('atún') || name.includes('sardina')) return 'Enlatados del Mar';
+    if (name.includes('harina') || name.includes('maizabrosa')) return 'Harinas';
+    if (name.includes('lenteja') || name.includes('garbanzo')) return 'Granos Secos';
+    if (name.includes('azúcar') || name.includes('azucar') || name.includes('panela')) return 'Endulzantes';
+    return 'Conservas y Básicos';
+  }
+  if (p.category === 'Salsas, aliños y aceites') {
+    if (name.includes('aceite')) return 'Aceites';
+    if (name.includes('achiote')) return 'Achiotes';
+    if (name.includes('salsa') || name.includes('soya') || name.includes('ají') || name.includes('mayonesa') || name.includes('mostaza') || name.includes('bbq')) return 'Salsas y Aderezos';
+    if (name.includes('maggi') || name.includes('ranchero') || name.includes('aliño')) return 'Aliños y Sazonadores';
+    return 'Vinagres y Esencias';
+  }
+  if (p.category === 'Bebidas') {
+    if (name.includes('agua') || name.includes('guitig')) return 'Aguas';
+    if (name.includes('cerveza') || name.includes('caña')) return 'Licores';
+    if (name.includes('powerade') || name.includes('ego')) return 'Energizantes';
+    if (name.includes('cola') || name.includes('sprite') || name.includes('fanta') || name.includes('inca')) return 'Gaseosas';
+    if (name.includes('cafe') || name.includes('café')) return 'Café';
+    return 'Jugos y Tés';
+  }
+  if (p.category === 'Frutas y verduras') {
+    if (name.includes('manzana') || name.includes('naranja') || name.includes('guineo') || name.includes('naranjilla')) return 'Frutas Frescas';
+    return 'Verduras y Hortalizas';
+  }
+  if (p.category === 'Snacks y dulces') {
+    if (name.includes('galleta') || name.includes('oreo') || name.includes('ducales') || name.includes('zoologia')) return 'Galletas';
+    if (name.includes('chifle')) return 'Snacks Salados';
+    if (name.includes('chocolate') || name.includes('nutella')) return 'Chocolates';
+    return 'Golosinas';
+  }
+  if (p.category === 'Cuidado personal') {
+    if (name.includes('toallas')) return 'Cuidado Femenino';
+    if (name.includes('desodorante')) return 'Desodorantes';
+    if (name.includes('colgate')) return 'Cuidado Bucal';
+    return 'Higiene Personal';
+  }
+  if (p.category === 'Limpieza y hogar') {
+    if (name.includes('detergente') || name.includes('deja') || name.includes('suavitel')) return 'Cuidado de Ropa';
+    if (name.includes('foco')) return 'Iluminación';
+    if (name.includes('fundas')) return 'Fundas de Basura';
+    if (name.includes('papel') || name.includes('servilletas')) return 'Papelería';
+    return 'Limpiadores y Esponjas';
   }
   return 'General';
 };
@@ -58,11 +100,12 @@ export default function Catalog() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [productGridVisible, setProductGridVisible] = useState(false);
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
-  // Calcular dinero total para el Sticky Cart
+  // 💰 Lógica de cálculo en tiempo real
   const totalMoney = useMemo(() => {
     return items.reduce((sum, item) => {
-      const priceStr = item.product.price?.replace('$', '') || '0';
+      const priceStr = item.product.price?.replace('$', '').trim() || '0';
       const priceNum = parseFloat(priceStr) || 0;
       return sum + (priceNum * item.quantity);
     }, 0);
@@ -93,7 +136,6 @@ export default function Catalog() {
     }
   }, [visible]);
 
-  // Reset de subcategoría al cambiar categoría principal
   useEffect(() => {
     setActiveSubcategory(null);
     if (activeCategory !== null) {
@@ -104,9 +146,7 @@ export default function Catalog() {
 
   const filtered = useMemo(() => {
     if (activeCategory === null) return [];
-    let base = activeCategory === 'Todos' 
-      ? products 
-      : products.filter(p => p.category === activeCategory);
+    let base = activeCategory === 'Todos' ? products : products.filter(p => p.category === activeCategory);
     
     if (activeSubcategory) {
       base = base.filter(p => getSubcategory(p) === activeSubcategory);
@@ -127,65 +167,83 @@ export default function Catalog() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(249,115,22,0.05),transparent_65%)]" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* HEADER VIP */}
-        <div className={`text-center mb-10 transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <span className="inline-block text-orange-500 font-bold text-xs tracking-widest uppercase mb-2">Riobamba • El Pollazo</span>
+
+        {/* COMPACT HEADER */}
+        <div className={`text-center mb-8 transition-all duration-600 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight">
             Catálogo <span className="text-orange-500">Premium</span>
           </h2>
         </div>
 
         {/* BESTSELLERS */}
-        <div className="mb-12">
+        <div className={`mb-10 transition-all duration-600 delay-100 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <div className="flex items-center gap-2 mb-4 justify-center">
             <Flame size={15} className="text-orange-500 animate-pulse" />
-            <span className="text-xs font-black text-gray-700 uppercase tracking-widest">Favoritos de la semana</span>
+            <span className="text-xs font-black text-gray-700 uppercase tracking-widest">Sugeridos del mes</span>
+            <Flame size={15} className="text-orange-500 animate-pulse" />
           </div>
-          <div className="flex overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide gap-3 sm:justify-center">
-            {bestsellers.map(product => (
-              <div key={product.id} className="w-44 flex-shrink-0 transition-transform hover:scale-105">
-                <ProductCard product={product} />
+          <div className="sm:hidden overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            <div className="flex gap-3" style={{ width: 'max-content' }}>
+              {bestsellers.map(product => (
+                <div key={product.id} className="w-44 flex-shrink-0 transition-transform hover:scale-105 active:scale-95">
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="hidden sm:block relative max-w-xs mx-auto">
+            <div className="overflow-hidden rounded-2xl">
+              <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
+                {bestsellers.map(product => (
+                  <div key={product.id} className="w-full flex-shrink-0"><ProductCard product={product} /></div>
+                ))}
               </div>
-            ))}
+            </div>
+            <button onClick={() => goTo(carouselIndex - 1)} className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-8 h-8 bg-white border border-orange-200 rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-orange-500"><ChevronLeft size={16} /></button>
+            <button onClick={() => goTo(carouselIndex + 1)} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-8 h-8 bg-white border border-orange-200 rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-orange-500"><ChevronRight size={16} /></button>
           </div>
         </div>
 
         {/* CATEGORY SELECTOR */}
-        <div className="flex flex-wrap gap-2 justify-center mb-6">
-          {['Todos', ...categories].map((cat, i) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat as any)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-[20px] font-bold text-sm transition-all duration-300 ${
-                activeCategory === cat 
-                ? 'bg-orange-500 text-white shadow-lg scale-105' 
-                : 'bg-white border border-gray-100 text-gray-600 hover:bg-orange-50'
-              }`}
-            >
-              <span>{CATEGORY_ICONS[cat] || '📦'}</span>
-              <span>{cat}</span>
-            </button>
-          ))}
+        <div className={`transition-all duration-600 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <div className="flex flex-wrap gap-2 justify-center mb-6">
+            {categories.map((cat, i) => {
+              const isActive = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat as Category)}
+                  className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-[20px] font-semibold text-sm transition-all duration-300 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-500/30 scale-105'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50'
+                  }`}
+                >
+                  <span className="text-base leading-none">{CATEGORY_ICONS[cat] ?? '📦'}</span>
+                  <span>{cat}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* SUBCATEGORY PILLS (Estilo PedidosYa) */}
+        {/* 🚀 EL HACK: SUBCATEGORY SELECTOR (Estilo PedidosYa) */}
         {subcategories.length > 0 && (
-          <div className="flex overflow-x-auto gap-2 pb-6 mb-4 scrollbar-hide">
+          <div className="flex overflow-x-auto gap-2 pb-6 mb-4 px-2 scrollbar-hide">
             <button
               onClick={() => setActiveSubcategory(null)}
-              className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-tight whitespace-nowrap transition-all ${
-                !activeSubcategory ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500'
+              className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-tight whitespace-nowrap transition-all flex-shrink-0 ${
+                !activeSubcategory ? 'bg-gray-800 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Todos {activeCategory}
+              Ver Todo
             </button>
             {subcategories.map(sub => (
               <button
                 key={sub}
                 onClick={() => setActiveSubcategory(sub)}
-                className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-tight whitespace-nowrap transition-all ${
-                  activeSubcategory === sub ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500'
+                className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-tight whitespace-nowrap transition-all flex-shrink-0 ${
+                  activeSubcategory === sub ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-500'
                 }`}
               >
                 {sub}
@@ -194,44 +252,61 @@ export default function Catalog() {
           </div>
         )}
 
-        {/* GRID DE PRODUCTOS */}
-        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-6 transition-all duration-500 ${productGridVisible ? 'opacity-100' : 'opacity-0 translate-y-4'}`}>
-          {filtered.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {/* 📊 PRODUCT GRID */}
+        {activeCategory !== null && (
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className="font-black text-xl text-gray-800">{activeSubcategory || activeCategory}</h3>
+            <span className="text-xs font-semibold text-gray-400">{filtered.length} productos</span>
+          </div>
+        )}
+
+        {activeCategory !== null && filtered.length > 0 && (
+          <div ref={gridRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
+            {filtered.map((product, i) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className={`transition-all duration-400 ${productGridVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                style={{ transitionDelay: productGridVisible ? `${i * 30}ms` : '0ms' }}
+              />
+            ))}
+          </div>
+        )}
+
+        {activeCategory !== null && filtered.length === 0 && (
+          <div className="text-center py-14 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+            <p className="text-gray-400 font-medium">No hay productos en esta sección.</p>
+          </div>
+        )}
 
         {activeCategory === null && (
-          <div className="text-center py-20 bg-gray-50/50 rounded-[32px] border-2 border-dashed border-gray-200">
-            <Sparkles className="mx-auto text-orange-300 mb-2" />
-            <p className="text-gray-400 font-medium">Selecciona una categoría para empezar</p>
+          <div className="text-center py-12">
+            <Sparkles className="mx-auto text-orange-200 mb-3" size={32} />
+            <p className="text-gray-400 font-medium text-sm">Selecciona una categoría arriba para empezar a comprar.</p>
           </div>
         )}
       </div>
 
-      {/* STICKY CART BAR (Efecto BOOM VIP) */}
+      {/* 🚀 EL HACK: STICKY CART VIP */}
       {total > 0 && (
-        <div className="fixed bottom-6 left-0 right-0 z-[100] px-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <div className="max-w-md mx-auto bg-gray-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-between group">
+        <div className="fixed bottom-20 left-0 right-0 z-[100] px-4 animate-in fade-in slide-in-from-bottom-10 duration-500 pointer-events-none">
+          <div className="max-w-md mx-auto bg-gray-900/95 backdrop-blur-xl border border-white/10 p-3 rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-between pointer-events-auto cursor-pointer" onClick={() => setIsOpen(true)}>
             <div className="flex items-center gap-4 pl-4">
               <div className="relative">
-                <ShoppingBag className="text-fbbf24" size={24} />
-                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-gray-900 animate-bounce">
+                <ShoppingBag className="text-yellow-400" size={24} />
+                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-gray-900 shadow-lg">
                   {total}
                 </span>
               </div>
               <div className="flex flex-col">
                 <span className="text-white/60 text-[10px] font-bold uppercase tracking-tighter leading-none">Total estimado</span>
-                <span className="text-fbbf24 font-black text-xl leading-tight">
+                <span className="text-yellow-400 font-black text-xl leading-tight">
                   ${totalMoney.toFixed(2)}
                 </span>
               </div>
             </div>
             
-            <button 
-              onClick={() => setIsOpen(true)}
-              className="bg-gradient-to-r from-orange-500 to-fbbf24 text-white px-6 py-3 rounded-[24px] font-black text-sm uppercase tracking-wider shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-            >
+            <button className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white px-6 py-3 rounded-[24px] font-black text-sm uppercase tracking-wider shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 pointer-events-none">
               Ver pedido
               <ChevronRight size={18} />
             </button>
