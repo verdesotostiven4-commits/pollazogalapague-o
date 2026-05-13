@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, MapPin, ArrowUpDown, ChevronDown, Check } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Search, X, MapPin, ArrowUpDown, ChevronDown, Check, ShoppingBag, ChevronRight } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
+import { useCart } from '../context/CartContext';
 import ProductCard from './ProductCard';
 import AnnouncementBanner from './AnnouncementBanner';
-import { Category } from '../types';
+import { Category, Product } from '../types';
 
 const CATEGORY_ICONS: Record<string, string> = {
   'Pollos': '🍗', 'Embutidos': '🥓', 'Lácteos y refrigerados': '🥛',
@@ -11,284 +12,143 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Frutas y verduras': '🥦', 'Snacks y dulces': '🍫', 'Cuidado personal': '🧴', 'Limpieza y hogar': '🧹',
 };
 
-const SHORT_LABELS: Record<string, string> = {
-  'Pollos': 'Pollos', 'Embutidos': 'Embutidos', 'Lácteos y refrigerados': 'Lácteos',
-  'Abarrotes y básicos': 'Abarrotes', 'Salsas, aliños y aceites': 'Salsas', 'Bebidas': 'Bebidas',
-  'Frutas y verduras': 'Frutas', 'Snacks y dulces': 'Snacks', 'Cuidado personal': 'Personal', 'Limpieza y hogar': 'Limpieza',
-};
-
-// ✅ ORDEN DE CATEGORÍAS PERSONALIZADO POR TI
 const ORDERED_CATEGORIES: string[] = [
-  'Todos',
-  'Pollos',
-  'Embutidos',
-  'Lácteos y refrigerados',
-  'Abarrotes y básicos',
-  'Bebidas',
-  'Salsas, aliños y aceites',
-  'Frutas y verduras',
-  'Snacks y dulces',
-  'Cuidado personal',
-  'Limpieza y hogar'
+  'Todos', 'Pollos', 'Embutidos', 'Lácteos y refrigerados', 'Abarrotes y básicos',
+  'Bebidas', 'Salsas, aliños y aceites', 'Frutas y verduras', 'Snacks y dulces',
+  'Cuidado personal', 'Limpieza y hogar'
 ];
 
-// IDs de los más pedidos (puedes editarlos aquí y se reflejará en el filtro "Más Pedidos")
-const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
+// 🧠 Motor de mapeo automático para mantener products.ts limpio
+const getSubcategory = (p: Product): string => {
+  if (p.subcategory) return p.subcategory;
+  const name = p.name.toLowerCase();
+  if (p.category === 'Pollos') return name.includes('entero') ? 'Pollo Entero' : 'Presas';
+  if (p.category === 'Lácteos y refrigerados') {
+    if (name.includes('leche')) return 'Leches';
+    if (name.includes('yogurt')) return 'Yogures';
+    return 'Quesos y Otros';
+  }
+  if (p.category === 'Bebidas') return name.includes('agua') ? 'Aguas' : 'Gaseosas';
+  return 'General';
+};
 
-type ActiveCat = 'Todos' | Category;
-type SortOption = 'sugeridos' | 'precio-bajo' | 'precio-alto' | 'mas-pedidos';
-
-interface Props {
-  initialCategory?: ActiveCat;
-  onCategoryChange?: (cat: ActiveCat) => void;
-}
-
-export default function CatalogScreen({ initialCategory = 'Todos', onCategoryChange }: Props) {
+export default function CatalogScreen({ initialCategory = 'Todos', onCategoryChange }: { initialCategory?: any, onCategoryChange?: (cat: any) => void }) {
   const { products, categories } = useAdmin();
+  const { total, items, setIsOpen } = useCart();
   
-  // ✅ ORDENAMOS LAS CATEGORÍAS SEGÚN TU PREFERENCIA
-  const ALL_CATS: ActiveCat[] = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ActiveCat[];
-  
-  const [activeCategory, setActiveCategory] = useState<ActiveCat>(initialCategory);
-  const [sortBy, setSortBy] = useState<SortOption>('sugeridos');
+  const ALL_CATS = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category));
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState('sugeridos');
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
-  const [animating, setAnimating] = useState(false);
   const [search, setSearch] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  
-  const inputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const tabBarRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
+  const [animating, setAnimating] = useState(false);
 
-  const isSearching = search.length > 0;
+  const totalMoney = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const p = products.find(prod => prod.id === item.id);
+      const price = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
+      return sum + (price * item.quantity);
+    }, 0);
+  }, [items, products]);
 
-  const suggestions = isSearching
-    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 5)
-    : [];
+  const subcategories = useMemo(() => {
+    if (activeCategory === 'Todos') return [];
+    const subs = products.filter(p => p.category === activeCategory).map(p => getSubcategory(p));
+    return Array.from(new Set(subs));
+  }, [activeCategory, products]);
+
+  // 🔥 Auto-selección de primera subcategoría
+  useEffect(() => {
+    if (activeCategory !== 'Todos' && subcategories.length > 0) {
+      setActiveSubcategory(subcategories[0]);
+    } else {
+      setActiveSubcategory(null);
+    }
+    setAnimating(true);
+    setTimeout(() => setAnimating(false), 300);
+  }, [activeCategory, subcategories]);
 
   const filtered = products.filter(p => {
-    if (isSearching) return p.name.toLowerCase().includes(search.toLowerCase());
-    return activeCategory === 'Todos' || p.category === activeCategory;
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCat = activeCategory === 'Todos' || p.category === activeCategory;
+    const matchesSub = !activeSubcategory || getSubcategory(p) === activeSubcategory;
+    return matchesSearch && matchesCat && matchesSub;
   });
 
-  // ✅ LÓGICA DE ORDENAMIENTO (SORTING)
-  const displayedProducts = [...filtered].sort((a, b) => {
-    if (sortBy === 'mas-pedidos') {
-        const aIsBest = BESTSELLER_IDS.includes(a.id) ? 1 : 0;
-        const bIsBest = BESTSELLER_IDS.includes(b.id) ? 1 : 0;
-        return bIsBest - aIsBest;
-    }
-    if (sortBy === 'precio-bajo') {
-        return parseFloat(a.price.replace('$', '')) - parseFloat(b.price.replace('$', ''));
-    }
-    if (sortBy === 'precio-alto') {
-        return parseFloat(b.price.replace('$', '')) - parseFloat(a.price.replace('$', ''));
-    }
-    
-    // Por defecto: Orden por categoría si es "Todos"
-    if (activeCategory === 'Todos' && !isSearching) {
-      const indexA = ORDERED_CATEGORIES.indexOf(a.category);
-      const indexB = ORDERED_CATEGORIES.indexOf(b.category);
-      return indexA - indexB;
-    }
-    return 0;
-  });
-
-  useEffect(() => {
-    if (!tabBarRef.current || isSearching) return;
-    const bar = tabBarRef.current;
-    const idx = ALL_CATS.indexOf(activeCategory);
-    const buttons = bar.querySelectorAll('button');
-    const btn = buttons[idx] as HTMLButtonElement | undefined;
-    if (btn) {
-      const btnCenter = btn.offsetLeft + btn.offsetWidth / 2;
-      const scrollTarget = btnCenter - bar.clientWidth / 2;
-      bar.scrollTo({ left: scrollTarget, behavior: 'smooth' });
-    }
-  }, [activeCategory, isSearching, ALL_CATS]);
-
-  const changeCategory = useCallback((next: ActiveCat) => {
-    if (next === activeCategory || animating) return;
-    const currIdx = ALL_CATS.indexOf(activeCategory);
-    const nextIdx = ALL_CATS.indexOf(next);
-    const dir = nextIdx > currIdx ? 'left' : 'right';
-    setSlideDir(dir);
-    setAnimating(true);
-    setActiveCategory(next);
-    onCategoryChange?.(next);
-    
-    const main = document.querySelector('main');
-    main?.scrollTo({ top: 0, behavior: 'smooth' });
-
-    setTimeout(() => {
-      setAnimating(false);
-      setSlideDir(null);
-    }, 320);
-  }, [activeCategory, animating, onCategoryChange, ALL_CATS]);
-
-  const handleSwipeLeft = useCallback(() => {
-    const idx = ALL_CATS.indexOf(activeCategory);
-    if (idx < ALL_CATS.length - 1) changeCategory(ALL_CATS[idx + 1]);
-  }, [activeCategory, changeCategory, ALL_CATS]);
-
-  const handleSwipeRight = useCallback(() => {
-    const idx = ALL_CATS.indexOf(activeCategory);
-    if (idx > 0) changeCategory(ALL_CATS[idx - 1]);
-  }, [activeCategory, changeCategory, ALL_CATS]);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0) handleSwipeLeft();
-      else handleSwipeRight();
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
-
-  const getGridStyle = (): React.CSSProperties => {
-    if (!animating || !slideDir) return {};
-    return {
-      animation: `slideIn${slideDir === 'left' ? 'Left' : 'Right'} 0.32s cubic-bezier(0.25,0.46,0.45,0.94) forwards`,
-    };
+  // Swipe Logic para Subcategorías
+  const touchStart = useRef<number | null>(null);
+  const handleSwipe = (dir: 'L' | 'R') => {
+    if (!activeSubcategory) return;
+    const idx = subcategories.indexOf(activeSubcategory);
+    if (dir === 'L' && idx < subcategories.length - 1) setActiveSubcategory(subcategories[idx + 1]);
+    if (dir === 'R' && idx > 0) setActiveSubcategory(subcategories[idx - 1]);
   };
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-full">
+    <div className="flex flex-col bg-gray-50 min-h-full pb-32">
       <AnnouncementBanner />
-      
-      <div className="sticky top-0 z-[100] bg-white shadow-sm">
-        {/* BUSCADOR + BOTÓN ORDENAR */}
-        <div className="px-4 pt-3 pb-2 border-b border-gray-50 flex items-center gap-2">
+      <div className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="px-4 py-3 flex gap-2">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => search && setShowSuggestions(true)}
-              placeholder="Buscar productos..."
-              className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-gray-50 focus:ring-2 focus:ring-orange-200 transition-all"
-            />
-            {search && (
-              <button onClick={() => { setSearch(''); setShowSuggestions(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <X size={15} />
-              </button>
-            )}
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar en El Pollazo..." className="w-full bg-gray-100 rounded-xl pl-9 py-2 text-sm outline-none" />
           </div>
-          
-          {/* ✅ BOTÓN "ORDENAR" */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className={`p-2.5 rounded-xl border transition-all flex items-center gap-1.5 ${showSortMenu ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 active:bg-gray-50'}`}
-            >
-              <ArrowUpDown size={18} />
-              <span className="text-[10px] font-black uppercase hidden sm:block">Ordenar</span>
+          <button onClick={() => setShowSortMenu(!showSortMenu)} className="p-2 bg-white border border-gray-200 rounded-xl"><ArrowUpDown size={18} /></button>
+        </div>
+
+        {/* Categorías Principales */}
+        <div className="overflow-x-auto scrollbar-hide flex gap-2 px-4 pb-2">
+          {ALL_CATS.map(cat => (
+            <button key={cat} onClick={() => { setActiveCategory(cat); onCategoryChange?.(cat); }} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {CATEGORY_ICONS[cat] || '📦'} {cat}
             </button>
-
-            {showSortMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-orange-50 overflow-hidden z-[120] animate-in fade-in zoom-in duration-200">
-                <div className="p-2 space-y-1">
-                  {[
-                    { id: 'sugeridos', label: 'Sugeridos' },
-                    { id: 'mas-pedidos', label: 'Más pedidos 🔥' },
-                    { id: 'precio-bajo', label: 'Menor precio' },
-                    { id: 'precio-alto', label: 'Mayor precio' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => { setSortBy(opt.id as SortOption); setShowSortMenu(false); }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${sortBy === opt.id ? 'bg-orange-50 text-orange-600' : 'text-gray-600 active:bg-gray-50'}`}
-                    >
-                      {opt.label}
-                      {sortBy === opt.id && <Check size={14} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
 
-        {/* TABS DE CATEGORÍAS */}
-        {!isSearching && (
-          <div className="bg-white border-b border-gray-100">
-            <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-1.5 px-4 py-2.5" style={{ width: 'max-content' }}>
-                {ALL_CATS.map(cat => {
-                  const isActive = activeCategory === cat;
-                  const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
-                  const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => changeCategory(cat)}
-                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
-                        isActive
-                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
-                          : 'bg-gray-100 text-gray-600 active:bg-gray-200'
-                      }`}
-                    >
-                      <span>{icon}</span>
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <p className="text-center text-[9px] text-gray-300 pb-1 font-medium uppercase tracking-widest">← desliza para cambiar →</p>
-          </div>
-        )}
-      </div>
-
-      {/* GRID DE PRODUCTOS */}
-      <div className="px-3 pt-3 pb-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div className="flex items-center justify-between mb-3 px-1">
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-tight">
-            {displayedProducts.length} productos • {sortBy.replace('-', ' ')}
-          </p>
-          {activeCategory !== 'Todos' && (
-            <div className="flex items-center gap-1 text-orange-500 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">
-               <MapPin size={10} />
-               <span className="text-[9px] font-black uppercase tracking-tighter">{activeCategory}</span>
-            </div>
-          )}
-        </div>
-
-        {displayedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <span className="text-6xl mb-4 grayscale">🔍</span>
-            <p className="text-gray-400 font-black uppercase text-xs tracking-widest">Sin resultados</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', ...getGridStyle() }}>
-            {displayedProducts.map(product => (
-              <div key={`${product.id}-${activeCategory}-${sortBy}`} className="w-full min-w-0">
-                <ProductCard product={product} />
-              </div>
+        {/* Subcategorías (Estilo PedidosYa) */}
+        {subcategories.length > 0 && (
+          <div className="flex overflow-x-auto gap-2 px-4 py-2 bg-gray-50/50 scrollbar-hide border-t border-gray-50">
+            {subcategories.map(sub => (
+              <button key={sub} onClick={() => setActiveSubcategory(sub)} className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-tight whitespace-nowrap transition-all ${activeSubcategory === sub ? 'bg-gray-800 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                {sub}
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      <style>{`
-        @keyframes slideInLeft { from { opacity: 0.2; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes slideInRight { from { opacity: 0.2; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+      {/* Grid de Productos con Swipe */}
+      <div 
+        className={`px-4 pt-4 grid grid-cols-2 gap-3 transition-opacity duration-300 ${animating ? 'opacity-0' : 'opacity-100'}`}
+        onTouchStart={e => touchStart.current = e.touches[0].clientX}
+        onTouchEnd={e => {
+          if (!touchStart.current) return;
+          const diff = touchStart.current - e.changedTouches[0].clientX;
+          if (Math.abs(diff) > 60) handleSwipe(diff > 0 ? 'L' : 'R');
+        }}
+      >
+        {filtered.map(p => <ProductCard key={p.id} product={p} />)}
+      </div>
+
+      {/* 🚀 STICKY CART (Efecto BOOM VIP) */}
+      {total > 0 && (
+        <div className="fixed bottom-24 left-0 right-0 z-[110] px-4 animate-in fade-in slide-in-from-bottom-5">
+          <div onClick={() => setIsOpen(true)} className="max-w-md mx-auto bg-gray-900/95 backdrop-blur-xl p-3 rounded-[28px] shadow-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-transform border border-white/10">
+            <div className="flex items-center gap-3 pl-3">
+              <div className="relative bg-orange-500 p-2 rounded-full">
+                <ShoppingBag className="text-white" size={20} />
+                <span className="absolute -top-2 -right-2 bg-white text-orange-600 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg border border-orange-500">{total}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-white/50 text-[9px] font-bold uppercase tracking-widest">Total Pedido</span>
+                <span className="text-white font-black text-lg leading-none">${totalMoney.toFixed(2)}</span>
+              </div>
+            </div>
+            <button className="bg-orange-500 text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2">Ver Carrito <ChevronRight size={16} /></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
