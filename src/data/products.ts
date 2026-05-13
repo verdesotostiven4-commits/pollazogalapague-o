@@ -1,20 +1,4 @@
-Actúa como un Senior Dev Fullstack especializado en React y TypeScript.
-TU MISIÓN:
-Tengo el archivo products.ts de mi catálogo. Necesito que agregues la propiedad subcategory: 'NombreDeSubcategoria', a CADA UNO de los objetos dentro del array products.
-REGLAS ESTRICTAS (NO LAS ROMPAS):
-ENTREGA EL CÓDIGO COMPLETO: Devuelve el archivo 100% completo en un solo bloque de código. ESTÁ TOTALMENTE PROHIBIDO usar placeholders como // ... resto de los productos o fragmentar el código.
-CERO ZIPs: Entrégalo en formato de texto normal dentro de un bloque de código (markdown).
-CERO ALTERACIONES: No toques, no edites y no borres los id, name, price, image (URLs largas), description ni badge. Mantén todo idéntico, SOLO suma la línea de subcategory.
-LÓGICA PEDIDOSYA: Asigna la subcategoría de forma inteligente según el producto. Ejemplos de subcategorías a usar:
-Pollos: 'Pollo Entero', 'Presas', 'Menudencias'
-Lácteos: 'Leches', 'Yogures', 'Quesos', 'Mantequillas'
-Abarrotes: 'Arroz', 'Pastas y Fideos', 'Enlatados del Mar', 'Conservas', 'Harinas', 'Granos'
-Salsas: 'Aceites', 'Salsas', 'Aliños y Sazonadores'
-Bebidas: 'Aguas', 'Gaseosas', 'Tés e Hidratantes', 'Licores', 'Café'
-Frutas y verduras: 'Verduras', 'Frutas Frescas'
-Snacks: 'Galletas', 'Snacks Salados', 'Chocolates', 'Golosinas'
-Limpieza: 'Cuidado de la Ropa', 'Limpiadores', 'Papeles del Hogar', 'Bolsas para Basura'
-AQUÍ ESTÁ MI CÓDIGO ORIGINAL PARA QUE LO PROCESES COMPLETAMENTE: import { Product } from '../types'; 
+import { Product } from '../types'; 
 export const products: Product[] = [ 
   // ── POLLOS ──────────────────────────────────────────────────────────────── 
   { 
