@@ -80,7 +80,9 @@ function AdminDashboardContent() {
   const [draft, setDraft] = useState({ name: '', category: 'Pollos', price: '', description: '', image: '', available: true });
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // 🛡️ REGLA DE HOOKS: Todos los useMemo DEBEN ir antes de cualquier return.
+  // ==========================================
+  // 🛡️ REGLA DE HOOKS: Todos los useMemo DEBEN ir ANTES de cualquier `return`
+  // ==========================================
   const safeProducts = context?.products || [];
   const safeCategories = context?.categories || [];
   const safeCustomers = context?.customers || [];
@@ -106,7 +108,7 @@ function AdminDashboardContent() {
     return [...safeSeasons].sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime());
   }, [safeSeasons]);
 
-  // ✅ AHORA SÍ: Validaciones y retornos tempranos.
+  // ✅ AHORA SÍ: Los returns de validación van abajo.
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
   if (!context || context.loading) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black animate-pulse uppercase italic tracking-widest">Sincronizando Imperio...</div>;
 
