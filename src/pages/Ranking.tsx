@@ -48,20 +48,20 @@ export default function Ranking() {
     setShowPrizeDetails(false);
     setAlertButton(true);
     localStorage.setItem('pollazo_last_prize_seen', extraSettings?.ranking_end_date || '');
-    setTimeout(() => setAlertButton(false), 2400); // Se apaga tras 2.4s (3 destellos)
+    setTimeout(() => setAlertButton(false), 2400); // 3 destellos de 0.8s = 2.4s
   };
 
   useEffect(() => {
     if (refreshData) refreshData();
   }, [refreshData]);
 
-  // 📡 DETECTOR INTELIGENTE DE FLECHA (ARRIBA/ABAJO)
+  // 📡 DETECTOR INTELIGENTE DE FLECHA (ARRIBA/ABAJO) CORREGIDO
   useEffect(() => {
     const handleScroll = () => {
       if (!myRowRef.current) return;
       const rect = myRowRef.current.getBoundingClientRect();
-      // Inteligencia espacial: Si la fila está arriba de la mitad de la pantalla, indica hacia arriba
-      setIsMyRowAbove(rect.top < window.innerHeight / 2);
+      // ✅ MATEMÁTICA EXACTA: Si el borde superior de tu fila es menor a 0, significa que scrolleaste hacia abajo y tu fila se quedó arriba.
+      setIsMyRowAbove(rect.top < 0);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll(); // Check inicial
@@ -134,7 +134,7 @@ export default function Ranking() {
         <Trophy size={60} className="mx-auto mb-4 text-yellow-300 drop-shadow-[0_0_15px_rgba(253,224,71,0.6)] animate-bounce" />
         <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-1">{extraSettings?.ranking_title || 'Ranking VIP'}</h1>
         
-        {/* 🚨 BOTÓN DE PREMIOS (AQUÍ ESTÁ EL DESTELLO MÁGICO) 🚨 */}
+        {/* 🚨 BOTÓN DE PREMIOS CON EFECTO */}
         <button 
           onClick={() => setShowPrizeDetails(true)}
           className={`inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2.5 rounded-3xl mb-8 border border-white/10 transition-all shadow-inner hover:bg-black/30 ${
@@ -238,7 +238,7 @@ export default function Ranking() {
         })}
       </div>
 
-      {/* 🏆 SALÓN DE LA FAMA DIAMANTE & BLUR */}
+      {/* 🏆 SALÓN DE LA FAMA (FOTO COMPLETA Y DIFUMINADO OSCURO) */}
       <div ref={hallOfFameRef} className="mt-40 scroll-mt-10 px-5 pb-20">
         <div className="text-center mb-16 animate-in fade-in duration-1000">
           <Sparkles className="mx-auto text-orange-500 mb-4 animate-spin-slow" size={32} />
@@ -255,6 +255,12 @@ export default function Ranking() {
               </div>
               <div className="text-center pt-8 mb-10">
                 <h3 className="text-white font-black text-2xl uppercase italic tracking-tighter mb-2">{season.name}</h3>
+                {season.prize && (
+                  <div className="inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 px-4 py-1.5 rounded-full mt-4">
+                      <Gift size={12} className="text-yellow-400" />
+                      <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic">Premio: {season.prize}</p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -265,34 +271,32 @@ export default function Ranking() {
                     'bg-orange-900/50 border-2 border-orange-700'
                   }`}>
                     {/* CORONA FÍSICA FLOTANTE SOLO PARA EL 1ERO */}
-                    {idx === 0 && <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-400 fill-yellow-400 animate-crown-float drop-shadow-2xl z-30" size={42} />}
+                    {idx === 0 && <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-400 fill-yellow-400 animate-crown-float drop-shadow-2xl z-40" size={42} />}
                     
-                    {/* ✅ FOTO COMPLETA Y OVERLAY ELEGANTE PEQUEÑO */}
+                    {/* ✅ TARJETA CON IMAGEN COMPLETA */}
                     <div className="bg-slate-900 rounded-[38px] overflow-hidden flex flex-col h-full relative aspect-square shadow-inner">
                       
                       {/* FOTO FULL COVER */}
                       <img src={winner.photo_url || `https://api.dicebear.com/8.x/shapes/svg?seed=${winner.name}&backgroundColor=1e293b`} className="w-full h-full object-cover absolute inset-0 grayscale-[15%] group-hover:grayscale-0 transition-all duration-500 z-0" alt="Premio Ganador" />
                       
-                      {/* ✅ DESTELLO VIP SOBRE LA IMAGEN (SOLO ORO) */}
-                      {idx === 0 && (
-                        <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-[38px]">
-                          <div className="absolute top-0 left-0 w-[150%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg] animate-glass-shine"></div>
-                        </div>
-                      )}
-
                       {/* MEDALLA FLOTANTE */}
                       <div className={`absolute top-4 right-4 z-20 p-1.5 rounded-full shadow-lg ${idx === 0 ? 'bg-yellow-500 border border-yellow-300' : idx === 1 ? 'bg-slate-300 border border-slate-100' : 'bg-orange-700 border border-orange-500'}`}>
                          <Medal size={20} className={idx === 0 ? "text-slate-900" : idx === 1 ? "text-slate-800" : "text-white"} />
                       </div>
                       
-                      {/* ✅ PÍLDORA DE TEXTO PEQUEÑA Y DIFUMINADA AL FONDO */}
-                      <div className="absolute bottom-3 left-3 right-3 z-20">
-                        <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl p-3 text-center shadow-xl">
-                          <p className="text-white font-black italic text-sm tracking-tighter mb-0.5 truncate drop-shadow-md">{winner.name}</p>
-                          <p className="text-orange-400 font-black text-[10px] uppercase drop-shadow-md">{winner.points?.toLocaleString()} PTS</p>
-                          {winner.prize_won && <p className="text-[8px] font-bold uppercase text-white/70 mt-0.5 drop-shadow-md truncate">{winner.prize_won}</p>}
-                        </div>
+                      {/* ✅ DIFUMINADO OSCURO (NO TAPA LA FOTO ENTERA) */}
+                      <div className="absolute bottom-0 left-0 right-0 pt-16 pb-5 px-4 text-center bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20">
+                        <p className="text-white font-black italic text-lg tracking-tighter mb-0.5 drop-shadow-md">{winner.name}</p>
+                        <p className="text-orange-400 font-black text-xs uppercase drop-shadow-md">{winner.points?.toLocaleString()} PTS</p>
+                        {winner.prize_won && <p className="text-[8px] font-bold uppercase text-white/70 mt-1 drop-shadow-md truncate">{winner.prize_won}</p>}
                       </div>
+
+                      {/* ✅ DESTELLO VIP SOBRE LA IMAGEN (SOLO ORO) */}
+                      {idx === 0 && (
+                        <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden rounded-[38px]">
+                          <div className="absolute top-0 left-0 w-[150%] h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg] animate-glass-shine"></div>
+                        </div>
+                      )}
 
                     </div>
                   </div>
@@ -354,10 +358,11 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* 🎯 RADAR DE POSICIÓN RESTAURADO Y CORREGIDO */}
+      {/* 🎯 RADAR DE POSICIÓN INTELIGENTE */}
       {myData && showRadar && !isInHallOfFame && (
         <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
+          {/* ✅ BURBUJA NEGRA - ¿CUÁNTOS PUNTOS FALTAN? */}
           {nextUp && (
             <div className="bg-slate-900 text-white text-[9px] font-black py-1.5 px-4 rounded-full border border-orange-500 shadow-2xl animate-bounce flex items-center gap-2">
               <Target size={10} className="text-orange-500" />
@@ -395,7 +400,7 @@ export default function Ranking() {
                    <p className="text-white font-black text-xs italic">
                      {myData.points.toLocaleString()}
                    </p>
-                   {/* ✅ FLECHA INTELIGENTE: ESPACIALMENTE CORRECTA */}
+                   {/* ✅ FLECHA ESPACIAL (ARRIBA O ABAJO) */}
                    {isMyRowAbove ? <ArrowUp size={12} className="text-white animate-bounce" /> : <ArrowDown size={12} className="text-white animate-bounce" />}
                 </div>
               </div>
@@ -417,10 +422,10 @@ export default function Ranking() {
         @keyframes king-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes vip-shine { 0% { box-shadow: 0 0 15px rgba(250,204,21,0.2); } 50% { box-shadow: 0 0 35px rgba(250,204,21,0.5); } 100% { box-shadow: 0 0 15px rgba(250,204,21,0.2); } }
         
-        /* 🔥 ANIMACIÓN DE DESTELLO DE VIDRIO (SOLO ORO) */
+        /* 🔥 ANIMACIÓN DE DESTELLO DE VIDRIO VIP */
         @keyframes glass-shine {
-          0%, 10% { transform: translateX(-150%) skewX(-25deg); }
-          90%, 100% { transform: translateX(200%) skewX(-25deg); }
+          0%, 15% { transform: translateX(-150%) skewX(-25deg); }
+          85%, 100% { transform: translateX(350%) skewX(-25deg); }
         }
         
         .animate-alert-glow { animation: alert-glow 0.8s ease-in-out 3; z-index: 50; position: relative; }
@@ -430,7 +435,7 @@ export default function Ranking() {
         .animate-king-bounce { animation: king-bounce 3s infinite ease-in-out; }
         .animate-vip-shine { animation: vip-shine 3s infinite ease-in-out; }
         .animate-spin-slow { animation: spin 15s linear infinite; }
-        .animate-glass-shine { animation: glass-shine 4s ease-in-out infinite; }
+        .animate-glass-shine { animation: glass-shine 4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
