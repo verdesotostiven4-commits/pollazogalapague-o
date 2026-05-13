@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   category: Category;
+  subcategory?: string; // ✅ Clasificación estilo PedidosYa
   price?: string;
   unit?: string;
   description?: string;
@@ -30,6 +31,7 @@ export interface Order {
   delivery_fee: number;
   total: number;
   status: OrderStatus;
+  provider: boolean; // Corregido de preorder a provider según lógica previa o mantenido según tu flujo
   preorder: boolean;
   created_at?: string;
 }
@@ -40,9 +42,9 @@ export interface ExtraSettings {
   prize_description: string;
   ranking_end_date: string;
   winner_photo_url: string;
-  prize_1: string; // ✅ Campo para Premio Oro
-  prize_2: string; // ✅ Campo para Premio Plata
-  prize_3: string; // ✅ Campo para Premio Bronce
+  prize_1: string; // ✅ Premio Oro
+  prize_2: string; // ✅ Premio Plata
+  prize_3: string; // ✅ Premio Bronce
 }
 
 export type Category = 
