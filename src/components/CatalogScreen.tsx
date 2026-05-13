@@ -120,7 +120,7 @@ interface Props {
 
 export default function CatalogScreen({ initialCategory = 'Todos', onCategoryChange }: Props) {
   const { products, categories } = useAdmin();
-  const { total, items } = useCart();
+  const { total, items, setIsOpen } = useCart(); // Aseguramos usar setIsOpen si CartScreen es Modal
   
   const ALL_CATS: ActiveCat[] = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ActiveCat[];
   
@@ -131,6 +131,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   const [search, setSearch] = useState('');
   
   const tabBarRef = useRef<HTMLDivElement>(null);
+  const subBarRef = useRef<HTMLDivElement>(null); // Ref para trackear subcategorías
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -173,13 +174,36 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     }
   }, [activeCategory, subcategories]);
 
+  // 🖱️ Auto-Scroll inteligente para Categorías y Subcategorías
+  useEffect(() => {
+    if (tabBarRef.current) {
+      const bar = tabBarRef.current;
+      const idx = ALL_CATS.indexOf(activeCategory);
+      const btn = bar.querySelectorAll('button')[idx];
+      if (btn) {
+        bar.scrollTo({ left: btn.offsetLeft + btn.offsetWidth / 2 - bar.clientWidth / 2, behavior: 'smooth' });
+      }
+    }
+  }, [activeCategory, ALL_CATS]);
+
+  useEffect(() => {
+    if (subBarRef.current && activeSubcategory) {
+      const bar = subBarRef.current;
+      const idx = subcategories.indexOf(activeSubcategory);
+      const btn = bar.querySelectorAll('button')[idx];
+      if (btn) {
+        bar.scrollTo({ left: btn.offsetLeft + btn.offsetWidth / 2 - bar.clientWidth / 2, behavior: 'smooth' });
+      }
+    }
+  }, [activeSubcategory, subcategories]);
+
   const changeCategory = useCallback((next: ActiveCat) => {
     if (next === activeCategory) return;
     setActiveCategory(next);
     onCategoryChange?.(next);
   }, [activeCategory, onCategoryChange]);
 
-  // 🔍 Resultados del Buscador (Lista Full Width Estilo TikTok)
+  // 🔍 Resultados del Buscador (Lista Full Width)
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
     const normalizedQuery = normalizeText(search);
@@ -213,7 +237,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return 0;
   });
 
-  // 🖱️ SWIPE MAESTRO (Multinivel: Pasa de Subcategoría a Categoría Principal)
+  // 🖱️ SWIPE MAESTRO (Pasa de Subcategoría a Categoría Principal)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -225,59 +249,65 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
 
-    // Solo si el deslizamiento es horizontal claro
+    // Solo si el deslizamiento es horizontal claro (>60px)
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      const catIndex = ALL_CATS.indexOf(activeCategory);
+
       if (activeCategory === 'Todos') {
-        // En "Todos", desliza entre categorías principales
-        const catIndex = ALL_CATS.indexOf(activeCategory);
+        // En "Todos", desliza entre categorías
         if (dx < 0 && catIndex < ALL_CATS.length - 1) changeCategory(ALL_CATS[catIndex + 1]);
         if (dx > 0 && catIndex > 0) changeCategory(ALL_CATS[catIndex - 1]);
       } else if (subcategories.length > 0 && activeSubcategory) {
-        // En una categoría, desliza entre subcategorías
+        // Deslizamiento Multinivel
         const subIndex = subcategories.indexOf(activeSubcategory);
-        const catIndex = ALL_CATS.indexOf(activeCategory);
 
         if (dx < 0) { // Desliza Izquierda (Siguiente)
           if (subIndex < subcategories.length - 1) {
-            setActiveSubcategory(subcategories[subIndex + 1]); // Pasa a siguiente Subcat
+            setActiveSubcategory(subcategories[subIndex + 1]);
           } else if (catIndex < ALL_CATS.length - 1) {
-            changeCategory(ALL_CATS[catIndex + 1]); // Pasa a siguiente Categoría
+            changeCategory(ALL_CATS[catIndex + 1]);
           }
         } else if (dx > 0) { // Desliza Derecha (Anterior)
           if (subIndex > 0) {
-            setActiveSubcategory(subcategories[subIndex - 1]); // Pasa a anterior Subcat
+            setActiveSubcategory(subcategories[subIndex - 1]);
           } else if (catIndex > 0) {
-            changeCategory(ALL_CATS[catIndex - 1]); // Pasa a anterior Categoría
+            changeCategory(ALL_CATS[catIndex - 1]);
           }
         }
+      } else {
+         // Si es una categoría sin subcategorías, salta a la siguiente categoría
+         if (dx < 0 && catIndex < ALL_CATS.length - 1) changeCategory(ALL_CATS[catIndex + 1]);
+         if (dx > 0 && catIndex > 0) changeCategory(ALL_CATS[catIndex - 1]);
       }
     }
     touchStartX.current = null;
     touchStartY.current = null;
   };
 
-  // ✅ Navegación manual al carrito (Evita que setIsOpen falle si no existe)
+  // ✅ Función segura para abrir carrito (Intenta usar popstate o Modal Context)
   const openCart = () => {
-    // Despacha evento de navegación para que AppShell lo escuche
-    window.history.pushState({ screen: 'cart' }, '');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    if (setIsOpen) {
+      setIsOpen(true);
+    } else {
+      window.history.pushState({ screen: 'cart' }, '');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
   };
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-full pb-32">
+    <div className="flex flex-col bg-gray-50 min-h-full pb-32 relative">
       <AnnouncementBanner />
       
-      <div className="sticky top-0 z-[100] bg-white shadow-sm border-b border-gray-100">
-        
-        {/* BUSCADOR TIPO GOOGLE/TIKTOK Y ORDENAMIENTO */}
+      {/* 🚀 EL BUSCADOR "FLOTANTE" ESTILO TIKTOK */}
+      <div className="sticky top-0 z-[120] bg-white shadow-sm border-b border-gray-100">
         <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative">
-          <div className="relative flex-1 group z-[110]">
+          <div className="relative flex-1 group z-[130]">
             <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-orange-500' : 'text-gray-400'}`} />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Ej. azúcar, pollos, arroz..."
+              placeholder="Buscar productos..."
               className="w-full bg-gray-100 rounded-[20px] pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-white focus:border focus:border-orange-200 focus:shadow-sm transition-all font-medium"
             />
             {search && (
@@ -286,34 +316,39 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
               </button>
             )}
             
-            {/* 🚀 DROPDOWN LISTA ESTILO TIKTOK (Ocupa todo el ancho) */}
+            {/* DROPDOWN FULL WIDTH - SIN TAPAR PRODUCTOS */}
             {search.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white shadow-2xl rounded-b-[24px] border border-gray-100 overflow-hidden max-h-[70vh] overflow-y-auto">
-                <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">
-                  Resultados de la búsqueda
-                </div>
+              <div className="absolute left-0 right-[-60px] top-full mt-2 bg-white/95 backdrop-blur-xl shadow-2xl rounded-b-[24px] border border-gray-100 overflow-hidden max-h-[75vh] overflow-y-auto z-[150]">
                 {searchResults.length === 0 ? (
                   <div className="p-8 text-center text-sm text-gray-500 font-medium">No encontramos "{search}"</div>
                 ) : (
-                  <div className="flex flex-col divide-y divide-gray-50">
+                  <div className="flex flex-col">
                     {searchResults.map(p => (
                       <button 
                         key={`search-${p.id}`}
                         onClick={() => {
                           setSearch('');
                           changeCategory(p.category as ActiveCat);
-                          setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100);
+                          setTimeout(() => setActiveSubcategory(getSubcategory(p)), 150);
                         }}
-                        className="flex flex-col items-start justify-center p-4 hover:bg-orange-50/50 active:bg-orange-100 transition-colors w-full text-left"
+                        className="flex flex-row items-center p-3 border-b border-gray-50 hover:bg-orange-50/50 active:bg-orange-100 transition-colors w-full text-left gap-3"
                       >
-                        <div className="flex justify-between items-center w-full mb-1">
-                          <p className="text-[15px] font-bold text-gray-900 line-clamp-1">{p.name}</p>
-                          <span className="text-[15px] font-black text-orange-600 shrink-0">{p.price}</span>
+                        {p.image ? (
+                           <img src={p.image} alt={p.name} className="w-10 h-10 object-contain bg-white rounded-lg border border-gray-100 p-1 shrink-0" />
+                        ) : (
+                           <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0"><ShoppingBag size={14} className="text-gray-400"/></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-bold text-gray-900 truncate">{p.name}</p>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500 truncate">
+                            {p.category} • {getSubcategory(p)}
+                          </p>
                         </div>
-                        {/* El texto que pediste naranja debajo del producto */}
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500 truncate w-full">
-                          {p.category} • {getSubcategory(p)}
-                        </p>
+                        <div className="shrink-0 text-right">
+                          <span className="text-[15px] font-black text-orange-600">
+                            {p.price?.toLowerCase().includes('consultar') ? 'Por peso' : p.price}
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -322,6 +357,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
             )}
           </div>
           
+          {/* BOTÓN ORDENAR */}
           <div className="relative z-[105]">
             <button 
               onClick={() => setShowSortMenu(!showSortMenu)}
@@ -332,7 +368,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
             </button>
 
             {showSortMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in slide-in-from-top-2 duration-200 z-[120]">
                 <div className="p-2 space-y-1">
                   {[
                     { id: 'sugeridos', label: 'Sugeridos' },
@@ -354,39 +390,37 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         </div>
 
-        {/* TABS DE CATEGORÍAS PRINCIPALES (TU DISEÑO ORIGINAL BLANCO Y GRIS) */}
-        {!search && (
-          <div className="bg-white">
-            <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
-              <div className="flex gap-1.5" style={{ width: 'max-content' }}>
-                {ALL_CATS.map(cat => {
-                  const isActive = activeCategory === cat;
-                  const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
-                  const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => changeCategory(cat)}
-                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
-                        isActive
-                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
-                      }`}
-                    >
-                      <span>{icon}</span>
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* TABS DE CATEGORÍAS PRINCIPALES (DISEÑO ORIGINAL BLANCO Y GRIS) */}
+        <div className="bg-white">
+          <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
+            <div className="flex gap-1.5" style={{ width: 'max-content' }}>
+              {ALL_CATS.map(cat => {
+                const isActive = activeCategory === cat;
+                const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
+                const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => changeCategory(cat)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                      isActive
+                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
+                    }`}
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* 🚀 SUB-CATEGORÍAS (Tono Naranja/Melocotón Elegante) */}
-        {!search && subcategories.length > 0 && (
-          <div className="bg-orange-50/50 border-t border-orange-100/30 relative">
-            <div className="overflow-x-auto scrollbar-hide py-2.5 px-4">
+        {/* 🚀 SUB-CATEGORÍAS (Tono Naranja/Melocotón Elegante con Auto-scroll) */}
+        {subcategories.length > 0 && (
+          <div className="bg-orange-50/50 border-t border-orange-100/30 relative z-[90]">
+            <div ref={subBarRef} className="overflow-x-auto scrollbar-hide py-2.5 px-4">
               <div className="flex gap-2" style={{ width: 'max-content' }}>
                 {subcategories.map(sub => {
                   const isActive = activeSubcategory === sub;
@@ -411,42 +445,40 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
       </div>
 
       {/* GRID DE PRODUCTOS PRINCIPAL CON SOPORTE SWIPE MAESTRO */}
-      {!search && (
-        <div 
-          className="px-3 pt-4"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h3 className="text-sm font-black text-gray-800 uppercase tracking-tight flex items-center gap-1.5">
-              <MapPin size={14} className="text-orange-500" />
-              {activeSubcategory || (activeCategory === 'Todos' ? 'Catálogo General' : activeCategory)}
-            </h3>
-            <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-full shadow-sm">
-              {displayedProducts.length} ítems
-            </span>
-          </div>
-
-          {displayedProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[32px] border border-dashed border-gray-200 shadow-sm mx-2">
-              <span className="text-5xl mb-4 grayscale opacity-50">🛒</span>
-              <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Sección vacía</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 transition-all duration-300">
-              {displayedProducts.map(product => (
-                <div key={`grid-${product.id}`} className="w-full min-w-0">
-                  <ProductCard product={product} />
-                </div>
-              ))}
-            </div>
-          )}
+      <div 
+        className="px-3 pt-4 z-10"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h3 className="text-sm font-black text-gray-800 uppercase tracking-tight flex items-center gap-1.5">
+            <MapPin size={14} className="text-orange-500" />
+            {activeSubcategory || (activeCategory === 'Todos' ? 'Catálogo General' : activeCategory)}
+          </h3>
+          <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-full shadow-sm">
+            {displayedProducts.length} ítems
+          </span>
         </div>
-      )}
+
+        {displayedProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[32px] border border-dashed border-gray-200 shadow-sm mx-2">
+            <span className="text-5xl mb-4 grayscale opacity-50">🛒</span>
+            <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Sección vacía</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 transition-all duration-300">
+            {displayedProducts.map(product => (
+              <div key={`grid-${product.id}`} className="w-full min-w-0">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 🚀 STICKY CART VIP (DISEÑO NARANJA RADIANTE) */}
       {total > 0 && (
-        <div className="fixed bottom-[85px] left-0 right-0 z-[200] px-4 animate-in slide-in-from-bottom-8 duration-500 pointer-events-none">
+        <div className="fixed bottom-[85px] left-0 right-0 z-[100] px-4 animate-in slide-in-from-bottom-8 duration-500 pointer-events-none">
           <div className="max-w-md mx-auto relative group pointer-events-auto">
             {/* Aviso inteligente de productos por peso */}
             {cartAnalytics.hasVariablePrices && (
