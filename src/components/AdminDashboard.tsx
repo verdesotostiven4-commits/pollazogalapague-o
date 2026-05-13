@@ -30,7 +30,7 @@ class AdminErrorBoundary extends Component<{children: any}, {hasError: boolean, 
         <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-white font-sans">
           <div className="bg-red-500/10 border border-red-500/50 p-8 rounded-[32px] max-w-2xl w-full shadow-[0_0_50px_rgba(239,68,68,0.2)]">
             <h1 className="text-3xl font-black text-red-500 uppercase italic tracking-widest mb-2 flex items-center gap-3"><Zap /> Cortocircuito Detectado</h1>
-            <p className="text-gray-400 text-sm mb-6">Stiven, el código evitó la pantalla blanca. Tómale foto a este recuadro y pásamelo:</p>
+            <p className="text-gray-400 text-sm mb-6">Stiven, el código evitó la pantalla blanca. Error detectado:</p>
             <div className="bg-black p-5 rounded-2xl text-xs font-mono text-red-300 overflow-x-auto shadow-inner border border-white/5">
               <p className="font-black text-white text-sm mb-2">{this.state.error?.toString()}</p>
               <pre className="opacity-70">{this.state.info?.componentStack}</pre>
@@ -80,16 +80,13 @@ function AdminDashboardContent() {
   const [draft, setDraft] = useState({ name: '', category: 'Pollos', price: '', description: '', image: '', available: true });
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
-  if (!context || context.loading) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black animate-pulse uppercase italic tracking-widest">Sincronizando Imperio...</div>;
-
-  // 🛡️ EXTRACCIÓN BLINDADA CONTRA NULOS
-  const safeProducts = context.products || [];
-  const safeCategories = context.categories || [];
-  const safeCustomers = context.customers || [];
-  const safeOrders = context.orders || [];
-  const safeSeasons = context.seasons || [];
-  const safeExtraSettings = context.extraSettings || {};
+  // 🛡️ REGLA DE HOOKS: Todos los useMemo DEBEN ir antes de cualquier return.
+  const safeProducts = context?.products || [];
+  const safeCategories = context?.categories || [];
+  const safeCustomers = context?.customers || [];
+  const safeOrders = context?.orders || [];
+  const safeSeasons = context?.seasons || [];
+  const safeExtraSettings = context?.extraSettings || {};
 
   const ranking = [...safeCustomers].sort((a,b) => (b?.points || 0) - (a?.points || 0));
 
@@ -108,6 +105,10 @@ function AdminDashboardContent() {
   const sortedSeasons = useMemo(() => {
     return [...safeSeasons].sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime());
   }, [safeSeasons]);
+
+  // ✅ AHORA SÍ: Validaciones y retornos tempranos.
+  if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
+  if (!context || context.loading) return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-orange-500 font-black animate-pulse uppercase italic tracking-widest">Sincronizando Imperio...</div>;
 
   const handleSaveProduct = async () => {
     if (!draft.name.trim()) return;
