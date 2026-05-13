@@ -244,7 +244,6 @@ export default function Ranking() {
                     <div className="bg-slate-900 rounded-[38px] overflow-hidden flex flex-col h-full relative aspect-square shadow-inner">
                       <img src={winner.photo_url || `https://api.dicebear.com/8.x/shapes/svg?seed=${winner.name}&backgroundColor=1e293b`} className="w-full h-full object-cover absolute inset-0 grayscale-[15%] group-hover:grayscale-0 transition-all duration-500 z-0" alt="Premio Ganador" />
                       
-                      {/* ✅ DIFUMINADO OSCURO PRO */}
                       <div className="absolute bottom-0 left-0 right-0 pt-20 pb-5 px-4 text-center bg-gradient-to-t from-black via-black/60 to-transparent z-20">
                         <p className="text-white font-black italic text-lg tracking-tighter mb-0.5 drop-shadow-md">{winner.name}</p>
                         <p className="text-orange-400 font-black text-xs uppercase drop-shadow-md">{winner.points?.toLocaleString()} PTS</p>
@@ -255,7 +254,6 @@ export default function Ranking() {
                          <Medal size={20} className={idx === 0 ? "text-slate-900" : idx === 1 ? "text-slate-800" : "text-white"} />
                       </div>
 
-                      {/* ✅ DESTELLO VIP (SOLO ORO) */}
                       {idx === 0 && (
                         <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden rounded-[38px]">
                           <div className="absolute top-0 left-0 w-[150%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg] animate-glass-shine"></div>
@@ -290,14 +288,21 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* ✅ RADAR DE POSICIÓN OPCIÓN 2: INDICADOR PULSANTE VIP Y PUNTO ROJO ✅ */}
+      {/* ✅ LÓGICA DE TEXTOS MOTIVADORES INTELIGENTES ✅ */}
       {myData && showRadar && !isInHallOfFame && (
         <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
           {nextUp && (
             <div className="bg-slate-900 text-white text-[9px] font-black py-1.5 px-4 rounded-full border border-orange-500 shadow-2xl animate-bounce flex items-center gap-2">
               <Target size={10} className="text-orange-500" />
-              <span>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de estar entre los mejores!</span>
+              <span>
+                {myRankIndex === 1 
+                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de ser LEYENDA SUPREMA!</>
+                  : myRankIndex === 3
+                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de entrar al TOP 3!</>
+                  : <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de alcanzar a {nextUpName}!</>
+                }
+              </span>
             </div>
           )}
 
@@ -315,7 +320,7 @@ export default function Ranking() {
               <div className="ml-2 text-left leading-none">
                 <div className="flex items-center gap-1.5">
                    <p className="text-[7px] font-black text-slate-900 uppercase tracking-widest mb-0.5 opacity-90">{myRankIndex < 3 ? '¡ERES LEYENDA! 🎉' : 'Ver mi puesto'}</p>
-                   {/* ✅ PUNTO RADAR VIP PULSANTE A LA DERECHA DEL TEXTO */}
+                   {/* ✅ PUNTO RADAR ROJO */}
                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_red]" />
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
