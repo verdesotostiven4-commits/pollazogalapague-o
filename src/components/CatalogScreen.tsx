@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle, ChevronDown } from 'lucide-react';
+import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import ProductCard from './ProductCard';
@@ -32,6 +32,7 @@ const normalizeText = (text: string) =>
 const getSubcategory = (p: Product): string => {
   if (p.subcategory) return p.subcategory;
   const name = p.name.toLowerCase();
+  
   if (p.category === 'Pollos') {
     if (name.includes('entero')) return 'Pollo Entero';
     if (name.includes('menudencia')) return 'Menudencia';
@@ -59,9 +60,28 @@ const getSubcategory = (p: Product): string => {
     return 'Salsas y Aliños';
   }
   if (p.category === 'Bebidas') {
-    if (name.includes('agua')) return 'Aguas';
-    if (name.includes('cola')) return 'Gaseosas';
-    return 'Bebidas Varios';
+    if (name.includes('agua') || name.includes('guitig')) return 'Aguas Minerales';
+    if (name.includes('cerveza') || name.includes('caña')) return 'Licores';
+    return 'Bebidas Varias';
+  }
+  if (p.category === 'Frutas y verduras') {
+    if (name.includes('papa') || name.includes('cebolla') || name.includes('ajo') || name.includes('tomate') || name.includes('pimiento')) return 'Verduras';
+    return 'Frutas Frescas';
+  }
+  if (p.category === 'Snacks y dulces') {
+    if (name.includes('galleta') || name.includes('oreo') || name.includes('ducales')) return 'Galletas';
+    if (name.includes('chifle') || name.includes('pipas')) return 'Snacks Salados';
+    return 'Dulces y Golosinas';
+  }
+  if (p.category === 'Cuidado personal') {
+    if (name.includes('toalla')) return 'Cuidado Femenino';
+    if (name.includes('colgate') || name.includes('pasta')) return 'Cuidado Bucal';
+    return 'Higiene Personal';
+  }
+  if (p.category === 'Limpieza y hogar') {
+    if (name.includes('detergente') || name.includes('deja') || name.includes('suavitel')) return 'Cuidado de Ropa';
+    if (name.includes('papel') || name.includes('servilletas')) return 'Papelería';
+    return 'Limpieza del Hogar';
   }
   return 'General';
 };
@@ -89,7 +109,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
-  // 💰 Lógica de Precios
   const cartAnalytics = useMemo(() => {
     let money = 0;
     let hasVariablePrices = false;
@@ -111,7 +130,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return Array.from(new Set(products.filter(p => p.category === activeCategory).map(p => getSubcategory(p))));
   }, [activeCategory, products]);
 
-  // 🚀 RESET DE SCROLL AL CAMBIAR SECCIÓN
+  // 🚀 RESET DE SCROLL AL CAMBIAR SECCIÓN (SUB O CATEGORÍA)
   useEffect(() => {
     const main = document.querySelector('main');
     if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
@@ -124,7 +143,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     }
   }, [activeCategory, subcategories, activeSubcategory]);
 
-  // 🖱️ AUTO-SCROLL DE PILLS (Categorías y Subs)
   const syncPillsScroll = (ref: React.RefObject<HTMLDivElement>, index: number) => {
     if (ref.current) {
       const btn = ref.current.querySelectorAll('button')[index];
@@ -152,11 +170,10 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     onCategoryChange?.(next);
   };
 
-  // 🔍 BUSCADOR TIKTOK STYLE
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
     const query = normalizeText(search);
-    return products.filter(p => normalizeText(p.name).includes(query)).slice(0, 20);
+    return products.filter(p => normalizeText(p.name).includes(query)).slice(0, 15);
   }, [search, products]);
 
   const filtered = useMemo(() => {
@@ -175,7 +192,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return activeCategory === 'Todos' ? ORDERED_CATEGORIES.indexOf(a.category) - ORDERED_CATEGORIES.indexOf(b.category) : 0;
   });
 
-  // 🖱️ SWIPE MAESTRO MULTINIVEL
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
@@ -208,10 +224,10 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     <div className="flex flex-col bg-gray-50 min-h-full pb-32 relative">
       <AnnouncementBanner />
       
-      {/* 🚀 BUSCADOR TIKTOK / GOOGLE */}
       <div className="sticky top-0 z-[120] bg-white shadow-sm border-b border-gray-100">
-        <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative">
-          <div className="relative flex-1 group z-[130]">
+        {/* BUSCADOR CON INPUT SIEMPRE VISIBLE */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2 relative z-[160]">
+          <div className="relative flex-1 group">
             <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-orange-500' : 'text-gray-400'}`} />
             <input
               type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -219,37 +235,37 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
               className="w-full bg-gray-100 rounded-[20px] pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:bg-white focus:ring-2 focus:ring-orange-200 transition-all font-medium"
             />
             {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X size={14} /></button>}
-            
-            {/* 🚀 OVERLAY DE RESULTADOS FULL WIDTH */}
-            {search.length > 0 && (
-              <div className="fixed left-0 right-0 top-[60px] bg-white shadow-2xl border-t border-gray-100 overflow-hidden max-h-[70vh] overflow-y-auto z-[150] animate-in fade-in">
-                <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">Resultados Globales</div>
-                {searchResults.length === 0 ? (
-                  <div className="p-12 text-center text-gray-400">No encontramos "{search}" 🐣</div>
-                ) : (
-                  <div className="flex flex-col divide-y divide-gray-50">
-                    {searchResults.map(p => (
-                      <button key={`s-${p.id}`} onClick={() => { setSearch(''); changeCategory(p.category as any); setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100); }}
-                        className="flex flex-row items-center p-4 hover:bg-orange-50 active:bg-orange-100 transition-colors w-full text-left gap-4"
-                      >
-                        <img src={p.image || ''} alt={p.name} className="w-14 h-14 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[15px] font-bold text-gray-900 truncate">{p.name}</p>
-                          <p className="text-[11px] font-bold uppercase text-orange-500">{getSubcategory(p)}</p>
-                        </div>
-                        <span className="text-[16px] font-black text-orange-600 whitespace-nowrap">{p.price}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
           <button onClick={() => setShowSortMenu(!showSortMenu)} className={`p-2.5 rounded-[20px] border transition-all ${showSortMenu ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-inner' : 'bg-white border-gray-200 text-gray-600'}`}><ArrowUpDown size={18} /></button>
         </div>
 
+        {/* 🚀 OVERLAY DE RESULTADOS FULL WIDTH (DEBAJO DEL INPUT) */}
+        {search.length > 0 && (
+          <div className="fixed left-0 right-0 top-[60px] bottom-0 bg-white z-[150] overflow-y-auto animate-in fade-in">
+            <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">Resultados Globales</div>
+            {searchResults.length === 0 ? (
+              <div className="p-12 text-center text-gray-400">No encontramos "{search}" 🐣</div>
+            ) : (
+              <div className="flex flex-col divide-y divide-gray-50">
+                {searchResults.map(p => (
+                  <button key={`s-${p.id}`} onClick={() => { setSearch(''); changeCategory(p.category as any); setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100); }}
+                    className="flex flex-row items-center p-4 hover:bg-orange-50 active:bg-orange-100 transition-colors w-full text-left gap-4"
+                  >
+                    <img src={p.image || ''} alt={p.name} className="w-16 h-14 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-bold text-gray-900 truncate">{p.name}</p>
+                      <p className="text-[11px] font-bold uppercase text-orange-500">{getSubcategory(p)}</p>
+                    </div>
+                    <span className="text-[16px] font-black text-orange-600 whitespace-nowrap">{p.price}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TABS PRINCIPALES */}
-        <div className="bg-white">
+        <div className="bg-white relative z-[100]">
           <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
             <div className="flex gap-1.5" style={{ width: 'max-content' }}>
               {ALL_CATS.map(cat => (
@@ -263,9 +279,9 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         </div>
 
-        {/* 🚀 SUB-CATEGORÍAS MELOCOTÓN */}
+        {/* SUB-CATEGORÍAS CON AUTO-SCROLL */}
         {subcategories.length > 0 && (
-          <div className="bg-orange-50/40 border-t border-orange-100/30">
+          <div className="bg-orange-50/40 border-t border-orange-100/30 relative z-[90]">
             <div ref={subBarRef} className="overflow-x-auto scrollbar-hide py-2.5 px-4">
               <div className="flex gap-2" style={{ width: 'max-content' }}>
                 {subcategories.map(sub => (
@@ -281,7 +297,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         )}
       </div>
 
-      {/* 🚀 ÁREA DE SWIPE TOTAL */}
+      {/* ÁREA DE SWIPE TOTAL */}
       <div className="px-3 pt-4 min-h-[80vh] flex flex-col" onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center justify-between mb-4 px-1">
           <h3 className="text-sm font-black text-gray-800 uppercase flex items-center gap-1.5"><MapPin size={14} className="text-orange-500" /> {activeSubcategory || activeCategory}</h3>
@@ -293,7 +309,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         </div>
       </div>
 
-      {/* 🚀 STICKY CART NARANJA VIP */}
+      {/* STICKY CART NARANJA VIP */}
       {total > 0 && (
         <div className="fixed bottom-[85px] left-0 right-0 z-[200] px-4 animate-in slide-in-from-bottom-8">
           <div className="max-w-md mx-auto">
