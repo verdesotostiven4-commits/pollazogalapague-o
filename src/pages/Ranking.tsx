@@ -23,6 +23,7 @@ export default function Ranking() {
   const { customerPhone } = useUser();
   const hallOfFameRef = useRef<HTMLDivElement>(null); 
   const myRowRef = useRef<HTMLDivElement>(null);
+  const prizeButtonRef = useRef<HTMLButtonElement>(null);
   
   const [timeLeft, setTimeLeft] = useState({ d: '0', h: '0', m: '0', s: '0' });
   const [showRadar, setShowRadar] = useState(false);
@@ -33,22 +34,22 @@ export default function Ranking() {
   // 🔥 ESTADO PARA EL DESTELLO DEL BOTÓN
   const [alertButton, setAlertButton] = useState(false);
 
-  // 🚀 DETECTOR DE NUEVA TEMPORADA (AUTO-MODAL)
+  // 🚀 LÓGICA DE MODAL AUTOMÁTICO
   useEffect(() => {
     if (extraSettings?.ranking_end_date && !loading) {
-      const lastSeen = localStorage.getItem('pollazo_prize_season_key');
+      const lastSeen = localStorage.getItem('pollazo_last_prize_seen');
       if (lastSeen !== extraSettings.ranking_end_date) {
-        setTimeout(() => setShowPrizeDetails(true), 1200);
+        setTimeout(() => setShowPrizeDetails(true), 1500);
       }
     }
   }, [extraSettings?.ranking_end_date, loading]);
 
-  // 🚨 CIERRE DE MODAL Y ACTIVACIÓN DE DESTELLO
+  // 🎇 CERRAR Y DESTELLAR
   const handleClosePrizes = () => {
     setShowPrizeDetails(false);
     setAlertButton(true);
-    localStorage.setItem('pollazo_prize_season_key', extraSettings?.ranking_end_date || '');
-    setTimeout(() => setAlertButton(false), 3000); // El destello dura 3 segundos
+    localStorage.setItem('pollazo_last_prize_seen', extraSettings?.ranking_end_date || '');
+    setTimeout(() => setAlertButton(false), 2500); 
   };
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export default function Ranking() {
   const shareMyRank = (e: React.MouseEvent) => {
     e.stopPropagation();
     const appUrl = window.location.origin;
-    const text = `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\n¡Atrévete a superarme! 😎\n\n${appUrl}`;
+    const text = `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\n¡Atrévete a superarme! 😎\n\nEntra aquí: ${appUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -131,11 +132,12 @@ export default function Ranking() {
         <Trophy size={60} className="mx-auto mb-4 text-yellow-300 drop-shadow-[0_0_15px_rgba(253,224,71,0.6)] animate-bounce" />
         <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-1">{extraSettings?.ranking_title || 'Ranking VIP'}</h1>
         
-        {/* 🔥 BOTÓN CON EFECTO DE DESTELLO Y REBOTE 🔥 */}
+        {/* 🚨 BOTÓN DE PREMIOS QUE DESTELLA 🚨 */}
         <button 
+          ref={prizeButtonRef}
           onClick={() => setShowPrizeDetails(true)}
           className={`inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2.5 rounded-3xl mb-8 border border-white/10 transition-all shadow-inner hover:bg-black/30 ${
-            alertButton ? 'animate-alert-glow' : 'active:scale-95'
+            alertButton ? 'animate-alert-glow z-50' : 'active:scale-95'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -182,12 +184,10 @@ export default function Ranking() {
                    i === 1 ? <Medal className="text-slate-400" size={32} /> :
                    <Medal className="text-orange-400" size={32} />}
                 </div>
-
                 <div className="relative shrink-0">
                   <img src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`} className="w-16 h-16 aspect-square rounded-[24px] object-cover border-2 border-white shadow-sm" />
                   <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic shadow-md">#{i + 1}</div>
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <p className="font-black italic text-base text-slate-900 leading-tight break-words">{c.name || 'Guerrero'}</p>
                   <div className="flex items-center gap-1 mt-1">
@@ -195,15 +195,9 @@ export default function Ranking() {
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{getGuerreroTitle(i)}</p>
                   </div>
                 </div>
-
-                <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                <div className="text-right shrink-0">
                   <p className={`text-xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{c.points.toLocaleString()}</p>
-                  <p className="text-[7px] font-black text-slate-400 uppercase">Puntos</p>
-                  {isMe && (
-                    <button onClick={shareMyRank} className="p-1.5 bg-orange-500 text-white rounded-full active:scale-75 transition-all shadow-md">
-                      <Share2 size={12} />
-                    </button>
-                  )}
+                  <p className="text-[7px] font-black text-slate-400 uppercase mt-1">Puntos</p>
                 </div>
               </div>
             </RevealOnScroll>
@@ -244,7 +238,7 @@ export default function Ranking() {
         })}
       </div>
 
-      {/* 💎 SALÓN DE LA FAMA DIAMANTE 💎 */}
+      {/* 🏆 SALÓN DE LA FAMA (FOTOS REALES Y BLING) */}
       <div ref={hallOfFameRef} className="mt-40 scroll-mt-10 px-5 pb-20">
         <div className="text-center mb-16 animate-in fade-in duration-1000">
           <Sparkles className="mx-auto text-orange-500 mb-4 animate-spin-slow" size={32} />
@@ -259,11 +253,11 @@ export default function Ranking() {
                 <span className="text-[8px] uppercase tracking-widest opacity-80 leading-none mb-1">Temporada</span>
                 <span className="text-lg italic tracking-widest leading-none">#{publishedSeasons.length - sIdx}</span>
               </div>
-              <div className="text-center pt-8 mb-6">
+              <div className="text-center pt-8 mb-10">
                 <h3 className="text-white font-black text-2xl uppercase italic tracking-tighter mb-2">{season.name}</h3>
                 <div className="inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 px-4 py-1.5 rounded-full mb-4">
                     <Gift size={12} className="text-yellow-400" />
-                    <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic">Premios de Temporada</p>
+                    <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest italic">Premio: {season.prize}</p>
                 </div>
               </div>
 
@@ -274,18 +268,19 @@ export default function Ranking() {
                     idx === 1 ? 'bg-gradient-to-tr from-slate-200 via-slate-400 to-slate-200 animate-silver-glow' : 
                     'bg-orange-900/50 border-2 border-orange-700'
                   }`}>
-                    {/* CORONA FÍSICA FLOTANTE PARA EL 1ERO */}
+                    {/* 👑 CORONA FÍSICA FLOTANTE PARA EL 1ERO */}
                     {idx === 0 && <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-400 fill-yellow-400 animate-crown-float drop-shadow-2xl z-20" size={42} />}
                     
                     <div className="bg-slate-900 rounded-[38px] overflow-hidden flex flex-col h-full">
                       <div className="relative">
-                        <img src={winner.photo_url || winner.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${winner.name}`} className="w-full aspect-square object-cover grayscale-[30%] hover:grayscale-0 transition-all" alt="Ganador" />
+                        {/* 📸 FOTO DEL GANADOR (O SU AVATAR DE RESPALDO) */}
+                        <img src={winner.photo_url || winner.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${winner.name}`} className="w-full aspect-square object-cover grayscale-[20%] hover:grayscale-0 transition-all" alt="Ganador" />
                         <div className={`absolute top-4 right-4 p-1.5 rounded-full border-2 ${
                           idx === 0 ? 'bg-yellow-500 border-yellow-300' : 
                           idx === 1 ? 'bg-slate-300 border-slate-100' : 
                           'bg-orange-700 border-orange-500'
                         }`}>
-                           <Medal size={16} className={idx === 0 ? "text-slate-900" : idx === 1 ? "text-slate-800" : "text-white"} />
+                           <Medal size={20} className={idx === 0 ? "text-slate-900" : idx === 1 ? "text-slate-800" : "text-white"} />
                         </div>
                       </div>
                       <div className="p-5 text-center">
@@ -301,7 +296,7 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* 🎁 MODAL VIP DE PREMIOS (IMÁGENES PERSONALIZADAS) */}
+      {/* 🎁 MODAL DE PREMIOS VIP (CON IMÁGENES REALES) */}
       {showPrizeDetails && (
         <div className="fixed inset-0 z-[10002] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-sm rounded-[50px] overflow-hidden shadow-2xl border-4 border-orange-500 animate-in zoom-in-95 duration-300 relative">
@@ -309,54 +304,43 @@ export default function Ranking() {
                  <button onClick={handleClosePrizes} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full active:scale-75 transition-all"><X size={20}/></button>
                  <PartyPopper size={48} className="mx-auto mb-4 text-yellow-300 animate-bounce" />
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Premios</h2>
-                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Nuestra Próxima Temporada</p>
+                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Recompensas de Temporada</p>
               </div>
-              
               <div className="p-8 space-y-5">
-                 {/* PREMIO ORO - POLLO ENTERO */}
-                 <div className="flex items-center gap-4 bg-yellow-50 p-4 rounded-[30px] border-2 border-yellow-200 shadow-sm">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-yellow-400 shrink-0 shadow-inner">
-                      <img src="https://blogger.googleusercontent.com/img/a/AVvXsEhe_O03ML1U5KJjdg11ZSwLSJWTXIlnrUkUWzTL1awakYQYWuampHeETS45-2PahAGmlOJKp0W_l1hCvPRnIQn_fDpzcAnDVG3274RC3b_c4QE889BLkdkQfTRbUrrfUvqtw7xZPrjJJoS96AKMEVDJRmeXCH67_5z_LFpvNAEuOUzY2nCGYYI8JzTRk3s" className="w-full h-full object-cover" alt="Pollo Entero"/>
-                    </div>
+                 {/* PREMIO 1 */}
+                 <div className="flex items-center gap-4 bg-yellow-50 p-4 rounded-[30px] border-2 border-yellow-200">
+                    <img src="https://blogger.googleusercontent.com/img/a/AVvXsEhe_O03ML1U5KJjdg11ZSwLSJWTXIlnrUkUWzTL1awakYQYWuampHeETS45-2PahAGmlOJKp0W_l1hCvPRnIQn_fDpzcAnDVG3274RC3b_c4QE889BLkdkQfTRbUrrfUvqtw7xZPrjJJoS96AKMEVDJRmeXCH67_5z_LFpvNAEuOUzY2nCGYYI8JzTRk3s" className="w-14 h-14 rounded-xl object-cover border-2 border-yellow-400" alt="Pollo"/>
                     <div>
                        <p className="text-[9px] font-black text-yellow-600 uppercase">Campeón Oro (#1)</p>
-                       <p className="text-sm font-black text-slate-800 uppercase italic">¡Un Pollo Entero!</p>
+                       <p className="text-base font-black text-slate-800 uppercase italic">¡Un Pollo Entero!</p>
                     </div>
                  </div>
-
-                 {/* PREMIO PLATA - QUESO FRESCO */}
-                 <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-[30px] border-2 border-slate-200 shadow-sm">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-slate-300 shrink-0 shadow-inner">
-                      <img src="https://blogger.googleusercontent.com/img/a/AVvXsEiWOnAiaBYLyCg1Xc1zipz5Yy6deZuiTmVlfXcfJCrxCOYDJ2abt67MrGcsbLLWjrHDFr_5rUnjhvB90hPSVRDu2ttSZJfHYunitnbExf9AakTdXpEZT_AV_EXAS20OZyNKx8B_RMJWkOfSvCJxMPMOZiiV-fCqXpolIEZxCVO50eJH-rtU_zLJde88fBE" className="w-full h-full object-cover" alt="Queso Fresco"/>
-                    </div>
+                 {/* PREMIO 2 */}
+                 <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-[30px] border-2 border-slate-200">
+                    <img src="https://blogger.googleusercontent.com/img/a/AVvXsEiWOnAiaBYLyCg1Xc1zipz5Yy6deZuiTmVlfXcfJCrxCOYDJ2abt67MrGcsbLLWjrHDFr_5rUnjhvB90hPSVRDu2ttSZJfHYunitnbExf9AakTdXpEZT_AV_EXAS20OZyNKx8B_RMJWkOfSvCJxMPMOZiiV-fCqXpolIEZxCVO50eJH-rtU_zLJde88fBE" className="w-14 h-14 rounded-xl object-cover border-2 border-slate-300" alt="Queso"/>
                     <div>
                        <p className="text-[9px] font-black text-slate-500 uppercase">Guerrero Plata (#2)</p>
-                       <p className="text-sm font-black text-slate-800 uppercase italic">¡Un Queso Fresco!</p>
+                       <p className="text-base font-black text-slate-800 uppercase italic">¡Un Queso Fresco!</p>
                     </div>
                  </div>
-
-                 {/* PREMIO BRONCE - $5 DESCUENTO */}
-                 <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-[30px] border-2 border-orange-200 shadow-sm">
-                    <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shrink-0 border-2 border-orange-300 shadow-inner">
-                      <p className="text-white font-black text-xl italic">$5</p>
-                    </div>
+                 {/* PREMIO 3 */}
+                 <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-[30px] border-2 border-orange-200">
+                    <div className="w-14 h-14 bg-orange-500 rounded-xl flex items-center justify-center font-black text-white text-xl border-2 border-orange-300">$5</div>
                     <div>
                        <p className="text-[9px] font-black text-orange-600 uppercase">Guerrero Bronce (#3)</p>
-                       <p className="text-sm font-black text-slate-800 uppercase italic">Bono Descuento</p>
+                       <p className="text-base font-black text-slate-800 uppercase italic">¡Bono Descuento!</p>
                     </div>
                  </div>
-
-                 <button onClick={handleClosePrizes} className="w-full bg-slate-950 text-white py-5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all mt-4 border-b-4 border-slate-700 shadow-xl">¡A por ellos! 🍗🔥</button>
+                 <button onClick={handleClosePrizes} className="w-full bg-slate-950 text-white py-5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all mt-4 border-b-4 border-slate-700 shadow-xl">¡A por el Oro! 🍗🔥</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* 🎯 RADAR DE POSICIÓN COMPLETO 🎯 */}
+      {/* 📡 RADAR DE POSICIÓN (VUELVE CON EL TEXTO ÉPICO) */}
       {myData && showRadar && !isInHallOfFame && (
         <div className="fixed bottom-3 right-4 z-[10001] flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-500">
           
-          {/* CAJA GRIS DE PUNTOS FALTANTES RESTAURADA */}
           {nextUp && (
             <div className="bg-slate-900 text-white text-[9px] font-black py-1.5 px-4 rounded-full border border-orange-500 shadow-2xl animate-bounce flex items-center gap-2">
               <Target size={10} className="text-orange-500" />
@@ -364,7 +348,7 @@ export default function Ranking() {
                 {myRankIndex === 1 
                   ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de ganar a {nextUpName}!</>
                   : myRankIndex <= 4
-                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de entrar al Podio!</>
+                  ? <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de entrar entre los mejores!</>
                   : <>¡A solo <span className="text-yellow-400">{pointsToLeap} pts</span> de subir al puesto #{myRankIndex}!</>
                 }
               </span>
@@ -403,7 +387,6 @@ export default function Ranking() {
       )}
 
       <style>{`
-        /* 🔥 ANIMACIÓN DE DESTELLO Y REBOTE PARA EL BOTÓN */
         @keyframes alert-glow {
           0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(250, 204, 21, 0); }
           25% { transform: scale(1.1) rotate(-2deg); box-shadow: 0 0 40px rgba(250, 204, 21, 1); }
