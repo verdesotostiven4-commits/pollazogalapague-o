@@ -2121,4 +2121,4 @@ export const categories = [
   'Limpieza y hogar',
 ] as const;
 
-export type CatalogCategory = typeof categories[number];  bueno aqui te envio el cdigo de productos recuerda que no debes dañar nada ni tocar lo que ya sirve solo arreglar o agregar lo solicitado
+export type CatalogCategory = typeof categories[number];
