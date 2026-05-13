@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle, ChevronDown } from 'lucide-react';
+import { Search, X, MapPin, ArrowUpDown, Check, ShoppingBag, ChevronRight, AlertCircle } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import ProductCard from './ProductCard';
@@ -26,11 +26,11 @@ const ORDERED_CATEGORIES: string[] = [
 
 const BESTSELLER_IDS = ['pollo-entero', 'pechuga', 'cuartos', 'agua-vivant-625ml', 'colgate-triple-75ml', 'leche-tru-1l'];
 
-// 🧠 Utilidad para buscador anti-tildes
+// 🧠 Buscador Inteligente
 const normalizeText = (text: string) => 
   text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-// 🧠 Motor de categorización
+// 🧠 Categorización Realista
 const getSubcategory = (p: Product): string => {
   if (p.subcategory) return p.subcategory;
   const name = p.name.toLowerCase();
@@ -120,7 +120,7 @@ interface Props {
 
 export default function CatalogScreen({ initialCategory = 'Todos', onCategoryChange }: Props) {
   const { products, categories } = useAdmin();
-  const { total, items, setIsOpen } = useCart();
+  const { total, items } = useCart();
   
   const ALL_CATS: ActiveCat[] = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ActiveCat[];
   
@@ -131,21 +131,21 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
   const [search, setSearch] = useState('');
   
   const tabBarRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
-  // 💰 Cálculo Fiel de Precios (Limpia los $ y textos basura de la BD)
+  // 💰 Cálculo Real de Precios
   const cartAnalytics = useMemo(() => {
     let money = 0;
     let hasVariablePrices = false;
 
     items.forEach(item => {
-      // Obtenemos el precio directo del catálogo original
       const p = products.find(prod => prod.id === item.product.id) || item.product;
       const priceStr = p.price || '';
       
       if (priceStr.toLowerCase().includes('consultar')) {
         hasVariablePrices = true;
       } else {
-        // Extrae solo números y puntos decimales
         const numMatch = priceStr.match(/[\d.]+/);
         const cleanPrice = numMatch ? parseFloat(numMatch[0]) : 0;
         money += (cleanPrice * item.quantity);
@@ -164,7 +164,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return Array.from(new Set(subs));
   }, [activeCategory, products]);
 
-  // 🔥 Auto-Selección de primera subcategoría
+  // 🔥 Auto-Selección
   useEffect(() => {
     if (activeCategory !== 'Todos' && subcategories.length > 0) {
       setActiveSubcategory(subcategories[0]);
@@ -179,14 +179,14 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     onCategoryChange?.(next);
   }, [activeCategory, onCategoryChange]);
 
-  // 🔍 Resultados del Buscador Tipo Google/TikTok (Dropdown)
+  // 🔍 Resultados del Buscador (Lista Full Width Estilo TikTok)
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
     const normalizedQuery = normalizeText(search);
-    return products.filter(p => normalizeText(p.name).includes(normalizedQuery)).slice(0, 8); // Máx 8 resultados en la lista
+    return products.filter(p => normalizeText(p.name).includes(normalizedQuery));
   }, [search, products]);
 
-  // 📊 Filtro de Productos para el Grid principal
+  // 📊 Filtro de Productos para el Grid
   const filtered = useMemo(() => {
     let base = activeCategory === 'Todos' ? products : products.filter(p => p.category === activeCategory);
     if (activeSubcategory) {
@@ -213,10 +213,7 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     return 0;
   });
 
-  // 🖱️ Lógica de Swipe Corregida para las Subcategorías
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-
+  // 🖱️ SWIPE MAESTRO (Multinivel: Pasa de Subcategoría a Categoría Principal)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -224,24 +221,46 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
-    if (subcategories.length === 0 || !activeSubcategory) return;
-
+    
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
 
-    // Solo si el deslizamiento horizontal es claro y mayor a 60px
+    // Solo si el deslizamiento es horizontal claro
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      const currentIndex = subcategories.indexOf(activeSubcategory);
-      if (dx < 0 && currentIndex < subcategories.length - 1) {
-        // Deslizar izquierda -> Siguiente Subcategoría
-        setActiveSubcategory(subcategories[currentIndex + 1]);
-      } else if (dx > 0 && currentIndex > 0) {
-        // Deslizar derecha -> Anterior Subcategoría
-        setActiveSubcategory(subcategories[currentIndex - 1]);
+      if (activeCategory === 'Todos') {
+        // En "Todos", desliza entre categorías principales
+        const catIndex = ALL_CATS.indexOf(activeCategory);
+        if (dx < 0 && catIndex < ALL_CATS.length - 1) changeCategory(ALL_CATS[catIndex + 1]);
+        if (dx > 0 && catIndex > 0) changeCategory(ALL_CATS[catIndex - 1]);
+      } else if (subcategories.length > 0 && activeSubcategory) {
+        // En una categoría, desliza entre subcategorías
+        const subIndex = subcategories.indexOf(activeSubcategory);
+        const catIndex = ALL_CATS.indexOf(activeCategory);
+
+        if (dx < 0) { // Desliza Izquierda (Siguiente)
+          if (subIndex < subcategories.length - 1) {
+            setActiveSubcategory(subcategories[subIndex + 1]); // Pasa a siguiente Subcat
+          } else if (catIndex < ALL_CATS.length - 1) {
+            changeCategory(ALL_CATS[catIndex + 1]); // Pasa a siguiente Categoría
+          }
+        } else if (dx > 0) { // Desliza Derecha (Anterior)
+          if (subIndex > 0) {
+            setActiveSubcategory(subcategories[subIndex - 1]); // Pasa a anterior Subcat
+          } else if (catIndex > 0) {
+            changeCategory(ALL_CATS[catIndex - 1]); // Pasa a anterior Categoría
+          }
+        }
       }
     }
     touchStartX.current = null;
     touchStartY.current = null;
+  };
+
+  // ✅ Navegación manual al carrito (Evita que setIsOpen falle si no existe)
+  const openCart = () => {
+    // Despacha evento de navegación para que AppShell lo escuche
+    window.history.pushState({ screen: 'cart' }, '');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   return (
@@ -267,45 +286,34 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
               </button>
             )}
             
-            {/* DROPDOWN DE BÚSQUEDA (El "Google Style") */}
+            {/* 🚀 DROPDOWN LISTA ESTILO TIKTOK (Ocupa todo el ancho) */}
             {search.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl border border-gray-100 overflow-hidden max-h-80 overflow-y-auto">
-                <div className="p-2 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100">
-                  Sugerencias
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white shadow-2xl rounded-b-[24px] border border-gray-100 overflow-hidden max-h-[70vh] overflow-y-auto">
+                <div className="p-3 bg-orange-50 text-[10px] font-black uppercase tracking-widest text-orange-600 border-b border-orange-100/50">
+                  Resultados de la búsqueda
                 </div>
                 {searchResults.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-500 font-medium">No encontramos "{search}"</div>
+                  <div className="p-8 text-center text-sm text-gray-500 font-medium">No encontramos "{search}"</div>
                 ) : (
-                  <div className="flex flex-col">
+                  <div className="flex flex-col divide-y divide-gray-50">
                     {searchResults.map(p => (
                       <button 
                         key={`search-${p.id}`}
                         onClick={() => {
-                          // Al seleccionar, limpia búsqueda y navega a la categoría de ese producto
                           setSearch('');
                           changeCategory(p.category as ActiveCat);
                           setTimeout(() => setActiveSubcategory(getSubcategory(p)), 100);
                         }}
-                        className="flex items-center justify-between p-3 border-b border-gray-50 hover:bg-orange-50 active:bg-orange-100 transition-colors text-left"
+                        className="flex flex-col items-start justify-center p-4 hover:bg-orange-50/50 active:bg-orange-100 transition-colors w-full text-left"
                       >
-                        <div className="flex items-center gap-3 truncate">
-                          {p.image ? (
-                            <img src={p.image} alt={p.name} className="w-8 h-8 object-contain bg-white rounded-lg border border-gray-100 p-1 shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0"><ShoppingBag size={14} className="text-gray-400"/></div>
-                          )}
-                          <div className="truncate">
-                            <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider truncate">{p.category} • {getSubcategory(p)}</p>
-                          </div>
+                        <div className="flex justify-between items-center w-full mb-1">
+                          <p className="text-[15px] font-bold text-gray-900 line-clamp-1">{p.name}</p>
+                          <span className="text-[15px] font-black text-orange-600 shrink-0">{p.price}</span>
                         </div>
-                        <div className="shrink-0 text-right pl-2">
-                          {p.price?.toLowerCase().includes('consultar') ? (
-                            <span className="text-[10px] text-orange-500 font-bold bg-orange-50 px-2 py-1 rounded-md">Por peso</span>
-                          ) : (
-                            <span className="text-sm font-black text-gray-900">{p.price}</span>
-                          )}
-                        </div>
+                        {/* El texto que pediste naranja debajo del producto */}
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500 truncate w-full">
+                          {p.category} • {getSubcategory(p)}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -314,7 +322,6 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
             )}
           </div>
           
-          {/* BOTÓN ORDENAR (Filtros) */}
           <div className="relative z-[105]">
             <button 
               onClick={() => setShowSortMenu(!showSortMenu)}
@@ -347,36 +354,38 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
           </div>
         </div>
 
-        {/* TABS DE CATEGORÍAS PRINCIPALES (DISEÑO ORIGINAL DEVUELTO) */}
-        <div className="bg-white">
-          <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
-            <div className="flex gap-1.5" style={{ width: 'max-content' }}>
-              {ALL_CATS.map(cat => {
-                const isActive = activeCategory === cat;
-                const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
-                const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => changeCategory(cat)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
-                        : 'bg-gray-100 text-gray-600 active:bg-gray-200'
-                    }`}
-                  >
-                    <span>{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
+        {/* TABS DE CATEGORÍAS PRINCIPALES (TU DISEÑO ORIGINAL BLANCO Y GRIS) */}
+        {!search && (
+          <div className="bg-white">
+            <div ref={tabBarRef} className="overflow-x-auto scrollbar-hide py-2 px-4">
+              <div className="flex gap-1.5" style={{ width: 'max-content' }}>
+                {ALL_CATS.map(cat => {
+                  const isActive = activeCategory === cat;
+                  const icon = cat === 'Todos' ? '🛒' : (CATEGORY_ICONS[cat] ?? '📦');
+                  const label = cat === 'Todos' ? 'Todos' : (SHORT_LABELS[cat] ?? cat);
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => changeCategory(cat)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-300'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
+                      }`}
+                    >
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 🚀 SUB-CATEGORÍAS (Estilo Pastillas Melocotón que te gustó) */}
-        {subcategories.length > 0 && (
-          <div className="bg-gray-50/80 border-t border-gray-100/50 relative">
+        {/* 🚀 SUB-CATEGORÍAS (Tono Naranja/Melocotón Elegante) */}
+        {!search && subcategories.length > 0 && (
+          <div className="bg-orange-50/50 border-t border-orange-100/30 relative">
             <div className="overflow-x-auto scrollbar-hide py-2.5 px-4">
               <div className="flex gap-2" style={{ width: 'max-content' }}>
                 {subcategories.map(sub => {
@@ -387,8 +396,8 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
                       onClick={() => setActiveSubcategory(sub)}
                       className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-tight whitespace-nowrap transition-all flex-shrink-0 border ${
                         isActive 
-                        ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm' 
-                        : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+                        ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm scale-105' 
+                        : 'bg-white border-orange-200/50 text-gray-500 hover:bg-orange-50'
                       }`}
                     >
                       {sub}
@@ -397,85 +406,81 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
                 })}
               </div>
             </div>
-            {/* Indicador sutil de Swipe */}
-            <p className="text-center text-[8px] text-gray-300 pb-1 font-bold uppercase tracking-widest animate-pulse">← Desliza en los productos para cambiar →</p>
           </div>
         )}
       </div>
 
-      {/* GRID DE PRODUCTOS PRINCIPAL CON SOPORTE SWIPE */}
-      <div 
-        className="px-3 pt-4"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="flex items-center justify-between mb-4 px-1">
-          <h3 className="text-sm font-black text-gray-800 uppercase tracking-tight flex items-center gap-1.5">
-            <MapPin size={14} className="text-orange-500" />
-            {activeSubcategory || (activeCategory === 'Todos' ? 'Catálogo General' : activeCategory)}
-          </h3>
-          <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-full shadow-sm">
-            {displayedProducts.length} ítems
-          </span>
+      {/* GRID DE PRODUCTOS PRINCIPAL CON SOPORTE SWIPE MAESTRO */}
+      {!search && (
+        <div 
+          className="px-3 pt-4"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h3 className="text-sm font-black text-gray-800 uppercase tracking-tight flex items-center gap-1.5">
+              <MapPin size={14} className="text-orange-500" />
+              {activeSubcategory || (activeCategory === 'Todos' ? 'Catálogo General' : activeCategory)}
+            </h3>
+            <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-full shadow-sm">
+              {displayedProducts.length} ítems
+            </span>
+          </div>
+
+          {displayedProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[32px] border border-dashed border-gray-200 shadow-sm mx-2">
+              <span className="text-5xl mb-4 grayscale opacity-50">🛒</span>
+              <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Sección vacía</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 transition-all duration-300">
+              {displayedProducts.map(product => (
+                <div key={`grid-${product.id}`} className="w-full min-w-0">
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
 
-        {displayedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[32px] border border-dashed border-gray-200 shadow-sm mx-2">
-            <span className="text-5xl mb-4 grayscale opacity-50">🛒</span>
-            <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Sección vacía</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 transition-all duration-300">
-            {displayedProducts.map(product => (
-              <div key={`grid-${product.id}`} className="w-full min-w-0">
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 🚀 STICKY CART VIP (Bugs corregidos) */}
+      {/* 🚀 STICKY CART VIP (DISEÑO NARANJA RADIANTE) */}
       {total > 0 && (
         <div className="fixed bottom-[85px] left-0 right-0 z-[200] px-4 animate-in slide-in-from-bottom-8 duration-500 pointer-events-none">
           <div className="max-w-md mx-auto relative group pointer-events-auto">
             {/* Aviso inteligente de productos por peso */}
             {cartAnalytics.hasVariablePrices && (
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white text-orange-600 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg border border-orange-100 flex items-center gap-1.5 whitespace-nowrap animate-bounce">
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white text-orange-600 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg border border-orange-200 flex items-center gap-1.5 whitespace-nowrap animate-bounce">
                 <AlertCircle size={12} className="text-orange-500" />
-                El pollo fresco requiere pesaje
+                Incluye productos por peso
               </div>
             )}
             
-            {/* BOTÓN REAL QUE ABRE EL CARRITO */}
+            {/* BOTÓN REAL QUE ABRE EL CARRITO (DISEÑO NARANJA) */}
             <button 
-              onClick={() => {
-                if (setIsOpen) setIsOpen(true);
-                else console.error("🚨 setIsOpen no está disponible en el Context");
-              }}
-              className="w-full bg-gray-900/95 backdrop-blur-2xl p-3 rounded-[32px] shadow-[0_20px_50px_rgba(249,115,22,0.15)] flex items-center justify-between active:scale-95 transition-all border border-orange-500/20 hover:border-orange-500/50"
+              onClick={openCart}
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 backdrop-blur-2xl p-3 rounded-[32px] shadow-[0_20px_50px_rgba(249,115,22,0.4)] flex items-center justify-between active:scale-95 transition-all border border-orange-400"
             >
               <div className="flex items-center gap-3 pl-3">
-                <div className="relative bg-gradient-to-tr from-orange-600 to-fbbf24 p-2.5 rounded-full shadow-inner">
+                <div className="relative bg-white/20 p-2.5 rounded-full shadow-inner">
                   <ShoppingBag className="text-white" size={20} />
-                  <span className="absolute -top-2 -right-2 bg-white text-orange-600 text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-orange-100 animate-pulse">
+                  <span className="absolute -top-2 -right-2 bg-white text-orange-600 text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-orange-500 animate-pulse">
                     {total}
                   </span>
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-white/50 text-[9px] font-black uppercase tracking-widest">
-                    {cartAnalytics.hasVariablePrices ? 'Subtotal Aprox.' : 'Total de tu Pedido'}
+                  <span className="text-white/80 text-[9px] font-black uppercase tracking-widest">
+                    {cartAnalytics.hasVariablePrices ? 'Subtotal (Falta Peso)' : 'Total a Pagar'}
                   </span>
                   <div className="flex items-baseline gap-1">
                     <span className="text-white font-black text-xl leading-none">
                       ${cartAnalytics.totalMoney.toFixed(2)}
                     </span>
-                    {cartAnalytics.hasVariablePrices && <span className="text-fbbf24 text-[10px] font-bold">+ Peso</span>}
                   </div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-r from-orange-500 to-fbbf24 text-white px-5 py-3 rounded-[24px] font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-1.5">
+              <div className="bg-white text-orange-600 px-5 py-3 rounded-[24px] font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-1.5">
                 Ver Canasta <ChevronRight size={16} strokeWidth={3} />
               </div>
             </button>
