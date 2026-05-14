@@ -77,11 +77,37 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  const handleLogin = async (u: { name: string; whatsapp: string; avatarUrl: string }) => {
-    setUserData(u.whatsapp, u.name, u.avatarUrl); 
-    try { await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); } catch (e) { console.error("Error perfil:", e); }
+  // ✅ PUENTE ACTUALIZADO PARA RECIBIR UBICACIÓN Y REFERENCIAS
+  const handleLogin = async (u: { 
+    name: string; 
+    whatsapp: string; 
+    avatarUrl: string;
+    lat?: number | null;
+    lng?: number | null;
+    reference?: string;
+  }) => {
+    // Guardamos todo el paquete en el Contexto
+    setUserData({
+      phone: u.whatsapp,
+      name: u.name,
+      avatar: u.avatarUrl,
+      lat: u.lat,
+      lng: u.lng,
+      reference: u.reference
+    }); 
+
+    try { 
+      // Sincronizamos con Supabase (Datos básicos)
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
+    } catch (e) { 
+      console.error("Error perfil:", e); 
+    }
+
     setShowLoginModal(false);
-    if (pendingOrder) { setPendingOrder(false); setShowConfirmation(true); }
+    if (pendingOrder) { 
+      setPendingOrder(false); 
+      setShowConfirmation(true); 
+    }
   };
 
   const handleWhatsApp = async () => {
@@ -141,7 +167,6 @@ function AppShell() {
         <OrderTracking />
         {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
         
-        {/* ✅ FIX: Pasando la prop onNavigate para que el botón "Ver Canasta" funcione */}
         {screen === 'catalog' && (
           <CatalogScreen 
             initialCategory={activeCategory} 
