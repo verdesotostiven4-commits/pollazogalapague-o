@@ -3,6 +3,9 @@ import { Camera, User, Phone, X, Sparkles, Check, MapPin, Navigation, ArrowRight
 import { PRESET_AVATARS } from '../constants/avatars';
 import { useUser } from '@/context/UserContext';
 
+// 🛡️ Declaración para que TypeScript reconozca Leaflet (cargado vía CDN en index.html)
+declare const L: any;
+
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -17,9 +20,14 @@ interface LoginModalProps {
 }
 
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
+// 📍 Coordenadas iniciales por defecto (Puerto Ayora, Galápagos)
+const DEFAULT_CENTER = { lat: -0.7439, lng: -90.3131 };
 
 export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstance = useRef<any>(null);
+
   const { 
     customerName, customerPhone, customerAvatar, 
     customerLat, customerLng, customerReference 
@@ -36,6 +44,48 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState('');
+
+  // 1. 🔥 LÓGICA DE INICIALIZACIÓN DEL MAPA
+  useEffect(() => {
+    if (step === 2 && mapContainerRef.current && !mapInstance.current) {
+      // Pequeño timeout para esperar que la animación del Modal termine
+      setTimeout(() => {
+        if (!mapContainerRef.current) return;
+
+        const startLat = lat || DEFAULT_CENTER.lat;
+        const startLng = lng || DEFAULT_CENTER.lng;
+
+        // Crear instancia del mapa
+        mapInstance.current = L.map(mapContainerRef.current, {
+          center: [startLat, startLng],
+          zoom: 16,
+          zoomControl: false
+        });
+
+        // Capa de OpenStreetMap (Gratis y rápida)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(mapInstance.current);
+
+        // Actualizar coordenadas cuando el usuario arrastra el mapa
+        mapInstance.current.on('move', () => {
+          const center = mapInstance.current.getCenter();
+          setLat(center.lat);
+          setLng(center.lng);
+        });
+
+        // Asegurar que el mapa ocupe todo el contenedor
+        mapInstance.current.invalidateSize();
+      }, 300);
+    }
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [step]);
 
   useEffect(() => {
     PRESET_AVATARS.forEach((av) => {
@@ -90,8 +140,14 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLat(pos.coords.latitude);
-        setLng(pos.coords.longitude);
+        const { latitude, longitude } = pos.coords;
+        setLat(latitude);
+        setLng(longitude);
+        
+        // Mover el mapa suavemente a la ubicación GPS
+        if (mapInstance.current) {
+          mapInstance.current.flyTo([latitude, longitude], 18);
+        }
         setIsLocating(false);
       },
       () => {
@@ -145,7 +201,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 {step === 1 ? 'Únete al Club' : 'Punto de Entrega'}
               </h2>
               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                {step === 1 ? 'REGÍSTRATE Y GANA PREMIOS 🍗' : 'DINOS DÓNDE RECIBIRÁS TU POLLAZO 🛵'}
+                {step === 1 ? 'REGÍSTRATE Y GANA PREMIOS 🍗' : 'MUEVE EL MAPA HASTA TU CASA 🛵'}
               </p>
             </div>
           </div>
@@ -191,31 +247,37 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               </div>
             </div>
           ) : (
-            /* PASO 2: UBICACIÓN */
-            <div className="animate-in slide-in-from-right duration-300 space-y-6">
-              <div className="bg-orange-50/50 p-6 rounded-[35px] border border-orange-100/50 flex flex-col items-center text-center gap-4">
-                <div className={`p-4 rounded-full bg-white shadow-xl transition-all ${isLocating ? 'animate-pulse scale-110' : ''}`}>
-                  <Navigation size={32} className={`${lat ? 'text-green-500' : 'text-orange-500'}`} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 uppercase text-xs tracking-tighter">¿Dónde entregamos?</h4>
-                  <p className="text-[10px] text-slate-500 font-medium">Captura tu ubicación GPS para ser más precisos</p>
-                </div>
+            /* PASO 2: MAPA INTERACTIVO */
+            <div className="animate-in slide-in-from-right duration-300 space-y-5">
+              <div className="relative h-64 w-full rounded-[40px] overflow-hidden border-4 border-white shadow-xl bg-slate-100">
+                {/* 🗺️ Contenedor de Leaflet */}
+                <div ref={mapContainerRef} className="h-full w-full z-0" />
                 
+                {/* 📍 PIN CENTRAL FIJO (Estilo PedidosYa) */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full z-[1000] pointer-events-none mb-4">
+                  <div className="relative flex flex-col items-center">
+                    <div className="bg-orange-500 p-2 rounded-full shadow-[0_10px_20px_rgba(249,115,22,0.4)] border-2 border-white animate-bounce">
+                      <MapPin size={24} className="text-white fill-white" />
+                    </div>
+                    <div className="w-2 h-2 bg-black/20 rounded-full blur-[2px] mt-1" />
+                  </div>
+                </div>
+
+                {/* 🧭 BOTÓN GPS FLOTANTE */}
                 <button 
                   onClick={handleGetLocation}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${lat ? 'bg-green-100 text-green-700' : 'bg-white text-orange-600 shadow-md active:scale-95'}`}
+                  className={`absolute bottom-4 right-4 z-[1000] p-3 rounded-2xl shadow-lg transition-all ${isLocating ? 'bg-orange-500 animate-spin text-white' : 'bg-white text-orange-500 active:scale-75'}`}
                 >
-                  {lat ? <><Check size={14}/> Ubicación Capturada</> : <><MapPin size={14}/> Fijar mi ubicación actual</>}
+                  <Navigation size={20} />
                 </button>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Referencias de tu casa</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Añade Referencias</h3>
                 <textarea 
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ej: Casa amarilla de 2 pisos, frente al parque con portón negro..."
+                  placeholder="Ej: Casa amarilla de 2 pisos, frente al parque..."
                   className="w-full h-24 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
                 />
               </div>
@@ -246,7 +308,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           </div>
         </div>
       </div>
-      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
+      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; } .leaflet-container { font-family: inherit; }`}</style>
     </div>
   );
 }
