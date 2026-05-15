@@ -15,13 +15,13 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número de cualquier precio
+// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número real del precio sin errores
 const parsePrice = (product: Product): number => {
-  // 1. Si el producto ya tiene el precio guardado del modal naranja
+  // 1. Prioridad absoluta al precio del modal naranja
   if (product.custom_price && product.custom_price > 0) {
     return product.custom_price;
   }
-  // 2. Si es un producto normal, limpiamos el texto "$1.25" para que sea 1.25
+  // 2. Si es precio de catálogo (ej: "$1.25"), limpiamos el texto
   if (typeof product.price === 'string') {
     const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
     return isNaN(numeric) ? 0 : numeric;
@@ -41,19 +41,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const newItems = [...prev];
         const item = newItems[existingIndex];
 
-        // ✅ CASO A: SI ES UN POLLO (Suma el dinero al mismo paquete)
+        // ✅ CASO A: EL PRODUCTO YA EXISTE Y ES UN POLLO (VARIABLE)
         if (product.custom_price) {
-          const currentPrice = item.product.custom_price || 0;
+          const currentCustomPrice = item.product.custom_price || 0;
           newItems[existingIndex] = {
             ...item,
             product: { 
               ...item.product, 
-              custom_price: currentPrice + product.custom_price 
+              custom_price: currentCustomPrice + product.custom_price 
             },
-            quantity: 1 // Forzamos a que sea 1 solo producto en la burbuja
+            quantity: 1 // Los pollos por valor siempre cuentan como 1 paquete
           };
         } 
-        // ✅ CASO B: PRODUCTO NORMAL (Suma la cantidad 1, 2, 3...)
+        // ✅ CASO B: EL PRODUCTO YA EXISTE Y ES NORMAL (LECHE, ETC)
         else {
           newItems[existingIndex] = {
             ...item,
@@ -63,7 +63,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return newItems;
       }
 
-      // ✅ PRODUCTO NUEVO: Se agrega por primera vez con cantidad 1
+      // ✅ CASO C: PRODUCTO NUEVO EN EL CARRITO
+      // Si es un pollo con precio de modal, entra con cantidad 1
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -84,13 +85,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ DINERO TOTAL ($): Suma (Precio x Cantidad) de cada cosa
+  // ✅ TOTAL EN DINERO ($): Suma el precio real de cada item
   const total = items.reduce((sum, item) => {
     const price = parsePrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
-  // ✅ CANTIDAD DE PRODUCTOS: Suma cuántos bultos hay (Para la burbuja roja)
+  // ✅ CANTIDAD DE PAQUETES: Suma las unidades para la burbuja del Header
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
