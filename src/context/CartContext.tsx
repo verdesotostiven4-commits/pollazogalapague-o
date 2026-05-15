@@ -7,20 +7,26 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  total: number; // Suma total en DINERO ($)
-  cartCount: number; // Suma total en UNIDADES (Burbuja roja)
+  total: number; 
+  cartCount: number; 
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// Función auxiliar para convertir "$1.25" o "Consultar" en número usable
+// ✅ FUNCIÓN DE PRECISIÓN: Convierte cualquier origen de precio en un número real
 const parsePrice = (product: Product): number => {
-  if (product.custom_price) return product.custom_price; // Si viene del modal naranja
-  if (!product.price || typeof product.price !== 'string') return 0;
-  const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
-  return isNaN(numeric) ? 0 : numeric;
+  // Si es un producto del modal naranja (Pollo por valor)
+  if (product.custom_price && product.custom_price > 0) {
+    return product.custom_price;
+  }
+  // Si es un producto normal ($1.25)
+  if (typeof product.price === 'string') {
+    const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
+    return isNaN(numeric) ? 0 : numeric;
+  }
+  return 0;
 };
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -34,26 +40,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map(i => {
           if (i.product.id === product.id) {
-            // ✅ LÓGICA PARA POLLOS (PRESUPUESTO):
-            // Si el producto tiene precio personalizado, sumamos el dinero al precio, pero mantenemos la cantidad en 1.
+            // ✅ CASO A: Es un Pollo con valor variable
             if (product.custom_price) {
+              const nuevoPrecio = (i.product.custom_price || 0) + product.custom_price;
               return { 
                 ...i, 
-                product: { 
-                  ...i.product, 
-                  custom_price: (i.product.custom_price || 0) + product.custom_price 
-                },
-                quantity: 1 // El presupuesto siempre cuenta como 1 paquete/entrega
+                product: { ...i.product, custom_price: nuevoPrecio },
+                quantity: 1 // Forzamos 1 unidad para que la burbuja no marque 15
               };
             }
-            // ✅ LÓGICA PARA PRODUCTOS NORMALES:
-            // Sumamos la cantidad normalmente (1+1=2)
+            // ✅ CASO B: Es un producto normal (Leche, etc.)
             return { ...i, quantity: i.quantity + 1 };
           }
           return i;
         });
       }
-      // Si es un producto nuevo en el carrito
+      
+      // Producto nuevo en el carrito
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -74,13 +77,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ TOTAL EN DINERO: Multiplica precio por cantidad
+  // ✅ DINERO TOTAL ($): Multiplica el precio real por la cantidad
   const total = items.reduce((sum, item) => {
-    const price = parsePrice(item.product);
-    return sum + (price * item.quantity);
+    return sum + (parsePrice(item.product) * item.quantity);
   }, 0);
 
-  // ✅ TOTAL EN UNIDADES: Cuenta cuántos paquetes hay para la burbuja roja
+  // ✅ CANTIDAD DE PAQUETES: Suma las unidades reales para la burbuja roja
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
