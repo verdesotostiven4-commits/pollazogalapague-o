@@ -1,109 +1,110 @@
-import { ShoppingCart, ChevronLeft, User, BarChart2 } from 'lucide-react';
-import { useCart } from '../context/CartContext';
-import { useFlyToCart } from '../context/FlyToCartContext';
-import { useRef, useEffect } from 'react';
-import { Screen } from '../types';
+import { createContext, useContext, useState, ReactNode } from 'react';
+import { CartItem, Product } from '../types';
 
-interface Props {
-  screen: Screen;
-  onNavigate: (s: Screen) => void;
-  onOpenProfile?: () => void;
-  customerAvatar?: string;
+interface CartContextType {
+  items: CartItem[];
+  addItem: (product: Product) => void;
+  removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  total: number;      
+  cartCount: number;  
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }
 
-const LOGO_URL = "https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0";
+const CartContext = createContext<CartContextType | null>(null);
 
-const screenTitles: Record<string, string> = {
-  home: '',
-  catalog: 'Catálogo',
-  cart: 'Mi Pedido',
-  info: 'Información',
-  ranking: 'Ranking VIP',
+// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número real del precio
+const parsePrice = (product: Product): number => {
+  // 1. Si viene del modal (custom_price)
+  if (product.custom_price && product.custom_price > 0) {
+    return product.custom_price;
+  }
+  // 2. Si es precio fijo ($1.25) lo limpiamos para que sea número
+  if (typeof product.price === 'string') {
+    const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
+    return isNaN(numeric) ? 0 : numeric;
+  }
+  return 0;
 };
 
-export default function AppHeader({ screen, onNavigate, onOpenProfile, customerAvatar }: Props) {
-  // ✅ CORRECCIÓN: Usamos cartCount (unidades) en lugar de total (dinero)
-  const { cartCount } = useCart(); 
-  const { cartPop, setCartRef } = useFlyToCart();
-  const cartBtnRef = useRef<HTMLButtonElement>(null);
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    const img = new Image();
-    img.src = LOGO_URL;
-    
-    if (cartBtnRef.current) setCartRef(cartBtnRef as React.RefObject<HTMLButtonElement>);
-  }, [setCartRef]);
+  const addItem = (product: Product) => {
+    setItems(prev => {
+      const existingIndex = prev.findIndex(i => i.product.id === product.id);
 
-  const handleRefresh = () => {
-    window.location.reload();
+      if (existingIndex > -1) {
+        const newItems = [...prev];
+        const item = newItems[existingIndex];
+
+        // ✅ CASO A: ES UN POLLO (VARIABLE)
+        if (product.custom_price) {
+          const currentPrice = item.product.custom_price || 0;
+          newItems[existingIndex] = {
+            ...item,
+            product: { 
+              ...item.product, 
+              custom_price: currentPrice + product.custom_price 
+            },
+            quantity: 1 // SIEMPRE 1 para que la burbuja no marque el precio
+          };
+        } 
+        // ✅ CASO B: PRODUCTO NORMAL (LECHE, ACEITE, ETC)
+        else {
+          newItems[existingIndex] = {
+            ...item,
+            quantity: item.quantity + 1
+          };
+        }
+        return newItems;
+      }
+
+      // ✅ PRODUCTO NUEVO (Primera vez que se agrega)
+      return [...prev, { product, quantity: 1 }];
+    });
   };
 
-  const isHome = screen === 'home';
+  const removeItem = (productId: string) => {
+    setItems(prev => prev.filter(i => i.product.id !== productId));
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(productId);
+      return;
+    }
+    setItems(prev =>
+      prev.map(i => (i.product.id === productId ? { ...i, quantity } : i))
+    );
+  };
+
+  const clearCart = () => setItems([]);
+
+  // ✅ TOTAL EN DINERO ($)
+  const total = items.reduce((sum, item) => {
+    const price = parsePrice(item.product);
+    return sum + (price * item.quantity);
+  }, 0);
+
+  // ✅ CANTIDAD PARA LA BURBUJA ROJA (UNIDADES)
+  const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <header className="flex-shrink-0 safe-area-top bg-white/80 backdrop-blur-md border-b border-orange-50 shadow-sm z-40 sticky top-0">
-      <div className="flex items-center justify-between px-4 h-14 relative">
-        {isHome ? (
-          <div 
-            onClick={handleRefresh}
-            className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
-          >
-            <img 
-              src={LOGO_URL} 
-              alt="logo" 
-              className="h-10 w-10 object-contain drop-shadow-sm transition-opacity duration-300" 
-            />
-            <div className="flex flex-col leading-none">
-              <span className="font-black text-[10.5px] text-gray-900 uppercase tracking-tight">La Casa del Pollazo</span>
-              <span className="font-black text-[9px] text-orange-500 uppercase tracking-widest mt-1">El # 1 del mercado</span>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => onNavigate('home')} className="flex items-center gap-1 text-orange-500 font-bold text-sm">
-            <ChevronLeft size={20} strokeWidth={3} /> Inicio
-          </button>
-        )}
-
-        {!isHome && (
-          <span className="absolute left-1/2 -translate-x-1/2 font-black text-gray-900 text-sm uppercase italic tracking-tighter">
-            {screenTitles[screen]}
-          </span>
-        )}
-
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => onNavigate('ranking')} 
-            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 ${screen === 'ranking' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-gray-100 text-gray-400'}`}
-          >
-            <BarChart2 size={18} />
-          </button>
-
-          <button 
-            onClick={onOpenProfile} 
-            className="w-9 h-9 rounded-xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center active:scale-90 transition-transform"
-          >
-            {customerAvatar ? (
-              <img src={customerAvatar} className="w-full h-full object-cover" alt="perfil" />
-            ) : (
-              <User size={18} className="text-orange-500" />
-            )}
-          </button>
-
-          <button 
-            ref={cartBtnRef} 
-            onClick={() => onNavigate('cart')} 
-            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 ${screen === 'cart' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-110' : ''}`}
-          >
-            <ShoppingCart size={18} />
-            {/* ✅ CORRECCIÓN: Ahora muestra cartCount para que sea 1, 2, 3... */}
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-[18px] h-[18px] min-w-[18px] rounded-full flex items-center justify-center shadow-sm border border-white leading-none">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-    </header>
+    <CartContext.Provider value={{ 
+      items, addItem, removeItem, updateQuantity, clearCart, 
+      total, cartCount, isOpen, setIsOpen 
+    }}>
+      {children}
+    </CartContext.Provider>
   );
+}
+
+export function useCart() {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error('useCart must be used within CartProvider');
+  return ctx;
 }
