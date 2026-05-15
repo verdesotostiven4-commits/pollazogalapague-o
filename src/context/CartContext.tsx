@@ -7,17 +7,17 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  total: number; // Ahora representa el total en $
-  cartCount: number; // Nueva: representa la cantidad de productos
+  total: number;      // 💵 Suma total en DINERO ($)
+  cartCount: number;  // 📦 Suma total en UNIDADES (Burbuja roja)
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// Función auxiliar para convertir "$1.25" o "Consultar" en número usable
+// Función interna para limpiar precios y convertirlos en números
 const parsePrice = (product: Product): number => {
-  if (product.custom_price) return product.custom_price; // Si viene del modal naranja
+  if (product.custom_price) return product.custom_price;
   if (!product.price || typeof product.price !== 'string') return 0;
   const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
   return isNaN(numeric) ? 0 : numeric;
@@ -34,21 +34,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map(i => {
           if (i.product.id === product.id) {
-            // ✅ LÓGICA VIP: Si es pollo por valor, sumamos el presupuesto al existente
+            // ✅ FIX: Si es pollo por valor, sumamos el dinero, NO la cantidad
             if (product.custom_price) {
-              const currentCustomPrice = i.product.custom_price || 0;
               return { 
                 ...i, 
-                product: { ...i.product, custom_price: currentCustomPrice + product.custom_price } 
+                product: { 
+                  ...i.product, 
+                  custom_price: (i.product.custom_price || 0) + product.custom_price 
+                },
+                quantity: 1 // El pollo por valor siempre cuenta como 1 item
               };
             }
-            // Si es producto normal, solo subimos cantidad
+            // Si es producto normal (leche, aceite), sumamos cantidad
             return { ...i, quantity: i.quantity + 1 };
           }
           return i;
         });
       }
-      // Si es producto nuevo
+      
+      // Si es producto nuevo, lo agregamos con cantidad 1
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -69,13 +73,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ MATEMÁTICA PRO: Sumar dólares reales
+  // ✅ CÁLCULO DE DINERO (Ej: 1 pollo de $8 + 2 leches de $2 = $12)
   const total = items.reduce((sum, item) => {
     const price = parsePrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
-  // ✅ CANTIDAD TOTAL DE ITEMS (Para la burbuja del carrito)
+  // ✅ CÁLCULO DE UNIDADES (Ej: 1 pollo + 2 leches = 3 productos)
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
