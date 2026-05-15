@@ -1,15 +1,16 @@
 import { Product } from '../types'; 
 export const products: Product[] = [ 
   // ── POLLOS ──────────────────────────────────────────────────────────────── 
-  { 
+{ 
     id: 'pollo-entero', 
     name: 'Pollo entero', 
     category: 'Pollos', 
     price: 'Consultar precio', 
-    description: 'Pollo fresco entero, disponible todos los días.', 
-    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEhe_O03ML1U5KJjdg11ZSwLSJWTXIlnrUkUWzTL1awakYQYWuampHeETS45-2PahAGmlOJKp0W_l1hCvPRnIQn_fDpzcAnDVG3274RC3b_c4QE889BLkdkQfTRbUrrfUvqtw7xZPrjJJoS96AKMEVDJRmeXCH67_5z_LFpvNAEuOUzY2nCGYYI8JzTRk3s', 
-    badge: 'Fresco', 
-  }, 
+    description: '...', 
+    image: 'https://...', 
+    badge: 'Fresco',
+    is_variable: true,
+  },
   { 
     id: 'pechuga', 
     name: 'Pechuga', 
@@ -18,6 +19,7 @@ export const products: Product[] = [
     description: 'Pechuga de pollo fresca.', 
     image: 'https://blogger.googleusercontent.com/img/a/AVvXsEg3hUv7ezfs-f-J-GidrTcvm6e_6cqGRKlGJm4ymaqWmoKYSYheTyPDrHHIQEITXs-Hb9zeIorhZSJy7jg965NS1imz_9OrzK7aftbC94H2fEXTYtuiYZzua_nrV10VE1BiVZz_xjGl5AWEI3D6eCvMwv7xgNIOdOEKnJsPgIUgcYwq0u4CDSiQui4F2vg', 
     badge: 'Popular', 
+    is_variable: true,
   }, 
   { 
     id: 'alas', 
@@ -25,7 +27,8 @@ export const products: Product[] = [
     category: 'Pollos', 
     price: 'Consultar precio', 
     description: 'Alas de pollo frescas.', 
-    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEjLhNzhiZhSm0EIQOd9b-LVhMzDLP_O3_zTj4l1B6g48bBe9iF_VQyFvm1rp2B0XprRPzF1Xa4E0Y0L9v_FLUSaCAhc8tigu7-avSb90DIiP1ucQ9dGucCfXHWCOo5lAiGFDH31sJtQVnnqfL-JO4S6d3wS7EfmkVY3JHysd2EuKp6RvZFD4FeuDEo-oKY', 
+    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEjLhNzhiZhSm0EIQOd9b-LVhMzDLP_O3_zTj4l1B6g48bBe9iF_VQyFvm1rp2B0XprRPzF1Xa4E0Y0L9v_FLUSaCAhc8tigu7-avSb90DIiP1ucQ9dGucCfXHWCOo5lAiGFDH31sJtQVnnqfL-JO4S6d3wS7EfmkVY3JHysd2EuKp6RvZFD4FeuDEo-oKY',
+    is_variable: true,
   }, 
   { 
     id: 'cuartos', 
@@ -33,7 +36,8 @@ export const products: Product[] = [
     category: 'Pollos', 
     price: 'Consultar precio', 
     description: 'Cuartos de pollo frescos.', 
-    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEipFKXqyUiZf-9cwxQ12D63BIqg9uSiQu-NSWhwWAXuKyO9AjVJ3SAEDLsHYia2_13PnTe4XqD41vG5KJxL9f6PC1Ol9zIi7O35I67TrFCMJh9Gu5X765KEB1PD4vZxmvvXOp0wWCYyU7puMTULBTp5bB1FnLpmpiamjfOvywKacTx8riM6BM4-wJzTAwE', 
+    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEipFKXqyUiZf-9cwxQ12D63BIqg9uSiQu-NSWhwWAXuKyO9AjVJ3SAEDLsHYia2_13PnTe4XqD41vG5KJxL9f6PC1Ol9zIi7O35I67TrFCMJh9Gu5X765KEB1PD4vZxmvvXOp0wWCYyU7puMTULBTp5bB1FnLpmpiamjfOvywKacTx8riM6BM4-wJzTAwE',
+    is_variable: true,
   }, 
   // ── EMBUTIDOS ───────────────────────────────────────────────────────────── 
   { 
@@ -75,7 +79,8 @@ export const products: Product[] = [
     category: 'Pollos', 
     price: 'Consultar precio', 
     description: 'Molleja, corazón y patas de pollo frescos.', 
-    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEgZ22JXIBZirQ0FjCO5W1TgLx-LbnbJQmt4t7ZDB74jQK2YL25P612_qNTONlW9vvJBN8Mdg-PjioYFLBeOVES2iktdrwlxQdiH0Y0Z-rkFjR0lAmoJPVqNV74ONJb3h8xkwG_4_7xzr5aJzwKI4c7Hy5vQlejnnBaS8berkK1vp1MvFLV_B5iTKsQzMlo', 
+    image: 'https://blogger.googleusercontent.com/img/a/AVvXsEgZ22JXIBZirQ0FjCO5W1TgLx-LbnbJQmt4t7ZDB74jQK2YL25P612_qNTONlW9vvJBN8Mdg-PjioYFLBeOVES2iktdrwlxQdiH0Y0Z-rkFjR0lAmoJPVqNV74ONJb3h8xkwG_4_7xzr5aJzwKI4c7Hy5vQlejnnBaS8berkK1vp1MvFLV_B5iTKsQzMlo',
+    is_variable: true,
   }, 
   // ── LÁCTEOS Y REFRIGERADOS ──────────────────────────────────────────────── 
   { 
