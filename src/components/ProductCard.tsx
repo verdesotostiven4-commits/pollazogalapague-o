@@ -5,16 +5,6 @@ import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useAdmin } from '../context/AdminContext';
 
-// ✅ CONFIGURACIÓN DE LÍMITES Y SUGERENCIAS POR PRODUCTO
-const BUDGET_CONFIG: Record<string, { min: number, max: number, presets: number[] }> = {
-  'pollo-entero': { min: 7.00, max: 50.00, presets: [8, 10, 15] },
-  'pechuga': { min: 3.50, max: 30.00, presets: [4, 6, 10] },
-  'alas': { min: 2.50, max: 20.00, presets: [3, 5, 8] },
-  'cuartos': { min: 2.00, max: 15.00, presets: [2.50, 3.50, 5.00] },
-  'menudencia': { min: 1.00, max: 10.00, presets: [1, 2, 3] },
-  'default': { min: 1.00, max: 100.00, presets: [5, 10, 15] }
-};
-
 interface Props {
   product: Product;
   style?: React.CSSProperties;
@@ -33,62 +23,50 @@ export default function ProductCard({ product, style, className = '', compact = 
   const { addItem } = useCart();
   const { triggerFly } = useFlyToCart();
   const { overrides } = useAdmin();
-  
   const [added, setAdded] = useState(false);
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [selectedValue, setSelectedValue] = useState<string>(''); // Valor en espera de confirmación
-  
+  const [showPriceModal, setShowPriceModal] = useState(false); // ✅ Control del modal de presupuesto
+  const [customValue, setCustomValue] = useState<string>(''); // ✅ Valor escrito por el cliente
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const config = BUDGET_CONFIG[product.id] || BUDGET_CONFIG['default'];
   const override = overrides[product.id];
   const available = override ? override.available : true;
   const displayPrice = override?.price ?? product.price;
   const effectiveProduct = { ...product, price: displayPrice };
 
-  // ✅ Función para agregar finalmente al carrito
-  const executeAdd = () => {
-    const finalValue = parseFloat(selectedValue);
-    
-    // Validamos que esté dentro del rango permitido
-    if (isNaN(finalValue) || finalValue < config.min || finalValue > config.max) return;
-
+  // ✅ Función para procesar el agregado al carrito
+  const executeAdd = (priceOverride?: number) => {
     triggerHaptic();
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
     }
     
-    // Mandamos el precio como custom_price al carrito
-    addItem({ ...effectiveProduct, custom_price: finalValue });
+    // Si hay un precio personalizado (pollo por valor), lo mandamos
+    if (priceOverride) {
+      addItem({ ...effectiveProduct, custom_price: priceOverride });
+    } else {
+      addItem(effectiveProduct);
+    }
 
     setAdded(true);
     setShowPriceModal(false);
-    setSelectedValue('');
+    setCustomValue('');
     setTimeout(() => setAdded(false), 1200);
   };
 
   const handleAdd = () => {
     if (added || !available) return;
 
+    // ✅ Si el producto es de precio variable (pollo/carne), abrimos el modal
     if (product.is_variable) {
       setShowPriceModal(true);
       return;
     }
 
-    // Proceso normal para productos fijos
-    triggerHaptic();
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
-    }
-    addItem(effectiveProduct);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1200);
+    executeAdd();
   };
 
   const consult = isConsultPrice(displayPrice);
-  const isValid = selectedValue !== '' && parseFloat(selectedValue) >= config.min && parseFloat(selectedValue) <= config.max;
 
   return (
     <>
@@ -117,6 +95,11 @@ export default function ProductCard({ product, style, className = '', compact = 
               {product.badge}
             </span>
           )}
+          {available && consult && !compact && (
+            <span className="absolute top-2.5 right-2.5 bg-white/90 border border-orange-200 text-orange-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              A consultar
+            </span>
+          )}
         </div>
 
         {/* CONTENIDO */}
@@ -124,13 +107,23 @@ export default function ProductCard({ product, style, className = '', compact = 
           {!compact && <p className="text-[10px] text-orange-500 font-semibold uppercase tracking-widest mb-1 truncate">{product.category}</p>}
           <h3 className={`text-gray-900 font-bold leading-snug line-clamp-2 ${compact ? 'text-[13px] flex-1' : 'text-[15px] mb-1'}`}>{product.name}</h3>
           
+          {!compact && product.description && (
+            <p className="text-gray-400 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{product.description}</p>
+          )}
+
           <div className={`flex items-center ${compact ? '' : 'mb-3 mt-auto'}`} style={{ minHeight: compact ? 28 : 32 }}>
-            <div className="flex items-baseline gap-1">
-              <span className={`text-orange-600 font-black ${compact ? 'text-base' : 'text-lg leading-none'}`}>
-                {product.is_variable ? `Desde $${config.min.toFixed(2)}` : displayPrice}
+            {consult ? (
+              <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 font-medium flex items-center gap-1`}>
+                {!compact && <MessageCircle size={12} className="text-orange-400" />} A consultar
               </span>
-              {product.unit && !compact && <span className="text-gray-400 text-[11px]">/ {product.unit}</span>}
-            </div>
+            ) : (
+              <div className="flex items-baseline gap-1">
+                <span className={`text-orange-600 font-black ${compact ? 'text-base' : 'text-lg leading-none'}`}>
+                  {product.is_variable ? 'Desde $1.00' : displayPrice}
+                </span>
+                {product.unit && !compact && <span className="text-gray-400 text-[11px]">/ {product.unit}</span>}
+              </div>
+            )}
           </div>
 
           <button
@@ -140,71 +133,72 @@ export default function ProductCard({ product, style, className = '', compact = 
             className={`w-full flex items-center justify-center gap-1.5 font-bold rounded-xl transition-all duration-300 ${
               compact ? 'text-[13px] py-2.5' : 'text-sm py-2.5'
             } ${
-              !available ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : added ? 'bg-green-500 text-white' : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
+              !available
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : added
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
             }`}
           >
-            {added ? <><Check size={compact ? 13 : 14} strokeWidth={3} /> Agregado</> : <><Plus size={compact ? 13 : 14} /> {product.is_variable ? 'Elegir valor' : 'Agregar'}</>}
+            {!available ? (
+              <>{compact ? 'Agotado' : 'Sin stock'}</>
+            ) : added ? (
+              <><Check size={compact ? 13 : 14} strokeWidth={3} /> Agregado</>
+            ) : (
+              <><Plus size={compact ? 13 : 14} /> {product.is_variable ? 'Elegir valor' : 'Agregar'}</>
+            )}
           </button>
         </div>
       </div>
 
-      {/* ✅ MODAL DE PRESUPUESTO MEJORADO */}
+      {/* ✅ MODAL DE PRESUPUESTO PARA PRODUCTOS VARIABLES */}
       {showPriceModal && (
         <div className="fixed inset-0 z-[11000] flex items-end sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowPriceModal(false)} />
-          <div className="relative w-full max-w-sm bg-white rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-400">
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h4 className="font-black text-slate-800 uppercase italic text-lg leading-none">¿De cuánto quieres comprar?</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selecciona o escribe el precio</p>
-                </div>
-                <button onClick={() => setShowPriceModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:bg-orange-100 transition-colors"><X size={18}/></button>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPriceModal(false)} />
+          <div className="relative w-full max-w-sm bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-black text-slate-800 uppercase italic">¿Cuánto quieres llevar?</h4>
+                <button onClick={() => setShowPriceModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-400"><X size={18}/></button>
               </div>
               
-              {/* Botones rápidos dinámicos */}
+              <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-2xl mb-6">
+                <img src={product.image} className="w-12 h-12 object-contain rounded-lg bg-white" alt="" />
+                <div>
+                  <p className="text-xs font-black text-slate-800">{product.name}</p>
+                  <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tighter">Precio según tu presupuesto</p>
+                </div>
+              </div>
+
+              {/* Botones rápidos */}
               <div className="grid grid-cols-3 gap-3 mb-6">
-                {config.presets.map((val) => (
+                {[8, 10, 15].map((val) => (
                   <button 
                     key={val} 
-                    onClick={() => setSelectedValue(val.toString())}
-                    className={`py-4 rounded-2xl border-2 font-black transition-all ${
-                      selectedValue === val.toString() 
-                      ? 'border-orange-500 bg-orange-50 text-orange-600 scale-105 shadow-md' 
-                      : 'border-slate-100 text-slate-500 bg-slate-50'
-                    }`}
+                    onClick={() => executeAdd(val)}
+                    className="py-3 rounded-2xl border-2 border-orange-100 hover:border-orange-500 hover:bg-orange-50 text-orange-600 font-black transition-all"
                   >
-                    ${val.toFixed(2)}
+                    ${val}.00
                   </button>
                 ))}
               </div>
 
-              {/* Input manual con validación visual */}
+              {/* Input manual */}
               <div className="relative mb-6">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-400">
-                  <DollarSign size={20} />
-                </div>
+                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
                 <input 
                   type="number" 
-                  inputMode="decimal"
-                  value={selectedValue}
-                  onChange={(e) => setSelectedValue(e.target.value)}
-                  placeholder={`Ej: ${config.min.toFixed(2)} a ${config.max.toFixed(2)}`}
-                  className={`w-full h-16 pl-10 pr-4 bg-slate-50 border-2 rounded-2xl outline-none font-bold text-lg transition-all ${
-                    selectedValue !== '' && !isValid ? 'border-red-300 bg-red-50 text-red-600' : 'border-slate-100 focus:border-orange-500 text-slate-800'
-                  }`}
+                  value={customValue}
+                  onChange={(e) => setCustomValue(e.target.value)}
+                  placeholder="Otro valor (Ej: 12.50)"
+                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all"
                 />
               </div>
 
-              {/* Mensaje de ayuda si el valor es bajo */}
-              {selectedValue !== '' && parseFloat(selectedValue) < config.min && (
-                <p className="text-center text-[10px] font-bold text-red-500 uppercase mb-4 animate-bounce">⚠️ El valor mínimo es ${config.min.toFixed(2)}</p>
-              )}
-
               <button 
-                onClick={executeAdd}
-                disabled={!isValid}
-                className="w-full h-16 bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 disabled:opacity-30 disabled:grayscale transition-all uppercase tracking-widest"
+                onClick={() => customValue && executeAdd(parseFloat(customValue))}
+                disabled={!customValue}
+                className="w-full h-14 bg-orange-500 rounded-2xl font-black text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-50 transition-all"
               >
                 CONFIRMAR VALOR 🚀
               </button>
