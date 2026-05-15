@@ -74,7 +74,6 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [showArrow, setShowArrow] = useState(true); 
   
-  // ✅ Referencia para controlar el scroll
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleClearRequest = () => {
@@ -87,7 +86,6 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     }
   };
 
-  // ✅ Función para ocultar la flecha al hacer scroll
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (e.currentTarget.scrollTop > 10) {
       setShowArrow(false);
@@ -96,7 +94,6 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     }
   };
 
-  // ✅ Función para bajar al fondo al tocar la flecha
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -134,12 +131,14 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   }
 
   return (
-    <div className="flex flex-col min-h-full bg-white relative">
-      {/* Contenedor con scroll para los productos */}
+    /* ✅ CAMBIO: h-full y overflow-hidden para bloquear el scroll exterior */
+    <div className="flex flex-col h-full bg-white overflow-hidden relative">
+      
+      {/* ✅ CAMBIO: flex-1 sin max-h rígido para que se ajuste al espacio real */}
       <div 
-        ref={scrollRef} // ✅ Asignamos la referencia
+        ref={scrollRef} 
         onScroll={handleScroll}
-        className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-hide"
+        className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto scrollbar-hide"
       >
         {items.map(item => {
           const customPrice = item.product.custom_price;
@@ -187,18 +186,18 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
         </button>
       </div>
 
-      {/* ✅ Flecha rebotando: Ahora tiene onClick para bajar al fondo */}
       {showArrow && items.length > 5 && (
+        /* ✅ AJUSTE: Posición de la flecha un poco más arriba para que no choque con el total */
         <div 
           onClick={scrollToBottom}
-          className="absolute bottom-[230px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
+          className="absolute bottom-[240px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
         >
           <ChevronDown size={28} strokeWidth={3} />
         </div>
       )}
 
-      {/* Sección inferior fija */}
-      <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-3 z-30">
+      {/* ✅ CAMBIO: pb-4 en lugar de pb-6 para que no haya espacio extra abajo del botón */}
+      <div className="px-4 pb-4 pt-3 bg-white border-t border-gray-100 space-y-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">Productos</span>
