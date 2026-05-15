@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
@@ -72,7 +72,10 @@ function triggerHaptic() {
 export default function CartScreen({ onCheckout, onNavigate }: Props) {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart();
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showArrow, setShowArrow] = useState(true); // ✅ Estado para la flecha
+  const [showArrow, setShowArrow] = useState(true); 
+  
+  // ✅ Referencia para controlar el scroll
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleClearRequest = () => {
     if (confirmClear) {
@@ -90,6 +93,16 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
       setShowArrow(false);
     } else {
       setShowArrow(true);
+    }
+  };
+
+  // ✅ Función para bajar al fondo al tocar la flecha
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -124,7 +137,8 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     <div className="flex flex-col min-h-full bg-white relative">
       {/* Contenedor con scroll para los productos */}
       <div 
-        onScroll={handleScroll} // ✅ Listener de scroll
+        ref={scrollRef} // ✅ Asignamos la referencia
+        onScroll={handleScroll}
         className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-hide"
       >
         {items.map(item => {
@@ -163,7 +177,6 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
           );
         })}
 
-        {/* ✅ Texto cambiado a: Vaciar carrito */}
         <button 
           onClick={handleClearRequest} 
           className={`w-full text-xs font-semibold py-4 transition-all duration-300 ${
@@ -174,9 +187,12 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
         </button>
       </div>
 
-      {/* ✅ Flecha rebotando: Ahora desaparece al bajar y se mantiene arriba de los productos */}
+      {/* ✅ Flecha rebotando: Ahora tiene onClick para bajar al fondo */}
       {showArrow && items.length > 5 && (
-        <div className="absolute bottom-[230px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20">
+        <div 
+          onClick={scrollToBottom}
+          className="absolute bottom-[230px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
+        >
           <ChevronDown size={28} strokeWidth={3} />
         </div>
       )}
