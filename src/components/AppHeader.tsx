@@ -22,8 +22,7 @@ const screenTitles: Record<string, string> = {
 };
 
 export default function AppHeader({ screen, onNavigate, onOpenProfile, customerAvatar }: Props) {
-  // ✅ Extraemos cartCount para que la burbuja muestre unidades, no dinero
-  const { cartCount } = useCart(); 
+  const { total } = useCart();
   const { cartPop, setCartRef } = useFlyToCart();
   const cartBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -95,10 +94,10 @@ export default function AppHeader({ screen, onNavigate, onOpenProfile, customerA
             className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 ${screen === 'cart' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-orange-50 text-orange-500'} ${cartPop ? 'scale-110' : ''}`}
           >
             <ShoppingCart size={18} />
-            {/* ✅ AHORA USA cartCount: Muestra cantidad de productos reales */}
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-[18px] h-[18px] min-w-[18px] rounded-full flex items-center justify-center shadow-sm border border-white leading-none animate-in zoom-in duration-300">
-                {cartCount}
+            {total > 0 && (
+              /* ✅ CORREGIDO: Dimensiones fijas para que el número no se vea delgado */
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-[18px] h-[18px] min-w-[18px] rounded-full flex items-center justify-center shadow-sm border border-white leading-none">
+                {total}
               </span>
             )}
           </button>
