@@ -16,7 +16,8 @@ const tabs: { id: Screen; icon: typeof Home; label: string }[] = [
 ];
 
 export default function BottomNav({ current, onNavigate }: Props) {
-  const { total } = useCart();
+  // ✅ CORREGIDO: Usamos cartCount para las notificaciones de cantidad
+  const { cartCount } = useCart();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 safe-area-bottom" style={{ zIndex: 50 }}>
@@ -24,7 +25,8 @@ export default function BottomNav({ current, onNavigate }: Props) {
         {tabs.map(({ id, icon: Icon, label }) => {
           const isActive = current === id;
           const isCart = id === 'cart';
-          const hasItems = isCart && total > 0;
+          // ✅ CORREGIDO: Basado en cantidad de productos
+          const hasItems = isCart && cartCount > 0;
 
           return (
             <button
@@ -41,12 +43,14 @@ export default function BottomNav({ current, onNavigate }: Props) {
                     : 'bg-gray-100'
                 }`}>
                   <Icon size={20} className={isActive ? 'text-white' : 'text-gray-500'} strokeWidth={isActive ? 2.5 : 2} />
+                  
                   {/* Pulsing red dot when items in cart */}
                   {hasItems && (
                     <span className="absolute -top-1 -right-1 flex items-center justify-center">
                       <span className="absolute w-4 h-4 rounded-full bg-red-500 opacity-75 animate-ping" />
                       <span className="relative w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
-                        {total > 9 ? '9+' : total}
+                        {/* ✅ CORREGIDO: Muestra cantidad real de paquetes */}
+                        {cartCount > 9 ? '9+' : cartCount}
                       </span>
                     </span>
                   )}
