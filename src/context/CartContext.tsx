@@ -7,21 +7,21 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  total: number; 
-  cartCount: number; 
+  total: number;      // 💵 DINERO REAL ($)
+  cartCount: number;  // 📦 CANTIDAD DE PAQUETES (Burbuja roja)
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// ✅ FUNCIÓN DE PRECISIÓN: Convierte cualquier origen de precio en un número real
+// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número de cualquier precio
 const parsePrice = (product: Product): number => {
-  // Si es un producto del modal naranja (Pollo por valor)
+  // Caso 1: Precio personalizado del modal ($8, $10, etc.)
   if (product.custom_price && product.custom_price > 0) {
     return product.custom_price;
   }
-  // Si es un producto normal ($1.25)
+  // Caso 2: Precio fijo del archivo products.ts ($1.25)
   if (typeof product.price === 'string') {
     const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
     return isNaN(numeric) ? 0 : numeric;
@@ -35,28 +35,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (product: Product) => {
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id);
+      const existingIndex = prev.findIndex(i => i.product.id === product.id);
 
-      if (existing) {
-        return prev.map(i => {
-          if (i.product.id === product.id) {
-            // ✅ CASO A: Es un Pollo con valor variable
-            if (product.custom_price) {
-              const nuevoPrecio = (i.product.custom_price || 0) + product.custom_price;
-              return { 
-                ...i, 
-                product: { ...i.product, custom_price: nuevoPrecio },
-                quantity: 1 // Forzamos 1 unidad para que la burbuja no marque 15
-              };
-            }
-            // ✅ CASO B: Es un producto normal (Leche, etc.)
-            return { ...i, quantity: i.quantity + 1 };
-          }
-          return i;
-        });
+      if (existingIndex > -1) {
+        const newItems = [...prev];
+        const item = newItems[existingIndex];
+
+        // ✅ SI ES UN POLLO (Precio Variable)
+        if (product.custom_price) {
+          const currentPrice = item.product.custom_price || 0;
+          newItems[existingIndex] = {
+            ...item,
+            product: { 
+              ...item.product, 
+              custom_price: currentPrice + product.custom_price 
+            },
+            quantity: 1 // Los pollos siempre cuentan como 1 bulto/paquete
+          };
+        } 
+        // ✅ SI ES PRODUCTO NORMAL (Leche, etc.)
+        else {
+          newItems[existingIndex] = {
+            ...item,
+            quantity: item.quantity + 1
+          };
+        }
+        return newItems;
       }
-      
-      // Producto nuevo en el carrito
+
+      // ✅ SI EL PRODUCTO ES NUEVO EN EL CARRITO
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -77,12 +84,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ DINERO TOTAL ($): Multiplica el precio real por la cantidad
+  // ✅ CÁLCULO DE DINERO TOTAL ($)
   const total = items.reduce((sum, item) => {
-    return sum + (parsePrice(item.product) * item.quantity);
+    const price = parsePrice(item.product);
+    return sum + (price * item.quantity);
   }, 0);
 
-  // ✅ CANTIDAD DE PAQUETES: Suma las unidades reales para la burbuja roja
+  // ✅ CÁLCULO DE UNIDADES REALES (Burbuja roja)
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
