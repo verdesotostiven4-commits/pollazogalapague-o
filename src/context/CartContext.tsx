@@ -8,7 +8,7 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   total: number;      // 💵 DINERO REAL ($)
-  cartCount: number;  // 📦 CANTIDAD DE PAQUETES (Burbuja roja)
+  cartCount: number;  // 📦 CANTIDAD DE PRODUCTOS (Burbuja roja)
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
@@ -17,11 +17,11 @@ const CartContext = createContext<CartContextType | null>(null);
 
 // ✅ FUNCIÓN DE PRECISIÓN: Extrae el número de cualquier precio
 const parsePrice = (product: Product): number => {
-  // Caso 1: Precio personalizado del modal ($8, $10, etc.)
+  // 1. Si el producto ya tiene el precio guardado del modal naranja
   if (product.custom_price && product.custom_price > 0) {
     return product.custom_price;
   }
-  // Caso 2: Precio fijo del archivo products.ts ($1.25)
+  // 2. Si es un producto normal, limpiamos el texto "$1.25" para que sea 1.25
   if (typeof product.price === 'string') {
     const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
     return isNaN(numeric) ? 0 : numeric;
@@ -41,7 +41,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const newItems = [...prev];
         const item = newItems[existingIndex];
 
-        // ✅ SI ES UN POLLO (Precio Variable)
+        // ✅ CASO A: SI ES UN POLLO (Suma el dinero al mismo paquete)
         if (product.custom_price) {
           const currentPrice = item.product.custom_price || 0;
           newItems[existingIndex] = {
@@ -50,10 +50,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ...item.product, 
               custom_price: currentPrice + product.custom_price 
             },
-            quantity: 1 // Los pollos siempre cuentan como 1 bulto/paquete
+            quantity: 1 // Forzamos a que sea 1 solo producto en la burbuja
           };
         } 
-        // ✅ SI ES PRODUCTO NORMAL (Leche, etc.)
+        // ✅ CASO B: PRODUCTO NORMAL (Suma la cantidad 1, 2, 3...)
         else {
           newItems[existingIndex] = {
             ...item,
@@ -63,7 +63,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return newItems;
       }
 
-      // ✅ SI EL PRODUCTO ES NUEVO EN EL CARRITO
+      // ✅ PRODUCTO NUEVO: Se agrega por primera vez con cantidad 1
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -84,13 +84,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ CÁLCULO DE DINERO TOTAL ($)
+  // ✅ DINERO TOTAL ($): Suma (Precio x Cantidad) de cada cosa
   const total = items.reduce((sum, item) => {
     const price = parsePrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
-  // ✅ CÁLCULO DE UNIDADES REALES (Burbuja roja)
+  // ✅ CANTIDAD DE PRODUCTOS: Suma cuántos bultos hay (Para la burbuja roja)
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
