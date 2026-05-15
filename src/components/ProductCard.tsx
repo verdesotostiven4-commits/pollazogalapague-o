@@ -5,8 +5,8 @@ import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useAdmin } from '../context/AdminContext';
 
-// ✅ TABLA DE LÍMITES (No permite precios locos)
-const LIMITS: Record<string, { min: number, max: number, presets: number[] }> = {
+// ✅ TABLA DE LÍMITES (Protección para tu negocio)
+const BUDGET_LIMITS: Record<string, { min: number, max: number, presets: number[] }> = {
   'pollo-entero': { min: 7.00, max: 60.00, presets: [8, 10, 15] },
   'pechuga': { min: 3.50, max: 35.00, presets: [4, 7, 10] },
   'alas': { min: 2.50, max: 25.00, presets: [3, 5, 8] },
@@ -38,7 +38,7 @@ export default function ProductCard({ product, style, className = '', compact = 
   const [customValue, setCustomValue] = useState<string>(''); 
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const config = LIMITS[product.id] || LIMITS['default'];
+  const config = BUDGET_LIMITS[product.id] || BUDGET_LIMITS['default'];
   const override = overrides[product.id];
   const available = override ? override.available : true;
   const displayPrice = override?.price ?? product.price;
@@ -47,7 +47,7 @@ export default function ProductCard({ product, style, className = '', compact = 
   const executeAdd = (priceOverride?: number) => {
     const valToUse = priceOverride || parseFloat(customValue);
     
-    // Validación de límites
+    // Si no hay valor o está fuera de límites, no hace nada
     if (isNaN(valToUse) || valToUse < config.min || valToUse > config.max) return;
 
     triggerHaptic();
@@ -56,6 +56,7 @@ export default function ProductCard({ product, style, className = '', compact = 
       triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
     }
     
+    // Enviamos el precio personalizado al carrito
     addItem({ ...effectiveProduct, custom_price: valToUse });
 
     setAdded(true);
@@ -72,7 +73,15 @@ export default function ProductCard({ product, style, className = '', compact = 
       return;
     }
 
-    executeAdd();
+    // Para productos normales con precio fijo
+    triggerHaptic();
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
+    }
+    addItem(effectiveProduct);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
   };
 
   const consult = isConsultPrice(displayPrice);
@@ -178,15 +187,16 @@ export default function ProductCard({ product, style, className = '', compact = 
                 </div>
               </div>
 
-              {/* ✅ BOTONES DE PRECIO LIMPIOS (No se agregan solos) */}
+              {/* ✅ BOTONES DE PRECIO LIMPIOS (No se agregan solos, solo seleccionan) */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {config.presets.map((val) => (
                   <button 
                     key={val} 
+                    type="button"
                     onClick={() => setCustomValue(val.toString())}
                     className={`py-3 rounded-2xl border-2 font-black transition-all ${
                       customValue === val.toString() 
-                      ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-md' 
+                      ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-md scale-105' 
                       : 'border-slate-100 bg-white text-slate-600 hover:border-orange-200'
                     }`}
                   >
@@ -208,12 +218,13 @@ export default function ProductCard({ product, style, className = '', compact = 
                 />
               </div>
 
-              {/* Mensaje de error por si pone $1 */}
+              {/* Mensaje de error si el valor es menor al permitido */}
               {customValue !== '' && parseFloat(customValue) < config.min && (
                 <p className="text-[10px] text-red-500 font-black uppercase text-center mb-4">⚠️ El valor mínimo es ${config.min.toFixed(2)}</p>
               )}
 
               <button 
+                type="button"
                 onClick={() => isValid && executeAdd()}
                 disabled={!isValid}
                 className="w-full h-14 bg-orange-500 rounded-2xl font-black text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-30 transition-all uppercase tracking-widest"
@@ -225,5 +236,5 @@ export default function ProductCard({ product, style, className = '', compact = 
         </div>
       )}
     </>
-  );
+  );   
 }
