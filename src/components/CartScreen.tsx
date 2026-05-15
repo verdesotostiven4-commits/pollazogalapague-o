@@ -1,4 +1,4 @@
-import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
@@ -7,11 +7,6 @@ interface Props {
   onCheckout: () => void;
   onNavigate: (s: Screen) => void;
 }
-
-const isFixedPrice = (price: string | undefined) => {
-  const p = price ?? '';
-  return p.startsWith('$') && !isNaN(parseFloat(p.replace('$', '')));
-};
 
 const CONFETTI_COLORS = ['#f97316', '#fbbf24', '#ea580c', '#fb923c', '#fde68a', '#f59e0b', '#fdba74', '#ffffff'];
 
@@ -69,14 +64,12 @@ function triggerHaptic() {
 }
 
 export default function CartScreen({ onCheckout, onNavigate }: Props) {
-  const { items, removeItem, updateQuantity, clearCart } = useCart();
+  // ✅ Usamos el dinero (total) y las unidades (cartCount) del cerebro del carrito
+  const { items, removeItem, updateQuantity, clearCart, total, cartCount } = useCart();
 
-  const fixedTotal = items.reduce((sum, i) => {
-    if (!isFixedPrice(i.product.price)) return sum;
-    return sum + parseFloat((i.product.price ?? '0').replace('$', '')) * i.quantity;
-  }, 0);
-  const hasConsult = items.some(i => !isFixedPrice(i.product.price));
-  const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
+  // ✅ LÓGICA DE ENVÍO: $1.50 si es menor a $25, de lo contrario GRATIS
+  const deliveryFee = total >= 25 ? 0 : 1.50;
+  const finalTotal = total + deliveryFee;
 
   const handleCheckout = () => {
     triggerHaptic();
@@ -106,19 +99,19 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     <div className="flex flex-col min-h-full">
       <div className="flex-1 px-4 pt-4 pb-2 space-y-3">
         {items.map(item => {
-          const fixed = isFixedPrice(item.product.price);
-          const subtotal = fixed
-            ? (parseFloat((item.product.price ?? '0').replace('$', '')) * item.quantity).toFixed(2)
-            : null;
+          // Calculamos el subtotal de este item específico
+          const itemPrice = item.product.custom_price || parseFloat((item.product.price || '0').replace(/[^0-9.]/g, ''));
+          const itemSubtotal = (itemPrice * item.quantity).toFixed(2);
+
           return (
-            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain p-1" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-gray-900 font-bold text-sm leading-snug truncate">{item.product.name}</p>
-                <p className={`text-xs mt-0.5 font-semibold ${fixed ? 'text-orange-500' : 'text-gray-400'}`}>
-                  {fixed ? `$${subtotal}` : 'Consultar precio'}
+                <p className="text-xs mt-0.5 font-black text-orange-500">
+                  ${itemSubtotal}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
@@ -145,29 +138,39 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
       </div>
 
       <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-3">
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+        <div className="bg-gray-50 rounded-[30px] p-5 space-y-3 shadow-inner">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Productos</span>
-            <span className="text-gray-800 font-bold">{totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}</span>
+            <span className="text-gray-500 font-bold">Productos ({cartCount})</span>
+            <span className="text-gray-800 font-black">${total.toFixed(2)}</span>
           </div>
-          {fixedTotal > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">{hasConsult ? 'Subtotal parcial' : 'Total'}</span>
-              <span className="text-orange-600 font-black">${fixedTotal.toFixed(2)}</span>
-            </div>
-          )}
-          {hasConsult && (
-            <p className="text-xs text-gray-400 pt-1 border-t border-gray-200">
-              Algunos productos requieren confirmación de precio
+          
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-500 font-bold flex items-center gap-2">
+              <Truck size={14} className="text-orange-400" /> Costo de envío
+            </span>
+            <span className={`font-black ${deliveryFee === 0 ? 'text-green-500' : 'text-gray-800'}`}>
+              {deliveryFee === 0 ? 'GRATIS' : `+$${deliveryFee.toFixed(2)}`}
+            </span>
+          </div>
+
+          <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
+            <span className="text-gray-900 font-black text-base uppercase italic tracking-tighter">Total a Pagar</span>
+            <span className="text-orange-600 font-black text-2xl tracking-tighter">${finalTotal.toFixed(2)}</span>
+          </div>
+
+          {deliveryFee > 0 && (
+            <p className="text-[10px] text-center text-orange-400 font-bold uppercase tracking-widest bg-orange-50 py-2 rounded-xl">
+              ¡Agrega ${(25 - total).toFixed(2)} más para envío GRATIS! 🎁
             </p>
           )}
         </div>
+
         <button
           onClick={handleCheckout}
-          className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base"
+          className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-3xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base uppercase tracking-widest border-b-4 border-green-700"
         >
-          <MessageCircle size={20} />
-          Enviar pedido por WhatsApp
+          <MessageCircle size={20} fill="currentColor" />
+          Enviar por WhatsApp
         </button>
       </div>
     </div>
