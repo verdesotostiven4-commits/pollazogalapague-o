@@ -44,10 +44,10 @@ export default function ProductCard({ product, style, className = '', compact = 
   const displayPrice = override?.price ?? product.price;
   const effectiveProduct = { ...product, price: displayPrice };
 
-  const executeAdd = (priceOverride?: number) => {
+  // ✅ FUNCIÓN PARA EL MODAL (Pollos)
+  const executeAddVariable = (priceOverride?: number) => {
     const valToUse = priceOverride || parseFloat(customValue);
     
-    // Si no hay valor o está fuera de límites, no hace nada
     if (isNaN(valToUse) || valToUse < config.min || valToUse > config.max) return;
 
     triggerHaptic();
@@ -56,7 +56,6 @@ export default function ProductCard({ product, style, className = '', compact = 
       triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
     }
     
-    // Enviamos el precio personalizado al carrito
     addItem({ ...effectiveProduct, custom_price: valToUse });
 
     setAdded(true);
@@ -65,21 +64,24 @@ export default function ProductCard({ product, style, className = '', compact = 
     setTimeout(() => setAdded(false), 1200);
   };
 
+  // ✅ FUNCIÓN PARA PRODUCTOS NORMALES
   const handleAdd = () => {
     if (added || !available) return;
 
+    // Si es un pollo, abrimos el modal
     if (product.is_variable) {
       setShowPriceModal(true);
       return;
     }
 
-    // Para productos normales con precio fijo
+    // Si es un producto normal (Leche, Aceite, etc.)
     triggerHaptic();
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       triggerFly(rect.left + rect.width / 2, rect.top + rect.height / 2, product.image ?? '');
     }
-    addItem(effectiveProduct);
+    
+    addItem(effectiveProduct); // Agregamos directo
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   };
@@ -187,7 +189,6 @@ export default function ProductCard({ product, style, className = '', compact = 
                 </div>
               </div>
 
-              {/* ✅ BOTONES DE PRECIO LIMPIOS (No se agregan solos, solo seleccionan) */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {config.presets.map((val) => (
                   <button 
@@ -218,14 +219,13 @@ export default function ProductCard({ product, style, className = '', compact = 
                 />
               </div>
 
-              {/* Mensaje de error si el valor es menor al permitido */}
               {customValue !== '' && parseFloat(customValue) < config.min && (
                 <p className="text-[10px] text-red-500 font-black uppercase text-center mb-4">⚠️ El valor mínimo es ${config.min.toFixed(2)}</p>
               )}
 
               <button 
                 type="button"
-                onClick={() => isValid && executeAdd()}
+                onClick={() => isValid && executeAddVariable()}
                 disabled={!isValid}
                 className="w-full h-14 bg-orange-500 rounded-2xl font-black text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-30 transition-all uppercase tracking-widest"
               >
