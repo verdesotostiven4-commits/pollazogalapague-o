@@ -69,19 +69,23 @@ function triggerHaptic() {
 }
 
 export default function CartScreen({ onCheckout, onNavigate }: Props) {
-  const { items, removeItem, updateQuantity, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, total } = useCart();
 
-  const fixedTotal = items.reduce((sum, i) => {
-    if (!isFixedPrice(i.product.price)) return sum;
-    return sum + parseFloat((i.product.price ?? '0').replace('$', '')) * i.quantity;
-  }, 0);
-  const hasConsult = items.some(i => !isFixedPrice(i.product.price));
+  // ✅ CORRECCIÓN: Un producto necesita consulta SOLO si no tiene precio fijo NI precio personalizado
+  const needsConsultation = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
 
   const handleCheckout = () => {
     triggerHaptic();
     spawnConfetti();
     setTimeout(() => onCheckout(), 200);
+  };
+
+  // ✅ CORRECCIÓN: Confirmación para vaciar el carrito
+  const handleClearCart = () => {
+    if (window.confirm('¿Estás seguro de que quieres vaciar todo tu carrito? 🐣')) {
+      clearCart();
+    }
   };
 
   if (items.length === 0) {
@@ -103,68 +107,84 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="flex-1 px-4 pt-4 pb-2 space-y-3">
+    <div className="flex flex-col h-full bg-white">
+      {/* ✅ CORRECCIÓN: Lista scrollable para que no crezca infinitamente */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3 scrollbar-hide">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Resumen de productos</h3>
+          <button onClick={handleClearCart} className="text-red-500 text-[10px] font-black uppercase hover:underline">
+            Vaciar carrito
+          </button>
+        </div>
+        
         {items.map(item => {
+          // ✅ CORRECCIÓN: Lógica para mostrar el precio real (Custom o Fixed)
+          const customPrice = item.product.custom_price;
           const fixed = isFixedPrice(item.product.price);
-          const subtotal = fixed
-            ? (parseFloat((item.product.price ?? '0').replace('$', '')) * item.quantity).toFixed(2)
-            : null;
+          const priceValue = customPrice || (fixed ? parseFloat((item.product.price ?? '0').replace('$', '')) : null);
+          const itemSubtotal = priceValue ? (priceValue * item.quantity).toFixed(2) : null;
+
           return (
-            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
+            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-50">
                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain p-1" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-bold text-sm leading-snug truncate">{item.product.name}</p>
-                <p className={`text-xs mt-0.5 font-semibold ${fixed ? 'text-orange-500' : 'text-gray-400'}`}>
-                  {fixed ? `$${subtotal}` : 'Consultar precio'}
+                <p className="text-gray-900 font-bold text-[13px] leading-tight truncate">{item.product.name}</p>
+                <p className={`text-[11px] mt-0.5 font-black uppercase italic ${priceValue ? 'text-orange-500' : 'text-gray-400'}`}>
+                  {priceValue ? `$${itemSubtotal}` : 'Consultar precio'}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                    className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 active:scale-90 active:bg-orange-100 transition-all">
-                    <Minus size={13} />
+                    className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 active:scale-90 active:bg-orange-100 transition-all">
+                    <Minus size={12} />
                   </button>
-                  <span className="text-gray-900 font-black text-sm w-6 text-center">{item.quantity}</span>
+                  <span className="text-gray-900 font-black text-xs w-5 text-center">{item.quantity}</span>
                   <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                    className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 active:scale-90 active:bg-orange-200 transition-all">
-                    <Plus size={13} />
+                    className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 active:scale-90 active:bg-orange-200 transition-all">
+                    <Plus size={12} />
                   </button>
                 </div>
               </div>
               <button onClick={() => removeItem(item.product.id)}
-                className="self-center p-2 text-gray-300 hover:text-red-400 active:text-red-500 rounded-xl hover:bg-red-50 transition-all">
+                className="self-center p-2 text-gray-300 hover:text-red-400 active:text-red-500 rounded-xl transition-all">
                 <Trash2 size={16} />
               </button>
             </div>
           );
         })}
-        <button onClick={clearCart} className="w-full text-gray-400 text-xs font-semibold py-2 active:text-red-400 transition-colors">
-          Vaciar pedido
-        </button>
       </div>
 
-      <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-3">
+      {/* ✅ SECCIÓN INFERIOR FIJA */}
+      <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] space-y-3">
         <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Productos</span>
-            <span className="text-gray-800 font-bold">{totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}</span>
+          <div className="flex justify-between text-[11px] font-bold uppercase tracking-tighter">
+            <span className="text-gray-400">Total productos</span>
+            <span className="text-gray-800">{totalUnits} paquete{totalUnits !== 1 ? 's' : ''}</span>
           </div>
-          {fixedTotal > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">{hasConsult ? 'Subtotal parcial' : 'Total'}</span>
-              <span className="text-orange-600 font-black">${fixedTotal.toFixed(2)}</span>
+          
+          <div className="flex justify-between items-baseline">
+            <span className="text-[11px] font-black uppercase text-gray-400">
+              {needsConsultation ? 'Subtotal parcial' : 'Total a pagar'}
+            </span>
+            <div className="text-right">
+              <span className="text-2xl font-black text-orange-600 leading-none">${total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {needsConsultation && (
+            <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-1">
+              <AlertCircle size={12} className="text-orange-500" />
+              <p className="text-[9px] text-gray-400 font-bold uppercase">
+                Algunos productos requieren confirmación de peso/precio
+              </p>
             </div>
           )}
-          {hasConsult && (
-            <p className="text-xs text-gray-400 pt-1 border-t border-gray-200">
-              Algunos productos requieren confirmación de precio
-            </p>
-          )}
         </div>
+
         <button
           onClick={handleCheckout}
-          className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base"
+          className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base uppercase tracking-widest"
         >
           <MessageCircle size={20} />
           Enviar pedido por WhatsApp
