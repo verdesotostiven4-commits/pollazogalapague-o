@@ -37,6 +37,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [lng, setLng] = useState<number | null>(null);
   const [reference, setReference] = useState('');
   
+  // Nuevo estado para la ubicación REAL del usuario (Punto Azul)
+  const [userActualPos, setUserActualPos] = useState<{lat: number, lng: number} | null>(null);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -55,16 +58,14 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           center: [startLat, startLng],
           zoom: 17,
           zoomControl: false,
-          attributionControl: false // 🛑 QUITA EL TEXTO DE LEAFLET
+          attributionControl: false 
         });
 
-        // 🗺️ CAPA ESTILO GOOGLE MAPS (MODO CLARO)
         L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 20,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(mapInstance.current);
 
-        // EVENTOS DE MOVIMIENTO
         mapInstance.current.on('movestart', () => setIsDragging(true));
         mapInstance.current.on('move', () => {
           const center = mapInstance.current.getCenter();
@@ -85,9 +86,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     };
   }, [step]);
 
-  // 🔵 PUNTO AZUL (UBICACIÓN REAL DEL CLIENTE)
+  // 🔵 PUNTO AZUL (UBICACIÓN REAL DEL CLIENTE - FIJA)
   useEffect(() => {
-    if (mapInstance.current && lat && lng && !isDragging) {
+    if (mapInstance.current && userActualPos) {
       if (!userMarkerRef.current) {
         const blueDotIcon = L.divIcon({
           className: 'custom-div-icon',
@@ -98,12 +99,12 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           iconSize: [20, 20],
           iconAnchor: [10, 10]
         });
-        userMarkerRef.current = L.marker([lat, lng], { icon: blueDotIcon }).addTo(mapInstance.current);
+        userMarkerRef.current = L.marker([userActualPos.lat, userActualPos.lng], { icon: blueDotIcon }).addTo(mapInstance.current);
       } else {
-        userMarkerRef.current.setLatLng([lat, lng]);
+        userMarkerRef.current.setLatLng([userActualPos.lat, userActualPos.lng]);
       }
     }
-  }, [lat, lng, isDragging]);
+  }, [userActualPos]);
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -111,8 +112,12 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
+        // Actualizamos la posición real (Punto azul)
+        setUserActualPos({ lat: latitude, lng: longitude });
+        // Movemos el marcador de entrega (Pin naranja) a esa posición
         setLat(latitude);
         setLng(longitude);
+        
         if (mapInstance.current) {
           mapInstance.current.flyTo([latitude, longitude], 18, { duration: 1.5 });
         }
@@ -187,7 +192,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         
-        {/* HEADER */}
         <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200">
@@ -204,7 +208,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
         <div className="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2 space-y-5">
           {step === 1 ? (
-            /* PASO 1: PERFIL - SE QUEDA IGUAL PORQUE YA SERVIA */
             <div className="animate-in slide-in-from-left duration-300">
                <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
                 <div className="relative">
@@ -241,40 +244,33 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               </div>
             </div>
           ) : (
-            /* 📍 PASO 2: EL NUEVO MAPA INTERACTIVO */
             <div className="animate-in slide-in-from-right duration-300 space-y-4">
               <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
                 
-                {/* 🛡️ OVERLAY DE CONFIRMACIÓN */}
                 <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[2000] px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
                   <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
                     {lat ? "📍 Punto marcado correctamente" : "Mueve para marcar"}
                   </p>
                 </div>
 
-                {/* 🎯 PUNTO DE PRECISIÓN EN EL SUELO (TARGET DOT) */}
+                {/* 🎯 BLANCO DE PRECISIÓN BLANCO Y PALPITANTE */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
-                  <div className="w-2 h-2 bg-black rounded-full shadow-lg border border-white/50" />
+                  <div className="w-3 h-3 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9)] border-2 border-orange-500 animate-pulse" />
                 </div>
 
-                {/* 📍 PIN DINÁMICO (INDREIVE STYLE) */}
                 <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[1001] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
                   ${isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'}`}>
                   
-                  {/* El Cuerpo del Icono */}
                   <div className="bg-orange-500 p-2 rounded-2xl shadow-[0_10px_20px_rgba(249,115,22,0.4)] border-2 border-white">
                     <MapPin size={24} className="text-white fill-white" />
                   </div>
                   
-                  {/* 📏 LA COLITA (RAYITA DE PRECISIÓN) */}
                   <div className={`w-[3px] bg-orange-600 transition-all duration-300 ${isDragging ? 'h-10 opacity-40' : 'h-4 opacity-100'}`} />
                   
-                  {/* Sombra en el suelo */}
                   <div className="w-2 h-1 bg-black/20 rounded-full blur-[1px]" />
                 </div>
 
-                {/* 🧭 BOTÓN GPS FLOTANTE MODERNO */}
                 <button 
                   onClick={handleGetLocation}
                   className={`absolute bottom-6 right-6 z-[1000] p-4 rounded-3xl shadow-2xl transition-all ${isLocating ? 'bg-orange-500 animate-spin text-white' : 'bg-white text-slate-800 active:scale-75'}`}
@@ -288,7 +284,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 <textarea 
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ej: Casa blanca de dos pisos, portón negro, junto a la farmacia..."
+                  placeholder="Ej: Casa blanca de dos pisos junto a la panadería 'El Buen Gusto', portón café..."
                   className="w-full h-20 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
                 />
               </div>
@@ -297,7 +293,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
         </div>
 
-        {/* FOOTER */}
         <div className="p-6 pt-2 bg-white flex-shrink-0 border-t border-slate-50 flex gap-3">
           {step === 2 && (
             <button onClick={() => setStep(1)} className="p-4 rounded-2xl bg-slate-100 text-slate-500 active:scale-90 transition-all">
