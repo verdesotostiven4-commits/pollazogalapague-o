@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
@@ -74,6 +74,10 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [showArrow, setShowArrow] = useState(true); 
   
+  // ✅ ESTADOS DE MÉTODOS DE PAGO INTEGRADOS
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'deuna' | 'transferencia'>('efectivo');
+  const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleClearRequest = () => {
@@ -103,12 +107,21 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     }
   };
 
+  // ✅ Función interactiva para copiar datos de transferencia automáticamente
+  const handleCopyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedLabel(label);
+    setTimeout(() => setCopiedLabel(null), 2000);
+  };
+
   const hasConsult = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
 
   const handleCheckout = () => {
     triggerHaptic();
     spawnConfetti();
+    // ✅ Guarda de forma transparente el método de pago seleccionado para uso de WhatsApp/Admin
+    localStorage.setItem('selectedPaymentMethod', paymentMethod);
     setTimeout(() => onCheckout(), 200);
   };
 
@@ -131,10 +144,8 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   }
 
   return (
-    /* ✅ CAMBIO: h-full y overflow-hidden para bloquear el scroll exterior */
     <div className="flex flex-col h-full bg-white overflow-hidden relative">
-      
-      {/* ✅ CAMBIO: flex-1 sin max-h rígido para que se ajuste al espacio real */}
+      {/* Contenedor con scroll para los productos */}
       <div 
         ref={scrollRef} 
         onScroll={handleScroll}
@@ -184,10 +195,127 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
         >
           {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar carrito'}
         </button>
+
+        {/* ✅ NUEVA SECCIÓN: SELECTOR DE MÉTODOS DE PAGO INTERACTIVOS */}
+        <div className="pt-4 border-t border-gray-100 space-y-3">
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Método de Pago</h3>
+          
+          <div className="grid grid-cols-3 gap-2">
+            {/* Botón Efectivo */}
+            <button
+              onClick={() => setPaymentMethod('efectivo')}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
+                paymentMethod === 'efectivo'
+                  ? 'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm'
+                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              }`}
+            >
+              <Banknote size={20} className={paymentMethod === 'efectivo' ? 'text-orange-500' : 'text-gray-400'} />
+              <span className="text-[11px] mt-1">Efectivo</span>
+            </button>
+
+            {/* Botón Deuna! */}
+            <button
+              onClick={() => setPaymentMethod('deuna')}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
+                paymentMethod === 'deuna'
+                  ? 'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm'
+                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              }`}
+            >
+              <QrCode size={20} className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-gray-400'} />
+              <span className="text-[11px] mt-1">Deuna!</span>
+            </button>
+
+            {/* Botón Transferencia */}
+            <button
+              onClick={() => setPaymentMethod('transferencia')}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
+                paymentMethod === 'transferencia'
+                  ? 'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm'
+                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              }`}
+            >
+              <Building size={20} className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-gray-400'} />
+              <span className="text-[11px] mt-1">Banco</span>
+            </button>
+          </div>
+
+          {/* Información Dinámica Desplegable */}
+          <div className="transition-all duration-300">
+            {paymentMethod === 'efectivo' && (
+              <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 text-center animate-in fade-in slide-in-from-top-1">
+                <p className="text-xs text-gray-500 font-bold">Pagas en efectivo al recibir tu pedido. Lleva el valor aproximado para facilitar el cambio. 💵</p>
+              </div>
+            )}
+
+            {paymentMethod === 'deuna' && (
+              <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in slide-in-from-top-1">
+                <p className="text-xs text-purple-900 font-black uppercase tracking-tight">Escanea el código desde tu App Deuna! o Pichincha</p>
+                <div className="w-32 h-32 bg-white rounded-xl p-2 border border-purple-200/60 shadow-inner flex items-center justify-center">
+                  <img 
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR" 
+                    alt="QR Deuna" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <p className="text-[10px] text-purple-500 font-bold uppercase tracking-tight">⚠️ No olvides enviar el comprobante por WhatsApp</p>
+              </div>
+            )}
+
+            {paymentMethod === 'transferencia' && (
+              <div className="bg-blue-50/40 rounded-2xl p-3 border border-blue-100 space-y-2 animate-in fade-in slide-in-from-top-1">
+                <p className="text-xs text-blue-900 font-black uppercase tracking-tight">Datos únicos de cuenta (Acepta interbancarios):</p>
+                
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                    <div>
+                      <span className="text-[9px] text-gray-400 block font-bold uppercase">Banco</span>
+                      <span className="font-bold text-gray-700">Banco Pichincha (Ahorros)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                    <div>
+                      <span className="text-[9px] text-gray-400 block font-bold uppercase">Número de Cuenta</span>
+                      <span className="font-mono font-black text-gray-800">2204567890</span>
+                    </div>
+                    <button 
+                      onClick={() => handleCopyText('2204567890', 'cuenta')}
+                      className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
+                    >
+                      {copiedLabel === 'cuenta' ? '¡Copiado!' : 'Copiar'}
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                    <div>
+                      <span className="text-[9px] text-gray-400 block font-bold uppercase">Cédula / Identificación</span>
+                      <span className="font-mono font-black text-gray-800">1726543210</span>
+                    </div>
+                    <button 
+                      onClick={() => handleCopyText('1726543210', 'cedula')}
+                      className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
+                    >
+                      {copiedLabel === 'cedula' ? '¡Copiado!' : 'Copiar'}
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                    <div>
+                      <span className="text-[9px] text-gray-400 block font-bold uppercase">Beneficiario</span>
+                      <span className="font-bold text-gray-700">La Casa del Pollazo</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-blue-500 font-bold uppercase tracking-tight mt-1">⚠️ Obligatorio enviar el comprobante por WhatsApp</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {showArrow && items.length > 5 && (
-        /* ✅ AJUSTE: Posición de la flecha un poco más arriba para que no choque con el total */
         <div 
           onClick={scrollToBottom}
           className="absolute bottom-[240px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
@@ -196,7 +324,7 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
         </div>
       )}
 
-      {/* ✅ CAMBIO: pb-4 en lugar de pb-6 para que no haya espacio extra abajo del botón */}
+      {/* Sección inferior fija */}
       <div className="px-4 pb-4 pt-3 bg-white border-t border-gray-100 space-y-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
           <div className="flex justify-between text-sm">
