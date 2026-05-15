@@ -1,5 +1,6 @@
-import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useState } from 'react';
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
 
@@ -70,10 +71,10 @@ function triggerHaptic() {
 
 export default function CartScreen({ onCheckout, onNavigate }: Props) {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart();
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  // ✅ CORRECCIÓN: Un producto necesita consulta SOLO si no tiene precio fijo NI precio personalizado
-  const needsConsultation = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
+  const hasConsult = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
 
   const handleCheckout = () => {
     triggerHaptic();
@@ -81,10 +82,13 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     setTimeout(() => onCheckout(), 200);
   };
 
-  // ✅ CORRECCIÓN: Confirmación para vaciar el carrito
-  const handleClearCart = () => {
-    if (window.confirm('¿Estás seguro de que quieres vaciar todo tu carrito? 🐣')) {
+  const handleClearClick = () => {
+    if (confirmClear) {
       clearCart();
+      setConfirmClear(false);
+    } else {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000); // Se cancela solo en 3 seg
     }
   };
 
@@ -107,81 +111,85 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* ✅ CORRECCIÓN: Lista scrollable para que no crezca infinitamente */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3 scrollbar-hide">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Resumen de productos</h3>
-          <button onClick={handleClearCart} className="text-red-500 text-[10px] font-black uppercase hover:underline">
-            Vaciar carrito
-          </button>
-        </div>
-        
+    <div className="flex flex-col min-h-full bg-white relative">
+      {/* Contenedor con Scroll */}
+      <div className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto max-h-[calc(100vh-250px)] scrollbar-hide">
         {items.map(item => {
-          // ✅ CORRECCIÓN: Lógica para mostrar el precio real (Custom o Fixed)
           const customPrice = item.product.custom_price;
           const fixed = isFixedPrice(item.product.price);
-          const priceValue = customPrice || (fixed ? parseFloat((item.product.price ?? '0').replace('$', '')) : null);
-          const itemSubtotal = priceValue ? (priceValue * item.quantity).toFixed(2) : null;
+          const currentPrice = customPrice || (fixed ? parseFloat((item.product.price ?? '0').replace('$', '')) : null);
+          const subtotal = currentPrice ? (currentPrice * item.quantity).toFixed(2) : null;
 
           return (
-            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-50">
+            <div key={item.product.id} className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain p-1" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-bold text-[13px] leading-tight truncate">{item.product.name}</p>
-                <p className={`text-[11px] mt-0.5 font-black uppercase italic ${priceValue ? 'text-orange-500' : 'text-gray-400'}`}>
-                  {priceValue ? `$${itemSubtotal}` : 'Consultar precio'}
+                <p className="text-gray-900 font-bold text-sm leading-snug truncate">{item.product.name}</p>
+                <p className={`text-xs mt-0.5 font-semibold ${currentPrice ? 'text-orange-500' : 'text-gray-400'}`}>
+                  {currentPrice ? `$${subtotal}` : 'Consultar precio'}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                    className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 active:scale-90 active:bg-orange-100 transition-all">
-                    <Minus size={12} />
+                    className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 active:scale-90 active:bg-orange-100 transition-all">
+                    <Minus size={13} />
                   </button>
-                  <span className="text-gray-900 font-black text-xs w-5 text-center">{item.quantity}</span>
+                  <span className="text-gray-900 font-black text-sm w-6 text-center">{item.quantity}</span>
                   <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                    className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 active:scale-90 active:bg-orange-200 transition-all">
-                    <Plus size={12} />
+                    className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 active:scale-90 active:bg-orange-200 transition-all">
+                    <Plus size={13} />
                   </button>
                 </div>
               </div>
               <button onClick={() => removeItem(item.product.id)}
-                className="self-center p-2 text-gray-300 hover:text-red-400 active:text-red-500 rounded-xl transition-all">
+                className="self-center p-2 text-gray-300 hover:text-red-400 active:text-red-500 rounded-xl hover:bg-red-50 transition-all">
                 <Trash2 size={16} />
               </button>
             </div>
           );
         })}
+
+        {/* Botón Vaciar Pedido al final de la lista */}
+        <button 
+          onClick={handleClearClick} 
+          className={`w-full text-xs font-bold py-4 transition-all duration-300 rounded-xl mt-2 ${
+            confirmClear ? 'bg-red-50 text-red-600 border border-red-100' : 'text-gray-400 hover:text-red-400'
+          }`}
+        >
+          {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar pedido'}
+        </button>
       </div>
 
-      {/* ✅ SECCIÓN INFERIOR FIJA */}
-      <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] space-y-3">
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-          <div className="flex justify-between text-[11px] font-bold uppercase tracking-tighter">
-            <span className="text-gray-400">Total productos</span>
-            <span className="text-gray-800">{totalUnits} paquete{totalUnits !== 1 ? 's' : ''}</span>
-          </div>
-          
-          <div className="flex justify-between items-baseline">
-            <span className="text-[11px] font-black uppercase text-gray-400">
-              {needsConsultation ? 'Subtotal parcial' : 'Total a pagar'}
-            </span>
-            <div className="text-right">
-              <span className="text-2xl font-black text-orange-600 leading-none">${total.toFixed(2)}</span>
-            </div>
-          </div>
+      {/* Flecha rebotando si hay más de 5 productos */}
+      {items.length > 5 && (
+        <div className="absolute bottom-[230px] left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce pointer-events-none">
+          <ChevronDown className="text-orange-500" size={24} strokeWidth={3} />
+        </div>
+      )}
 
-          {needsConsultation && (
-            <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-1">
+      {/* Sección Inferior Fija */}
+      <div className="px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-3 z-10">
+        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-500 font-bold uppercase text-[10px] tracking-tight">Productos</span>
+            <span className="text-gray-800 font-black">{totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}</span>
+          </div>
+          <div className="flex justify-between text-sm items-baseline">
+            <span className="text-gray-500 font-bold uppercase text-[10px] tracking-tight">
+              {hasConsult ? 'Subtotal parcial' : 'Total del pedido'}
+            </span>
+            <span className="text-orange-600 font-black text-xl">${total.toFixed(2)}</span>
+          </div>
+          {hasConsult && (
+            <div className="flex items-center gap-1.5 pt-1 border-t border-gray-200 mt-1">
               <AlertCircle size={12} className="text-orange-500" />
-              <p className="text-[9px] text-gray-400 font-bold uppercase">
-                Algunos productos requieren confirmación de peso/precio
+              <p className="text-[9px] text-gray-400 font-black uppercase">
+                Algunos productos requieren confirmación de precio
               </p>
             </div>
           )}
         </div>
-
         <button
           onClick={handleCheckout}
           className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base uppercase tracking-widest"
