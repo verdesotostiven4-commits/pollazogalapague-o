@@ -253,8 +253,13 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                   </p>
                 </div>
 
+                {/* 🎯 PUNTO DE PRECISIÓN EN EL SUELO (TARGET DOT) */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
+                  <div className="w-2 h-2 bg-black rounded-full shadow-lg border border-white/50" />
+                </div>
+
                 {/* 📍 PIN DINÁMICO (INDREIVE STYLE) */}
-                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
+                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[1001] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
                   ${isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'}`}>
                   
                   {/* El Cuerpo del Icono */}
@@ -283,7 +288,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 <textarea 
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ej: Casa amarilla frente al parque..."
+                  placeholder="Ej: Casa blanca de dos pisos, portón negro, junto a la farmacia..."
                   className="w-full h-20 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
                 />
               </div>
