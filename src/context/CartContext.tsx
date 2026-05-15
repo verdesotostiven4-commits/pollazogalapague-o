@@ -15,13 +15,11 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número real del precio sin errores
+// ✅ FUNCIÓN DE PRECISIÓN: Extrae el número real del precio
 const parsePrice = (product: Product): number => {
-  // 1. Prioridad absoluta al precio del modal naranja
   if (product.custom_price && product.custom_price > 0) {
     return product.custom_price;
   }
-  // 2. Si es precio de catálogo (ej: "$1.25"), limpiamos el texto
   if (typeof product.price === 'string') {
     const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
     return isNaN(numeric) ? 0 : numeric;
@@ -34,38 +32,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const addItem = (product: Product) => {
+    // 1. Identificamos el precio unitario que se está agregando
+    const unitPrice = product.custom_price || parsePrice(product);
+    
+    // 2. Creamos un ID ÚNICO para el carrito que combine ID + PRECIO
+    // Esto hace que un pollo de $10 y uno de $15 sean "productos diferentes"
+    const cartItemId = product.custom_price ? `${product.id}-${unitPrice}` : product.id;
+
     setItems(prev => {
-      const existingIndex = prev.findIndex(i => i.product.id === product.id);
+      const existingIndex = prev.findIndex(i => i.product.id === cartItemId);
 
       if (existingIndex > -1) {
+        // ✅ SI YA EXISTE (Mismo ID y mismo Precio): Solo aumentamos cantidad
         const newItems = [...prev];
-        const item = newItems[existingIndex];
-
-        // ✅ CASO A: EL PRODUCTO YA EXISTE Y ES UN POLLO (VARIABLE)
-        if (product.custom_price) {
-          const currentCustomPrice = item.product.custom_price || 0;
-          newItems[existingIndex] = {
-            ...item,
-            product: { 
-              ...item.product, 
-              custom_price: currentCustomPrice + product.custom_price 
-            },
-            // ✅ CORREGIDO: Ahora suma 1 a la cantidad para que la tienda vea cuántos pollos son
-            quantity: item.quantity + 1 
-          };
-        } 
-        // ✅ CASO B: EL PRODUCTO YA EXISTE Y ES NORMAL (LECHE, ETC)
-        else {
-          newItems[existingIndex] = {
-            ...item,
-            quantity: item.quantity + 1
-          };
-        }
+        newItems[existingIndex] = {
+          ...newItems[existingIndex],
+          quantity: newItems[existingIndex].quantity + 1
+        };
         return newItems;
       }
 
-      // ✅ CASO C: PRODUCTO NUEVO EN EL CARRITO
-      return [...prev, { product, quantity: 1 }];
+      // ✅ SI ES NUEVO O PRECIO DIFERENTE: Lo agregamos como fila nueva
+      // Clonamos el producto para ponerle el ID único del carrito
+      return [...prev, { 
+        product: { ...product, id: cartItemId }, 
+        quantity: 1 
+      }];
     });
   };
 
@@ -85,18 +77,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ TOTAL EN DINERO ($)
+  // ✅ TOTAL EN DINERO ($): Cálculo limpio (Precio Unitario * Cantidad)
   const total = items.reduce((sum, item) => {
-    // ✅ CORREGIDO: Si es un producto con custom_price (pollo), 
-    // el valor acumulado ya está en item.product.custom_price. No multiplicamos por cantidad.
-    if (item.product.custom_price) {
-      return sum + item.product.custom_price;
-    }
-    const price = parsePrice(item.product);
-    return sum + (price * item.quantity);
+    const unitPrice = parsePrice(item.product);
+    return sum + (unitPrice * item.quantity);
   }, 0);
 
-  // ✅ CANTIDAD DE PAQUETES: Suma las unidades para la burbuja del Header
+  // ✅ CANTIDAD DE PAQUETES: Suma de unidades reales
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
