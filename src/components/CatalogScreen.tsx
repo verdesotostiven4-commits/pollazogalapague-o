@@ -103,7 +103,8 @@ interface Props {
 
 export default function CatalogScreen({ initialCategory = 'Todos', onCategoryChange, onNavigate }: Props) {
   const { products, categories } = useAdmin();
-  const { total, items, setIsOpen } = useCart();
+  // ✅ CORREGIDO: Extraemos cartCount para la burbuja
+  const { total, items, setIsOpen, cartCount } = useCart();
   
   const ALL_CATS = ORDERED_CATEGORIES.filter(c => c === 'Todos' || categories.includes(c as Category)) as ('Todos' | Category)[];
   
@@ -122,17 +123,13 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
     let money = 0;
     let hasVariablePrices = false;
     items.forEach(item => {
-      const p = products.find(prod => prod.id === item.product.id) || item.product;
-      const priceStr = p.price || '';
-      if (priceStr.toLowerCase().includes('consultar')) {
-        hasVariablePrices = true;
-      } else {
-        const numMatch = priceStr.match(/[\d.]+/);
-        money += (numMatch ? parseFloat(numMatch[0]) : 0) * item.quantity;
-      }
+      // Usamos el custom_price si existe para la matemática del dinero
+      const price = item.product.custom_price || parseFloat((item.product.price || '0').replace(/[^0-9.]/g, ''));
+      money += price * item.quantity;
+      if (item.product.is_variable) hasVariablePrices = true;
     });
     return { totalMoney: money, hasVariablePrices };
-  }, [items, products]);
+  }, [items]);
 
   const subcategories = useMemo(() => {
     if (activeCategory === 'Todos') return [];
@@ -311,14 +308,15 @@ export default function CatalogScreen({ initialCategory = 'Todos', onCategoryCha
         </div>
       </div>
 
-      {total > 0 && (
+      {cartCount > 0 && (
         <div className="fixed bottom-[85px] left-0 right-0 z-[200] px-4 animate-in slide-in-from-bottom-8">
           <div className="max-w-md mx-auto">
             <button onClick={openCart} className="w-full bg-orange-500 p-3 rounded-[32px] shadow-2xl flex items-center justify-between border border-orange-400 active:scale-95 transition-transform">
               <div className="flex items-center gap-3 pl-3 text-white">
                 <div className="relative bg-white/20 p-2.5 rounded-full shadow-inner">
                   <ShoppingBag size={20} />
-                  <span className="absolute -top-2 -right-2 bg-white text-orange-600 text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-orange-500 animate-bounce">{total}</span>
+                  {/* ✅ CORREGIDO: Muestra cartCount (unidades reales) */}
+                  <span className="absolute -top-2 -right-2 bg-white text-orange-600 text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-orange-500 animate-bounce">{cartCount}</span>
                 </div>
                 <div className="flex flex-col text-left">
                   <span className="text-white/80 text-[9px] font-black uppercase">{cartAnalytics.hasVariablePrices ? 'Subtotal Aprox.' : 'Total del Pedido'}</span>
