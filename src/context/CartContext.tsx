@@ -7,8 +7,8 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  total: number; // Ahora representa el total en $
-  cartCount: number; // Nueva: representa la cantidad de productos
+  total: number; // Suma total en DINERO ($)
+  cartCount: number; // Suma total en UNIDADES (Burbuja roja)
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
@@ -34,21 +34,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map(i => {
           if (i.product.id === product.id) {
-            // ✅ LÓGICA VIP: Si es pollo por valor, sumamos el presupuesto al existente
+            // ✅ LÓGICA PARA POLLOS (PRESUPUESTO):
+            // Si el producto tiene precio personalizado, sumamos el dinero al precio, pero mantenemos la cantidad en 1.
             if (product.custom_price) {
-              const currentCustomPrice = i.product.custom_price || 0;
               return { 
                 ...i, 
-                product: { ...i.product, custom_price: currentCustomPrice + product.custom_price } 
+                product: { 
+                  ...i.product, 
+                  custom_price: (i.product.custom_price || 0) + product.custom_price 
+                },
+                quantity: 1 // El presupuesto siempre cuenta como 1 paquete/entrega
               };
             }
-            // Si es producto normal, solo subimos cantidad
+            // ✅ LÓGICA PARA PRODUCTOS NORMALES:
+            // Sumamos la cantidad normalmente (1+1=2)
             return { ...i, quantity: i.quantity + 1 };
           }
           return i;
         });
       }
-      // Si es producto nuevo
+      // Si es un producto nuevo en el carrito
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -69,13 +74,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ MATEMÁTICA PRO: Sumar dólares reales
+  // ✅ TOTAL EN DINERO: Multiplica precio por cantidad
   const total = items.reduce((sum, item) => {
     const price = parsePrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
 
-  // ✅ CANTIDAD TOTAL DE ITEMS (Para la burbuja del carrito)
+  // ✅ TOTAL EN UNIDADES: Cuenta cuántos paquetes hay para la burbuja roja
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
