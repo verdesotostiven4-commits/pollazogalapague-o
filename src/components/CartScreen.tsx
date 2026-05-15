@@ -72,15 +72,24 @@ function triggerHaptic() {
 export default function CartScreen({ onCheckout, onNavigate }: Props) {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart();
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showArrow, setShowArrow] = useState(true); // ✅ Estado para la flecha
 
-  // Lógica para el botón de vaciar
   const handleClearRequest = () => {
     if (confirmClear) {
       clearCart();
       setConfirmClear(false);
     } else {
       setConfirmClear(true);
-      setTimeout(() => setConfirmClear(false), 3000); // Se resetea tras 3 segundos
+      setTimeout(() => setConfirmClear(false), 3000);
+    }
+  };
+
+  // ✅ Función para ocultar la flecha al hacer scroll
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop > 10) {
+      setShowArrow(false);
+    } else {
+      setShowArrow(true);
     }
   };
 
@@ -114,12 +123,13 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
   return (
     <div className="flex flex-col min-h-full bg-white relative">
       {/* Contenedor con scroll para los productos */}
-      <div className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-hide">
+      <div 
+        onScroll={handleScroll} // ✅ Listener de scroll
+        className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-hide"
+      >
         {items.map(item => {
           const customPrice = item.product.custom_price;
           const fixed = isFixedPrice(item.product.price);
-          
-          // Calculamos el subtotal: si hay custom_price lo usamos, si no el fijo, si no null
           const priceToDisplay = customPrice || (fixed ? parseFloat((item.product.price ?? '0').replace('$', '')) : null);
           const itemSubtotal = priceToDisplay ? (priceToDisplay * item.quantity).toFixed(2) : null;
 
@@ -153,19 +163,19 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
           );
         })}
 
-        {/* Botón de vaciar pedido con confirmación interna */}
+        {/* ✅ Texto cambiado a: Vaciar carrito */}
         <button 
           onClick={handleClearRequest} 
           className={`w-full text-xs font-semibold py-4 transition-all duration-300 ${
             confirmClear ? 'text-red-600 font-black scale-105' : 'text-gray-400 active:text-red-400'
           }`}
         >
-          {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar pedido'}
+          {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar carrito'}
         </button>
       </div>
 
-      {/* Flecha rebotando solo si hay más de 5 productos */}
-      {items.length > 5 && (
+      {/* ✅ Flecha rebotando: Ahora desaparece al bajar y se mantiene arriba de los productos */}
+      {showArrow && items.length > 5 && (
         <div className="absolute bottom-[230px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20">
           <ChevronDown size={28} strokeWidth={3} />
         </div>
