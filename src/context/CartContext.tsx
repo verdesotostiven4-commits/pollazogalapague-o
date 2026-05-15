@@ -50,7 +50,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ...item.product, 
               custom_price: currentCustomPrice + product.custom_price 
             },
-            quantity: 1 // Los pollos por valor siempre cuentan como 1 paquete
+            // ✅ CORREGIDO: Ahora suma 1 a la cantidad para que la tienda vea cuántos pollos son
+            quantity: item.quantity + 1 
           };
         } 
         // ✅ CASO B: EL PRODUCTO YA EXISTE Y ES NORMAL (LECHE, ETC)
@@ -64,7 +65,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       // ✅ CASO C: PRODUCTO NUEVO EN EL CARRITO
-      // Si es un pollo con precio de modal, entra con cantidad 1
       return [...prev, { product, quantity: 1 }];
     });
   };
@@ -85,8 +85,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  // ✅ TOTAL EN DINERO ($): Suma el precio real de cada item
+  // ✅ TOTAL EN DINERO ($)
   const total = items.reduce((sum, item) => {
+    // ✅ CORREGIDO: Si es un producto con custom_price (pollo), 
+    // el valor acumulado ya está en item.product.custom_price. No multiplicamos por cantidad.
+    if (item.product.custom_price) {
+      return sum + item.product.custom_price;
+    }
     const price = parsePrice(item.product);
     return sum + (price * item.quantity);
   }, 0);
