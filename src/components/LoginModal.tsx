@@ -16,7 +16,7 @@ interface LoginModalProps {
     lng: number | null;
     reference: string;
   }) => void;
-  isMandatory?: boolean; // ✅ NUEVA PROP: Para obligar el registro desde el carrito
+  isMandatory?: boolean; // PROP: Para obligar el registro desde el carrito
 }
 
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
@@ -45,7 +45,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. 🔥 MOTOR DE MAPA MODERNO CON AUTO-CENTRADO GPS INSTANTÁNEO
+  // 1. 🔥 MOTOR DE MAPA MODERNO
   useEffect(() => {
     if (step === 2 && mapContainerRef.current && !mapInstance.current) {
       setTimeout(() => {
@@ -76,25 +76,9 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
         mapInstance.current.invalidateSize();
 
-        // ✅ AUTO-GEOLOCALIZACIÓN: Intenta centrar automáticamente sin pulsar botones
-        if (!lat || !lng) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const { latitude, longitude } = pos.coords;
-              setUserActualLocation({ lat: latitude, lng: longitude });
-              setLat(latitude);
-              setLng(longitude);
-              if (mapInstance.current) {
-                mapInstance.current.flyTo([latitude, longitude], 18, { duration: 1.2 });
-              }
-            },
-            () => {
-              // Si falla o la deniega, se queda tranquilamente en el DEFAULT_CENTER
-            },
-            { enableHighAccuracy: true }
-          );
-        } else {
-          setUserActualLocation({ lat: startLat, lng: startLng });
+        // Si ya capturamos la ubicación real en el botón anterior, vuela directo allá
+        if (userActualLocation) {
+          mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, { duration: 1.2 });
         }
       }, 300);
     }
@@ -104,10 +88,11 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         mapInstance.current.remove();
         mapInstance.current = null;
       }
+      userMarkerRef.current = null; // ✅ CORRECCIÓN: Reseteamos el punto azul al destruir el mapa para que no desaparezca
     };
   }, [step]);
 
-  // 🔵 PUNTO AZUL (SÓLO UBICACIÓN REAL DEL CLIENTE)
+  // 🔵 PUNTO AZUL (FIJO EN TU UBICACIÓN REAL ESTILO GOOGLE MAPS)
   useEffect(() => {
     if (mapInstance.current && userActualLocation) {
       if (!userMarkerRef.current) {
@@ -125,7 +110,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         userMarkerRef.current.setLatLng([userActualLocation.lat, userActualLocation.lng]);
       }
     }
-  }, [userActualLocation]);
+  }, [userActualLocation, step]); // ✅ CORRECCIÓN: Escucha cambios de paso para redibujarse siempre
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -150,7 +135,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     );
   };
 
-  // ✅ CONTROL DE ERRORES DINÁMICOS AL ENTRAR (MODO MANDATORIO)
   useEffect(() => {
     if (!isOpen) return;
     setName(customerName || '');
@@ -198,13 +182,31 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     e.target.value = '';
   };
 
+  // ✅ CORRECCIÓN: El botón "Continuar" ahora activa el GPS en segundo plano de forma inteligente
   const handleNextStep = () => {
     if (!name.trim() || !whatsapp.trim()) {
       setError(isMandatory ? '¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.' : 'Escribe tu nombre y WhatsApp');
       return;
     }
-    setError(isMandatory && (!lat || !lng || !reference.trim()) ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.' : '');
-    setStep(2);
+    setError('');
+    
+    // Dispara el GPS justo en el clic de avanzar para que el mapa abra centrado y con el Punto Azul listo
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setUserActualLocation({ lat: latitude, lng: longitude });
+        if (!lat || !lng) {
+          setLat(latitude);
+          setLng(longitude);
+        }
+        setStep(2);
+      },
+      () => {
+        // Si el usuario deniega o falla el GPS, igual avanza al centro por defecto sin trabar la app
+        setStep(2);
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const handleSave = () => {
@@ -219,7 +221,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-      {/* ✅ Bloqueamos el cierre al dar clic afuera si es mandatorio */}
       <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" onClick={isMandatory ? undefined : onClose} />
       
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
@@ -237,16 +238,8 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             </div>
           </div>
           
-          {/* ✅ ACCIONES TOP: Omitir y X condicionales */}
           <div className="flex items-center gap-1.5">
-            {!isMandatory && (
-              <button 
-                onClick={onClose} 
-                className="text-[10px] font-black text-slate-400 hover:text-orange-500 transition-colors uppercase tracking-wider bg-slate-100/80 px-3 py-2 rounded-xl active:scale-95"
-              >
-                Omitir por ahora
-              </button>
-            )}
+            {/* ✅ MODIFICADO: Eliminado el botón "Omitir por ahora" dejando únicamente la X condicional */}
             {!isMandatory && (
               <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all">
                 <X size={18}/>
@@ -299,19 +292,19 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
               <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
                 
-                {/* 🛡️ OVERLAY DE CONFIRMACIÓN */}
+                {/* OVERLAY DE CONFIRMACIÓN */}
                 <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[2000] px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
                   <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
                     {lat ? "📍 Punto marcado correctamente" : "Mueve para marcar"}
                   </p>
                 </div>
 
-                {/* 🎯 PUNTO DE PRECISIÓN GRIS PALPITANTE (SOLO AL MOVER) */}
+                {/* PUNTO DE PRECISIÓN GRIS PALPITANTE */}
                 <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none transition-opacity duration-200 ${isDragging ? 'opacity-100' : 'opacity-0'}`}>
                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full shadow-lg border border-white/50 animate-pulse" />
                 </div>
 
-                {/* 📍 PIN DINÁMICO */}
+                {/* PIN DINÁMICO */}
                 <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[101] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
                   ${isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'}`}>
                   
