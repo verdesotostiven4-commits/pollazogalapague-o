@@ -173,7 +173,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     );
   };
 
-  // ✅ CONTROL INTERCEPTOR DE INICIALIZACIÓN MUTABLE
+  // ✅ CONTROL INTERCEPTOR DE INICIALIZACIÓN CON DISPARO AUTO-GPS EN CAMBIO VOLUNTARIO
   useEffect(() => {
     if (!isOpen) return;
     setName(customerName || '');
@@ -184,9 +184,29 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     setReference(customerReference || '');
 
     if (isChangingLocation) {
-      // Si el cliente explícitamente pulsa "Cambiar" dirección, vuela directo al Paso 2 (Mapa)
       setStep(2);
       setError('');
+      
+      // ✅ AUTOMATIZACIÓN DE GPS: Dispara el rastreador en background al instante sin requerir clic del cliente
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserActualLocation({ lat: latitude, lng: longitude });
+          setLat(latitude);
+          setLng(longitude);
+          setIsLocating(false);
+          
+          if (mapInstance.current) {
+            mapInstance.current.flyTo([latitude, longitude], 18, { duration: 1.5 });
+          }
+        },
+        () => {
+          setError('Activa el GPS para encontrarte');
+          setIsLocating(false);
+        },
+        { enableHighAccuracy: true }
+      );
     } else if (isMandatory) {
       if (!customerName || !customerPhone) {
         setStep(1);
