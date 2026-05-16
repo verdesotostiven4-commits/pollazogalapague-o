@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building, AlertCircle } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building, AlertCircle, MapPin } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext'; // ✅ Para validar perfil y mapa antes del pago
 
@@ -255,6 +255,27 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onE
           {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar carrito'}
         </button>
 
+        {/* ✅ SECCIÓN DE CONFIRMACIÓN / CAMBIO DE UBICACIÓN */}
+        {(customerLat && customerLng) && (
+          <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <MapPin size={16} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Dirección de Entrega</span>
+                <p className="text-xs font-bold text-gray-700 truncate">{customerReference || "Ubicación en Puerto Ayora"}</p>
+              </div>
+            </div>
+            <button 
+              onClick={onRequireLogin}
+              className="text-[11px] bg-white text-orange-600 font-black px-3 py-1.5 rounded-xl border border-gray-200/80 active:scale-95 transition-all flex-shrink-0 shadow-sm"
+            >
+              Cambiar
+            </button>
+          </div>
+        )}
+
         {/* SECCIÓN DE MÉTODOS DE PAGO INTERACTIVOS */}
         <div className="pt-4 border-t border-gray-100 space-y-3">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Método de Pago</h3>
@@ -315,7 +336,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onE
                   <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR" alt="QR Deuna" className="w-full h-full object-contain" />
                 </div>
                 
-                {/* ✅ COPIADO LOGÍSTICO EXCLUSIVO SI USA EL MISMO CELULAR */}
+                {/* COPIADO LOGÍSTICO EXCLUSIVO SI USA EL MISMO CELULAR */}
                 <div className="flex flex-col items-center gap-1 w-full pt-1">
                   <p className="text-[10px] text-purple-700 font-bold uppercase">¿En el mismo celular? Paga directo al número:</p>
                   <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[200px]">
@@ -440,7 +461,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onE
           )}
         </div>
 
-        {/* ✅ INTERRUPTOR LOGÍSTICO BI-FASE EXCLUSIVO */}
+        {/* INTERRUPTOR LOGÍSTICO BI-FASE EXCLUSIVO */}
         {isPaymentReady ? (
           isOrderSaved ? (
             <button
