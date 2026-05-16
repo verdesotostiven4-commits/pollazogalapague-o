@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useUser } from '../context/UserContext'; // ✅ NUEVA IMPORTACIÓN: Para validar perfil y mapa antes del pago
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
 
 interface Props {
   onCheckout: () => void;
   onNavigate: (s: Screen) => void;
+  onRequireLogin: () => void; // ✅ NUEVA PROP: Para ordenar a App.tsx que abra el LoginModal de inmediato
 }
 
 const isFixedPrice = (price: string | undefined) => {
@@ -74,8 +76,12 @@ const triggerDoubleTap = () => {
   try { if ('vibrate' in navigator) navigator.vibrate([25, 35, 25]); } catch {} // Dos toques rápidos
 };
 
-export default function CartScreen({ onCheckout, onNavigate }: Props) {
+export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: Props) {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart();
+  
+  // ✅ EXTRAEMOS LOS DATOS DEL PERFIL DEL USUARIO PARA EL ESCANEO EN TIEMPO REAL
+  const { customerName, customerPhone, customerLat, customerLng, customerReference } = useUser();
+
   const [confirmClear, setConfirmClear] = useState(false);
   const [showArrow, setShowArrow] = useState(true); 
   
@@ -118,9 +124,30 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     if (paymentMethod) {
       setTimeout(() => {
         scrollToBottom();
-      }, 150); // Pequeña espera para asegurar que el DOM ya renderizó los nuevos recuadros
+      }, 150); 
     }
   }, [paymentMethod, selectedBank]);
+
+  // ✅ NUEVA FUNCIÓN INTERCEPTORA: Frena el clic de cualquier método si no se ha registrado o no puso mapa
+  const handlePaymentMethodClick = (method: 'efectivo' | 'deuna' | 'transferencia') => {
+    const hasProfile = customerName && customerPhone;
+    const hasLocation = customerLat && customerLng && customerReference;
+
+    if (!hasProfile || !hasLocation) {
+      triggerDryTap();
+      onRequireLogin(); // Abre el modal obligatorio antes de desplegar nada
+      return;
+    }
+
+    // Si todo está correcto, procede normalmente con tu lógica intacta
+    setPaymentMethod(method);
+    if (method === 'transferencia') {
+      triggerDoubleTap();
+    } else {
+      setSelectedBank(null);
+      triggerDryTap();
+    }
+  };
 
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -217,14 +244,14 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
           {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar carrito'}
         </button>
 
-        {/* ✅ SECCIÓN DE MÉTODOS DE PAGO INTERACTIVOS */}
+        {/* SECCIÓN DE MÉTODOS DE PAGO INTERACTIVOS */}
         <div className="pt-4 border-t border-gray-100 space-y-3">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Método de Pago</h3>
           
           <div className="grid grid-cols-3 gap-2">
             {/* Efectivo */}
             <button
-              onClick={() => { setPaymentMethod('efectivo'); setSelectedBank(null); triggerDryTap(); }}
+              onClick={() => handlePaymentMethodClick('efectivo')} // ✅ CAMBIADO: Ejecuta el interceptor
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'efectivo'
                   ? 'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm'
@@ -237,7 +264,7 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
 
             {/* Deuna! */}
             <button
-              onClick={() => { setPaymentMethod('deuna'); setSelectedBank(null); triggerDryTap(); }}
+              onClick={() => handlePaymentMethodClick('deuna')} // ✅ CAMBIADO: Ejecuta el interceptor
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'deuna'
                   ? 'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm'
@@ -250,7 +277,7 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
 
             {/* Transferencia */}
             <button
-              onClick={() => { setPaymentMethod('transferencia'); triggerDoubleTap(); }}
+              onClick={() => handlePaymentMethodClick('transferencia')} // ✅ CAMBIADO: Ejecuta el interceptor
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'transferencia'
                   ? 'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm'
