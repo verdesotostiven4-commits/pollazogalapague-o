@@ -50,6 +50,9 @@ function AppShell() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
 
+  // ✅ NUEVO ESTADO: Para mantener el mismo código de orden entre el guardado anticipado y WhatsApp
+  const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
+
   useEffect(() => {
     const handlePopState = () => { if (screen !== 'home') setScreen('home'); };
     window.addEventListener('popstate', handlePopState);
@@ -107,6 +110,43 @@ function AppShell() {
     }
   };
 
+  // ✅ NUEVA FUNCIÓN: Registra anticipadamente la orden en Supabase al elegir ver datos de pago
+  const handleEarlySave = async () => {
+    if (!customerName || !customerPhone) return;
+
+    const code = orderCode();
+    setActiveOrderCode(code);
+
+    const detailedItems = items.map(item => {
+        const p = products.find(prod => prod.id === item.id);
+        const cleanPrice = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
+        return {
+            ...item,
+            name: p?.name || 'Producto del Menú',
+            price: cleanPrice
+        };
+    });
+
+    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const fee = deliveryFeeOf(subtotal);
+    const total = subtotal + fee;
+
+    try {
+      await createOrder({
+        order_code: code,
+        customer_phone: customerPhone,
+        items: detailedItems, 
+        subtotal: Number(subtotal.toFixed(2)),
+        total: Number(total.toFixed(2)), 
+        status: 'Por Confirmar', // Estado inicial seguro para revisar el comprobante o efectivo
+        preorder: !isStoreOpen(),
+        created_at: new Date().toISOString()
+      });
+    } catch (err) { 
+        console.error("Error crítico al guardar orden anticipada:", err); 
+    }
+  };
+
   const handleWhatsApp = async () => {
     if (!customerName || !customerPhone) {
       setPendingOrder(true);
@@ -115,7 +155,8 @@ function AppShell() {
       return;
     }
     
-    const code = orderCode();
+    // Reutiliza el código de orden previo o genera uno nuevo por seguridad si falla algo
+    const code = activeOrderCode || orderCode();
     
     const detailedItems = items.map(item => {
         const p = products.find(prod => prod.id === item.id);
@@ -127,25 +168,28 @@ function AppShell() {
         };
     });
 
-  const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const fee = deliveryFeeOf(subtotal);
     const total = subtotal + fee;
 
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
-    try {
-      await createOrder({
-        order_code: code,
-        customer_phone: customerPhone,
-        items: detailedItems, 
-        subtotal: Number(subtotal.toFixed(2)),
-        total: Number(total.toFixed(2)), 
-        status: 'Recibido',
-        preorder: !isStoreOpen(),
-        created_at: new Date().toISOString()
-      });
-    } catch (err) { 
-        console.error("Error crítico al guardar orden:", err); 
+    // Fallback: Si por alguna razón extraña no se guardó antes, lo registra aquí
+    if (!activeOrderCode) {
+      try {
+        await createOrder({
+          order_code: code,
+          customer_phone: customerPhone,
+          items: detailedItems, 
+          subtotal: Number(subtotal.toFixed(2)),
+          total: Number(total.toFixed(2)), 
+          status: 'Recibido',
+          preorder: !isStoreOpen(),
+          created_at: new Date().toISOString()
+        });
+      } catch (err) { 
+          console.error("Error crítico al guardar orden:", err); 
+      }
     }
 
     window.location.href = whatsappUrl;
@@ -154,6 +198,7 @@ function AppShell() {
         clearCart();
         setShowConfirmation(false);
         setScreen('home');
+        setActiveOrderCode(null); // Limpiamos el código activo de memoria
     }, 100);
   };
 
@@ -172,12 +217,13 @@ function AppShell() {
           />
         )}
         
-        {/* ✅ CONFIGURADO: Conectamos onRequireLogin para saltar al modal de inmediato al tocar Efectivo/Deuna/Transferencia */}
+        {/* ✅ CONFIGURADO: Pasamos la nueva función handleEarlySave a la propiedad onEarlySave */}
         {screen === 'cart' && (
           <CartScreen 
             onCheckout={() => setShowConfirmation(true)} 
             onNavigate={handleNavigate} 
             onRequireLogin={() => { setPendingOrder(true); setShowLoginModal(true); }} 
+            onEarlySave={handleEarlySave}
           />
         )}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
@@ -186,7 +232,6 @@ function AppShell() {
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
       
-      {/* ✅ CONFIGURADO: Pasamos isMandatory={pendingOrder} para activar los bloqueos estrictos cuando falte información en el pago */}
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} 
@@ -211,7 +256,7 @@ export default function App() {
     if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
   }, []);
 
-  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
+  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminDashboard></AdminProvider>;
   
   if (!landingDone) {
     return (
