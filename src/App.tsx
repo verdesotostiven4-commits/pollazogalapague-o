@@ -50,7 +50,7 @@ function AppShell() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  // ✅ NUEVO ESTADO: Para mantener el mismo código de orden entre el guardado anticipado y WhatsApp
+  // NUEVO ESTADO: Para mantener el mismo código de orden entre el guardado anticipado y WhatsApp
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ function AppShell() {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Registra anticipadamente la orden en Supabase al elegir ver datos de pago
+  // Registra anticipadamente la orden en Supabase al elegir ver datos de pago
   const handleEarlySave = async () => {
     if (!customerName || !customerPhone) return;
 
@@ -138,7 +138,7 @@ function AppShell() {
         items: detailedItems, 
         subtotal: Number(subtotal.toFixed(2)),
         total: Number(total.toFixed(2)), 
-        status: 'Por Confirmar', // Estado inicial seguro para revisar el comprobante o efectivo
+        status: 'Por Confirmar', 
         preorder: !isStoreOpen(),
         created_at: new Date().toISOString()
       });
@@ -155,7 +155,6 @@ function AppShell() {
       return;
     }
     
-    // Reutiliza el código de orden previo o genera uno nuevo por seguridad si falla algo
     const code = activeOrderCode || orderCode();
     
     const detailedItems = items.map(item => {
@@ -174,7 +173,6 @@ function AppShell() {
 
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
-    // Fallback: Si por alguna razón extraña no se guardó antes, lo registra aquí
     if (!activeOrderCode) {
       try {
         await createOrder({
@@ -198,7 +196,7 @@ function AppShell() {
         clearCart();
         setShowConfirmation(false);
         setScreen('home');
-        setActiveOrderCode(null); // Limpiamos el código activo de memoria
+        setActiveOrderCode(null); 
     }, 100);
   };
 
@@ -217,7 +215,6 @@ function AppShell() {
           />
         )}
         
-        {/* ✅ CONFIGURADO: Pasamos la nueva función handleEarlySave a la propiedad onEarlySave */}
         {screen === 'cart' && (
           <CartScreen 
             onCheckout={() => setShowConfirmation(true)} 
@@ -256,7 +253,8 @@ export default function App() {
     if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
   }, []);
 
-  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminDashboard></AdminProvider>;
+  // ✅ CORREGIDO: Eliminada la etiqueta duplicada sobrante de </AdminDashboard> que causaba el fallo de producción en Vite
+  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
   
   if (!landingDone) {
     return (
