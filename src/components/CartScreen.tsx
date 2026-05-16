@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
@@ -113,13 +113,22 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
     }
   };
 
+  // ✅ AUTO-SCROLL INTELIGENTE: Desliza hacia abajo al seleccionar método o banco para ver la info nueva sin arrastrar
+  useEffect(() => {
+    if (paymentMethod) {
+      setTimeout(() => {
+        scrollToBottom();
+      }, 150); // Pequeña espera para asegurar que el DOM ya renderizó los nuevos recuadros
+    }
+  }, [paymentMethod, selectedBank]);
+
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedLabel(label);
     setTimeout(() => setCopiedLabel(null), 2000);
   };
 
-  // ✅ Validación estricta para activar el botón de WhatsApp
+  // ✅  Validación estricta para activar el botón de WhatsApp
   const isPaymentReady = paymentMethod === 'efectivo' || paymentMethod === 'deuna' || (paymentMethod === 'transferencia' && selectedBank !== null);
 
   const hasConsult = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
@@ -409,7 +418,7 @@ export default function CartScreen({ onCheckout, onNavigate }: Props) {
           )}
         </div>
 
-        {/* ✅ LÓGICA DE CONDICIONAL: SE MUESTRA EL BOTÓN DE WHATSAPP SOLO SI YA SE COMPLETARON LOS PASOS ANTERIORES */}
+        {/* LÓGICA DE CONDICIONAL: SE MUESTRA EL BOTÓN DE WHATSAPP SOLO SI YA SE COMPLETARON LOS PASOS ANTERIORES */}
         {isPaymentReady ? (
           <button
             onClick={handleCheckout}
