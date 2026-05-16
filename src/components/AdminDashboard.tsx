@@ -17,6 +17,20 @@ const TABS = [
   { id: 'branding', label: 'Marca', Icon: Image }
 ];
 
+// ✅ DICCIONARIO DIRECTORIO DE SUBCATEGORÍAS PARA LA CASA DEL POLLAZO
+const SUBCATEGORIES_MAP: Record<Category, string[]> = {
+  'Pollos': ['Enteros', 'Por Presas', 'Asados y Broaster', 'Menudencias'],
+  'Embutidos': ['Salchichas', 'Chorizos', 'Jamones', 'Mortadelas'],
+  'Lácteos y refrigerados': ['Quesos', 'Leches', 'Yogures', 'Mantequillas y Cremas'],
+  'Abarrotes y básicos': ['Arroz y Fideos', 'Aceites', 'Enlatados', 'Azúcar y Sal', 'Harinas'],
+  'Salsas, aliños y aceites': ['Salsas Finas', 'Aliños Caseros', 'Vinagres y Aderezos'],
+  'Bebidas': ['Gaseosas', 'Jugos y Maltas', 'Aguas', 'Energizantes'],
+  'Frutas y verduras': ['Frutas', 'Verduras', 'Hierbas y Legumbres'],
+  'Snacks y dulces': ['Papas y Platanitos', 'Galletas', 'Chocolates y Caramelos'],
+  'Cuidado personal': ['Champú y Jabón', 'Cremas', 'Desodorantes y Cuidado'],
+  'Limpieza y hogar': ['Detergentes', 'Desinfectantes', 'Papel Higiénico y Toallas', 'Velas y Fósforos']
+};
+
 // ==========================================
 // 🛡️ ESCUDO ANTI-BLANCOS (ERROR BOUNDARY)
 // ==========================================
@@ -77,7 +91,18 @@ function AdminDashboardContent() {
   const [search, setSearch] = useState('');
   const [savingPrizes, setSavingPrizes] = useState(false);
   const [points, setPoints] = useState<Record<string, string>>({});
-  const [draft, setDraft] = useState({ name: '', category: 'Pollos', price: '', description: '', image: '', available: true });
+  
+  // ✅ MODIFICADO: Se expande la estructura del draft para soportar subcategorías e is_variable
+  const [draft, setDraft] = useState({ 
+    name: '', 
+    category: 'Pollos' as Category, 
+    subcategory: 'Enteros',
+    price: '', 
+    description: '', 
+    image: '', 
+    available: true,
+    is_variable: false 
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // ==========================================
@@ -94,7 +119,7 @@ function AdminDashboardContent() {
 
   const sortedProducts = useMemo(() => {
     return [...safeProducts]
-      .filter(p => `${p?.name || ''} ${p?.category || ''}`.toLowerCase().includes(search.toLowerCase()))
+      .filter(p => `${p?.name || ''} ${p?.category || ''} ${p?.subcategory || ''}`.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         const catA = a?.category || 'Otros';
         const catB = b?.category || 'Otros';
@@ -117,7 +142,7 @@ function AdminDashboardContent() {
     try {
       if (editingId) await context.updateProduct(editingId, draft);
       else await context.addProduct(draft);
-      setDraft({ name: '', category: 'Pollos', price: '', description: '', image: '', available: true });
+      setDraft({ name: '', category: 'Pollos', subcategory: 'Enteros', price: '', description: '', image: '', available: true, is_variable: false });
       setEditingId(null);
       alert("¡Guardado en el Menú!");
     } catch (e) { alert("Error al guardar"); }
@@ -125,7 +150,16 @@ function AdminDashboardContent() {
 
   const startEdit = (p: any) => {
     setEditingId(p.id);
-    setDraft({ ...p });
+    setDraft({
+      name: p.name || '',
+      category: p.category || 'Pollos',
+      subcategory: p.subcategory || SUBCATEGORIES_MAP[p.category as Category]?.[0] || '',
+      price: p.price || '',
+      description: p.description || '',
+      image: p.image || '',
+      available: p.available !== false,
+      is_variable: !!p.is_variable
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -171,7 +205,6 @@ function AdminDashboardContent() {
              {safeOrders.map(o => {
                const customer = safeCustomers.find(c => (c?.phone || '').replace(/\D/g, '') === (o?.customer_phone || '').replace(/\D/g, ''));
                
-               // ✅ LOGÍSTICA DE UBICACIÓN EXTRACTIVA (Respaldo cruzado dinámico por seguridad)
                const deliveryLat = o?.lat || customer?.lat;
                const deliveryLng = o?.lng || customer?.lng;
                const deliveryRef = o?.reference || customer?.reference || '';
@@ -183,7 +216,6 @@ function AdminDashboardContent() {
                        <div className="text-right leading-none">
                          <p className="font-black text-orange-600 text-sm italic">${Number(o?.total || 0).toFixed(2)}</p>
                          
-                         {/* ✅ DISTRIBUIDOR VISUAL DE COLORES DE ESTADOS LOGÍSTICOS */}
                          <span className={`text-[7px] font-black uppercase px-2 py-0.5 rounded-md mt-1 inline-block border ${
                            o?.status === 'Por Confirmar' ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse font-black' :
                            o?.status === 'Preparando' ? 'bg-blue-50 text-blue-600 border-blue-200' :
@@ -196,11 +228,11 @@ function AdminDashboardContent() {
                        </div>
                     </div>
                     
-                    {/* ✅ BOTÓN DE ACCESO DIRECTO RUTA GPS (Para tu Papá / Repartidor) */}
+                    {/* ✅ CORREGIDO: Trazado limpio de ruta mediante la API estándar global de mapas */}
                     {deliveryLat && deliveryLng && (
                       <div className="space-y-1.5 animate-in fade-in duration-300">
                         <a 
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${deliveryLat},${deliveryLng}`}
+                          href={`https://www.google.com/maps/search/?api=1&query=${deliveryLat},${deliveryLng}`}
                           target="_blank"
                           rel="noreferrer"
                           className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-md active:scale-[0.98] shadow-red-600/20"
@@ -218,11 +250,19 @@ function AdminDashboardContent() {
                     <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30">
                        <p className="text-[9px] font-black text-orange-700 uppercase mb-2 flex items-center gap-2"><PackageSearch size={14}/> Detalle Compra</p>
                        {(o?.items || []).length > 0 ? (o?.items || []).map((item: any, i: number) => (
-                         <div key={i} className="flex justify-between text-[10px] font-bold uppercase py-1 border-b border-orange-100/20 last:border-0"><span className="flex-1 truncate mr-2"><span className="text-orange-600 font-black">{item?.quantity || 1}x</span> {item?.name || 'Producto'}</span><span className="text-gray-400 font-black">${(parseFloat(item?.price || '0') * (item?.quantity || 1)).toFixed(2)}</span></div>
+                         <div key={i} className="flex justify-between text-[10px] font-bold uppercase py-1 border-b border-orange-100/20 last:border-0">
+                           <span className="flex-1 truncate mr-2">
+                             <span className="text-orange-600 font-black">{item?.quantity || 1}x</span> {item?.name || 'Producto'}
+                             {/* Muestra si el cliente fijó un valor libre de corte */}
+                             {item?.custom_price && <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded ml-2 font-black">VALOR FIJO DE CORTE</span>}
+                           </span>
+                           <span className="text-gray-400 font-black">
+                             ${(item?.custom_price ? item.custom_price : (parseFloat(item?.price || '0') * (item?.quantity || 1))).toFixed(2)}
+                           </span>
+                         </div>
                        )) : <p className="text-[9px] text-gray-400 font-bold italic text-center uppercase">Pedido antiguo</p>}
                     </div>
                     <div className="flex gap-2">
-                       {/* ✅ CONTROL DE FLUJO DE ESTADOS AMPLIADO DE FORMA SEGURA */}
                        <select value={o?.status} onChange={e => context.updateOrderStatus(o.id, e.target.value as any)} className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none">{['Por Confirmar', 'Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'].map(s => <option key={s} value={s}>{s}</option>)}</select>
                        <a href={buildStatusWhatsAppUrl(o?.customer_phone, o?.order_code, o?.status)} target="_blank" rel="noreferrer" className="bg-[#25D366] text-white px-5 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-md active:scale-95 transition-all"><Send size={14}/> Notificar</a>
                     </div>
@@ -237,17 +277,56 @@ function AdminDashboardContent() {
           <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <section className="bg-white rounded-[32px] p-6 shadow-xl border border-orange-100 space-y-5">
               <div className="flex items-center gap-3 border-b border-orange-50 pb-4"><div className="p-3 bg-orange-500 text-white rounded-2xl shadow-lg">{editingId ? <Edit3 size={20}/> : <Plus size={20}/>}</div><h2 className="font-black text-lg uppercase italic">{editingId ? 'Editar Plato' : 'Nuevo Producto'}</h2></div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input placeholder="Nombre..." value={draft.name} onChange={e=>setDraft({...draft, name: e.target.value})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner" />
-                <select value={draft.category} onChange={e=>setDraft({...draft, category: e.target.value as Category})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner">
-                  {(safeCategories || []).map(c => <option key={c} value={c}>{c}</option>)}
+                <input placeholder="Nombre del producto..." value={draft.name} onChange={e=>setDraft({...draft, name: e.target.value})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner" />
+                
+                {/* Selector de Categoría Madre */}
+                <select 
+                  value={draft.category} 
+                  onChange={e => {
+                    const nextCat = e.target.value as Category;
+                    setDraft({
+                      ...draft, 
+                      category: nextCat,
+                      subcategory: SUBCATEGORIES_MAP[nextCat]?.[0] || '' // Resetea auto a la primera subcategoría del mapa
+                    });
+                  }} 
+                  className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner"
+                >
+                  {Object.keys(SUBCATEGORIES_MAP).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <input placeholder="Precio (Ej: 10.50)" value={draft.price} onChange={e=>setDraft({...draft, price: e.target.value})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner" />
-                <input placeholder="Link imagen..." value={draft.image} onChange={e=>setDraft({...draft, image: e.target.value})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner" />
+
+                {/* ✅ NUEVO: Selector Dinámico de Subcategorías según la Categoría Madre */}
+                <select 
+                  value={draft.subcategory} 
+                  onChange={e=>setDraft({...draft, subcategory: e.target.value})} 
+                  className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner text-orange-600 uppercase tracking-tight"
+                >
+                  {(SUBCATEGORIES_MAP[draft.category] || []).map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+
+                <input placeholder={draft.is_variable ? "Precio deshabilitado (Precio Variable)" : "Precio Base (Ej: 10.50)"} disabled={draft.is_variable} value={draft.is_variable ? '' : draft.price} onChange={e=>setDraft({...draft, price: e.target.value})} className={`bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner ${draft.is_variable ? 'opacity-40 select-none' : ''}`} />
+                <input placeholder="Link de imagen del producto..." value={draft.image} onChange={e=>setDraft({...draft, image: e.target.value})} className="bg-gray-50 rounded-2xl px-4 py-4 text-sm font-bold border-none outline-none shadow-inner col-span-1 md:col-span-2" />
               </div>
+
+              {/* ✅ NUEVO: Selector de Modo de Venta (Fijo vs Variable de Pollos/Carnes) */}
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
+                <div className="leading-tight">
+                  <span className="text-[10px] text-gray-400 font-black uppercase tracking-wider block">Modalidad de Cobro</span>
+                  <p className="text-xs font-bold text-slate-700">¿Es un producto de valor variable? (Ej: pedir $15 de Pollo entero)</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none">
+                  <input type="checkbox" checked={draft.is_variable} onChange={e => setDraft({...draft, is_variable: e.target.checked})} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+
               <div className="flex gap-2">
-                <button onClick={handleSaveProduct} className="flex-1 bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs active:scale-95 shadow-xl flex items-center justify-center gap-2"><Save size={18}/> {editingId ? 'Actualizar' : 'Guardar en Catálogo'}</button>
-                {editingId && <button onClick={()=>{setEditingId(null); setDraft({name:'',category:'Pollos',price:'',description:'',image:'',available:true});}} className="bg-gray-100 text-gray-500 px-6 rounded-[24px] active:scale-95"><X size={20}/></button>}
+                <button onClick={handleSaveProduct} className="flex-1 bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs active:scale-95 shadow-xl flex items-center justify-center gap-2"><Save size={18}/> {editingId ? 'Actualizar Producto' : 'Guardar en Catálogo'}</button>
+                {editingId && <button onClick={()=>{setEditingId(null); setDraft({name:'',category:'Pollos',subcategory:'Enteros',price:'',description:'',image:'',available:true,is_variable:false});}} className="bg-gray-100 text-gray-500 px-6 rounded-[24px] active:scale-95"><X size={20}/></button>}
               </div>
             </section>
 
@@ -259,9 +338,10 @@ function AdminDashboardContent() {
                     <img src={p?.image || '/logo-final.png'} className="w-16 h-16 rounded-2xl object-cover border shadow-sm" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2"><p className="font-black text-[11px] text-gray-900 truncate uppercase italic">{p?.name}</p>{!p?.available && <span className="bg-red-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase animate-pulse">Agotado</span>}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[8px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 uppercase">{p?.category}</span>
-                        <span className="text-[10px] font-black text-gray-400">${parseFloat(p?.price || '0').toFixed(2)}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-[7px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 uppercase">{p?.category}</span>
+                        {p?.subcategory && <span className="text-[7px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 uppercase">{p.subcategory}</span>}
+                        <span className="text-[10px] font-black text-gray-400">{p?.is_variable ? 'VALOR VARIABLE' : `$${parseFloat(p?.price || '0').toFixed(2)}`}</span>
                       </div>
                     </div>
                     <div className="flex gap-1 pr-1">
