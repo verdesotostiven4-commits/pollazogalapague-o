@@ -45,7 +45,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. 🔥 MOTOR DE MAPA MODERNO
+  // 1. 🔥 MOTOR DE MAPA MODERNO CON INTEGRACIÓN INMEDIATA DE PUNTO AZUL
   useEffect(() => {
     if (step === 2 && mapContainerRef.current && !mapInstance.current) {
       setTimeout(() => {
@@ -76,9 +76,22 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
         mapInstance.current.invalidateSize();
 
-        // Si ya capturamos la ubicación real en el botón anterior, vuela directo allá
+        // ✅ CORRECCIÓN: Si ya capturamos la ubicación real en el botón anterior, vuela directo allá y DIBUJA EL PUNTO AZUL DE UNA
         if (userActualLocation) {
           mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, { duration: 1.2 });
+          
+          if (!userMarkerRef.current) {
+            const blueDotIcon = L.divIcon({
+              className: 'custom-div-icon',
+              html: `<div class="relative flex items-center justify-center">
+                      <div class="absolute w-6 h-6 bg-blue-500/30 rounded-full animate-ping"></div>
+                      <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg"></div>
+                    </div>`,
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            });
+            userMarkerRef.current = L.marker([userActualLocation.lat, userActualLocation.lng], { icon: blueDotIcon }).addTo(mapInstance.current);
+          }
         }
       }, 300);
     }
@@ -88,11 +101,11 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         mapInstance.current.remove();
         mapInstance.current = null;
       }
-      userMarkerRef.current = null; // ✅ CORRECCIÓN: Reseteamos el punto azul al destruir el mapa para que no desaparezca
+      userMarkerRef.current = null; // Reseteamos el punto azul al destruir el mapa para que no desaparezca
     };
-  }, [step]);
+  }, [step, userActualLocation]);
 
-  // 🔵 PUNTO AZUL (FIJO EN TU UBICACIÓN REAL ESTILO GOOGLE MAPS)
+  // 🔵 PUNTO AZUL DE RESPALDO (SE ACTUALIZA SI UTILIZA EL BOTÓN DE RE-LOCALIZACIÓN FLOTANTE)
   useEffect(() => {
     if (mapInstance.current && userActualLocation) {
       if (!userMarkerRef.current) {
@@ -110,7 +123,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         userMarkerRef.current.setLatLng([userActualLocation.lat, userActualLocation.lng]);
       }
     }
-  }, [userActualLocation, step]); // ✅ CORRECCIÓN: Escucha cambios de paso para redibujarse siempre
+  }, [userActualLocation, step]);
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -182,7 +195,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     e.target.value = '';
   };
 
-  // ✅ CORRECCIÓN: El botón "Continuar" ahora activa el GPS en segundo plano de forma inteligente
+  // ✅ EL BOTÓN "CONTINUAR" ACTIVA EL GPS EN SEGUNDO PLANO
   const handleNextStep = () => {
     if (!name.trim() || !whatsapp.trim()) {
       setError(isMandatory ? '¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.' : 'Escribe tu nombre y WhatsApp');
@@ -202,7 +215,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         setStep(2);
       },
       () => {
-        // Si el usuario deniega o falla el GPS, igual avanza al centro por defecto sin trabar la app
         setStep(2);
       },
       { enableHighAccuracy: true }
@@ -239,7 +251,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
           </div>
           
           <div className="flex items-center gap-1.5">
-            {/* ✅ MODIFICADO: Eliminado el botón "Omitir por ahora" dejando únicamente la X condicional */}
             {!isMandatory && (
               <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all">
                 <X size={18}/>
