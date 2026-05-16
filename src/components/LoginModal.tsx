@@ -16,12 +16,13 @@ interface LoginModalProps {
     lng: number | null;
     reference: string;
   }) => void;
+  isMandatory?: boolean; // ✅ NUEVA PROP: Para obligar el registro desde el carrito
 }
 
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
 const DEFAULT_CENTER = { lat: -0.7439, lng: -90.3131 };
 
-export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = false }: LoginModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<any>(null);
@@ -37,7 +38,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [lng, setLng] = useState<number | null>(null);
   const [reference, setReference] = useState('');
   
-  // ✅ Nuevo estado para guardar la posición REAL del GPS (Punto Azul)
   const [userActualLocation, setUserActualLocation] = useState<{lat: number, lng: number} | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,7 +45,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. 🔥 MOTOR DE MAPA MODERNO
+  // 1. 🔥 MOTOR DE MAPA MODERNO CON AUTO-CENTRADO GPS INSTANTÁNEO
   useEffect(() => {
     if (step === 2 && mapContainerRef.current && !mapInstance.current) {
       setTimeout(() => {
@@ -61,13 +61,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
           attributionControl: false 
         });
 
-        // 🗺️ CAPA ESTILO GOOGLE MAPS (MODO CLARO)
         L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 20,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(mapInstance.current);
 
-        // EVENTOS DE MOVIMIENTO
         mapInstance.current.on('movestart', () => setIsDragging(true));
         mapInstance.current.on('move', () => {
           const center = mapInstance.current.getCenter();
@@ -77,6 +75,27 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         mapInstance.current.on('moveend', () => setIsDragging(false));
 
         mapInstance.current.invalidateSize();
+
+        // ✅ AUTO-GEOLOCALIZACIÓN: Intenta centrar automáticamente sin pulsar botones
+        if (!lat || !lng) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords;
+              setUserActualLocation({ lat: latitude, lng: longitude });
+              setLat(latitude);
+              setLng(longitude);
+              if (mapInstance.current) {
+                mapInstance.current.flyTo([latitude, longitude], 18, { duration: 1.2 });
+              }
+            },
+            () => {
+              // Si falla o la deniega, se queda tranquilamente en el DEFAULT_CENTER
+            },
+            { enableHighAccuracy: true }
+          );
+        } else {
+          setUserActualLocation({ lat: startLat, lng: startLng });
+        }
       }, 300);
     }
 
@@ -90,7 +109,6 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   // 🔵 PUNTO AZUL (SÓLO UBICACIÓN REAL DEL CLIENTE)
   useEffect(() => {
-    // Solo actualiza el punto azul si tenemos la ubicación REAL detectada por el botón GPS
     if (mapInstance.current && userActualLocation) {
       if (!userMarkerRef.current) {
         const blueDotIcon = L.divIcon({
@@ -115,10 +133,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        // Guardamos la posición real para el punto azul
         setUserActualLocation({ lat: latitude, lng: longitude });
-        
-        // Centramos el marcador de entrega en nuestra posición actual
         setLat(latitude);
         setLng(longitude);
         
@@ -135,6 +150,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     );
   };
 
+  // ✅ CONTROL DE ERRORES DINÁMICOS AL ENTRAR (MODO MANDATORIO)
   useEffect(() => {
     if (!isOpen) return;
     setName(customerName || '');
@@ -143,9 +159,20 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     setLat(customerLat);
     setLng(customerLng);
     setReference(customerReference || '');
-    setStep(1);
-    setError('');
-  }, [isOpen]);
+
+    if (isMandatory) {
+      if (!customerName || !customerPhone) {
+        setStep(1);
+        setError('¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.');
+      } else if (!customerLat || !customerLng || !customerReference) {
+        setStep(2);
+        setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
+      }
+    } else {
+      setStep(1);
+      setError('');
+    }
+  }, [isOpen, isMandatory]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,16 +200,16 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   const handleNextStep = () => {
     if (!name.trim() || !whatsapp.trim()) {
-      setError('Escribe tu nombre y WhatsApp');
+      setError(isMandatory ? '¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.' : 'Escribe tu nombre y WhatsApp');
       return;
     }
-    setError('');
+    setError(isMandatory && (!lat || !lng || !reference.trim()) ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.' : '');
     setStep(2);
   };
 
   const handleSave = () => {
     if (!reference.trim()) {
-      setError('Danos una referencia (ej: casa azul)');
+      setError(isMandatory ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.' : 'Danos una referencia (ej: casa azul)');
       return;
     }
     onLogin({ name: name.trim(), whatsapp: whatsapp.trim(), avatarUrl: avatar, lat, lng, reference: reference.trim() });
@@ -192,7 +219,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" onClick={onClose} />
+      {/* ✅ Bloqueamos el cierre al dar clic afuera si es mandatorio */}
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500" onClick={isMandatory ? undefined : onClose} />
       
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         
@@ -208,7 +236,23 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               </h2>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all"><X size={18}/></button>
+          
+          {/* ✅ ACCIONES TOP: Omitir y X condicionales */}
+          <div className="flex items-center gap-1.5">
+            {!isMandatory && (
+              <button 
+                onClick={onClose} 
+                className="text-[10px] font-black text-slate-400 hover:text-orange-500 transition-colors uppercase tracking-wider bg-slate-100/80 px-3 py-2 rounded-xl active:scale-95"
+              >
+                Omitir por ahora
+              </button>
+            )}
+            {!isMandatory && (
+              <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all">
+                <X size={18}/>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2 space-y-5">
@@ -250,7 +294,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               </div>
             </div>
           ) : (
-            /* 📍 PASO 2: EL NUEVO MAPA INTERACTIVO */
+            /* 📍 PASO 2: MAPA INTERACTIVO */
             <div className="animate-in slide-in-from-right duration-300 space-y-4">
               <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
@@ -267,19 +311,15 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full shadow-lg border border-white/50 animate-pulse" />
                 </div>
 
-                {/* 📍 PIN DINÁMICO (INDREIVE STYLE) */}
-                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[1001] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
+                {/* 📍 PIN DINÁMICO */}
+                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[101] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center
                   ${isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'}`}>
                   
-                  {/* El Cuerpo del Icono */}
                   <div className="bg-orange-500 p-2 rounded-2xl shadow-[0_10px_20px_rgba(249,115,22,0.4)] border-2 border-white">
                     <MapPin size={24} className="text-white fill-white" />
                   </div>
                   
-                  {/* 📏 LA COLITA (RAYITA DE PRECISIÓN) */}
                   <div className={`w-[3px] bg-orange-600 transition-all duration-300 ${isDragging ? 'h-10 opacity-40' : 'h-4 opacity-100'}`} />
-                  
-                  {/* Sombra en el suelo */}
                   <div className="w-2 h-1 bg-black/20 rounded-full blur-[1px]" />
                 </div>
 
@@ -314,7 +354,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
             </button>
           )}
           <div className="flex-1 flex flex-col">
-            {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce">{error}</p>}
+            {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce leading-tight">{error}</p>}
             <button 
               onClick={step === 1 ? handleNextStep : handleSave} 
               className="w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2"
