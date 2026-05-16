@@ -8,7 +8,7 @@ type Screen = 'home' | 'catalog' | 'cart' | 'info';
 interface Props {
   onCheckout: () => void;
   onNavigate: (s: Screen) => void;
-  onRequireLogin: () => void; // Para ordenar a App.tsx que abra el LoginModal de inmediato
+  onRequireLogin: (mode: 'block' | 'change_location') => void; // ✅ ACTUALIZADO: Ahora recibe el modo para saber si va directo al mapa o bloquea
   onEarlySave: () => void; // ✅ NUEVA PROP: Para registrar la orden en Supabase antes de ver los datos de pago
 }
 
@@ -139,7 +139,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onE
 
     if (!hasProfile || !hasLocation) {
       triggerDryTap();
-      onRequireLogin(); 
+      onRequireLogin('block'); // ✅ MODO: Bloqueo estricto obligatorio por falta de datos
       return;
     }
 
@@ -268,7 +268,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onE
               </div>
             </div>
             <button 
-              onClick={onRequireLogin}
+              onClick={() => onRequireLogin('change_location')} // ✅ MODO: Cambio voluntario de mapa (Muestra "X" y va al Paso 2)
               className="text-[11px] bg-white text-orange-600 font-black px-3 py-1.5 rounded-xl border border-gray-200/80 active:scale-95 transition-all flex-shrink-0 shadow-sm"
             >
               Cambiar
