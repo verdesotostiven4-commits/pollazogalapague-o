@@ -50,8 +50,9 @@ function AppShell() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
 
-  // NUEVO ESTADO: Para mantener el mismo código de orden entre el guardado anticipado y WhatsApp
+  // ✅ NUEVOS ESTADOS: Para el control de orden única y el redireccionamiento directo al mapa
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
+  const [isChangingLocation, setIsChangingLocation] = useState(false);
 
   useEffect(() => {
     const handlePopState = () => { if (screen !== 'home') setScreen('home'); };
@@ -71,6 +72,7 @@ function AppShell() {
     if (s !== 'catalog') setActiveCategory('Todos');
     setScreen(s);
     setShowLoginModal(false); 
+    setIsChangingLocation(false); // Reseteamos el estado de ruta al navegar
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
@@ -104,6 +106,7 @@ function AppShell() {
     }
 
     setShowLoginModal(false);
+    setIsChangingLocation(false);
     if (pendingOrder) { 
       setPendingOrder(false); 
       setShowConfirmation(true); 
@@ -215,11 +218,21 @@ function AppShell() {
           />
         )}
         
+        {/* ✅ CONFIGURADO: Ahora lee si viene en modo cambio de dirección voluntario o bloqueo por falta de perfil */}
         {screen === 'cart' && (
           <CartScreen 
             onCheckout={() => setShowConfirmation(true)} 
             onNavigate={handleNavigate} 
-            onRequireLogin={() => { setPendingOrder(true); setShowLoginModal(true); }} 
+            onRequireLogin={(mode) => { 
+              if (mode === 'change_location') {
+                setIsChangingLocation(true);
+                setPendingOrder(false);
+              } else {
+                setIsChangingLocation(false);
+                setPendingOrder(true);
+              }
+              setShowLoginModal(true); 
+            }} 
             onEarlySave={handleEarlySave}
           />
         )}
@@ -229,13 +242,15 @@ function AppShell() {
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
       
+      {/* ✅ CONFIGURADO: Conectado con el nuevo estado de cambio de dirección flexible */}
       <LoginModal 
         isOpen={showLoginModal} 
-        onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} 
+        onClose={() => { setShowLoginModal(false); setPendingOrder(false); setIsChangingLocation(false); }} 
         onLogin={handleLogin} 
-        title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} 
-        subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} 
+        title={isChangingLocation ? "Punto de entrega" : pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} 
+        subtitle={isChangingLocation ? "Modifica tu ubicación en el mapa" : pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} 
         isMandatory={pendingOrder}
+        {...({ isChangingLocation } as any)} // Truco de inyección segura para evitar errores de tipo hasta actualizar el modal
       />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
@@ -253,7 +268,6 @@ export default function App() {
     if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
   }, []);
 
-  // ✅ CORREGIDO: Eliminada la etiqueta duplicada sobrante de </AdminDashboard> que causaba el fallo de producción en Vite
   if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
   
   if (!landingDone) {
