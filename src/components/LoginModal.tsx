@@ -17,6 +17,7 @@ interface LoginModalProps {
     reference: string;
   }) => void;
   isMandatory?: boolean; // PROP: Para obligar el registro desde el carrito
+  isChangingLocation?: boolean; // ✅ NUEVA PROP: Para saber si viene de clic voluntario y saltar directo al mapa
 }
 
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
@@ -30,7 +31,7 @@ const PUERTO_AYORA_BOUNDS = {
   lngMax: -90.2950  // Límite Este
 };
 
-export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = false }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = false, isChangingLocation = false }: LoginModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<any>(null);
@@ -172,6 +173,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     );
   };
 
+  // ✅ CONTROL INTERCEPTOR DE INICIALIZACIÓN MUTABLE
   useEffect(() => {
     if (!isOpen) return;
     setName(customerName || '');
@@ -181,7 +183,11 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     setLng(customerLng);
     setReference(customerReference || '');
 
-    if (isMandatory) {
+    if (isChangingLocation) {
+      // Si el cliente explícitamente pulsa "Cambiar" dirección, vuela directo al Paso 2 (Mapa)
+      setStep(2);
+      setError('');
+    } else if (isMandatory) {
       if (!customerName || !customerPhone) {
         setStep(1);
         setError('¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.');
@@ -193,7 +199,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
       setStep(1);
       setError('');
     }
-  }, [isOpen, isMandatory]);
+  }, [isOpen, isMandatory, isChangingLocation]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -380,7 +386,8 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
         {/* FOOTER */}
         <div className="p-6 pt-2 bg-white flex-shrink-0 border-t border-slate-50 flex gap-3">
-          {step === 2 && (
+          {/* Ocultamos el botón para retroceder al Paso 1 sólo si se está forzando un cambio voluntario de ubicación */}
+          {step === 2 && !isChangingLocation && (
             <button onClick={() => setStep(1)} className="p-4 rounded-2xl bg-slate-100 text-slate-500 active:scale-90 transition-all">
               <ArrowLeft size={20} />
             </button>
