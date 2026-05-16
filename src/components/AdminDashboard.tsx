@@ -1,7 +1,7 @@
 import { useMemo, useState, Component } from 'react';
 import { 
   Edit3, LogOut, Package, Plus, Search, Send, Trash2, Users, Image, Trophy, 
-  Crown, Medal, Clock, PackageSearch, RefreshCw, Save, X, History, Zap
+  Crown, Medal, Clock, PackageSearch, RefreshCw, Save, X, History, Zap, MapPin
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { Category } from '../types';
@@ -170,12 +170,51 @@ function AdminDashboardContent() {
           <div className="space-y-4 pb-10 animate-in fade-in duration-500">
              {safeOrders.map(o => {
                const customer = safeCustomers.find(c => (c?.phone || '').replace(/\D/g, '') === (o?.customer_phone || '').replace(/\D/g, ''));
+               
+               // ✅ LOGÍSTICA DE UBICACIÓN EXTRACTIVA (Respaldo cruzado dinámico por seguridad)
+               const deliveryLat = o?.lat || customer?.lat;
+               const deliveryLng = o?.lng || customer?.lng;
+               const deliveryRef = o?.reference || customer?.reference || '';
+
                return (
                  <div key={o?.id} className="bg-white rounded-[32px] border p-5 space-y-4 shadow-sm border-gray-100">
                     <div className="flex justify-between items-center border-b pb-3 border-gray-50">
                        <div className="flex items-center gap-3"><img src={customer?.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${o?.customer_phone}`} className="w-11 h-11 rounded-full border-2 border-orange-100 shadow-sm object-cover" /><div><p className="font-black text-xs uppercase leading-none">{customer?.name || o?.customer_phone}</p><div className="flex items-center gap-1 text-[8px] font-black text-blue-500 mt-1"><Clock size={10}/>{o?.created_at ? new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:true}) : '--'}</div></div></div>
-                       <div className="text-right leading-none"><p className="font-black text-orange-600 text-sm italic">${Number(o?.total || 0).toFixed(2)}</p><p className="text-[7px] font-black text-slate-300 uppercase mt-1">{o?.status}</p></div>
+                       <div className="text-right leading-none">
+                         <p className="font-black text-orange-600 text-sm italic">${Number(o?.total || 0).toFixed(2)}</p>
+                         
+                         {/* ✅ DISTRIBUIDOR VISUAL DE COLORES DE ESTADOS LOGÍSTICOS */}
+                         <span className={`text-[7px] font-black uppercase px-2 py-0.5 rounded-md mt-1 inline-block border ${
+                           o?.status === 'Por Confirmar' ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse font-black' :
+                           o?.status === 'Preparando' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                           o?.status === 'Enviado' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
+                           o?.status === 'Entregado' ? 'bg-green-50 text-green-600 border-green-200' :
+                           'bg-gray-50 text-gray-400 border-gray-200'
+                         }`}>
+                           {o?.status}
+                         </span>
+                       </div>
                     </div>
+                    
+                    {/* ✅ BOTÓN DE ACCESO DIRECTO RUTA GPS (Para tu Papá / Repartidor) */}
+                    {deliveryLat && deliveryLng && (
+                      <div className="space-y-1.5 animate-in fade-in duration-300">
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${deliveryLat},${deliveryLng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-md active:scale-[0.98] shadow-red-600/20"
+                        >
+                          <MapPin size={14} className="fill-white" /> 🔴 ABRIR MAPA DE ENTREGA (GPS MAPS)
+                        </a>
+                        {deliveryRef && (
+                          <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[9px] font-bold text-slate-600 uppercase">
+                            <span className="text-orange-600 font-black">🏠 Indicación casa:</span> {deliveryRef}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/30">
                        <p className="text-[9px] font-black text-orange-700 uppercase mb-2 flex items-center gap-2"><PackageSearch size={14}/> Detalle Compra</p>
                        {(o?.items || []).length > 0 ? (o?.items || []).map((item: any, i: number) => (
@@ -183,7 +222,8 @@ function AdminDashboardContent() {
                        )) : <p className="text-[9px] text-gray-400 font-bold italic text-center uppercase">Pedido antiguo</p>}
                     </div>
                     <div className="flex gap-2">
-                       <select value={o?.status} onChange={e => context.updateOrderStatus(o.id, e.target.value as any)} className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none">{['Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'].map(s => <option key={s} value={s}>{s}</option>)}</select>
+                       {/* ✅ CONTROL DE FLUJO DE ESTADOS AMPLIADO DE FORMA SEGURA */}
+                       <select value={o?.status} onChange={e => context.updateOrderStatus(o.id, e.target.value as any)} className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none">{['Por Confirmar', 'Recibido', 'Preparando', 'Enviado', 'Entregado', 'Cancelado'].map(s => <option key={s} value={s}>{s}</option>)}</select>
                        <a href={buildStatusWhatsAppUrl(o?.customer_phone, o?.order_code, o?.status)} target="_blank" rel="noreferrer" className="bg-[#25D366] text-white px-5 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-md active:scale-95 transition-all"><Send size={14}/> Notificar</a>
                     </div>
                  </div>
