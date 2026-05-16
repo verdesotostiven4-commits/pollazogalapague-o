@@ -76,7 +76,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
         mapInstance.current.invalidateSize();
 
-        // ✅ CORRECCIÓN: Si ya capturamos la ubicación real en el botón anterior, vuela directo allá y DIBUJA EL PUNTO AZUL DE UNA
+        // Si ya capturamos la ubicación real en el botón anterior, vuela directo allá y DIBUJA EL PUNTO AZUL DE UNA
         if (userActualLocation) {
           mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, { duration: 1.2 });
           
@@ -245,7 +245,8 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             </div>
             <div className="text-left leading-tight">
               <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">
-                {step === 1 ? 'Únete al Club' : 'Punto exacto'}
+                {/* ✅ CAMBIO: "Punto exacto" cambiado por "Punto de entrega" para mejor semántica */}
+                {step === 1 ? 'Únete al Club' : 'Punto de entrega'}
               </h2>
             </div>
           </div>
@@ -300,6 +301,12 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
           ) : (
             /* 📍 PASO 2: MAPA INTERACTIVO */
             <div className="animate-in slide-in-from-right duration-300 space-y-4">
+              
+              {/* ✅ NUEVO INDICADOR DE PRECISIÓN URBANA: Obliga de forma bonita a marcar en la calle */}
+              <p className="text-[11px] font-bold text-slate-500 bg-orange-50/50 border border-orange-100/40 p-2.5 rounded-2xl text-center leading-snug">
+                📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido (evita marcar dentro de la casa).
+              </p>
+
               <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
                 
