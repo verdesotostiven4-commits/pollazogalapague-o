@@ -25,7 +25,7 @@ const DEFAULT_CENTER = { lat: -0.7439, lng: -90.3131 };
 // ✅ LÍMITES GEOGRÁFICOS DE PUERTO AYORA (Evita Bellavista, Santa Rosa y El Cascajo)
 const PUERTO_AYORA_BOUNDS = {
   latMin: -0.7650, // Límite Sur (Océano)
-  latMax: -0.7350, // Límite Norte (Antes de subir a Bellavista)
+  latMax: -0.7280, // ✅ ACTUALIZADO: Límite Norte expandido para incluir el Barrio El Mirador completo (hasta El Descanso del Guía)
   lngMin: -90.3450, // Límite Oeste
   lngMax: -90.2950  // Límite Este
 };
@@ -144,7 +144,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
       if (!isInsideGeofence) {
         setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
       } else {
-        // Limpiamos únicamente el error de cobertura si vuelve a entrar a la ciudad
         setError(prev => prev.includes('cobertura') ? '' : prev);
       }
     }
@@ -249,7 +248,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
       setError(isMandatory ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.' : 'Danos una referencia (ej: casa azul)');
       return;
     }
-    if (!isInsideGeofence) return; // Doble candado de seguridad
+    if (!isInsideGeofence) return; 
     onLogin({ name: name.trim(), whatsapp: whatsapp.trim(), avatarUrl: avatar, lat, lng, reference: reference.trim() });
   };
 
@@ -390,7 +389,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce leading-tight">{error}</p>}
             <button 
               onClick={step === 1 ? handleNextStep : handleSave} 
-              disabled={step === 2 && !isInsideGeofence} // ✅ COMPONENTE BLOQUEADO: Si está fuera de cobertura, no se puede hacer clic
+              disabled={step === 2 && !isInsideGeofence} 
               className={`w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
                 step === 2 && !isInsideGeofence ? 'opacity-40 cursor-not-allowed select-none' : ''
               }`}
