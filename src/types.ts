@@ -27,7 +27,8 @@ export interface Customer {
   reference?: string;   // Referencia escrita (casa amarilla, etc.)
 }
 
-export type OrderStatus = 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
+// ✅ ACTUALIZADO: Se incluye 'Por Confirmar' para que el sistema acepte el estado del Cajero Virtual
+export type OrderStatus = 'Por Confirmar' | 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
 
 // ✅ NUEVOS TIPOS PARA LOGÍSTICA
 export type PaymentMethod = 'efectivo' | 'deuna' | 'transferencia';
@@ -40,18 +41,18 @@ export interface Order {
   customer_phone: string;
   items: any[]; 
   subtotal: number;
-  delivery_fee: number;
+  delivery_fee?: number; // ✅ Cambiado a opcional para permitir el guardado anticipado parcial sin errores
   total: number;
   status: OrderStatus;
-  provider: boolean; 
+  provider?: boolean;    // ✅ Cambiado a opcional por seguridad de datos iniciales
   preorder: boolean;
   created_at?: string;
-  // ✅ NUEVOS CAMPOS PARA EL ADMIN OJO DE HALCÓN
-  payment_method: PaymentMethod;
-  delivery_type: DeliveryType;
+  // ✅ CAMPOS PARA EL ADMIN OJO DE HALCÓN (Opcionales inicialmente para el registro temporal en caliente)
+  payment_method?: PaymentMethod;
+  delivery_type?: DeliveryType;
   payment_proof_url?: string; // Link a la foto del comprobante
-  lat?: number;               // Ubicación exacta del pedido
-  lng?: number;               // Ubicación exacta del pedido
+  lat?: number;                // Ubicación exacta del pedido
+  lng?: number;                // Ubicación exacta del pedido
   reference?: string;         // Referencia de la casa para este pedido
 }
 
