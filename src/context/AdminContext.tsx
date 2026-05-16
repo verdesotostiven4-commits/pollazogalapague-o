@@ -179,7 +179,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() });
   }, []);
 
-  // ✅ AQUÍ OCURRE LA MAGIA DEL PUSH
   const updateExtraSettings = useCallback(async (patch: Partial<ExtraSettings>) => {
     const { prize_1, prize_2, prize_3, ...rest } = patch as any;
     const next = { ...extraSettings, ...rest };
@@ -208,7 +207,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         prize, 
         winners, 
         is_published: false,
-        created_at: new Date().toISOString() // ✅ ESTO ARREGLA EL ORDEN DE LAS TEMPORADAS
+        created_at: new Date().toISOString()
       });
       await load();
     }
