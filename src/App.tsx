@@ -77,7 +77,6 @@ function AppShell() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
-  // ✅ PUENTE ACTUALIZADO PARA RECIBIR UBICACIÓN Y REFERENCIAS
   const handleLogin = async (u: { 
     name: string; 
     whatsapp: string; 
@@ -86,7 +85,6 @@ function AppShell() {
     lng?: number | null;
     reference?: string;
   }) => {
-    // Guardamos todo el paquete en el Contexto
     setUserData({
       phone: u.whatsapp,
       name: u.name,
@@ -97,7 +95,6 @@ function AppShell() {
     }); 
 
     try { 
-      // Sincronizamos con Supabase (Datos básicos)
       await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
     } catch (e) { 
       console.error("Error perfil:", e); 
@@ -130,7 +127,7 @@ function AppShell() {
         };
     });
 
-    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const fee = deliveryFeeOf(subtotal);
     const total = subtotal + fee;
 
@@ -175,13 +172,29 @@ function AppShell() {
           />
         )}
         
-        {screen === 'cart' && <CartScreen onCheckout={() => setShowConfirmation(true)} onNavigate={handleNavigate} />}
+        {/* ✅ CONFIGURADO: Conectamos onRequireLogin para saltar al modal de inmediato al tocar Efectivo/Deuna/Transferencia */}
+        {screen === 'cart' && (
+          <CartScreen 
+            onCheckout={() => setShowConfirmation(true)} 
+            onNavigate={handleNavigate} 
+            onRequireLogin={() => { setPendingOrder(true); setShowLoginModal(true); }} 
+          />
+        )}
         {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
         {screen === 'ranking' && <Ranking />}
       </main>
       {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
       <FlyParticleLayer />
-      <LoginModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} onLogin={handleLogin} title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} />
+      
+      {/* ✅ CONFIGURADO: Pasamos isMandatory={pendingOrder} para activar los bloqueos estrictos cuando falte información en el pago */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => { setShowLoginModal(false); setPendingOrder(false); }} 
+        onLogin={handleLogin} 
+        title={pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} 
+        subtitle={pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} 
+        isMandatory={pendingOrder}
+      />
       <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
     </div>
   );
