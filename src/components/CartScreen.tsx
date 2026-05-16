@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Minus, Trash2, ShoppingBag, MessageCircle, ChevronRight, ChevronDown, Banknote, QrCode, Building, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useUser } from '../context/UserContext'; // ✅ NUEVA IMPORTACIÓN: Para validar perfil y mapa antes del pago
+import { useUser } from '../context/UserContext'; // ✅ Para validar perfil y mapa antes del pago
 
 type Screen = 'home' | 'catalog' | 'cart' | 'info';
 
 interface Props {
   onCheckout: () => void;
   onNavigate: (s: Screen) => void;
-  onRequireLogin: () => void; // ✅ NUEVA PROP: Para ordenar a App.tsx que abra el LoginModal de inmediato
+  onRequireLogin: () => void; // Para ordenar a App.tsx que abra el LoginModal de inmediato
+  onEarlySave: () => void; // ✅ NUEVA PROP: Para registrar la orden en Supabase antes de ver los datos de pago
 }
 
 const isFixedPrice = (price: string | undefined) => {
@@ -76,19 +77,22 @@ const triggerDoubleTap = () => {
   try { if ('vibrate' in navigator) navigator.vibrate([25, 35, 25]); } catch {} // Dos toques rápidos
 };
 
-export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: Props) {
+export default function CartScreen({ onCheckout, onNavigate, onRequireLogin, onEarlySave }: Props) {
   const { items, removeItem, updateQuantity, clearCart, total } = useCart();
   
-  // ✅ EXTRAEMOS LOS DATOS DEL PERFIL DEL USUARIO PARA EL ESCANEO EN TIEMPO REAL
+  // EXTRAEMOS LOS DATOS DEL PERFIL DEL USUARIO PARA EL ESCANEO EN TIEMPO REAL
   const { customerName, customerPhone, customerLat, customerLng, customerReference } = useUser();
 
   const [confirmClear, setConfirmClear] = useState(false);
   const [showArrow, setShowArrow] = useState(true); 
   
-  // ✅ ESTADOS DE MÉTODO DE PAGO INICIALIZADOS EN NULL (BLOQUEO ACTIVO)
+  // ESTADOS DE MÉTODO DE PAGO INICIALIZADOS EN NULL (BLOQUEO ACTIVO)
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'deuna' | 'transferencia' | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
+  
+  // ✅ NUEVO ESTADO: Para verificar si el pedido ya se guardó con éxito en Supabase de forma anticipada
+  const [isOrderSaved, setIsOrderSaved] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -119,28 +123,28 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
     }
   };
 
-  // ✅ AUTO-SCROLL INTELIGENTE: Desliza hacia abajo al seleccionar método o banco para ver la info nueva sin arrastrar
+  // ✅ AUTO-SCROLL INTELIGENTE: Modificado para escuchar cuando se revela la información tras guardar la orden
   useEffect(() => {
     if (paymentMethod) {
       setTimeout(() => {
         scrollToBottom();
       }, 150); 
     }
-  }, [paymentMethod, selectedBank]);
+  }, [paymentMethod, selectedBank, isOrderSaved]);
 
-  // ✅ NUEVA FUNCIÓN INTERCEPTORA: Frena el clic de cualquier método si no se ha registrado o no puso mapa
+  // NUEVA FUNCIÓN INTERCEPTORA: Frena el clic de cualquier método si no se ha registrado o no puso mapa
   const handlePaymentMethodClick = (method: 'efectivo' | 'deuna' | 'transferencia') => {
     const hasProfile = customerName && customerPhone;
     const hasLocation = customerLat && customerLng && customerReference;
 
     if (!hasProfile || !hasLocation) {
       triggerDryTap();
-      onRequireLogin(); // Abre el modal obligatorio antes de desplegar nada
+      onRequireLogin(); 
       return;
     }
 
-    // Si todo está correcto, procede normalmente con tu lógica intacta
     setPaymentMethod(method);
+    setIsOrderSaved(false); // ✅ Reseteamos el guardado si decide cambiar de opinión de método de pago
     if (method === 'transferencia') {
       triggerDoubleTap();
     } else {
@@ -149,27 +153,34 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
     }
   };
 
+  // ✅ NUEVA FUNCIÓN: Ejecuta la persistencia local, dispara Supabase y activa la vista de cuentas
+  const handleEarlySaveClick = () => {
+    if (!isPaymentReady) return;
+    triggerDryTap();
+    
+    localStorage.setItem('selectedPaymentMethod', paymentMethod || '');
+    localStorage.setItem('selectedBank', selectedBank || 'Ninguno');
+    
+    onEarlySave(); // Ordena a App.tsx guardar anticipadamente
+    setIsOrderSaved(true); // Desbloquea la información visual en el carrito
+  };
+
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedLabel(label);
     setTimeout(() => setCopiedLabel(null), 2000);
   };
 
-  // ✅  Validación estricta para activar el botón de WhatsApp
+  // Validación estricta para activar el botón de procesamiento
   const isPaymentReady = paymentMethod === 'efectivo' || paymentMethod === 'deuna' || (paymentMethod === 'transferencia' && selectedBank !== null);
 
   const hasConsult = items.some(i => !i.product.custom_price && !isFixedPrice(i.product.price));
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
 
   const handleCheckout = () => {
-    if (!isPaymentReady) return;
+    if (!isPaymentReady || !isOrderSaved) return;
     triggerDryTap();
     spawnConfetti();
-    
-    // Almacenamos los datos exactos para el mensaje automático de WhatsApp y el Admin
-    localStorage.setItem('selectedPaymentMethod', paymentMethod || '');
-    localStorage.setItem('selectedBank', selectedBank || 'Ninguno');
-    
     setTimeout(() => onCheckout(), 200);
   };
 
@@ -251,7 +262,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
           <div className="grid grid-cols-3 gap-2">
             {/* Efectivo */}
             <button
-              onClick={() => handlePaymentMethodClick('efectivo')} // ✅ CAMBIADO: Ejecuta el interceptor
+              onClick={() => handlePaymentMethodClick('efectivo')}
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'efectivo'
                   ? 'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm'
@@ -264,7 +275,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
 
             {/* Deuna! */}
             <button
-              onClick={() => handlePaymentMethodClick('deuna')} // ✅ CAMBIADO: Ejecuta el interceptor
+              onClick={() => handlePaymentMethodClick('deuna')}
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'deuna'
                   ? 'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm'
@@ -277,7 +288,7 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
 
             {/* Transferencia */}
             <button
-              onClick={() => handlePaymentMethodClick('transferencia')} // ✅ CAMBIADO: Ejecuta el interceptor
+              onClick={() => handlePaymentMethodClick('transferencia')}
               className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
                 paymentMethod === 'transferencia'
                   ? 'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm'
@@ -289,20 +300,32 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
             </button>
           </div>
 
-          {/* Despliegues Dinámicos */}
+          {/* Despliegues Dinámicos Condicionados al Guardado Anticipado */}
           <div className="transition-all duration-300">
-            {paymentMethod === 'efectivo' && (
+            {isOrderSaved && paymentMethod === 'efectivo' && (
               <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 text-center animate-in fade-in duration-300">
                 <p className="text-xs text-gray-500 font-bold">Pagas en efectivo al recibir tu pedido en tu puerta. 💵</p>
               </div>
             )}
 
-            {paymentMethod === 'deuna' && (
+            {isOrderSaved && paymentMethod === 'deuna' && (
               <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in duration-300">
                 <p className="text-xs text-purple-900 font-black uppercase tracking-tight">Escanea el código desde tu App Deuna! o Pichincha</p>
                 <div className="w-32 h-32 bg-white rounded-xl p-2 border border-purple-200/60 shadow-inner flex items-center justify-center">
                   <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR" alt="QR Deuna" className="w-full h-full object-contain" />
                 </div>
+                
+                {/* ✅ COPIADO LOGÍSTICO EXCLUSIVO SI USA EL MISMO CELULAR */}
+                <div className="flex flex-col items-center gap-1 w-full pt-1">
+                  <p className="text-[10px] text-purple-700 font-bold uppercase">¿En el mismo celular? Paga directo al número:</p>
+                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[200px]">
+                    <span className="font-mono font-black text-purple-950 text-xs">0989795628</span>
+                    <button onClick={() => handleCopyText('0989795628', 'celular_deuna')} className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all">
+                      {copiedLabel === 'celular_deuna' ? '¡Copiado!' : 'Copiar'}
+                    </button>
+                  </div>
+                </div>
+
                 <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">⚠️ RECUERDA ENVIAR EL COMPROBANTE DE PAGO AL FINALIZAR</p>
               </div>
             )}
@@ -311,69 +334,41 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
               <div className="space-y-3 animate-in fade-in duration-300">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Selecciona tu Banco de Origen:</p>
                 
-                {/* 🇪🇨 SUBMENÚ INTERACTIVO DE BANCOS DE ECUADOR */}
                 <div className="flex flex-col gap-2">
-                  {/* Pichincha */}
-                  <button 
-                    onClick={() => { setSelectedBank('pichincha'); triggerDoubleTap(); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'pichincha' ? 'bg-yellow-50 border-yellow-400 text-yellow-900 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
+                  <button onClick={() => { setSelectedBank('pichincha'); triggerDoubleTap(); setIsOrderSaved(false); }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedBank === 'pichincha' ? 'bg-yellow-50 border-yellow-400 text-yellow-900 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'}`}>
                     <span className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center text-xs text-yellow-950 font-black">P</span>
                     <span className="text-xs">Banco Pichincha</span>
                   </button>
 
-                  {/* Guayaquil */}
-                  <button 
-                    onClick={() => { setSelectedBank('guayaquil'); triggerDoubleTap(); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'guayaquil' ? 'bg-pink-50 border-pink-400 text-pink-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
+                  <button onClick={() => { setSelectedBank('guayaquil'); triggerDoubleTap(); setIsOrderSaved(false); }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedBank === 'guayaquil' ? 'bg-pink-50 border-pink-400 text-pink-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'}`}>
                     <span className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-xs text-white font-black">G</span>
                     <span className="text-xs">Banco Guayaquil</span>
                   </button>
 
-                  {/* Pacífico */}
-                  <button 
-                    onClick={() => { setSelectedBank('pacifico'); triggerDoubleTap(); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'pacifico' ? 'bg-teal-50 border-teal-400 text-teal-800 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
+                  <button onClick={() => { setSelectedBank('pacifico'); triggerDoubleTap(); setIsOrderSaved(false); }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedBank === 'pacifico' ? 'bg-teal-50 border-teal-400 text-teal-800 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'}`}>
                     <span className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center text-xs text-white font-black">B</span>
                     <span className="text-xs">Banco del Pacífico</span>
                   </button>
 
-                  {/* Austro */}
-                  <button 
-                    onClick={() => { setSelectedBank('austro'); triggerDoubleTap(); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'austro' ? 'bg-red-50 border-red-400 text-red-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
+                  <button onClick={() => { setSelectedBank('austro'); triggerDoubleTap(); setIsOrderSaved(false); }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedBank === 'austro' ? 'bg-red-50 border-red-400 text-red-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'}`}>
                     <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-xs text-white font-black">A</span>
                     <span className="text-xs">Banco del Austro</span>
                   </button>
 
-                  {/* Produbanco / Bolivariano */}
-                  <button 
-                    onClick={() => { setSelectedBank('otros'); triggerDoubleTap(); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'otros' ? 'bg-green-50 border-green-400 text-green-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
+                  <button onClick={() => { setSelectedBank('otros'); triggerDoubleTap(); setIsOrderSaved(false); }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedBank === 'otros' ? 'bg-green-50 border-green-400 text-green-700 font-black scale-[1.01]' : 'bg-white border-gray-100 text-gray-600 font-bold'}`}>
                     <span className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center text-xs text-white font-black">O</span>
                     <span className="text-xs">Produbanco / Otros Bancos</span>
                   </button>
                 </div>
 
-                {/* CUADRO DE DATOS CENTRALIZADO EN PICHINCHA SI SE SELECCIONÓ BANCO */}
-                {selectedBank && (
+                {isOrderSaved && selectedBank && (
                   <div className="bg-blue-50/40 rounded-2xl p-3 border border-blue-100 space-y-2 mt-2 animate-in fade-in duration-300">
                     <p className="text-xs text-blue-900 font-black uppercase tracking-tight">Datos de nuestra cuenta central Pichincha:</p>
-                    
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
                         <div>
@@ -445,15 +440,24 @@ export default function CartScreen({ onCheckout, onNavigate, onRequireLogin }: P
           )}
         </div>
 
-        {/* LÓGICA DE CONDICIONAL: SE MUESTRA EL BOTÓN DE WHATSAPP SOLO SI YA SE COMPLETARON LOS PASOS ANTERIORES */}
+        {/* ✅ INTERRUPTOR LOGÍSTICO BI-FASE EXCLUSIVO */}
         {isPaymentReady ? (
-          <button
-            onClick={handleCheckout}
-            className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base animate-in slide-in-from-bottom-4"
-          >
-            <MessageCircle size={20} />
-            Enviar pedido por WhatsApp
-          </button>
+          isOrderSaved ? (
+            <button
+              onClick={handleCheckout}
+              className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base animate-in slide-in-from-bottom-4"
+            >
+              <MessageCircle size={20} />
+              {paymentMethod === 'efectivo' ? 'Enviar pedido por WhatsApp' : 'LISTO, ENVIAR COMPROBANTE POR WHATSAPP 💬'}
+            </button>
+          ) : (
+            <button
+              onClick={handleEarlySaveClick}
+              className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-orange-500/40 active:scale-[0.98] text-base border-b-4 border-orange-700 animate-in slide-in-from-bottom-4"
+            >
+              PROCESAR PEDIDO Y VER DATOS DE PAGO 🚀
+            </button>
+          )
         ) : (
           <div className="w-full flex items-center justify-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-black p-4 rounded-2xl text-center uppercase tracking-tight animate-pulse">
             <AlertCircle size={16} />
