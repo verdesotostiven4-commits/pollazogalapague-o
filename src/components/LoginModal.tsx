@@ -22,6 +22,14 @@ interface LoginModalProps {
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
 const DEFAULT_CENTER = { lat: -0.7439, lng: -90.3131 };
 
+// ✅ LÍMITES GEOGRÁFICOS DE PUERTO AYORA (Evita Bellavista, Santa Rosa y El Cascajo)
+const PUERTO_AYORA_BOUNDS = {
+  latMin: -0.7650, // Límite Sur (Océano)
+  latMax: -0.7350, // Límite Norte (Antes de subir a Bellavista)
+  lngMin: -90.3450, // Límite Oeste
+  lngMax: -90.2950  // Límite Este
+};
+
 export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = false }: LoginModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -76,7 +84,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
 
         mapInstance.current.invalidateSize();
 
-        // Si ya capturamos la ubicación real en el botón anterior, vuela directo allá y DIBUJA EL PUNTO AZUL DE UNA
         if (userActualLocation) {
           mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, { duration: 1.2 });
           
@@ -101,11 +108,11 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         mapInstance.current.remove();
         mapInstance.current = null;
       }
-      userMarkerRef.current = null; // Reseteamos el punto azul al destruir el mapa para que no desaparezca
+      userMarkerRef.current = null; 
     };
   }, [step, userActualLocation]);
 
-  // 🔵 PUNTO AZUL DE RESPALDO (SE ACTUALIZA SI UTILIZA EL BOTÓN DE RE-LOCALIZACIÓN FLOTANTE)
+  // 🔵 PUNTO AZUL DE RESPALDO
   useEffect(() => {
     if (mapInstance.current && userActualLocation) {
       if (!userMarkerRef.current) {
@@ -124,6 +131,24 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
       }
     }
   }, [userActualLocation, step]);
+
+  // ✅ VALIDACIÓN DE ESCUDO GEOGRÁFICO EN TIEMPO REAL
+  const isInsideGeofence = lat !== null && lng !== null &&
+    lat >= PUERTO_AYORA_BOUNDS.latMin &&
+    lat <= PUERTO_AYORA_BOUNDS.latMax &&
+    lng >= PUERTO_AYORA_BOUNDS.lngMin &&
+    lng <= PUERTO_AYORA_BOUNDS.lngMax;
+
+  useEffect(() => {
+    if (step === 2 && lat !== null && lng !== null) {
+      if (!isInsideGeofence) {
+        setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
+      } else {
+        // Limpiamos únicamente el error de cobertura si vuelve a entrar a la ciudad
+        setError(prev => prev.includes('cobertura') ? '' : prev);
+      }
+    }
+  }, [lat, lng, step, isInsideGeofence]);
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -195,7 +220,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     e.target.value = '';
   };
 
-  // ✅ EL BOTÓN "CONTINUAR" ACTIVA EL GPS EN SEGUNDO PLANO
   const handleNextStep = () => {
     if (!name.trim() || !whatsapp.trim()) {
       setError(isMandatory ? '¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.' : 'Escribe tu nombre y WhatsApp');
@@ -203,7 +227,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
     }
     setError('');
     
-    // Dispara el GPS justo en el clic de avanzar para que el mapa abra centrado y con el Punto Azul listo
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -226,6 +249,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
       setError(isMandatory ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.' : 'Danos una referencia (ej: casa azul)');
       return;
     }
+    if (!isInsideGeofence) return; // Doble candado de seguridad
     onLogin({ name: name.trim(), whatsapp: whatsapp.trim(), avatarUrl: avatar, lat, lng, reference: reference.trim() });
   };
 
@@ -245,7 +269,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             </div>
             <div className="text-left leading-tight">
               <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">
-                {/* ✅ CAMBIO: "Punto exacto" cambiado por "Punto de entrega" para mejor semántica */}
                 {step === 1 ? 'Únete al Club' : 'Punto de entrega'}
               </h2>
             </div>
@@ -302,7 +325,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             /* 📍 PASO 2: MAPA INTERACTIVO */
             <div className="animate-in slide-in-from-right duration-300 space-y-4">
               
-              {/* ✅ NUEVO INDICADOR DE PRECISIÓN URBANA: Obliga de forma bonita a marcar en la calle */}
               <p className="text-[11px] font-bold text-slate-500 bg-orange-50/50 border border-orange-100/40 p-2.5 rounded-2xl text-center leading-snug">
                 📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido (evita marcar dentro de la casa).
               </p>
@@ -368,7 +390,10 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
             {error && <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce leading-tight">{error}</p>}
             <button 
               onClick={step === 1 ? handleNextStep : handleSave} 
-              className="w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2"
+              disabled={step === 2 && !isInsideGeofence} // ✅ COMPONENTE BLOQUEADO: Si está fuera de cobertura, no se puede hacer clic
+              className={`w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
+                step === 2 && !isInsideGeofence ? 'opacity-40 cursor-not-allowed select-none' : ''
+              }`}
             >
               {step === 1 ? (
                 <>CONTINUAR A UBICACIÓN <ArrowRight size={16}/></>
@@ -380,7 +405,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, isMandatory = fal
         </div>
       </div>
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar::-webkit-scrollbar { Display: none; }
         .leaflet-container { font-family: inherit; cursor: crosshair !important; }
         .custom-div-icon { background: none; border: none; }
       `}</style>
