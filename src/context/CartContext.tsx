@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { CartItem, Product } from '../types';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import type { CartItem, Product } from '../types';
 
 interface CartContextType {
   items: CartItem[];
@@ -15,16 +15,30 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
+const toMoneyNumber = (value: number): number => {
+  return Number(value.toFixed(2));
+};
+
 // ✅ FUNCIÓN DE PRECISIÓN: Extrae el número real del precio
 const parsePrice = (product: Product): number => {
-  if (product.custom_price && product.custom_price > 0) {
-    return product.custom_price;
+  if (typeof product.custom_price === 'number' && product.custom_price > 0) {
+    return toMoneyNumber(product.custom_price);
   }
+
   if (typeof product.price === 'string') {
-    const numeric = parseFloat(product.price.replace(/[^0-9.]/g, ''));
-    return isNaN(numeric) ? 0 : numeric;
+    const numeric = Number.parseFloat(product.price.replace(/[^0-9.]/g, ''));
+    return Number.isNaN(numeric) ? 0 : toMoneyNumber(numeric);
   }
+
   return 0;
+};
+
+const buildCartItemId = (product: Product): string => {
+  if (typeof product.custom_price === 'number' && product.custom_price > 0) {
+    return `${product.id}-${toMoneyNumber(product.custom_price).toFixed(2)}`;
+  }
+
+  return product.id;
 };
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -32,37 +46,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const addItem = (product: Product) => {
-    // 1. Identificamos el precio unitario que se está agregando
-    const unitPrice = product.custom_price || parsePrice(product);
-    
-    // 2. Creamos un ID ÚNICO para el carrito que combine ID + PRECIO
-    // Esto hace que un pollo de $10 y uno de $15 sean "productos diferentes"
-    const cartItemId = product.custom_price ? `${product.id}-${unitPrice}` : product.id;
+    const unitPrice = parsePrice(product);
+    const cartItemId = buildCartItemId(product);
 
     setItems(prev => {
-      const existingIndex = prev.findIndex(i => i.product.id === cartItemId);
+      const existingIndex = prev.findIndex(item => item.product.id === cartItemId);
 
       if (existingIndex > -1) {
-        // ✅ SI YA EXISTE (Mismo ID y mismo Precio): Solo aumentamos cantidad
-        const newItems = [...prev];
-        newItems[existingIndex] = {
-          ...newItems[existingIndex],
-          quantity: newItems[existingIndex].quantity + 1
+        const nextItems = [...prev];
+        nextItems[existingIndex] = {
+          ...nextItems[existingIndex],
+          quantity: nextItems[existingIndex].quantity + 1,
         };
-        return newItems;
+
+        return nextItems;
       }
 
-      // ✅ SI ES NUEVO O PRECIO DIFERENTE: Lo agregamos como fila nueva
-      // Clonamos el producto para ponerle el ID único del carrito
-      return [...prev, { 
-        product: { ...product, id: cartItemId }, 
-        quantity: 1 
-      }];
+      const productForCart: Product = {
+        ...product,
+        id: cartItemId,
+        custom_price:
+          typeof product.custom_price === 'number' && product.custom_price > 0
+            ? unitPrice
+            : undefined,
+      };
+
+      const newItem: CartItem = {
+        product: productForCart,
+        quantity: 1,
+
+        // Compatibilidad temporal con código anterior.
+        // item.id conserva el ID original del producto base.
+        id: product.id,
+        name: product.name,
+        price: unitPrice,
+        custom_price: productForCart.custom_price,
+      };
+
+      return [...prev, newItem];
     });
   };
 
   const removeItem = (productId: string) => {
-    setItems(prev => prev.filter(i => i.product.id !== productId));
+    setItems(prev => prev.filter(item => item.product.id !== productId));
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -70,27 +96,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem(productId);
       return;
     }
+
     setItems(prev =>
-      prev.map(i => (i.product.id === productId ? { ...i, quantity } : i))
+      prev.map(item =>
+        item.product.id === productId
+          ? { ...item, quantity }
+          : item
+      )
     );
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+  };
 
-  // ✅ TOTAL EN DINERO ($): Cálculo limpio (Precio Unitario * Cantidad)
-  const total = items.reduce((sum, item) => {
-    const unitPrice = parsePrice(item.product);
-    return sum + (unitPrice * item.quantity);
-  }, 0);
+  const total = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const unitPrice = parsePrice(item.product);
+      return sum + unitPrice * item.quantity;
+    }, 0);
+  }, [items]);
 
-  // ✅ CANTIDAD DE PAQUETES: Suma de unidades reales
-  const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cartCount = useMemo(() => {
+    return items.reduce((sum, item) => sum + item.quantity, 0);
+  }, [items]);
 
   return (
-    <CartContext.Provider value={{ 
-      items, addItem, removeItem, updateQuantity, clearCart, 
-      total, cartCount, isOpen, setIsOpen 
-    }}>
+    <CartContext.Provider
+      value={{
+        items,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        total: toMoneyNumber(total),
+        cartCount,
+        isOpen,
+        setIsOpen,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
@@ -98,6 +142,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used within CartProvider');
+
+  if (!ctx) {
+    throw new Error('useCart must be used within CartProvider');
+  }
+
   return ctx;
 }
