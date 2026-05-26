@@ -25,7 +25,7 @@ import {
   orderCode,
   subtotalOf,
 } from './utils/whatsapp';
-import type { CartItem, Category, Screen } from './types';
+import type { CartItem, Category, PaymentMethod, Screen } from './types';
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -64,6 +64,15 @@ class ErrorBoundary extends Component<
 }
 
 const toMoney = (value: number): number => Number(value.toFixed(2));
+
+const isPaymentMethod = (value: string | null): value is PaymentMethod => {
+  return value === 'efectivo' || value === 'deuna' || value === 'transferencia';
+};
+
+const getStoredPaymentMethod = (): PaymentMethod | undefined => {
+  const value = localStorage.getItem('selectedPaymentMethod');
+  return isPaymentMethod(value) ? value : undefined;
+};
 
 const normalizeItemsForOrder = (items: CartItem[]) => {
   return items.map(item => {
@@ -207,6 +216,7 @@ function AppShell() {
     const subtotal = subtotalOf(items);
     const deliveryFee = deliveryFeeOf(subtotal);
     const total = toMoney(subtotal + deliveryFee);
+    const paymentMethod = getStoredPaymentMethod();
 
     return {
       order_code: code,
@@ -217,6 +227,8 @@ function AppShell() {
       total,
       status,
       preorder: !isStoreOpen(),
+      payment_method: paymentMethod,
+      delivery_type: 'domicilio' as const,
       lat: customerLat,
       lng: customerLng,
       reference: customerReference || undefined,
