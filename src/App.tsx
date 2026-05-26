@@ -1,4 +1,5 @@
 import { useState, useRef, Component, useEffect } from 'react';
+import { PackageSearch } from 'lucide-react';
 import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
@@ -100,6 +101,7 @@ function AppShell() {
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showTracking, setShowTracking] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
   const [isChangingLocation, setIsChangingLocation] = useState(false);
@@ -151,6 +153,7 @@ function AppShell() {
 
     setScreen(nextScreen);
     setShowLoginModal(false);
+    setShowTracking(false);
     setIsChangingLocation(false);
 
     if (mainRef.current) {
@@ -221,7 +224,6 @@ function AppShell() {
     };
   };
 
-  // Registra anticipadamente la orden en Supabase al elegir ver datos de pago
   const handleEarlySave = async () => {
     if (!customerName || !customerPhone || items.length === 0) return;
 
@@ -270,6 +272,7 @@ function AppShell() {
       clearCart();
       setShowConfirmation(false);
       setScreen('home');
+      setShowTracking(true);
       setActiveOrderCode(null);
     }, 100);
   };
@@ -284,7 +287,10 @@ function AppShell() {
       />
 
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner">
-        <OrderTracking isOpen={false} onClose={() => undefined} />
+        <OrderTracking
+          isOpen={showTracking}
+          onClose={() => setShowTracking(false)}
+        />
 
         {screen === 'home' && (
           <HomeScreen
@@ -330,6 +336,18 @@ function AppShell() {
 
         {screen === 'ranking' && <Ranking />}
       </main>
+
+      {screen !== 'ranking' && (
+        <button
+          type="button"
+          onClick={() => setShowTracking(true)}
+          className="fixed right-4 bottom-[88px] z-40 flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md border border-orange-100 px-4 py-3 shadow-xl shadow-orange-100 text-orange-600 active:scale-95 transition-all"
+          aria-label="Abrir rastreo de pedido"
+        >
+          <PackageSearch size={18} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Rastrear</span>
+        </button>
+      )}
 
       {screen !== 'ranking' && (
         <BottomNav
