@@ -1,8 +1,8 @@
 import { useState, useRef, Component, useEffect } from 'react';
-import { CartProvider } from './context/CartContext';
+import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
-import { UserProvider, useUser } from './context/UserContext'; 
+import { UserProvider, useUser } from './context/UserContext';
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -14,77 +14,162 @@ import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
 import LoginModal from './components/LoginModal';
-import OrderTracking from './components/OrderTracking'; 
+import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking';
-import { useCart } from './context/CartContext';
-import { buildWhatsAppUrl, deliveryFeeOf, isStoreOpen, orderCode } from './utils/whatsapp';
-import { Category } from './types';
+import {
+  buildWhatsAppUrl,
+  deliveryFeeOf,
+  isStoreOpen,
+  itemUnitPrice,
+  orderCode,
+  subtotalOf,
+} from './utils/whatsapp';
+import type { CartItem, Category, Screen } from './types';
 
-class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: any}> {
-  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+class ErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: unknown }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, error };
+  }
+
   render() {
     if (this.state.hasError) {
       return (
         <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
           <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
           <p className="text-gray-600 mt-2 italic font-bold">Recuperando el Imperio...</p>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform">
+          <button
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-full font-black shadow-lg active:scale-95 transition-transform"
+          >
             LIMPIAR Y REINTENTAR
           </button>
         </div>
       );
     }
+
     return this.props.children;
   }
 }
 
+const toMoney = (value: number): number => Number(value.toFixed(2));
+
+const normalizeItemsForOrder = (items: CartItem[]) => {
+  return items.map(item => {
+    const product = item.product;
+    const unitPrice = itemUnitPrice(item);
+    const originalProductId = item.id || product.id;
+    const lineSubtotal = toMoney(unitPrice * item.quantity);
+    const customPrice =
+      typeof product.custom_price === 'number' && product.custom_price > 0
+        ? product.custom_price
+        : item.custom_price;
+
+    return {
+      ...item,
+      id: originalProductId,
+      product_id: originalProductId,
+      cart_item_id: product.id,
+      name: product.name || item.name || 'Producto del Menú',
+      price: unitPrice,
+      price_text: customPrice
+        ? `$${unitPrice.toFixed(2)}`
+        : product.price || (unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : 'Consultar precio'),
+      custom_price: customPrice,
+      quantity: item.quantity,
+      subtotal: lineSubtotal,
+      category: product.category,
+      image: product.image || null,
+      product,
+    };
+  });
+};
+
 function AppShell() {
-  const [screen, setScreen] = useState<'home' | 'catalog' | 'cart' | 'info' | 'ranking'>('home');
+  const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const { items, clearCart } = useCart();
-  const { createOrder, products, upsertCustomer, loading } = useAdmin();
-  const { customerPhone, customerAvatar, customerName, setUserData } = useUser();
-  const mainRef = useRef<HTMLElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false);
-
-  // ✅ NUEVOS ESTADOS: Para el control de orden única y el redireccionamiento directo al mapa
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
   const [isChangingLocation, setIsChangingLocation] = useState(false);
 
+  const { items, clearCart } = useCart();
+  const { createOrder, upsertCustomer, loading } = useAdmin();
+  const {
+    customerPhone,
+    customerAvatar,
+    customerName,
+    customerLat,
+    customerLng,
+    customerReference,
+    setUserData,
+  } = useUser();
+
+  const mainRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
-    const handlePopState = () => { if (screen !== 'home') setScreen('home'); };
+    const handlePopState = () => {
+      if (screen !== 'home') setScreen('home');
+    };
+
     window.addEventListener('popstate', handlePopState);
-    if (screen !== 'home') window.history.pushState({ screen }, '');
+
+    if (screen !== 'home') {
+      window.history.pushState({ screen }, '');
+    }
+
     return () => window.removeEventListener('popstate', handlePopState);
   }, [screen]);
 
   useEffect(() => {
     if (!customerName && !loading) {
-      const timer = setTimeout(() => { setShowLoginModal(true); }, 3000);
-      return () => clearTimeout(timer);
+      const timer = window.setTimeout(() => {
+        setShowLoginModal(true);
+      }, 3000);
+
+      return () => window.clearTimeout(timer);
     }
+
+    return undefined;
   }, [customerName, loading]);
 
-  const handleNavigate = (s: any) => {
-    if (s !== 'catalog') setActiveCategory('Todos');
-    setScreen(s);
-    setShowLoginModal(false); 
-    setIsChangingLocation(false); // Reseteamos el estado de ruta al navegar
-    if (mainRef.current) mainRef.current.scrollTop = 0;
+  const handleNavigate = (nextScreen: Screen) => {
+    if (nextScreen !== 'catalog') {
+      setActiveCategory('Todos');
+    }
+
+    setScreen(nextScreen);
+    setShowLoginModal(false);
+    setIsChangingLocation(false);
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
   };
 
   const handleCategoryClick = (cat: Category) => {
     setActiveCategory(cat);
     setScreen('catalog');
-    if (mainRef.current) mainRef.current.scrollTop = 0;
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
   };
 
-  const handleLogin = async (u: { 
-    name: string; 
-    whatsapp: string; 
+  const handleLogin = async (u: {
+    name: string;
+    whatsapp: string;
     avatarUrl: string;
     lat?: number | null;
     lng?: number | null;
@@ -96,57 +181,60 @@ function AppShell() {
       avatar: u.avatarUrl,
       lat: u.lat,
       lng: u.lng,
-      reference: u.reference
-    }); 
+      reference: u.reference,
+    });
 
-    try { 
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl); 
-    } catch (e) { 
-      console.error("Error perfil:", e); 
+    try {
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl);
+    } catch (error) {
+      console.error('Error perfil:', error);
     }
 
     setShowLoginModal(false);
     setIsChangingLocation(false);
-    if (pendingOrder) { 
-      setPendingOrder(false); 
-      setShowConfirmation(true); 
+
+    if (pendingOrder) {
+      setPendingOrder(false);
+      setShowConfirmation(true);
     }
+  };
+
+  const buildOrderPayload = (code: string, status: 'Por Confirmar' | 'Recibido') => {
+    const detailedItems = normalizeItemsForOrder(items);
+    const subtotal = subtotalOf(items);
+    const deliveryFee = deliveryFeeOf(subtotal);
+    const total = toMoney(subtotal + deliveryFee);
+
+    return {
+      order_code: code,
+      customer_phone: customerPhone,
+      items: detailedItems,
+      subtotal: toMoney(subtotal),
+      delivery_fee: toMoney(deliveryFee),
+      total,
+      status,
+      preorder: !isStoreOpen(),
+      lat: customerLat,
+      lng: customerLng,
+      reference: customerReference || undefined,
+      created_at: new Date().toISOString(),
+    };
   };
 
   // Registra anticipadamente la orden en Supabase al elegir ver datos de pago
   const handleEarlySave = async () => {
-    if (!customerName || !customerPhone) return;
+    if (!customerName || !customerPhone || items.length === 0) return;
+
+    if (activeOrderCode) return;
 
     const code = orderCode();
     setActiveOrderCode(code);
 
-    const detailedItems = items.map(item => {
-        const p = products.find(prod => prod.id === item.id);
-        const cleanPrice = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
-        return {
-            ...item,
-            name: p?.name || 'Producto del Menú',
-            price: cleanPrice
-        };
-    });
-
-    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const fee = deliveryFeeOf(subtotal);
-    const total = subtotal + fee;
-
     try {
-      await createOrder({
-        order_code: code,
-        customer_phone: customerPhone,
-        items: detailedItems, 
-        subtotal: Number(subtotal.toFixed(2)),
-        total: Number(total.toFixed(2)), 
-        status: 'Por Confirmar', 
-        preorder: !isStoreOpen(),
-        created_at: new Date().toISOString()
-      });
-    } catch (err) { 
-        console.error("Error crítico al guardar orden anticipada:", err); 
+      await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+    } catch (error) {
+      console.error('Error crítico al guardar orden anticipada:', error);
+      setActiveOrderCode(null);
     }
   };
 
@@ -157,73 +245,67 @@ function AppShell() {
       setShowLoginModal(true);
       return;
     }
-    
+
+    if (items.length === 0) {
+      setShowConfirmation(false);
+      setScreen('home');
+      setActiveOrderCode(null);
+      return;
+    }
+
     const code = activeOrderCode || orderCode();
-    
-    const detailedItems = items.map(item => {
-        const p = products.find(prod => prod.id === item.id);
-        const cleanPrice = parseFloat(p?.price?.toString().replace(/[^0-9.]/g, '') || '0');
-        return {
-            ...item,
-            name: p?.name || 'Producto del Menú',
-            price: cleanPrice
-        };
-    });
-
-    const subtotal = detailedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const fee = deliveryFeeOf(subtotal);
-    const total = subtotal + fee;
-
     const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
 
     if (!activeOrderCode) {
       try {
-        await createOrder({
-          order_code: code,
-          customer_phone: customerPhone,
-          items: detailedItems, 
-          subtotal: Number(subtotal.toFixed(2)),
-          total: Number(total.toFixed(2)), 
-          status: 'Recibido',
-          preorder: !isStoreOpen(),
-          created_at: new Date().toISOString()
-        });
-      } catch (err) { 
-          console.error("Error crítico al guardar orden:", err); 
+        await createOrder(buildOrderPayload(code, 'Recibido'));
+      } catch (error) {
+        console.error('Error crítico al guardar orden:', error);
       }
     }
 
     window.location.href = whatsappUrl;
-    
-    setTimeout(() => {
-        clearCart();
-        setShowConfirmation(false);
-        setScreen('home');
-        setActiveOrderCode(null); 
+
+    window.setTimeout(() => {
+      clearCart();
+      setShowConfirmation(false);
+      setScreen('home');
+      setActiveOrderCode(null);
     }, 100);
   };
 
   return (
     <div className="flex flex-col bg-gray-50 h-[100dvh] selection:bg-orange-200">
-      <AppHeader screen={screen} onNavigate={handleNavigate} onOpenProfile={() => setShowLoginModal(true)} customerAvatar={customerAvatar} />
+      <AppHeader
+        screen={screen}
+        onNavigate={handleNavigate}
+        onOpenProfile={() => setShowLoginModal(true)}
+        customerAvatar={customerAvatar}
+      />
+
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner">
-        <OrderTracking />
-        {screen === 'home' && <HomeScreen onNavigate={handleNavigate} onNavigateToCategory={handleCategoryClick} />}
-        
-        {screen === 'catalog' && (
-          <CatalogScreen 
-            initialCategory={activeCategory} 
-            onCategoryChange={(cat) => setActiveCategory(cat as any)} 
-            onNavigate={handleNavigate} 
+        <OrderTracking isOpen={false} onClose={() => undefined} />
+
+        {screen === 'home' && (
+          <HomeScreen
+            onNavigate={handleNavigate}
+            onNavigateToCategory={handleCategoryClick}
           />
         )}
-        
-        {/* ✅ CONFIGURADO: Ahora lee si viene en modo cambio de dirección voluntario o bloqueo por falta de perfil */}
+
+        {screen === 'catalog' && (
+          <CatalogScreen
+            initialCategory={activeCategory}
+            onCategoryChange={cat => setActiveCategory(cat as Category | 'Todos')}
+            onNavigate={handleNavigate}
+          />
+        )}
+
         {screen === 'cart' && (
-          <CartScreen 
-            onCheckout={() => setShowConfirmation(true)} 
-            onNavigate={handleNavigate} 
-            onRequireLogin={(mode) => { 
+          <CartScreen
+            onCheckout={() => setShowConfirmation(true)}
+            onNavigate={handleNavigate}
+            onRequireLogin={mode => {
               if (mode === 'change_location') {
                 setIsChangingLocation(true);
                 setPendingOrder(false);
@@ -231,52 +313,91 @@ function AppShell() {
                 setIsChangingLocation(false);
                 setPendingOrder(true);
               }
-              setShowLoginModal(true); 
-            }} 
+
+              setShowLoginModal(true);
+            }}
             onEarlySave={handleEarlySave}
           />
         )}
-        {screen === 'info' && <InfoScreen onInstall={() => {}} canInstall={false} onNavigate={handleNavigate} />}
+
+        {screen === 'info' && (
+          <InfoScreen
+            onInstall={() => undefined}
+            canInstall={false}
+            onNavigate={handleNavigate}
+          />
+        )}
+
         {screen === 'ranking' && <Ranking />}
       </main>
-      {screen !== 'ranking' && <BottomNav current={screen} onNavigate={handleNavigate} />}
+
+      {screen !== 'ranking' && (
+        <BottomNav
+          current={screen}
+          onNavigate={handleNavigate}
+        />
+      )}
+
       <FlyParticleLayer />
-      
-      {/* ✅ CONFIGURADO: Conectado con el nuevo estado de cambio de dirección flexible */}
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => { setShowLoginModal(false); setPendingOrder(false); setIsChangingLocation(false); }} 
-        onLogin={handleLogin} 
-        title={isChangingLocation ? "Punto de entrega" : pendingOrder ? "¡Ya casi, un último paso!" : "Únete al Club"} 
-        subtitle={isChangingLocation ? "Modifica tu ubicación en el mapa" : pendingOrder ? "Regístrate para enviar tu pedido y acumular puntos." : "Acumula puntos y gana con tus compras"} 
+
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => {
+          setShowLoginModal(false);
+          setPendingOrder(false);
+          setIsChangingLocation(false);
+        }}
+        onLogin={handleLogin}
         isMandatory={pendingOrder}
-        {...({ isChangingLocation } as any)} // Truco de inyección segura para evitar errores de tipo hasta actualizar el modal
+        isChangingLocation={isChangingLocation}
       />
-      <OrderConfirmation visible={showConfirmation} onWhatsApp={handleWhatsApp} />
+
+      <OrderConfirmation
+        visible={showConfirmation}
+        onWhatsApp={handleWhatsApp}
+      />
     </div>
   );
 }
 
 export default function App() {
   const [landingDone, setLandingDone] = useState(() => {
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    const isDismissed = !!localStorage.getItem('pollazo_landing_dismissed');
+    const isPWA =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true;
+
+    const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
+
     return isPWA || isDismissed;
   });
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => reg.update()); }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then(registration => registration.update())
+        .catch(() => undefined);
+    }
   }, []);
 
-  if (window.location.pathname === '/admin') return <AdminProvider><AdminDashboard /></AdminProvider>;
-  
+  if (window.location.pathname === '/admin') {
+    return (
+      <AdminProvider>
+        <AdminDashboard />
+      </AdminProvider>
+    );
+  }
+
   if (!landingDone) {
     return (
       <AdminProvider>
-        <LandingPage onInstall={() => {}} canInstall={false} onContinueWeb={() => {
+        <LandingPage
+          onInstall={() => undefined}
+          canInstall={false}
+          onContinueWeb={() => {
             localStorage.setItem('pollazo_landing_dismissed', '1');
             setLandingDone(true);
-        }} />
+          }}
+        />
       </AdminProvider>
     );
   }
@@ -284,7 +405,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AdminProvider>
-        <UserProvider> 
+        <UserProvider>
           <CartProvider>
             <FlyToCartProvider>
               <AppShell />
