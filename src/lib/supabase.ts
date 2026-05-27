@@ -1,12 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-export const isSupabaseConfigured = Boolean(url && key);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured && import.meta.env.DEV) {
+  console.warn(
+    '⚠️ Supabase no está configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.'
+  );
+}
 
 export const supabase = createClient(
-  url || 'https://example.supabase.co',
-  key || 'public-anon-key',
-  { auth: { persistSession: true, autoRefreshToken: true } }
+  supabaseUrl || 'https://example.supabase.co',
+  supabaseAnonKey || 'public-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  }
 );
