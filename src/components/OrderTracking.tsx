@@ -11,16 +11,18 @@ import {
   TimerReset,
   Navigation,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Order, OrderStatus } from '../types';
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const STORE_LOCATION = {
@@ -30,7 +32,7 @@ const STORE_LOCATION = {
 
 const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon }> = [
   { status: 'Por Confirmar', label: 'Por confirmar', icon: Clock3 },
-  { status: 'Recibido', label: 'Recibido', icon: ClipboardList },
+  { status: 'Recibido', label: 'Confirmado', icon: ClipboardList },
   { status: 'Preparando', label: 'Empacando', icon: ShoppingBag },
   { status: 'Enviado', label: 'En camino', icon: Truck },
   { status: 'Entregado', label: 'Entregado', icon: CheckCircle2 },
@@ -42,6 +44,49 @@ const cleanPhoneTail = (phone?: string | null) => {
 
 const toRadians = (value: number) => {
   return (value * Math.PI) / 180;
+};
+
+const parseCoordinate = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
+const getOrderLocation = (order: Order | null) => {
+  if (!order) return null;
+
+  const lat = parseCoordinate(order.lat);
+  const lng = parseCoordinate(order.lng);
+
+  if (lat === null || lng === null) {
+    return null;
+  }
+
+  return { lat, lng };
+};
+
+const getOptionalDate = (order: Order, key: string): Date | null => {
+  const value = (order as unknown as Record<string, unknown>)[key];
+
+  if (!value) return null;
+
+  const parsed = new Date(String(value));
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
 };
 
 const distanceKmBetween = (
@@ -134,8 +179,14 @@ const getPrepMinutes = (order: Order) => {
   return { min, max };
 };
 
-const getDeliveryMinutes = (distanceKm: number) => {
-  if (distanceKm <= 0) return { min: 5, max: 10 };
+const getDeliveryMinutes = (distanceKm: number | null) => {
+  if (distanceKm === null) {
+    return { min: 8, max: 18 };
+  }
+
+  if (distanceKm <= 0) {
+    return { min: 5, max: 10 };
+  }
 
   const baseMin = Math.ceil(distanceKm * 4) + 4;
   const baseMax = Math.ceil(distanceKm * 6) + 8;
@@ -146,27 +197,39 @@ const getDeliveryMinutes = (distanceKm: number) => {
   };
 };
 
-const estimateOrderTiming = (order: Order, now: Date) => {
+const getTimingBaseDate = (order: Order, now: Date) => {
   const createdAt = order.created_at ? new Date(order.created_at) : now;
-  const customerLocation =
-    typeof order.lat === 'number' && typeof order.lng === 'number'
-      ? { lat: order.lat, lng: order.lng }
-      : null;
+  const confirmedAt = getOptionalDate(order, 'confirmed_at');
+  const updatedAt = getOptionalDate(order, 'updated_at');
+
+  if (order.status === 'Enviado') {
+    return updatedAt || confirmedAt || createdAt;
+  }
+
+  if (order.status === 'Preparando') {
+    return updatedAt || confirmedAt || createdAt;
+  }
+
+  if (order.status === 'Recibido') {
+    return confirmedAt || updatedAt || createdAt;
+  }
+
+  return createdAt;
+};
+
+const estimateOrderTiming = (order: Order, now: Date) => {
+  const baseDate = getTimingBaseDate(order, now);
+  const customerLocation = getOrderLocation(order);
 
   const distanceKm = customerLocation
     ? distanceKmBetween(STORE_LOCATION, customerLocation)
-    : 0;
+    : null;
 
   const prep = getPrepMinutes(order);
   const delivery = getDeliveryMinutes(distanceKm);
 
   let minMinutes = prep.min + delivery.min;
   let maxMinutes = prep.max + delivery.max;
-
-  if (order.status === 'Por Confirmar') {
-    minMinutes += 3;
-    maxMinutes += 6;
-  }
 
   if (order.status === 'Preparando') {
     minMinutes = Math.max(6, delivery.min + 3);
@@ -183,8 +246,8 @@ const estimateOrderTiming = (order: Order, now: Date) => {
     maxMinutes = 0;
   }
 
-  const earliest = new Date(createdAt.getTime() + minMinutes * 60 * 1000);
-  const latest = new Date(createdAt.getTime() + maxMinutes * 60 * 1000);
+  const earliest = new Date(baseDate.getTime() + minMinutes * 60 * 1000);
+  const latest = new Date(baseDate.getTime() + maxMinutes * 60 * 1000);
   const remainingMs = latest.getTime() - now.getTime();
   const remainingMinutes = Math.max(0, Math.ceil(remainingMs / 60000));
 
@@ -201,7 +264,7 @@ const estimateOrderTiming = (order: Order, now: Date) => {
 const getStatusMessage = (status: OrderStatus) => {
   switch (status) {
     case 'Por Confirmar':
-      return 'Recibimos tu pedido. Estamos revisando disponibilidad y pago.';
+      return 'Recibimos tu pedido. El negocio está revisando disponibilidad y método de pago.';
     case 'Recibido':
       return '¡Pedido confirmado! Ya tenemos tu compra en el sistema.';
     case 'Preparando':
@@ -209,7 +272,7 @@ const getStatusMessage = (status: OrderStatus) => {
     case 'Enviado':
       return '¡Tu pedido va en camino a tu casa!';
     case 'Entregado':
-      return '¡Pedido entregado! ¡Buen provecho!';
+      return '¡Pedido entregado! ¡Gracias por comprar en La Casa del Pollazo!';
     case 'Cancelado':
       return 'Este pedido fue cancelado.';
     default:
@@ -217,11 +280,43 @@ const getStatusMessage = (status: OrderStatus) => {
   }
 };
 
-export default function OrderTracking({ isOpen, onClose }: Props) {
+const getPendingPaymentText = (order: Order) => {
+  if (order.payment_method === 'efectivo') {
+    return 'Tu pedido espera confirmación del negocio antes de prepararse. El pago será contra entrega.';
+  }
+
+  if (order.payment_method === 'deuna') {
+    return 'Tu pedido espera validación del pago por Deuna antes de activar el tiempo estimado.';
+  }
+
+  if (order.payment_method === 'transferencia') {
+    return 'Tu pedido espera validación de transferencia antes de activar el tiempo estimado.';
+  }
+
+  return 'Cuando el negocio confirme tu pedido, aquí aparecerá el tiempo estimado de entrega.';
+};
+
+export default function OrderTracking({
+  isOpen = false,
+  onClose = () => {},
+}: Props) {
   const { orders, refreshData } = useAdmin();
   const { customerPhone } = useUser();
   const [now, setNow] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const cleanUserPhone = cleanPhoneTail(customerPhone);
+
+  const refreshTracking = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshData();
+      setNow(new Date());
+    } catch (error) {
+      console.error('No se pudo refrescar el rastreo:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshData]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -238,35 +333,63 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
   useEffect(() => {
     if (!isOpen) return undefined;
 
-    let mounted = true;
+    refreshTracking();
 
-    const refresh = async () => {
-      try {
-        setIsRefreshing(true);
-        await refreshData();
-      } catch (error) {
-        console.error('No se pudo refrescar el rastreo:', error);
-      } finally {
-        if (mounted) {
-          setIsRefreshing(false);
+    const interval = window.setInterval(refreshTracking, 12000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isOpen, refreshTracking]);
+
+  useEffect(() => {
+    if (!isOpen || !isSupabaseConfigured || !cleanUserPhone) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel(`pollazo_tracking_${cleanUserPhone}_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        payload => {
+          const nextRow = payload.new as { customer_phone?: string } | null;
+          const oldRow = payload.old as { customer_phone?: string } | null;
+
+          const changedPhone =
+            cleanPhoneTail(nextRow?.customer_phone) ||
+            cleanPhoneTail(oldRow?.customer_phone);
+
+          if (changedPhone === cleanUserPhone) {
+            refreshTracking();
+          }
         }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [cleanUserPhone, isOpen, refreshTracking]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshTracking();
       }
     };
 
-    refresh();
-
-    const interval = window.setInterval(refresh, 4000);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      mounted = false;
-      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [isOpen, refreshData]);
+  }, [isOpen, refreshTracking]);
 
   const activeOrder = useMemo(() => {
-    const cleanUser = cleanPhoneTail(customerPhone);
-
-    if (!cleanUser) {
+    if (!cleanUserPhone) {
       return null;
     }
 
@@ -274,8 +397,9 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
       orders
         ?.filter(order => {
           const cleanOrder = cleanPhoneTail(order.customer_phone);
+
           return (
-            cleanOrder === cleanUser &&
+            cleanOrder === cleanUserPhone &&
             isRecentOrder(order) &&
             order.status !== 'Cancelado'
           );
@@ -283,10 +407,11 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
         .sort((a, b) => {
           const dateA = new Date(a.created_at || '').getTime();
           const dateB = new Date(b.created_at || '').getTime();
+
           return dateB - dateA;
         })[0] || null
     );
-  }, [customerPhone, orders]);
+  }, [cleanUserPhone, orders]);
 
   if (!isOpen) return null;
 
@@ -296,7 +421,15 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
     ? statusSteps.findIndex(step => step.status === currentStatus)
     : -1;
 
-  const estimate = activeOrder ? estimateOrderTiming(activeOrder, now) : null;
+  const canShowEta =
+    activeOrder &&
+    currentStatus &&
+    currentStatus !== 'Por Confirmar' &&
+    currentStatus !== 'Entregado' &&
+    currentStatus !== 'Cancelado';
+
+  const estimate = canShowEta ? estimateOrderTiming(activeOrder, now) : null;
+  const orderLocation = getOrderLocation(activeOrder);
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -319,15 +452,29 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
           <div
             className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 ${
               hasActiveOrder
-                ? 'bg-green-100 text-green-600'
+                ? currentStatus === 'Por Confirmar'
+                  ? 'bg-orange-100 text-orange-500'
+                  : 'bg-green-100 text-green-600'
                 : 'bg-orange-100 text-orange-500'
             }`}
           >
-            {hasActiveOrder ? <Truck size={40} /> : <PackageSearch size={40} />}
+            {hasActiveOrder ? (
+              currentStatus === 'Por Confirmar' ? (
+                <Clock3 size={40} />
+              ) : (
+                <Truck size={40} />
+              )
+            ) : (
+              <PackageSearch size={40} />
+            )}
           </div>
 
           <h2 className="text-2xl font-black text-gray-900 uppercase italic leading-none">
-            {hasActiveOrder ? 'Pedido en Curso' : 'Rastreo en Vivo'}
+            {hasActiveOrder
+              ? currentStatus === 'Por Confirmar'
+                ? 'Esperando Confirmación'
+                : 'Pedido en Curso'
+              : 'Rastreo en Vivo'}
           </h2>
 
           <p className="text-sm font-bold text-gray-400 mt-2">
@@ -337,14 +484,24 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
           </p>
 
           {hasActiveOrder && (
-            <div className="mt-3 inline-flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-full px-3 py-1.5">
-              <RefreshCw
-                size={12}
-                className={`text-orange-500 ${isRefreshing ? 'animate-spin' : ''}`}
-              />
-              <span className="text-[9px] font-black uppercase text-gray-400">
-                Actualización automática
-              </span>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-full px-3 py-1.5">
+                <RefreshCw
+                  size={12}
+                  className={`text-orange-500 ${isRefreshing ? 'animate-spin' : ''}`}
+                />
+                <span className="text-[9px] font-black uppercase text-gray-400">
+                  En vivo
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={refreshTracking}
+                className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100 rounded-full px-3 py-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+              >
+                Actualizar
+              </button>
             </div>
           )}
         </div>
@@ -383,13 +540,44 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
               })}
             </div>
 
-            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-center shadow-sm">
-              <p className="text-xs font-black text-orange-600 uppercase italic leading-relaxed">
+            <div
+              className={`p-4 rounded-2xl border text-center shadow-sm ${
+                currentStatus === 'Por Confirmar'
+                  ? 'bg-orange-50 border-orange-100'
+                  : 'bg-green-50 border-green-100'
+              }`}
+            >
+              <p
+                className={`text-xs font-black uppercase italic leading-relaxed ${
+                  currentStatus === 'Por Confirmar'
+                    ? 'text-orange-600'
+                    : 'text-green-700'
+                }`}
+              >
                 {getStatusMessage(currentStatus)}
               </p>
             </div>
 
-            {estimate && currentStatus !== 'Entregado' && (
+            {currentStatus === 'Por Confirmar' && activeOrder && (
+              <div className="mt-4 bg-yellow-50 border border-yellow-100 rounded-[28px] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
+                    <ShieldCheck size={20} />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black text-yellow-700 uppercase">
+                      Tiempo estimado bloqueado
+                    </p>
+                    <p className="text-[11px] font-bold text-yellow-700/80 leading-relaxed mt-1">
+                      {getPendingPaymentText(activeOrder)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {estimate && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3">
                   <div className="flex items-center gap-2 text-orange-600 mb-1">
@@ -411,9 +599,9 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
                     </span>
                   </div>
                   <p className="text-xs font-black text-gray-900 leading-snug">
-                    {estimate.distanceKm > 0
+                    {estimate.distanceKm !== null
                       ? `${estimate.distanceKm.toFixed(1)} km`
-                      : 'Zona cercana'}
+                      : 'Sin GPS exacto'}
                   </p>
                 </div>
 
@@ -421,7 +609,7 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
                   <p className="text-[10px] font-black uppercase text-green-700 leading-relaxed">
                     {currentStatus === 'Enviado'
                       ? `Tu pedido debería llegar en aproximadamente ${estimate.remainingMinutes} min.`
-                      : `Tu pedido está estimado para llegar entre ${estimate.minMinutes} y ${estimate.maxMinutes} min desde que fue recibido.`}
+                      : `Tu pedido está estimado para llegar entre ${estimate.minMinutes} y ${estimate.maxMinutes} min desde la confirmación.`}
                   </p>
                 </div>
               </div>
@@ -436,9 +624,18 @@ export default function OrderTracking({ isOpen, onClose }: Props) {
               </div>
             )}
 
+            {!orderLocation && currentStatus !== 'Por Confirmar' && (
+              <div className="mt-4 bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-3">
+                <MapPin size={17} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                <p className="text-[10px] font-bold text-orange-700 uppercase leading-relaxed">
+                  No encontramos GPS exacto en este pedido. El tiempo se calcula como zona cercana.
+                </p>
+              </div>
+            )}
+
             {activeOrder?.created_at && (
               <p className="text-center text-[10px] text-gray-300 font-bold uppercase mt-4">
-                Se actualiza solo mientras este rastreo está abierto
+                Se actualiza automáticamente cuando el admin cambia el estado
               </p>
             )}
           </div>
