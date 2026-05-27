@@ -39,6 +39,12 @@ interface LatLng {
   lng: number;
 }
 
+type LocationRequestOptions = {
+  moveMap?: boolean;
+  silent?: boolean;
+  updateSelectedPoint?: boolean;
+};
+
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 
@@ -94,7 +100,9 @@ export default function LoginModal({
     subtitle ||
     (step === 1
       ? 'Acumula puntos y gana premios'
-      : 'Marca el punto exacto de entrega');
+      : isChangingLocation
+        ? 'Ajusta tu punto de entrega'
+        : 'Marca el punto exacto de entrega');
 
   const isInsideGeofence =
     lat !== null &&
@@ -131,13 +139,23 @@ export default function LoginModal({
     [createBlueDotIcon]
   );
 
+  const moveMapTo = useCallback((position: LatLng, zoom = 18) => {
+    if (!mapInstance.current) return;
+
+    mapInstance.current.flyTo([position.lat, position.lng], zoom, {
+      duration: 1.2,
+    });
+  }, []);
+
   const requestLocation = useCallback(
-    (options?: { moveMap?: boolean; silent?: boolean }) => {
+    (options?: LocationRequestOptions) => {
       if (!navigator.geolocation) {
         setError('Tu navegador no permite usar GPS. Mueve el mapa manualmente.');
         setIsLocating(false);
         return;
       }
+
+      const shouldUpdateSelectedPoint = options?.updateSelectedPoint !== false;
 
       setIsLocating(true);
 
@@ -153,14 +171,15 @@ export default function LoginModal({
           };
 
           setUserActualLocation(nextPosition);
-          setLat(nextPosition.lat);
-          setLng(nextPosition.lng);
           setIsLocating(false);
 
+          if (shouldUpdateSelectedPoint) {
+            setLat(nextPosition.lat);
+            setLng(nextPosition.lng);
+          }
+
           if (mapInstance.current && options?.moveMap !== false) {
-            mapInstance.current.flyTo([nextPosition.lat, nextPosition.lng], 18, {
-              duration: 1.2,
-            });
+            moveMapTo(nextPosition);
           }
 
           syncUserMarker(nextPosition);
@@ -172,26 +191,51 @@ export default function LoginModal({
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
     },
-    [syncUserMarker]
+    [moveMapTo, syncUserMarker]
   );
 
   useEffect(() => {
     if (!isOpen) return;
 
+    const hasSavedDeliveryPoint =
+      typeof customerLat === 'number' &&
+      typeof customerLng === 'number';
+
     setName(customerName || '');
     setWhatsapp(customerPhone || '');
     setAvatar(customerAvatar || DEFAULT_AVATAR);
-    setLat(customerLat ?? DEFAULT_CENTER.lat);
-    setLng(customerLng ?? DEFAULT_CENTER.lng);
     setReference(customerReference || '');
     setUserActualLocation(null);
 
     if (isChangingLocation) {
       setStep(2);
       setError('');
-      requestLocation({ moveMap: true, silent: true });
+
+      if (hasSavedDeliveryPoint) {
+        setLat(customerLat);
+        setLng(customerLng);
+
+        requestLocation({
+          moveMap: false,
+          silent: true,
+          updateSelectedPoint: false,
+        });
+      } else {
+        setLat(DEFAULT_CENTER.lat);
+        setLng(DEFAULT_CENTER.lng);
+
+        requestLocation({
+          moveMap: true,
+          silent: true,
+          updateSelectedPoint: true,
+        });
+      }
+
       return;
     }
+
+    setLat(customerLat ?? DEFAULT_CENTER.lat);
+    setLng(customerLng ?? DEFAULT_CENTER.lng);
 
     if (isMandatory) {
       if (!customerName || !customerPhone) {
@@ -203,7 +247,11 @@ export default function LoginModal({
       if (!customerLat || !customerLng || !customerReference) {
         setStep(2);
         setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
-        requestLocation({ moveMap: true, silent: true });
+        requestLocation({
+          moveMap: true,
+          silent: true,
+          updateSelectedPoint: true,
+        });
         return;
       }
     }
@@ -265,20 +313,21 @@ export default function LoginModal({
 
       window.setTimeout(() => {
         mapInstance.current?.invalidateSize();
+
+        if (lat !== null && lng !== null) {
+          mapInstance.current?.setView([lat, lng], 17, { animate: false });
+        }
       }, 150);
 
       if (userActualLocation) {
         syncUserMarker(userActualLocation);
-        mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, {
-          duration: 1.2,
-        });
       }
     }, 250);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [isOpen, step, syncUserMarker, userActualLocation]);
+  }, [isOpen, lat, lng, step, syncUserMarker, userActualLocation]);
 
   useEffect(() => {
     if (!isOpen || step !== 2) return;
@@ -310,7 +359,10 @@ export default function LoginModal({
   }, [isInsideGeofence, lat, lng, step]);
 
   const handleGetLocation = () => {
-    requestLocation({ moveMap: true });
+    requestLocation({
+      moveMap: true,
+      updateSelectedPoint: true,
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,7 +438,12 @@ export default function LoginModal({
 
     setError('');
     setStep(2);
-    requestLocation({ moveMap: true, silent: true });
+
+    requestLocation({
+      moveMap: true,
+      silent: true,
+      updateSelectedPoint: true,
+    });
   };
 
   const handleSave = () => {
@@ -550,6 +607,12 @@ export default function LoginModal({
                 📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido
                 (evita marcar dentro de la casa).
               </p>
+
+              {isChangingLocation && customerLat && customerLng && (
+                <p className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 p-2.5 rounded-2xl text-center uppercase leading-snug">
+                  Abrimos tu punto guardado. Ajusta el pin naranja si quieres mover la entrega.
+                </p>
+              )}
 
               <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white bg-slate-100">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
