@@ -434,6 +434,7 @@ function AdminDashboardContent() {
   const [points, setPoints] = useState<Record<string, string>>({});
   const [savingBranding, setSavingBranding] = useState(false);
   const [savingSeason, setSavingSeason] = useState(false);
+  const [resettingPoints, setResettingPoints] = useState(false);
 
   const [draft, setDraft] = useState({
     name: '',
@@ -723,6 +724,42 @@ function AdminDashboardContent() {
       window.alert('¡Temporada finalizada y pausada! Ya está arriba en el historial.');
     } catch {
       window.alert('Error al finalizar temporada');
+    }
+  };
+
+  const handleResetSeasonPoints = async () => {
+    const confirmMessage = [
+      '¿Reiniciar puntos de temporada?',
+      '',
+      'Esto pondrá todos los puntos del ranking en 0.',
+      'NO borra EXP permanente.',
+      'NO borra historial de pedidos.',
+      'NO borra total gastado.',
+      '',
+      'Úsalo solo cuando vayas a iniciar una nueva temporada limpia.',
+    ].join('\n');
+
+    if (!window.confirm(confirmMessage)) return;
+
+    const secondConfirm = window.prompt(
+      'Para confirmar escribe: REINICIAR'
+    );
+
+    if (secondConfirm !== 'REINICIAR') {
+      window.alert('Reinicio cancelado.');
+      return;
+    }
+
+    setResettingPoints(true);
+
+    try {
+      await context.resetSeasonPoints();
+      await context.refreshData();
+      window.alert('Puntos de temporada reiniciados. La EXP e historial quedaron intactos.');
+    } catch {
+      window.alert('No se pudieron reiniciar los puntos.');
+    } finally {
+      setResettingPoints(false);
     }
   };
 
@@ -1624,15 +1661,43 @@ function AdminDashboardContent() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100">
+              <div className="pt-4 border-t border-gray-100 space-y-3">
                 <button
                   onClick={handleFinalizeSeason}
-                  className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl mt-2"
+                  className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl"
                 >
                   Finalizar, guardar top 3 y pausar temporada
                 </button>
+
+                <div className="bg-red-50 border border-red-100 rounded-[28px] p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white text-red-500 flex items-center justify-center shadow-sm flex-shrink-0">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-red-600 uppercase">
+                        Reinicio de temporada
+                      </p>
+                      <p className="text-[10px] font-bold text-red-500/80 leading-relaxed mt-1">
+                        Reinicia solo los puntos del ranking. La EXP permanente, historial, total gastado y pedidos no se borran.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleResetSeasonPoints}
+                    disabled={resettingPoints}
+                    className={`w-full bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 ${
+                      resettingPoints ? 'opacity-60 cursor-wait' : ''
+                    }`}
+                  >
+                    <RefreshCw size={15} className={resettingPoints ? 'animate-spin' : ''} />
+                    {resettingPoints ? 'Reiniciando puntos...' : 'Reiniciar puntos de temporada'}
+                  </button>
+                </div>
+
                 <p className="text-[9px] text-gray-400 italic text-center mt-3 leading-relaxed">
-                  Esto guarda el top 3 en el historial y pausa la temporada. En el siguiente paso haremos el reinicio controlado de puntos para arrancar una nueva temporada limpia.
+                  Flujo recomendado: finaliza y guarda el Top 3, publica ganadores si quieres mostrarlos, luego reinicia puntos para una nueva temporada.
                 </p>
               </div>
             </section>
