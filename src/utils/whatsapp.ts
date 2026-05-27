@@ -9,6 +9,12 @@ interface WhatsAppOrderOptions {
   selectedBank?: string | null;
   serviceFee?: number;
   cardFee?: number;
+
+  // Preparado para cuando queramos mandar ubicación exacta también por WhatsApp.
+  customerReference?: string | null;
+  customerLat?: number | null;
+  customerLng?: number | null;
+  deliveryType?: 'domicilio' | 'retiro';
 }
 
 const toMoney = (value: number): number => {
@@ -16,7 +22,9 @@ const toMoney = (value: number): number => {
   return Number(value.toFixed(2));
 };
 
-const cleanPhoneNumber = (phone: string): string => phone.replace(/\D/g, '');
+const cleanPhoneNumber = (phone?: string | null): string => {
+  return String(phone || '').replace(/\D/g, '');
+};
 
 const readStoredPaymentMethod = (): PaymentMethod | null => {
   if (typeof window === 'undefined') return null;
@@ -45,7 +53,11 @@ const readStoredBank = (): string | null => {
   return value;
 };
 
-export const numericPrice = (price?: string) => {
+export const numericPrice = (price?: string | number | null) => {
+  if (typeof price === 'number') {
+    return price > 0 ? toMoney(price) : 0;
+  }
+
   const raw = String(price || '').trim();
 
   if (!raw) return 0;
@@ -59,7 +71,7 @@ export const numericPrice = (price?: string) => {
   return Number.isNaN(numeric) ? 0 : toMoney(numeric);
 };
 
-export const isFixedPrice = (price: string | undefined) => {
+export const isFixedPrice = (price?: string | number | null) => {
   const numeric = numericPrice(price);
   return numeric > 0;
 };
@@ -122,6 +134,10 @@ const getPriceLabel = (item: CartItem): string => {
     return `$${unitPrice.toFixed(2)} elegido`;
   }
 
+  if (typeof item.custom_price === 'number' && item.custom_price > 0) {
+    return `$${unitPrice.toFixed(2)} elegido`;
+  }
+
   if (unitPrice > 0) {
     return `$${unitPrice.toFixed(2)} c/u`;
   }
@@ -156,20 +172,23 @@ const bankLabel = (bank?: string | null) => {
   return null;
 };
 
-const getPaymentInstructions = (method?: PaymentMethod | null, selectedBank?: string | null) => {
+const getPaymentInstructions = (
+  method?: PaymentMethod | null,
+  selectedBank?: string | null
+) => {
   if (method === 'efectivo') {
     return [
       '💵 *Pago:* Efectivo / contra entrega',
-      '🕒 *Estado:* Pedido por confirmar',
-      'El negocio revisará disponibilidad antes de preparar el pedido.',
+      '🕒 *Estado de pago:* Contra entrega',
+      '📌 El negocio revisará disponibilidad antes de preparar el pedido.',
     ];
   }
 
   if (method === 'deuna') {
     return [
       '📲 *Pago:* Deuna',
-      '🕒 *Estado:* Pago en validación',
-      'Adjunto/enviaré el comprobante por WhatsApp para validar el pago.',
+      '🕒 *Estado de pago:* En validación',
+      '📎 Enviaré el comprobante por WhatsApp para validar el pago.',
     ];
   }
 
@@ -179,23 +198,32 @@ const getPaymentInstructions = (method?: PaymentMethod | null, selectedBank?: st
     return [
       '🏦 *Pago:* Transferencia bancaria',
       bank ? `🏛️ *Banco de origen:* ${bank}` : '',
-      '🕒 *Estado:* Pago en validación',
-      'Adjunto/enviaré el comprobante por WhatsApp para validar el pago.',
+      '🕒 *Estado de pago:* En validación',
+      '📎 Enviaré el comprobante por WhatsApp para validar el pago.',
     ].filter(Boolean);
   }
 
   if (method === 'tarjeta') {
     return [
       '💳 *Pago:* Tarjeta',
-      '🕒 *Estado:* Pago en validación',
-      'El pedido será confirmado cuando el pago sea aprobado.',
+      '🕒 *Estado de pago:* En validación',
+      '📌 El pedido será confirmado cuando el pago sea aprobado.',
     ];
   }
 
   return [
     '🕒 *Estado:* Pedido por confirmar',
-    'El negocio revisará disponibilidad y método de pago antes de prepararlo.',
+    '📌 El negocio revisará disponibilidad y método de pago antes de prepararlo.',
   ];
+};
+
+const hasValidLocation = (lat?: number | null, lng?: number | null) => {
+  return (
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng)
+  );
 };
 
 export function buildWhatsAppUrl(
@@ -229,6 +257,21 @@ export function buildWhatsAppUrl(
   lines.push('');
   lines.push(`👤 *Cliente:* ${name || 'Sin nombre'}`);
   lines.push(`📱 *Teléfono:* ${phone || 'Sin teléfono'}`);
+
+  if (options.deliveryType) {
+    lines.push(`🚚 *Entrega:* ${options.deliveryType === 'retiro' ? 'Retiro en local' : 'Domicilio'}`);
+  }
+
+  if (options.customerReference) {
+    lines.push(`🏠 *Referencia:* ${options.customerReference}`);
+  }
+
+  if (hasValidLocation(options.customerLat, options.customerLng)) {
+    lines.push(
+      `🗺️ *Ubicación:* https://www.google.com/maps?q=${options.customerLat},${options.customerLng}`
+    );
+  }
+
   lines.push('');
   lines.push('📋 *Detalle:*');
 
@@ -255,6 +298,8 @@ export function buildWhatsAppUrl(
     }
 
     lines.push(`💰 *Total estimado: $${total.toFixed(2)}*`);
+  } else {
+    lines.push('💰 *Total:* A confirmar');
   }
 
   if (hasConsultItems) {
@@ -281,8 +326,16 @@ export function buildWhatsAppUrl(
   return `https://wa.me/${cleanPhoneNumber(WHATSAPP)}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
 
-export function buildStatusWhatsAppUrl(phone: string, code: string, status: OrderStatus): string {
+export function buildStatusWhatsAppUrl(
+  phone: string,
+  code: string,
+  status: OrderStatus
+): string {
   const clean = cleanPhoneNumber(phone);
+
+  if (!clean) {
+    return '#';
+  }
 
   const statusConfig: Record<OrderStatus, { emoji: string; msg: string }> = {
     'Por Confirmar': {
@@ -326,6 +379,18 @@ export function buildStatusWhatsAppUrl(phone: string, code: string, status: Orde
 
   if (status === 'Recibido') {
     lines.push('✅ Ya puedes revisar el tiempo estimado desde la app.');
+  }
+
+  if (status === 'Preparando') {
+    lines.push('📦 Estamos armando tu pedido con cuidado.');
+  }
+
+  if (status === 'Enviado') {
+    lines.push('🛵 Mantente pendiente del teléfono para recibir tu entrega.');
+  }
+
+  if (status === 'Entregado') {
+    lines.push('⭐ Gracias por tu compra. Tu experiencia y puntos se actualizarán si aplica.');
   }
 
   lines.push('');
