@@ -1,4 +1,4 @@
-import { useState, useRef, Component, useEffect } from 'react';
+import { useState, useRef, Component, useEffect, useMemo } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
@@ -74,6 +74,20 @@ const getStoredPaymentMethod = (): PaymentMethod | undefined => {
   return isPaymentMethod(value) ? value : undefined;
 };
 
+const cleanPhoneTail = (phone?: string | null): string => {
+  return (phone || '').replace(/\D/g, '').slice(-8);
+};
+
+const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
+  const createdTime = createdAt ? new Date(createdAt).getTime() : 0;
+
+  if (!createdTime || Number.isNaN(createdTime)) {
+    return false;
+  }
+
+  return createdTime > Date.now() - 24 * 60 * 60 * 1000;
+};
+
 const normalizeItemsForOrder = (items: CartItem[]) => {
   return items.map(item => {
     const product = item.product;
@@ -116,7 +130,7 @@ function AppShell() {
   const [isChangingLocation, setIsChangingLocation] = useState(false);
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, loading } = useAdmin();
+  const { createOrder, upsertCustomer, loading, orders } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -128,6 +142,29 @@ function AppShell() {
   } = useUser();
 
   const mainRef = useRef<HTMLElement>(null);
+
+  const hasTrackableOrder = useMemo(() => {
+    const cleanUserPhone = cleanPhoneTail(customerPhone);
+
+    if (!cleanUserPhone) return false;
+
+    return Boolean(
+      orders?.some(order => {
+        const cleanOrderPhone = cleanPhoneTail(order.customer_phone);
+        const isSameCustomer = cleanOrderPhone === cleanUserPhone;
+        const isRecent = isRecentTrackableOrder(order.created_at);
+        const isActiveStatus = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'].includes(order.status);
+
+        return isSameCustomer && isRecent && isActiveStatus;
+      })
+    );
+  }, [customerPhone, orders]);
+
+  useEffect(() => {
+    if (!hasTrackableOrder && showTracking) {
+      setShowTracking(false);
+    }
+  }, [hasTrackableOrder, showTracking]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -349,7 +386,7 @@ function AppShell() {
         {screen === 'ranking' && <Ranking />}
       </main>
 
-      {screen !== 'ranking' && (
+      {screen !== 'ranking' && hasTrackableOrder && (
         <button
           type="button"
           onClick={() => setShowTracking(true)}
