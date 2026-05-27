@@ -110,6 +110,7 @@ interface AdminContextValue {
     locationPatch?: CustomerLocationPatch
   ) => Promise<ExtendedCustomer | null>;
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
+  resetSeasonPoints: () => Promise<void>;
   createOrder: (order: CreateOrderInput) => Promise<void>;
   updateOrderStatus: (orderId: string, status: ExtendedOrder['status']) => Promise<void>;
   finalizeSeason: (name: string, prize: string, winners: any[]) => Promise<void>;
@@ -670,6 +671,38 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     [customers, load]
   );
 
+  const resetSeasonPoints = useCallback(async () => {
+    const now = new Date().toISOString();
+
+    setCustomers(prev =>
+      prev.map(customer => ({
+        ...customer,
+        points: 0,
+        updated_at: now,
+      }))
+    );
+
+    if (!isSupabaseConfigured) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('customers')
+      .update({
+        points: 0,
+        updated_at: now,
+      })
+      .gte('points', 0);
+
+    if (error) {
+      console.error('❌ Error reiniciando puntos de temporada:', error);
+      await load();
+      throw error;
+    }
+
+    await load();
+  }, [load]);
+
   const createOrder = useCallback(
     async (order: CreateOrderInput) => {
       if (!isSupabaseConfigured) return;
@@ -853,6 +886,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         deleteProduct,
         upsertCustomer,
         addCustomerPoints,
+        resetSeasonPoints,
         createOrder,
         updateOrderStatus,
         finalizeSeason,
