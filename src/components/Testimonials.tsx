@@ -345,11 +345,12 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       const shouldGivePoints = seasonActive && customerPhone.trim().length > 0 && !reviewedBeforeSubmit;
 
       const { error: testErr } = await supabase.from('testimonials').insert({
-        author_name: name.trim(),
-        stars,
-        comment: comment.trim(),
-        photo_url: photoUrl.trim() || null,
-      });
+  author_name: name.trim(),
+  stars,
+  comment: comment.trim(),
+  photo_url: photoUrl.trim() || null,
+  customer_phone: customerPhone ? customerPhone.replace(/\D/g, '') : null,
+});
 
       if (testErr) {
         throw new Error('Error al publicar opinión.');
