@@ -17,6 +17,7 @@ import AdminDashboard from './components/AdminDashboard';
 import DeliveryDashboard from './components/DeliveryDashboard';
 import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking';
+import LegalModal from './components/LegalModal';
 import Ranking from './pages/Ranking';
 import {
   buildWhatsAppUrl,
@@ -81,6 +82,7 @@ class ErrorBoundary extends Component<
   }
 }
 
+const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 const FINAL_TRACKING_MINUTES = 20;
 
 const ACTIVE_TRACKING_STATUSES: OrderStatus[] = [
@@ -333,6 +335,9 @@ function AppShell() {
   const [pendingOrder, setPendingOrder] = useState(false);
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
   const [isChangingLocation, setIsChangingLocation] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(() => {
+    return localStorage.getItem(LEGAL_ACCEPTED_KEY) !== '1';
+  });
 
   const { items, clearCart } = useCart();
   const { createOrder, upsertCustomer, loading, orders, products } = useAdmin();
@@ -347,6 +352,11 @@ function AppShell() {
   } = useUser();
 
   const mainRef = useRef<HTMLElement>(null);
+
+  const acceptLegalTerms = () => {
+    localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
+    setShowLegalModal(false);
+  };
 
   const hasCustomerIdentity = useMemo(() => {
     return Boolean(customerName.trim() && customerPhone.trim());
@@ -680,6 +690,11 @@ function AppShell() {
         visible={showConfirmation}
         onWhatsApp={handleWhatsApp}
       />
+
+      <LegalModal
+        isOpen={showLegalModal}
+        onClose={acceptLegalTerms}
+      />
     </div>
   );
 }
@@ -690,10 +705,9 @@ export default function App() {
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as { standalone?: boolean }).standalone === true;
 
-    const hasAcceptedLegal = localStorage.getItem('pollazo_legal_accepted') === '1';
-const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
+    const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
 
-return hasAcceptedLegal && (isPWA || isDismissed);
+    return isPWA || isDismissed;
   });
 
   useEffect(() => {
