@@ -238,11 +238,16 @@ export default function Testimonials({ onNavigateRanking }: Props) {
 
       if (!clean) return false;
 
-      const { data: user, error: userError } = await supabase
-        .from('customers')
-        .select('id, phone, points')
-        .ilike('phone', `%${clean}`)
-        .maybeSingle();
+      const { data: users, error: userError } = await supabase
+  .from('customers')
+  .select('id, phone, points, exp, total_spent, updated_at')
+  .ilike('phone', `%${clean}`)
+  .order('points', { ascending: false })
+  .order('exp', { ascending: false })
+  .order('total_spent', { ascending: false })
+  .limit(1);
+
+const user = users?.[0] || null;
 
       if (userError) {
         console.warn('No se pudo buscar cliente para opinión:', userError);
