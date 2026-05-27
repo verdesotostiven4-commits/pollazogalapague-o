@@ -23,9 +23,16 @@ import {
   isStoreOpen,
   numericPrice,
   orderCode,
-  subtotalOf,
 } from './utils/whatsapp';
-import type { CartItem, Category, PaymentMethod, Product, Screen } from './types';
+import type {
+  CartItem,
+  Category,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Product,
+  Screen,
+} from './types';
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -63,15 +70,39 @@ class ErrorBoundary extends Component<
   }
 }
 
-const toMoney = (value: number): number => Number(value.toFixed(2));
+const toMoney = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  return Number(value.toFixed(2));
+};
 
 const isPaymentMethod = (value: string | null): value is PaymentMethod => {
-  return value === 'efectivo' || value === 'deuna' || value === 'transferencia';
+  return (
+    value === 'efectivo' ||
+    value === 'deuna' ||
+    value === 'transferencia' ||
+    value === 'tarjeta'
+  );
 };
 
 const getStoredPaymentMethod = (): PaymentMethod | undefined => {
   const value = localStorage.getItem('selectedPaymentMethod');
   return isPaymentMethod(value) ? value : undefined;
+};
+
+const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): PaymentStatus => {
+  if (paymentMethod === 'efectivo') {
+    return 'contra_entrega';
+  }
+
+  if (
+    paymentMethod === 'deuna' ||
+    paymentMethod === 'transferencia' ||
+    paymentMethod === 'tarjeta'
+  ) {
+    return 'validando';
+  }
+
+  return 'pendiente';
 };
 
 const cleanPhoneTail = (phone?: string | null): string => {
@@ -89,14 +120,16 @@ const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
 };
 
 const findCatalogProduct = (
-  item: any,
+  item: unknown,
   catalogProducts: Product[]
 ): Product | null => {
+  const safeItem = item as any;
+
   const possibleIds = [
-    item?.id,
-    item?.product_id,
-    item?.cart_item_id,
-    item?.product?.id,
+    safeItem?.id,
+    safeItem?.product_id,
+    safeItem?.cart_item_id,
+    safeItem?.product?.id,
   ]
     .filter(Boolean)
     .map((value: string) => String(value));
@@ -111,7 +144,9 @@ const findCatalogProduct = (
     if (byPrefix) return byPrefix;
   }
 
-  const possibleName = String(item?.name || item?.product?.name || '').trim().toLowerCase();
+  const possibleName = String(safeItem?.name || safeItem?.product?.name || '')
+    .trim()
+    .toLowerCase();
 
   if (possibleName) {
     return (
@@ -123,12 +158,14 @@ const findCatalogProduct = (
   return null;
 };
 
-const getItemUnitPrice = (item: any, recoveredProduct: Product | null): number => {
+const getItemUnitPrice = (item: unknown, recoveredProduct: Product | null): number => {
+  const safeItem = item as any;
+
   const customPrice =
-    typeof item?.product?.custom_price === 'number' && item.product.custom_price > 0
-      ? item.product.custom_price
-      : typeof item?.custom_price === 'number' && item.custom_price > 0
-        ? item.custom_price
+    typeof safeItem?.product?.custom_price === 'number' && safeItem.product.custom_price > 0
+      ? safeItem.product.custom_price
+      : typeof safeItem?.custom_price === 'number' && safeItem.custom_price > 0
+        ? safeItem.custom_price
         : undefined;
 
   if (customPrice) {
@@ -136,10 +173,10 @@ const getItemUnitPrice = (item: any, recoveredProduct: Product | null): number =
   }
 
   const directNumberPrice =
-    typeof item?.price === 'number' && item.price > 0
-      ? item.price
-      : typeof item?.product?.price === 'number' && item.product.price > 0
-        ? item.product.price
+    typeof safeItem?.price === 'number' && safeItem.price > 0
+      ? safeItem.price
+      : typeof safeItem?.product?.price === 'number' && safeItem.product.price > 0
+        ? safeItem.product.price
         : undefined;
 
   if (directNumberPrice) {
@@ -147,9 +184,9 @@ const getItemUnitPrice = (item: any, recoveredProduct: Product | null): number =
   }
 
   const stringPrice =
-    item?.price_text ||
-    item?.product?.price ||
-    item?.price ||
+    safeItem?.price_text ||
+    safeItem?.product?.price ||
+    safeItem?.price ||
     recoveredProduct?.price ||
     '';
 
@@ -360,14 +397,17 @@ function AppShell() {
     }
   };
 
-  const buildOrderPayload = (code: string, status: 'Por Confirmar' | 'Recibido') => {
+  const buildOrderPayload = (code: string, status: OrderStatus = 'Por Confirmar') => {
     const detailedItems = normalizeItemsForOrder(items, products);
     const subtotal = toMoney(
       detailedItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
     );
     const deliveryFee = deliveryFeeOf(subtotal);
-    const total = toMoney(subtotal + deliveryFee);
+    const serviceFee = 0;
+    const cardFee = 0;
+    const total = toMoney(subtotal + deliveryFee + serviceFee + cardFee);
     const paymentMethod = getStoredPaymentMethod();
+    const paymentStatus = getInitialPaymentStatus(paymentMethod);
 
     return {
       order_code: code,
@@ -375,14 +415,19 @@ function AppShell() {
       items: detailedItems,
       subtotal,
       delivery_fee: toMoney(deliveryFee),
+      service_fee: toMoney(serviceFee),
+      card_fee: toMoney(cardFee),
       total,
       status,
+      payment_status: paymentStatus,
       preorder: !isStoreOpen(),
       payment_method: paymentMethod,
       delivery_type: 'domicilio' as const,
       lat: customerLat,
       lng: customerLng,
       reference: customerReference || undefined,
+      counted_in_metrics: false,
+      is_test_order: false,
       created_at: new Date().toISOString(),
     };
   };
@@ -423,7 +468,7 @@ function AppShell() {
 
     if (!activeOrderCode) {
       try {
-        await createOrder(buildOrderPayload(code, 'Recibido'));
+        await createOrder(buildOrderPayload(code, 'Por Confirmar'));
       } catch (error) {
         console.error('Error crítico al guardar orden:', error);
       }
