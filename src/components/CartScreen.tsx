@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import {
   Plus,
   Minus,
@@ -16,6 +16,7 @@ import {
   Clock3,
   Info,
   CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
@@ -44,6 +45,11 @@ const CONFETTI_COLORS = [
   '#fdba74',
   '#ffffff',
 ];
+
+const BUSINESS_DEUNA_PHONE = '0989795628';
+const BUSINESS_BANK_ACCOUNT = '2204567890';
+const BUSINESS_BANK_ID = '1726543210';
+const BUSINESS_BENEFICIARY = 'La Casa del Pollazo';
 
 const BANK_OPTIONS = [
   {
@@ -218,6 +224,25 @@ const itemHasKnownPrice = (item: CartItem): boolean => {
   return itemUnitPrice(item) > 0 || isFixedPrice(item.product.price);
 };
 
+const hasValidDeliveryLocation = (
+  lat: number | null,
+  lng: number | null,
+  reference: string
+): boolean => {
+  return (
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng) &&
+    reference.trim().length > 0
+  );
+};
+
+const clearPaymentStorage = () => {
+  localStorage.removeItem('selectedPaymentMethod');
+  localStorage.removeItem('selectedBank');
+};
+
 export default function CartScreen({
   onCheckout,
   onNavigate,
@@ -253,13 +278,15 @@ export default function CartScreen({
   const hasConsult = items.some(item => !itemHasKnownPrice(item));
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const hasProfile = Boolean(customerName && customerPhone);
-  const hasLocation = Boolean(customerLat && customerLng && customerReference);
+  const hasProfile = Boolean(customerName.trim() && customerPhone.trim());
+  const hasLocation = hasValidDeliveryLocation(customerLat, customerLng, customerReference);
+
+  const canUseDigitalPayment = !hasConsult && finalTotal > 0;
 
   const isPaymentReady =
     paymentMethod === 'efectivo' ||
-    paymentMethod === 'deuna' ||
-    (paymentMethod === 'transferencia' && selectedBank !== null);
+    (canUseDigitalPayment && paymentMethod === 'deuna') ||
+    (canUseDigitalPayment && paymentMethod === 'transferencia' && selectedBank !== null);
 
   const showNotice = (message: string) => {
     setActionNotice(message);
@@ -279,6 +306,7 @@ export default function CartScreen({
 
     if (confirmClear) {
       clearCart();
+      clearPaymentStorage();
       setConfirmClear(false);
       setPaymentMethod(null);
       setSelectedBank(null);
@@ -302,7 +330,7 @@ export default function CartScreen({
     updateQuantity(productId, quantity);
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     setShowArrow(e.currentTarget.scrollTop <= 10);
   };
 
@@ -332,6 +360,12 @@ export default function CartScreen({
       return;
     }
 
+    if ((method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment) {
+      triggerDryTap();
+      showNotice('Hay productos con precio a consultar. Por ahora este pedido debe quedar por confirmar antes de pagar.');
+      return;
+    }
+
     if (isOrderSaved && paymentMethod && method !== paymentMethod) {
       triggerDryTap();
       showNotice('El método de pago ya quedó asociado a este pedido. Finaliza o crea un pedido nuevo.');
@@ -353,14 +387,40 @@ export default function CartScreen({
   };
 
   const handleEarlySaveClick = async () => {
-    if (!isPaymentReady || isSavingOrder || isOrderSaved) return;
+    if (isSavingOrder || isOrderSaved) return;
+
+    if (!hasProfile || !hasLocation) {
+      triggerDryTap();
+      onRequireLogin('block');
+      return;
+    }
+
+    if (!paymentMethod) {
+      triggerDryTap();
+      showNotice('Selecciona primero un método de pago.');
+      return;
+    }
+
+    if ((paymentMethod === 'deuna' || paymentMethod === 'transferencia') && !canUseDigitalPayment) {
+      triggerDryTap();
+      showNotice('Este pedido tiene precios por confirmar. Primero debe revisarlo el negocio.');
+      return;
+    }
+
+    if (paymentMethod === 'transferencia' && !selectedBank) {
+      triggerDryTap();
+      showNotice('Selecciona tu banco antes de registrar el pedido.');
+      return;
+    }
+
+    if (!isPaymentReady) return;
 
     triggerDryTap();
     setIsSavingOrder(true);
     setActionNotice(null);
 
     try {
-      localStorage.setItem('selectedPaymentMethod', paymentMethod || '');
+      localStorage.setItem('selectedPaymentMethod', paymentMethod);
       localStorage.setItem('selectedBank', selectedBank || 'Ninguno');
 
       await onEarlySave();
@@ -388,6 +448,7 @@ export default function CartScreen({
       window.setTimeout(() => setCopiedLabel(null), 2000);
     } catch {
       setCopiedLabel(null);
+      showNotice('No se pudo copiar. Mantén presionado el dato para copiarlo manualmente.');
     }
   };
 
@@ -399,7 +460,11 @@ export default function CartScreen({
   };
 
   const handleCheckout = () => {
-    if (!isPaymentReady || !isOrderSaved) return;
+    if (!isPaymentReady || !isOrderSaved) {
+      triggerDryTap();
+      showNotice('Primero registra el pedido para continuar.');
+      return;
+    }
 
     triggerDryTap();
     spawnConfetti();
@@ -469,23 +534,42 @@ export default function CartScreen({
   const renderPaymentButton = (
     method: SupportedPaymentMethod,
     label: string,
-    icon: React.ReactNode,
+    icon: ReactNode,
     activeClass: string,
-    defaultClass: string
+    defaultClass: string,
+    disabledReason?: string
   ) => {
     const active = paymentMethod === method;
     const lockedOther = isOrderSaved && paymentMethod !== method;
+    const blockedByConsult =
+      (method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment;
+
+    const disabled = lockedOther || blockedByConsult;
 
     return (
       <button
-        onClick={() => handlePaymentMethodClick(method)}
+        onClick={() => {
+          if (disabledReason && blockedByConsult) {
+            triggerDryTap();
+            showNotice(disabledReason);
+            return;
+          }
+
+          handlePaymentMethodClick(method);
+        }}
         disabled={lockedOther}
         className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
           active ? activeClass : defaultClass
-        } ${lockedOther ? 'opacity-40 cursor-not-allowed' : ''}`}
+        } ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}
       >
         {isOrderSaved && active && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center border-2 border-white shadow-sm">
+            <Lock size={10} />
+          </span>
+        )}
+
+        {blockedByConsult && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-slate-300 text-white flex items-center justify-center border-2 border-white shadow-sm">
             <Lock size={10} />
           </span>
         )}
@@ -649,7 +733,31 @@ export default function CartScreen({
               : 'Vaciar carrito'}
         </button>
 
-        {customerLat && customerLng && (
+        {(!hasProfile || !hasLocation) && (
+          <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-600 flex-shrink-0 shadow-sm">
+              <ShieldCheck size={18} />
+            </div>
+
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-orange-700 uppercase">
+                Datos necesarios para entregar
+              </p>
+              <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
+                Completa tu perfil, WhatsApp y punto exacto de entrega antes de elegir el pago.
+              </p>
+
+              <button
+                onClick={() => onRequireLogin('block')}
+                className="mt-2 bg-white text-orange-600 border border-orange-200 px-3 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95"
+              >
+                Completar datos
+              </button>
+            </div>
+          </div>
+        )}
+
+        {hasLocation && (
           <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -699,10 +807,26 @@ export default function CartScreen({
             Método de Pago
           </h3>
 
+          {hasConsult && (
+            <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-3 flex gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-yellow-600 flex-shrink-0 shadow-sm">
+                <AlertCircle size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-yellow-700 uppercase">
+                  Hay precios por confirmar
+                </p>
+                <p className="text-[10px] font-bold text-yellow-700/80 leading-relaxed mt-1">
+                  Deuna y transferencia se activan solo cuando todos los productos tienen precio exacto. Puedes registrar el pedido en efectivo/por confirmar.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2">
             {renderPaymentButton(
               'efectivo',
-              'Efectivo',
+              hasConsult ? 'Confirmar' : 'Efectivo',
               <Banknote
                 size={20}
                 className={paymentMethod === 'efectivo' ? 'text-orange-500' : 'text-gray-400'}
@@ -719,7 +843,8 @@ export default function CartScreen({
                 className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-gray-400'}
               />,
               'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              'bg-gray-50 border-gray-100 text-gray-400 font-bold',
+              'No se puede pagar por Deuna hasta confirmar todos los precios.'
             )}
 
             {renderPaymentButton(
@@ -730,7 +855,8 @@ export default function CartScreen({
                 className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-gray-400'}
               />,
               'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              'bg-gray-50 border-gray-100 text-gray-400 font-bold',
+              'No se puede pagar por transferencia hasta confirmar todos los precios.'
             )}
           </div>
 
@@ -758,11 +884,11 @@ export default function CartScreen({
 
                   <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[200px]">
                     <span className="font-mono font-black text-purple-950 text-xs">
-                      0989795628
+                      {BUSINESS_DEUNA_PHONE}
                     </span>
 
                     <button
-                      onClick={() => handleCopyText('0989795628', 'celular_deuna')}
+                      onClick={() => handleCopyText(BUSINESS_DEUNA_PHONE, 'celular_deuna')}
                       className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all"
                     >
                       {copiedLabel === 'celular_deuna' ? '¡Copiado!' : 'Copiar'}
@@ -828,12 +954,12 @@ export default function CartScreen({
                             Número de Cuenta
                           </span>
                           <span className="font-mono font-black text-gray-800">
-                            2204567890
+                            {BUSINESS_BANK_ACCOUNT}
                           </span>
                         </div>
 
                         <button
-                          onClick={() => handleCopyText('2204567890', 'cuenta')}
+                          onClick={() => handleCopyText(BUSINESS_BANK_ACCOUNT, 'cuenta')}
                           className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
                         >
                           {copiedLabel === 'cuenta' ? '¡Copiado!' : 'Copiar'}
@@ -846,12 +972,12 @@ export default function CartScreen({
                             Cédula del Titular
                           </span>
                           <span className="font-mono font-black text-gray-800">
-                            1726543210
+                            {BUSINESS_BANK_ID}
                           </span>
                         </div>
 
                         <button
-                          onClick={() => handleCopyText('1726543210', 'cedula')}
+                          onClick={() => handleCopyText(BUSINESS_BANK_ID, 'cedula')}
                           className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
                         >
                           {copiedLabel === 'cedula' ? '¡Copiado!' : 'Copiar'}
@@ -864,7 +990,7 @@ export default function CartScreen({
                             Beneficiario
                           </span>
                           <span className="font-bold text-gray-700">
-                            La Casa del Pollazo
+                            {BUSINESS_BENEFICIARY}
                           </span>
                         </div>
                       </div>
@@ -919,7 +1045,9 @@ export default function CartScreen({
 
           {subtotal > 0 && (
             <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-              <span className="text-gray-700 font-black">Total final</span>
+              <span className="text-gray-700 font-black">
+                {hasConsult ? 'Total parcial' : 'Total final'}
+              </span>
               <span className="text-orange-600 font-black">
                 ${finalTotal.toFixed(2)}
               </span>
@@ -928,7 +1056,7 @@ export default function CartScreen({
 
           {hasConsult && (
             <p className="text-xs text-gray-400 pt-1 border-t border-gray-200 uppercase font-bold text-[9px]">
-              Algunos productos requieren confirmación de precio.
+              Algunos productos requieren confirmación de precio. El negocio confirmará el total antes de preparar.
             </p>
           )}
 
@@ -950,7 +1078,9 @@ export default function CartScreen({
             >
               <MessageCircle size={20} />
               {paymentMethod === 'efectivo'
-                ? 'Enviar pedido por WhatsApp'
+                ? hasConsult
+                  ? 'Enviar pedido para confirmar'
+                  : 'Enviar pedido por WhatsApp'
                 : 'ENVIAR COMPROBANTE POR WHATSAPP 💬'}
             </button>
           ) : (
@@ -961,13 +1091,19 @@ export default function CartScreen({
                 isSavingOrder ? 'opacity-70 cursor-wait' : ''
               }`}
             >
-              {isSavingOrder ? 'REGISTRANDO PEDIDO...' : 'REGISTRAR PEDIDO Y VER INSTRUCCIONES 🚀'}
+              {isSavingOrder
+                ? 'REGISTRANDO PEDIDO...'
+                : hasConsult
+                  ? 'REGISTRAR PARA CONFIRMAR PRECIO 🚀'
+                  : 'REGISTRAR PEDIDO Y VER INSTRUCCIONES 🚀'}
             </button>
           )
         ) : (
           <div className="w-full flex items-center justify-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-black p-4 rounded-2xl text-center uppercase tracking-tight animate-pulse">
             <AlertCircle size={16} />
-            Selecciona tu método de pago para completar el pedido
+            {hasConsult
+              ? 'Selecciona confirmar/efectivo para productos con precio a consultar'
+              : 'Selecciona tu método de pago para completar el pedido'}
           </div>
         )}
       </div>
