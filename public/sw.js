@@ -1,28 +1,64 @@
-const CACHE_NAME = 'pollazo-cache-v2';
+const CACHE_NAME = 'pollazo-cache-v9';
+const APP_SHELL_CACHE = 'pollazo-shell-v9';
 
-// 1. Instalación: Forzamos a la nueva versión a tomar el control
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// 2. Activación: Borramos TODA la basura de las versiones anteriores
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          return caches.delete(cacheName);
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME && cacheName !== APP_SHELL_CACHE) {
+              return caches.delete(cacheName);
+            }
+
+            return Promise.resolve();
+          })
+        );
+      })
+      .then(() => self.clients.claim())
   );
 });
 
-// 3. Estrategia: Buscar siempre en internet primero para evitar pantallas blancas
-self.addEventListener('fetch', (event) => {
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  const url = new URL(request.url);
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.json')
+  ) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
+    fetch(request).catch(() => caches.match(request))
   );
 });
