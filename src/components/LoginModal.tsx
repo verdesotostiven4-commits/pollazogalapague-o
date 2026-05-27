@@ -15,7 +15,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { PRESET_AVATARS } from '../constants/avatars';
-import { useUser } from '@/context/UserContext';
+import { useUser } from '../context/UserContext';
 
 declare const L: any;
 
