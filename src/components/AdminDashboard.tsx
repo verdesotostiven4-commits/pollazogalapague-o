@@ -34,10 +34,14 @@ import {
   DollarSign,
   MessageCircle,
   Route,
+  PlayCircle,
+  PauseCircle,
+  ShieldCheck,
+  CalendarDays,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { Category, OrderStatus } from '../types';
+import type { Category, OrderStatus, PaymentStatus } from '../types';
 import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
 
 const ADMIN_PIN = '1328';
@@ -313,7 +317,25 @@ const paymentLabel = (method?: string | null) => {
   if (method === 'efectivo') return 'Efectivo';
   if (method === 'deuna') return 'Deuna';
   if (method === 'transferencia') return 'Transferencia';
+  if (method === 'tarjeta') return 'Tarjeta';
   return 'No definido';
+};
+
+const paymentStatusLabel = (status?: PaymentStatus | string | null) => {
+  if (status === 'pendiente') return 'Pendiente';
+  if (status === 'validando') return 'Validando pago';
+  if (status === 'confirmado') return 'Pago confirmado';
+  if (status === 'rechazado') return 'Pago rechazado';
+  if (status === 'contra_entrega') return 'Contra entrega';
+  return 'Sin estado';
+};
+
+const paymentStatusTone = (status?: PaymentStatus | string | null) => {
+  if (status === 'confirmado') return 'bg-green-50 text-green-600 border-green-100';
+  if (status === 'validando') return 'bg-blue-50 text-blue-600 border-blue-100';
+  if (status === 'contra_entrega') return 'bg-orange-50 text-orange-600 border-orange-100';
+  if (status === 'rechazado') return 'bg-red-50 text-red-500 border-red-100';
+  return 'bg-gray-50 text-gray-500 border-gray-100';
 };
 
 const getStatusTone = (status?: OrderStatus) => {
@@ -411,6 +433,7 @@ function AdminDashboardContent() {
   const [orderBucket, setOrderBucket] = useState<OrderBucket>('waiting');
   const [points, setPoints] = useState<Record<string, string>>({});
   const [savingBranding, setSavingBranding] = useState(false);
+  const [savingSeason, setSavingSeason] = useState(false);
 
   const [draft, setDraft] = useState({
     name: '',
@@ -429,12 +452,24 @@ function AdminDashboardContent() {
   const safeCustomers = context?.customers || [];
   const safeOrders = context?.orders || [];
   const safeSeasons = context?.seasons || [];
-  const safeExtraSettings = context?.extraSettings || {};
+  const safeExtraSettings = context?.extraSettings || {
+    logo_url: '/logo-final.png',
+    ranking_title: '',
+    prize_description: '',
+    ranking_end_date: '',
+    winner_photo_url: '',
+    prize_1: '',
+    prize_2: '',
+    prize_3: '',
+    event_active: true,
+  };
   const safeSettings = context?.settings || {
     announcement: '',
     primary_color: '#E67E22',
     banner_link: '',
   };
+
+  const seasonActive = safeExtraSettings.event_active !== false;
 
   const ranking = useMemo(() => {
     return [...safeCustomers].sort((a, b) => (b?.points || 0) - (a?.points || 0));
@@ -478,7 +513,6 @@ function AdminDashboardContent() {
     const totalPreparing = safeOrders.filter(order => order.status === 'Preparando').length;
     const totalSent = safeOrders.filter(order => order.status === 'Enviado').length;
     const totalDeliveredToday = todayOrders.filter(order => order.status === 'Entregado').length;
-    const totalCancelled = safeOrders.filter(order => order.status === 'Cancelado').length;
 
     const todaySales = todayOrders
       .filter(order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar')
@@ -497,7 +531,6 @@ function AdminDashboardContent() {
       totalPreparing,
       totalSent,
       totalDeliveredToday,
-      totalCancelled,
       todaySales,
       pendingPayments,
     };
@@ -524,6 +557,7 @@ function AdminDashboardContent() {
           order.customer_phone,
           customer?.name,
           order.payment_method,
+          order.payment_status,
           order.delivery_type,
           order.reference,
           productTextOfOrder(order),
@@ -643,6 +677,27 @@ function AdminDashboardContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleToggleSeason = async () => {
+    const nextActive = !seasonActive;
+
+    const confirmMessage = nextActive
+      ? '¿Activar la temporada? Desde ahora los pedidos válidos podrán sumar puntos de concurso.'
+      : '¿Pausar la temporada? Las compras seguirán sumando EXP, pero no puntos de concurso.';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setSavingSeason(true);
+
+    try {
+      await context.updateExtraSettings({ event_active: nextActive });
+      await context.refreshData();
+    } catch {
+      window.alert('No se pudo actualizar el estado de la temporada.');
+    } finally {
+      setSavingSeason(false);
+    }
+  };
+
   const handleFinalizeSeason = async () => {
     const title = safeExtraSettings.ranking_title || 'Temporada Finalizada';
 
@@ -663,7 +718,9 @@ function AdminDashboardContent() {
 
     try {
       await context.finalizeSeason(title, 'Premios VIP', top3);
-      window.alert('¡Temporada finalizada! Ya está arriba en el historial.');
+      await context.updateExtraSettings({ event_active: false });
+      await context.refreshData();
+      window.alert('¡Temporada finalizada y pausada! Ya está arriba en el historial.');
     } catch {
       window.alert('Error al finalizar temporada');
     }
@@ -942,13 +999,12 @@ function AdminDashboardContent() {
                         {paymentIcon(order?.payment_method)}
                         {paymentLabel(order?.payment_method)}
                       </p>
-                      <p className="text-[8px] font-bold text-slate-400 mt-1">
-                        {order?.payment_method === 'efectivo'
-                          ? 'Contra entrega'
-                          : order?.payment_method
-                            ? 'Validar/confirmar'
-                            : 'Sin método'}
-                      </p>
+                      <span
+                        className={`inline-flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg border mt-2 ${paymentStatusTone(order?.payment_status)}`}
+                      >
+                        <ShieldCheck size={10} />
+                        {paymentStatusLabel(order?.payment_status)}
+                      </span>
                     </div>
 
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
@@ -1392,6 +1448,9 @@ function AdminDashboardContent() {
                         <span className="bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-yellow-100">
                           {(customer?.exp || 0).toLocaleString()} EXP
                         </span>
+                        <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-green-100">
+                          ${money(customer?.total_spent || 0)}
+                        </span>
                       </div>
                     </div>
 
@@ -1438,7 +1497,65 @@ function AdminDashboardContent() {
                 <div className="p-3 bg-orange-100 rounded-2xl text-orange-600">
                   <Trophy size={22} />
                 </div>
-                <h2 className="font-black text-lg uppercase italic">Control de Concurso</h2>
+                <div className="flex-1">
+                  <h2 className="font-black text-lg uppercase italic">Control de Concurso</h2>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">
+                    Temporada, premios y ranking VIP
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className={`rounded-[30px] border p-5 ${
+                  seasonActive
+                    ? 'bg-green-50 border-green-100'
+                    : 'bg-slate-50 border-slate-100'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${
+                        seasonActive
+                          ? 'bg-green-500 text-white'
+                          : 'bg-slate-900 text-white'
+                      }`}
+                    >
+                      {seasonActive ? <PlayCircle size={24} /> : <PauseCircle size={24} />}
+                    </div>
+
+                    <div>
+                      <p
+                        className={`text-sm font-black uppercase italic ${
+                          seasonActive ? 'text-green-700' : 'text-slate-700'
+                        }`}
+                      >
+                        {seasonActive ? 'Temporada activa' : 'Temporada pausada'}
+                      </p>
+                      <p className="text-[10px] font-bold text-gray-500 leading-relaxed mt-1">
+                        {seasonActive
+                          ? 'Los pedidos válidos pueden sumar puntos de concurso.'
+                          : 'Las compras suman EXP, pero no puntos de temporada.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleToggleSeason}
+                    disabled={savingSeason}
+                    className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-md ${
+                      seasonActive
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-green-500 text-white shadow-green-100'
+                    } ${savingSeason ? 'opacity-60 cursor-wait' : ''}`}
+                  >
+                    {savingSeason
+                      ? 'Guardando...'
+                      : seasonActive
+                        ? 'Pausar'
+                        : 'Activar'}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1452,12 +1569,13 @@ function AdminDashboardContent() {
                       context.updateExtraSettings({ ranking_title: event.target.value })
                     }
                     className="w-full bg-gray-50 rounded-xl p-4 text-sm font-bold border-none outline-none shadow-inner"
+                    placeholder="Ej: Ranking VIP Pollazo"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-gray-400">
-                    Fecha Límite
+                  <label className="text-[9px] font-black uppercase text-gray-400 flex items-center gap-1">
+                    <CalendarDays size={12} /> Fecha Límite
                   </label>
                   <input
                     type="datetime-local"
@@ -1511,10 +1629,10 @@ function AdminDashboardContent() {
                   onClick={handleFinalizeSeason}
                   className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl mt-2"
                 >
-                  Finalizar y Crear Historial
+                  Finalizar, guardar top 3 y pausar temporada
                 </button>
-                <p className="text-[9px] text-gray-400 italic text-center mt-3">
-                  Al finalizar, los top 3 actuales bajarán al historial.
+                <p className="text-[9px] text-gray-400 italic text-center mt-3 leading-relaxed">
+                  Esto guarda el top 3 en el historial y pausa la temporada. En el siguiente paso haremos el reinicio controlado de puntos para arrancar una nueva temporada limpia.
                 </p>
               </div>
             </section>
