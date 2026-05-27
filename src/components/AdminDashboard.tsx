@@ -180,6 +180,7 @@ class AdminErrorBoundary extends Component<
               <pre className="opacity-70">{this.state.info?.componentStack}</pre>
             </div>
             <button
+              type="button"
               onClick={() => window.location.reload()}
               className="mt-6 w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] active:scale-95 transition-transform shadow-lg shadow-red-600/30"
             >
@@ -237,6 +238,7 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
             digit ? (
               <button
                 key={index}
+                type="button"
                 onClick={() => (digit === '⌫' ? setPin(current => current.slice(0, -1)) : add(digit))}
                 className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-bold active:scale-90 transition-all hover:bg-white/10"
               >
@@ -304,6 +306,36 @@ const isToday = (value?: string | null) => {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   );
+};
+
+const isValidCoordinate = (value: unknown) => {
+  const number = toNumber(value);
+  return Number.isFinite(number) && number !== 0;
+};
+
+const toDateTimeLocalValue = (value?: string | null) => {
+  if (!value) return '';
+
+  if (value.includes('T')) {
+    return value.slice(0, 16);
+  }
+
+  return value;
+};
+
+const formatProductPrice = (product: {
+  price?: string | number | null;
+  is_variable?: boolean;
+}) => {
+  if (product.is_variable) return 'VALOR VARIABLE';
+
+  const raw = String(product.price || '').trim();
+
+  if (!raw || raw.toLowerCase().includes('consultar')) {
+    return 'A CONSULTAR';
+  }
+
+  return `$${money(raw)}`;
 };
 
 const paymentIcon = (method?: string | null) => {
@@ -511,7 +543,6 @@ function AdminDashboardContent() {
 
     const totalWaiting = safeOrders.filter(order => order.status === 'Por Confirmar').length;
     const totalConfirmed = safeOrders.filter(order => order.status === 'Recibido').length;
-    const totalPreparing = safeOrders.filter(order => order.status === 'Preparando').length;
     const totalSent = safeOrders.filter(order => order.status === 'Enviado').length;
     const totalDeliveredToday = todayOrders.filter(order => order.status === 'Entregado').length;
 
@@ -529,7 +560,6 @@ function AdminDashboardContent() {
     return {
       totalWaiting,
       totalConfirmed,
-      totalPreparing,
       totalSent,
       totalDeliveredToday,
       todaySales,
@@ -606,7 +636,7 @@ function AdminDashboardContent() {
 
     const payload = {
       ...draft,
-      price: draft.is_variable ? '' : draft.price,
+      price: draft.is_variable ? 'Consultar precio' : draft.price,
     };
 
     try {
@@ -793,6 +823,7 @@ function AdminDashboardContent() {
 
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={context.refreshData}
             className="p-2 bg-orange-50 text-orange-600 rounded-xl active:scale-75 transition-all"
             aria-label="Actualizar datos"
@@ -801,6 +832,7 @@ function AdminDashboardContent() {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               sessionStorage.removeItem(PIN_KEY);
               setAuthed(false);
@@ -818,6 +850,7 @@ function AdminDashboardContent() {
           {TABS.map(item => (
             <button
               key={item.id}
+              type="button"
               onClick={() => {
                 setTab(item.id);
                 setSearch('');
@@ -904,6 +937,7 @@ function AdminDashboardContent() {
                   return (
                     <button
                       key={bucket.id}
+                      type="button"
                       onClick={() => setOrderBucket(bucket.id)}
                       className={`flex-shrink-0 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border flex items-center gap-2 ${
                         orderBucket === bucket.id
@@ -940,19 +974,20 @@ function AdminDashboardContent() {
 
             {filteredOrders.map(order => {
               const customer = safeCustomers.find(
-                current => cleanPhone(current?.phone) === cleanPhone(order?.customer_phone)
+                current => cleanPhone(current?.phone) === cleanPhone(order.customer_phone)
               );
 
-              const deliveryLat = order?.lat || customer?.lat;
-              const deliveryLng = order?.lng || customer?.lng;
-              const deliveryRef = order?.reference || customer?.reference || '';
+              const deliveryLat = order.lat ?? customer?.lat ?? null;
+              const deliveryLng = order.lng ?? customer?.lng ?? null;
+              const hasDeliveryGps = isValidCoordinate(deliveryLat) && isValidCoordinate(deliveryLng);
+              const deliveryRef = order.reference || customer?.reference || '';
 
-              const isPending = order?.status === 'Por Confirmar';
-              const cleanCustomerPhone = cleanPhone(order?.customer_phone);
+              const isPending = order.status === 'Por Confirmar';
+              const cleanCustomerPhone = cleanPhone(order.customer_phone);
 
               return (
                 <div
-                  key={order?.id}
+                  key={order.id}
                   className={`bg-white rounded-[32px] border p-5 space-y-4 shadow-sm ${
                     isPending
                       ? 'border-orange-300 shadow-orange-100 ring-2 ring-orange-100'
@@ -964,7 +999,7 @@ function AdminDashboardContent() {
                       <img
                         src={
                           customer?.avatar_url ||
-                          `https://api.dicebear.com/8.x/adventurer/svg?seed=${order?.customer_phone}`
+                          `https://api.dicebear.com/8.x/adventurer/svg?seed=${order.customer_phone}`
                         }
                         className="w-12 h-12 rounded-2xl border-2 border-orange-100 shadow-sm object-cover flex-shrink-0"
                         alt="Cliente"
@@ -973,7 +1008,7 @@ function AdminDashboardContent() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-black text-xs uppercase leading-none truncate">
-                            {customer?.name || order?.customer_phone || 'Cliente'}
+                            {customer?.name || order.customer_phone || 'Cliente'}
                           </p>
 
                           {isPending && (
@@ -984,22 +1019,22 @@ function AdminDashboardContent() {
                         </div>
 
                         <p className="text-[9px] font-black text-gray-400 mt-1">
-                          {order?.order_code || 'Sin código'}
+                          {order.order_code || 'Sin código'}
                         </p>
 
                         <a
-                          href={whatsappLink(order?.customer_phone)}
+                          href={whatsappLink(order.customer_phone)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 text-[9px] font-black text-green-600 mt-1 bg-green-50 px-2 py-1 rounded-lg border border-green-100"
                         >
                           <Phone size={10} />
-                          {prettyPhone(order?.customer_phone)}
+                          {prettyPhone(order.customer_phone)}
                         </a>
 
                         <div className="flex items-center gap-1 text-[8px] font-black text-blue-500 mt-1">
                           <Clock size={10} />
-                          {order?.created_at
+                          {order.created_at
                             ? new Date(order.created_at).toLocaleString('es-EC', {
                                 day: '2-digit',
                                 month: '2-digit',
@@ -1014,17 +1049,17 @@ function AdminDashboardContent() {
 
                     <div className="text-right leading-none flex-shrink-0">
                       <p className="font-black text-orange-600 text-lg italic">
-                        ${money(order?.total)}
+                        ${money(order.total)}
                       </p>
 
                       <span
-                        className={`text-[7px] font-black uppercase px-2 py-1 rounded-md mt-1 inline-block border ${getStatusTone(order?.status)}`}
+                        className={`text-[7px] font-black uppercase px-2 py-1 rounded-md mt-1 inline-block border ${getStatusTone(order.status)}`}
                       >
-                        {order?.status}
+                        {order.status}
                       </span>
 
                       <p className="text-[8px] text-gray-400 font-black uppercase mt-1">
-                        {getStatusHelp(order?.status)}
+                        {getStatusHelp(order.status)}
                       </p>
                     </div>
                   </div>
@@ -1033,14 +1068,14 @@ function AdminDashboardContent() {
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                       <p className="text-[8px] font-black text-slate-400 uppercase">Pago</p>
                       <p className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1 mt-1">
-                        {paymentIcon(order?.payment_method)}
-                        {paymentLabel(order?.payment_method)}
+                        {paymentIcon(order.payment_method)}
+                        {paymentLabel(order.payment_method)}
                       </p>
                       <span
-                        className={`inline-flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg border mt-2 ${paymentStatusTone(order?.payment_status)}`}
+                        className={`inline-flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg border mt-2 ${paymentStatusTone(order.payment_status)}`}
                       >
                         <ShieldCheck size={10} />
-                        {paymentStatusLabel(order?.payment_status)}
+                        {paymentStatusLabel(order.payment_status)}
                       </span>
                     </div>
 
@@ -1048,15 +1083,15 @@ function AdminDashboardContent() {
                       <p className="text-[8px] font-black text-slate-400 uppercase">Entrega</p>
                       <p className="text-[10px] font-black text-slate-700 uppercase mt-1 flex items-center gap-1">
                         <Route size={13} />
-                        {order?.delivery_type || 'domicilio'}
+                        {order.delivery_type || 'domicilio'}
                       </p>
                       <p className="text-[8px] font-bold text-slate-400 mt-1">
-                        {deliveryLat && deliveryLng ? 'Ubicación lista' : 'Sin GPS'}
+                        {hasDeliveryGps ? 'Ubicación lista' : 'Sin GPS'}
                       </p>
                     </div>
                   </div>
 
-                  {deliveryLat && deliveryLng && (
+                  {hasDeliveryGps && (
                     <div className="space-y-1.5 animate-in fade-in duration-300">
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${deliveryLat},${deliveryLng}&travelmode=driving`}
@@ -1082,8 +1117,8 @@ function AdminDashboardContent() {
                       <PackageSearch size={14} /> Detalle Compra
                     </p>
 
-                    {(order?.items || []).length > 0 ? (
-                      (order?.items || []).map((item: any, index: number) => {
+                    {(order.items || []).length > 0 ? (
+                      (order.items || []).map((item: any, index: number) => {
                         const quantity = Number(item?.quantity || 1);
                         const unitPrice = toNumber(item?.custom_price || item?.price || 0);
                         const lineTotal = toNumber(item?.subtotal || unitPrice * quantity || 0);
@@ -1119,8 +1154,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {order?.status === 'Por Confirmar' && (
+                    {order.status === 'Por Confirmar' && (
                       <button
+                        type="button"
                         onClick={() => handleOrderStatus(order.id, 'Recibido')}
                         className="bg-orange-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-orange-100 flex items-center justify-center gap-1"
                       >
@@ -1129,8 +1165,9 @@ function AdminDashboardContent() {
                       </button>
                     )}
 
-                    {(order?.status === 'Por Confirmar' || order?.status === 'Recibido') && (
+                    {(order.status === 'Por Confirmar' || order.status === 'Recibido') && (
                       <button
+                        type="button"
                         onClick={() => handleOrderStatus(order.id, 'Preparando')}
                         className="bg-blue-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-blue-100 flex items-center justify-center gap-1"
                       >
@@ -1139,8 +1176,9 @@ function AdminDashboardContent() {
                       </button>
                     )}
 
-                    {(order?.status === 'Recibido' || order?.status === 'Preparando') && (
+                    {(order.status === 'Recibido' || order.status === 'Preparando') && (
                       <button
+                        type="button"
                         onClick={() => handleOrderStatus(order.id, 'Enviado')}
                         className="bg-yellow-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-yellow-100 flex items-center justify-center gap-1"
                       >
@@ -1149,8 +1187,9 @@ function AdminDashboardContent() {
                       </button>
                     )}
 
-                    {order?.status === 'Enviado' && (
+                    {order.status === 'Enviado' && (
                       <button
+                        type="button"
                         onClick={() => handleOrderStatus(order.id, 'Entregado')}
                         className="bg-green-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-green-100 flex items-center justify-center gap-1"
                       >
@@ -1162,9 +1201,9 @@ function AdminDashboardContent() {
 
                   <div className="flex gap-2">
                     <select
-                      value={order?.status}
+                      value={order.status}
                       onChange={event =>
-                        handleOrderStatus(order.id || '', event.target.value as OrderStatus)
+                        handleOrderStatus(order.id, event.target.value as OrderStatus)
                       }
                       className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none"
                     >
@@ -1177,9 +1216,9 @@ function AdminDashboardContent() {
 
                     <a
                       href={buildStatusWhatsAppUrl(
-                        order?.customer_phone,
-                        order?.order_code,
-                        order?.status
+                        order.customer_phone || '',
+                        order.order_code || 'PEDIDO',
+                        order.status
                       )}
                       target="_blank"
                       rel="noreferrer"
@@ -1189,7 +1228,7 @@ function AdminDashboardContent() {
                     </a>
 
                     <a
-                      href={cleanCustomerPhone ? whatsappLink(order?.customer_phone) : '#'}
+                      href={cleanCustomerPhone ? whatsappLink(order.customer_phone) : '#'}
                       target="_blank"
                       rel="noreferrer"
                       className="bg-green-50 text-green-600 px-4 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 border border-green-100 active:scale-95 transition-all"
@@ -1199,8 +1238,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="flex gap-2 border-t border-gray-50 pt-3">
-                    {order?.status !== 'Cancelado' && order?.status !== 'Entregado' && (
+                    {order.status !== 'Cancelado' && order.status !== 'Entregado' && (
                       <button
+                        type="button"
                         onClick={() => handleOrderStatus(order.id, 'Cancelado')}
                         className="flex-1 bg-red-50 text-red-500 py-3 rounded-xl font-black text-[9px] uppercase border border-red-100 active:scale-95 transition-all"
                       >
@@ -1209,6 +1249,7 @@ function AdminDashboardContent() {
                     )}
 
                     <button
+                      type="button"
                       onClick={() => handleDeleteTestOrder(order.id)}
                       className="px-4 bg-gray-50 text-gray-400 py-3 rounded-xl font-black text-[9px] uppercase border border-gray-100 active:scale-95 transition-all"
                       title="Eliminar pedido de prueba"
@@ -1274,7 +1315,7 @@ function AdminDashboardContent() {
                 </select>
 
                 <input
-                  placeholder={draft.is_variable ? 'Precio deshabilitado' : 'Precio Base (Ej: $10.50)'}
+                  placeholder={draft.is_variable ? 'Precio automático: Consultar precio' : 'Precio Base (Ej: $10.50)'}
                   disabled={draft.is_variable}
                   value={draft.is_variable ? '' : draft.price}
                   onChange={event => setDraft({ ...draft, price: event.target.value })}
@@ -1321,6 +1362,7 @@ function AdminDashboardContent() {
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={handleSaveProduct}
                   className="flex-1 bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs active:scale-95 shadow-xl flex items-center justify-center gap-2"
                 >
@@ -1330,6 +1372,7 @@ function AdminDashboardContent() {
 
                 {editingId && (
                   <button
+                    type="button"
                     onClick={resetDraft}
                     className="bg-gray-100 text-gray-500 px-6 rounded-[24px] active:scale-95"
                   >
@@ -1353,22 +1396,22 @@ function AdminDashboardContent() {
               <div className="grid grid-cols-1 gap-3">
                 {sortedProducts.map(product => (
                   <div
-                    key={product?.id}
+                    key={product.id}
                     className="bg-white rounded-[28px] border border-gray-100 p-3 flex items-center gap-4 shadow-sm relative overflow-hidden group"
                   >
                     <img
-                      src={product?.image || '/logo-final.png'}
+                      src={product.image || '/logo-final.png'}
                       className="w-16 h-16 rounded-2xl object-cover border shadow-sm"
-                      alt={product?.name}
+                      alt={product.name}
                     />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-black text-[11px] text-gray-900 truncate uppercase italic">
-                          {product?.name}
+                          {product.name}
                         </p>
 
-                        {!product?.available && (
+                        {!product.available && (
                           <span className="bg-red-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase animate-pulse">
                             Agotado
                           </span>
@@ -1377,28 +1420,27 @@ function AdminDashboardContent() {
 
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className="text-[7px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 uppercase">
-                          {product?.category}
+                          {product.category}
                         </span>
 
-                        {product?.subcategory && (
+                        {product.subcategory && (
                           <span className="text-[7px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 uppercase">
                             {product.subcategory}
                           </span>
                         )}
 
                         <span className="text-[10px] font-black text-gray-400">
-                          {product?.is_variable
-                            ? 'VALOR VARIABLE'
-                            : `$${money(product?.price)}`}
+                          {formatProductPrice(product)}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex gap-1 pr-1">
                       <button
+                        type="button"
                         onClick={() => context.updateProduct(product.id, { available: !product.available })}
                         className={`p-2.5 rounded-xl ${
-                          product?.available
+                          product.available
                             ? 'bg-green-50 text-green-600'
                             : 'bg-red-50 text-red-600 shadow-inner'
                         }`}
@@ -1408,6 +1450,7 @@ function AdminDashboardContent() {
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => startEdit(product)}
                         className="p-2.5 bg-blue-50 text-blue-600 rounded-xl active:scale-75"
                         aria-label="Editar producto"
@@ -1416,6 +1459,7 @@ function AdminDashboardContent() {
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => window.confirm('¿Borrar?') && context.deleteProduct(product.id)}
                         className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-75"
                         aria-label="Borrar producto"
@@ -1459,13 +1503,13 @@ function AdminDashboardContent() {
                 )
                 .map((customer, index) => (
                   <div
-                    key={customer?.id}
+                    key={customer.id}
                     className="bg-white rounded-[28px] border border-gray-100 p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <img
                       src={
-                        customer?.avatar_url ||
-                        `https://api.dicebear.com/8.x/adventurer/svg?seed=${customer?.name}`
+                        customer.avatar_url ||
+                        `https://api.dicebear.com/8.x/adventurer/svg?seed=${customer.name}`
                       }
                       className="w-12 h-12 rounded-2xl border border-orange-50 shadow-sm object-cover"
                       alt="Cliente"
@@ -1473,20 +1517,20 @@ function AdminDashboardContent() {
 
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-xs truncate uppercase italic">
-                        {index + 1}º {customer?.name || 'Guerrero'}
+                        {index + 1}º {customer.name || 'Guerrero'}
                       </p>
                       <p className="text-[9px] font-black text-gray-400 mt-1 leading-none">
-                        {customer?.phone}
+                        {customer.phone}
                       </p>
                       <div className="flex gap-1 flex-wrap mt-1.5">
                         <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-orange-100">
-                          {(customer?.points || 0).toLocaleString()} Pts
+                          {(customer.points || 0).toLocaleString()} Pts
                         </span>
                         <span className="bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-yellow-100">
-                          {(customer?.exp || 0).toLocaleString()} EXP
+                          {(customer.exp || 0).toLocaleString()} EXP
                         </span>
                         <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-green-100">
-                          ${money(customer?.total_spent || 0)}
+                          ${money(customer.total_spent || 0)}
                         </span>
                       </div>
                     </div>
@@ -1494,7 +1538,7 @@ function AdminDashboardContent() {
                     <div className="flex items-center gap-1 bg-gray-50 p-1.5 rounded-2xl border border-gray-100">
                       <input
                         type="number"
-                        value={points[customer?.id] ?? ''}
+                        value={points[customer.id] ?? ''}
                         onChange={event =>
                           setPoints({ ...points, [customer.id]: event.target.value })
                         }
@@ -1503,8 +1547,9 @@ function AdminDashboardContent() {
                       />
 
                       <button
+                        type="button"
                         onClick={() => {
-                          const pts = Number(points[customer?.id] || 0);
+                          const pts = Number(points[customer.id] || 0);
                           if (pts !== 0) {
                             context.addCustomerPoints(customer.id, pts);
                             setPoints({ ...points, [customer.id]: '' });
@@ -1578,6 +1623,7 @@ function AdminDashboardContent() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleToggleSeason}
                     disabled={savingSeason}
                     className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-md ${
@@ -1616,7 +1662,7 @@ function AdminDashboardContent() {
                   </label>
                   <input
                     type="datetime-local"
-                    value={safeExtraSettings.ranking_end_date || ''}
+                    value={toDateTimeLocalValue(safeExtraSettings.ranking_end_date)}
                     onChange={event =>
                       context.updateExtraSettings({ ranking_end_date: event.target.value })
                     }
@@ -1663,6 +1709,7 @@ function AdminDashboardContent() {
 
               <div className="pt-4 border-t border-gray-100 space-y-3">
                 <button
+                  type="button"
                   onClick={handleFinalizeSeason}
                   className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl"
                 >
@@ -1685,6 +1732,7 @@ function AdminDashboardContent() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleResetSeasonPoints}
                     disabled={resettingPoints}
                     className={`w-full bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 ${
@@ -1709,7 +1757,7 @@ function AdminDashboardContent() {
 
               {sortedSeasons.map((season, index) => (
                 <div
-                  key={season?.id}
+                  key={season.id}
                   className="bg-white rounded-[32px] p-5 shadow-sm border border-gray-100 space-y-4"
                 >
                   <div className="flex justify-between items-center border-b pb-3 border-gray-50">
@@ -1717,10 +1765,11 @@ function AdminDashboardContent() {
                       <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center font-black text-[10px]">
                         #{sortedSeasons.length - index}
                       </div>
-                      <p className="font-black text-sm uppercase italic">{season?.name}</p>
+                      <p className="font-black text-sm uppercase italic">{season.name}</p>
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => window.confirm('¿Borrar?') && context.deleteSeason(season.id)}
                       className="text-red-400 p-2"
                     >
@@ -1729,7 +1778,7 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-                    {(season?.winners || []).map((winner: any, winnerIndex: number) => (
+                    {(season.winners || []).map((winner: any, winnerIndex: number) => (
                       <div
                         key={winnerIndex}
                         className="bg-white p-2.5 rounded-xl flex items-center gap-3 shadow-sm border border-gray-100"
@@ -1746,7 +1795,7 @@ function AdminDashboardContent() {
                             className="w-full text-[9px] font-bold text-blue-500 outline-none bg-transparent mt-2 italic"
                             value={winner?.photo_url || ''}
                             onChange={event => {
-                              const nextWinners = [...(season?.winners || [])];
+                              const nextWinners = [...(season.winners || [])];
                               nextWinners[winnerIndex].photo_url = event.target.value;
                               context.updateSeasonWinners(season.id, nextWinners);
                             }}
@@ -1757,16 +1806,17 @@ function AdminDashboardContent() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() =>
                       context.toggleSeasonVisibility(season.id, !season.is_published)
                     }
                     className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase shadow-md transition-all ${
-                      season?.is_published
+                      season.is_published
                         ? 'bg-green-500 text-white shadow-green-100'
                         : 'bg-gray-100 text-gray-400'
                     }`}
                   >
-                    {season?.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}
+                    {season.is_published ? '✅ Visible en Ranking' : 'Publicar Ganadores'}
                   </button>
                 </div>
               ))}
@@ -1837,6 +1887,7 @@ function AdminDashboardContent() {
               </div>
 
               <button
+                type="button"
                 onClick={handleSaveBranding}
                 disabled={savingBranding}
                 className="w-full bg-black text-white py-5 rounded-[24px] font-black uppercase text-xs active:scale-95 shadow-xl flex items-center justify-center gap-2"
