@@ -21,11 +21,11 @@ import {
   buildWhatsAppUrl,
   deliveryFeeOf,
   isStoreOpen,
-  itemUnitPrice,
+  numericPrice,
   orderCode,
   subtotalOf,
 } from './utils/whatsapp';
-import type { CartItem, Category, PaymentMethod, Screen } from './types';
+import type { CartItem, Category, PaymentMethod, Product, Screen } from './types';
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -88,33 +88,141 @@ const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
   return createdTime > Date.now() - 24 * 60 * 60 * 1000;
 };
 
-const normalizeItemsForOrder = (items: CartItem[]) => {
-  return items.map(item => {
-    const product = item.product;
-    const unitPrice = itemUnitPrice(item);
-    const originalProductId = item.id || product.id;
-    const lineSubtotal = toMoney(unitPrice * item.quantity);
+const findCatalogProduct = (
+  item: any,
+  catalogProducts: Product[]
+): Product | null => {
+  const possibleIds = [
+    item?.id,
+    item?.product_id,
+    item?.cart_item_id,
+    item?.product?.id,
+  ]
+    .filter(Boolean)
+    .map((value: string) => String(value));
+
+  for (const id of possibleIds) {
+    const direct = catalogProducts.find(product => product.id === id);
+
+    if (direct) return direct;
+
+    const byPrefix = catalogProducts.find(product => id.startsWith(`${product.id}-`));
+
+    if (byPrefix) return byPrefix;
+  }
+
+  const possibleName = String(item?.name || item?.product?.name || '').trim().toLowerCase();
+
+  if (possibleName) {
+    return (
+      catalogProducts.find(product => product.name.trim().toLowerCase() === possibleName) ||
+      null
+    );
+  }
+
+  return null;
+};
+
+const getItemUnitPrice = (item: any, recoveredProduct: Product | null): number => {
+  const customPrice =
+    typeof item?.product?.custom_price === 'number' && item.product.custom_price > 0
+      ? item.product.custom_price
+      : typeof item?.custom_price === 'number' && item.custom_price > 0
+        ? item.custom_price
+        : undefined;
+
+  if (customPrice) {
+    return toMoney(customPrice);
+  }
+
+  const directNumberPrice =
+    typeof item?.price === 'number' && item.price > 0
+      ? item.price
+      : typeof item?.product?.price === 'number' && item.product.price > 0
+        ? item.product.price
+        : undefined;
+
+  if (directNumberPrice) {
+    return toMoney(directNumberPrice);
+  }
+
+  const stringPrice =
+    item?.price_text ||
+    item?.product?.price ||
+    item?.price ||
+    recoveredProduct?.price ||
+    '';
+
+  return toMoney(numericPrice(String(stringPrice)));
+};
+
+const normalizeItemsForOrder = (items: CartItem[], catalogProducts: Product[]) => {
+  return items.map((item: any) => {
+    const recoveredProduct = findCatalogProduct(item, catalogProducts);
+    const product = item?.product || recoveredProduct || null;
+
+    const originalProductId =
+      item?.id ||
+      item?.product_id ||
+      recoveredProduct?.id ||
+      product?.id ||
+      `item-${Date.now()}`;
+
+    const cartItemId = item?.product?.id || item?.cart_item_id || originalProductId;
+    const quantity = Number(item?.quantity || 1);
+    const unitPrice = getItemUnitPrice(item, recoveredProduct);
+    const lineSubtotal = toMoney(unitPrice * quantity);
+
     const customPrice =
-      typeof product.custom_price === 'number' && product.custom_price > 0
-        ? product.custom_price
-        : item.custom_price;
+      typeof item?.product?.custom_price === 'number' && item.product.custom_price > 0
+        ? item.product.custom_price
+        : typeof item?.custom_price === 'number' && item.custom_price > 0
+          ? item.custom_price
+          : undefined;
+
+    const name =
+      item?.product?.name ||
+      item?.name ||
+      recoveredProduct?.name ||
+      'Producto sin nombre';
+
+    const category =
+      item?.product?.category ||
+      recoveredProduct?.category ||
+      'Abarrotes y básicos';
+
+    const image =
+      item?.product?.image ||
+      item?.image ||
+      recoveredProduct?.image ||
+      null;
 
     return {
-      ...item,
       id: originalProductId,
       product_id: originalProductId,
-      cart_item_id: product.id,
-      name: product.name || item.name || 'Producto del Menú',
+      cart_item_id: cartItemId,
+      name,
       price: unitPrice,
       price_text: customPrice
         ? `$${unitPrice.toFixed(2)}`
-        : product.price || (unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : 'Consultar precio'),
+        : unitPrice > 0
+          ? `$${unitPrice.toFixed(2)}`
+          : item?.product?.price || recoveredProduct?.price || 'Consultar precio',
       custom_price: customPrice,
-      quantity: item.quantity,
+      quantity,
       subtotal: lineSubtotal,
-      category: product.category,
-      image: product.image || null,
-      product,
+      category,
+      image,
+      product: {
+        ...(recoveredProduct || {}),
+        ...(product || {}),
+        id: cartItemId,
+        name,
+        category,
+        price: unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : recoveredProduct?.price,
+        image: image || undefined,
+        custom_price: customPrice,
+      },
     };
   });
 };
@@ -130,7 +238,7 @@ function AppShell() {
   const [isChangingLocation, setIsChangingLocation] = useState(false);
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, loading, orders } = useAdmin();
+  const { createOrder, upsertCustomer, loading, orders, products } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -234,7 +342,11 @@ function AppShell() {
     });
 
     try {
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl);
+      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl, {
+        lat: u.lat,
+        lng: u.lng,
+        reference: u.reference || null,
+      });
     } catch (error) {
       console.error('Error perfil:', error);
     }
@@ -249,8 +361,10 @@ function AppShell() {
   };
 
   const buildOrderPayload = (code: string, status: 'Por Confirmar' | 'Recibido') => {
-    const detailedItems = normalizeItemsForOrder(items);
-    const subtotal = subtotalOf(items);
+    const detailedItems = normalizeItemsForOrder(items, products);
+    const subtotal = toMoney(
+      detailedItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
+    );
     const deliveryFee = deliveryFeeOf(subtotal);
     const total = toMoney(subtotal + deliveryFee);
     const paymentMethod = getStoredPaymentMethod();
@@ -259,7 +373,7 @@ function AppShell() {
       order_code: code,
       customer_phone: customerPhone,
       items: detailedItems,
-      subtotal: toMoney(subtotal),
+      subtotal,
       delivery_fee: toMoney(deliveryFee),
       total,
       status,
