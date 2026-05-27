@@ -45,15 +45,15 @@ export interface Product {
   id: string;
   name: string;
   category: Category;
-  subcategory?: string;
-  price?: string;
-  unit?: string;
-  description?: string;
-  image?: string;
-  badge?: string;
+  subcategory?: string | null;
+  price?: string | null;
+  unit?: string | null;
+  description?: string | null;
+  image?: string | null;
+  badge?: string | null;
   available?: boolean;
 
-  // Para pollo/carne/productos pedidos por valor: "$10 de pollo", "$15 de alas", etc.
+  // Para productos pedidos por valor: "$10 de pollo", "$15 de alas", etc.
   is_variable?: boolean;
 
   // Precio elegido por el cliente en productos variables.
@@ -88,7 +88,7 @@ export interface Customer {
 
   // Seguridad / confianza
   phone_verified?: boolean;
-  risk_level?: CustomerRiskLevel;
+  risk_level?: CustomerRiskLevel | null;
   blocked?: boolean;
 
   // Ubicación
@@ -140,9 +140,9 @@ export interface Order {
 
   status: OrderStatus;
 
-  payment_method?: PaymentMethod;
-  payment_status?: PaymentStatus;
-  delivery_type?: DeliveryType;
+  payment_method?: PaymentMethod | null;
+  payment_status?: PaymentStatus | null;
+  delivery_type?: DeliveryType | null;
 
   payment_proof_url?: string | null;
 
@@ -181,6 +181,8 @@ export interface ExtraSettings {
 
   // Activa/desactiva ranking de temporada.
   event_active: boolean;
+
+  updated_at?: string;
 }
 
 export interface AppSettings {
