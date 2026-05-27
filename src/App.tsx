@@ -690,9 +690,10 @@ export default function App() {
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as { standalone?: boolean }).standalone === true;
 
-    const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
+    const hasAcceptedLegal = localStorage.getItem('pollazo_legal_accepted') === '1';
+const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
 
-    return isPWA || isDismissed;
+return hasAcceptedLegal && (isPWA || isDismissed);
   });
 
   useEffect(() => {
