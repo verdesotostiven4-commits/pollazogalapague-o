@@ -9,14 +9,22 @@ const toMoney = (value: number): number => Number(value.toFixed(2));
 const cleanPhoneNumber = (phone: string): string => phone.replace(/\D/g, '');
 
 export const isFixedPrice = (price: string | undefined) => {
-  const p = price ?? '';
-  return p.startsWith('$') && !Number.isNaN(Number.parseFloat(p.replace('$', '')));
+  const numeric = numericPrice(price);
+  return numeric > 0;
 };
 
 export const numericPrice = (price?: string) => {
-  return isFixedPrice(price)
-    ? Number.parseFloat((price ?? '0').replace('$', ''))
-    : 0;
+  const raw = String(price || '').trim();
+
+  if (!raw) return 0;
+
+  const normalized = raw
+    .replace(',', '.')
+    .replace(/[^0-9.]/g, '');
+
+  const numeric = Number.parseFloat(normalized);
+
+  return Number.isNaN(numeric) ? 0 : toMoney(numeric);
 };
 
 export const productUnitPrice = (product: Product): number => {
@@ -62,15 +70,19 @@ export function isStoreOpen(date = new Date()): boolean {
   return h >= 7 && h < 21;
 }
 
+const getProductName = (item: CartItem): string => {
+  return item.product?.name || item.name || 'Producto';
+};
+
 const getPriceLabel = (item: CartItem): string => {
   const unitPrice = itemUnitPrice(item);
 
-  if (typeof item.product.custom_price === 'number' && item.product.custom_price > 0) {
+  if (typeof item.product?.custom_price === 'number' && item.product.custom_price > 0) {
     return `$${unitPrice.toFixed(2)} elegido`;
   }
 
-  if (isFixedPrice(item.product.price)) {
-    return `${item.product.price} c/u`;
+  if (unitPrice > 0) {
+    return `$${unitPrice.toFixed(2)} c/u`;
   }
 
   return 'Precio a consultar';
@@ -86,7 +98,6 @@ const getLineSubtotal = (item: CartItem): string => {
   return ` = $${(unitPrice * item.quantity).toFixed(2)}`;
 };
 
-// 1. Mensaje inicial del cliente mejorado
 export function buildWhatsAppUrl(
   items: CartItem[],
   phone: string,
@@ -115,7 +126,7 @@ export function buildWhatsAppUrl(
   lines.push('📋 *Detalle:*');
 
   items.forEach(item => {
-    const productName = item.product?.name || item.name || 'Producto';
+    const productName = getProductName(item);
     const priceLabel = getPriceLabel(item);
     const lineSubtotal = getLineSubtotal(item);
 
@@ -145,7 +156,6 @@ export function buildWhatsAppUrl(
   return `https://wa.me/${cleanPhoneNumber(WHATSAPP)}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
 
-// 2. Mensaje de notificación para cambios de estado del pedido
 export function buildStatusWhatsAppUrl(phone: string, code: string, status: OrderStatus): string {
   const clean = cleanPhoneNumber(phone);
 
