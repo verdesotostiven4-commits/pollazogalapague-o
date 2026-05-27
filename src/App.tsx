@@ -96,6 +96,7 @@ const getStoredPaymentMethod = (): PaymentMethod | undefined => {
 
 const clearStoredPaymentMethod = () => {
   localStorage.removeItem('selectedPaymentMethod');
+  localStorage.removeItem('selectedBank');
 };
 
 const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): AppPaymentStatus => {
@@ -496,7 +497,21 @@ function AppShell() {
     }
 
     const code = activeOrderCode || orderCode();
-    const whatsappUrl = buildWhatsAppUrl(items, customerPhone, customerName, code, !isStoreOpen());
+    const whatsappUrl = buildWhatsAppUrl(
+  items,
+  customerPhone,
+  customerName,
+  code,
+  !isStoreOpen(),
+  {
+    paymentMethod: getStoredPaymentMethod(),
+    selectedBank: localStorage.getItem('selectedBank'),
+    customerReference: customerReference.trim(),
+    customerLat,
+    customerLng,
+    deliveryType: 'domicilio',
+  }
+);
 
     if (!activeOrderCode) {
       try {
