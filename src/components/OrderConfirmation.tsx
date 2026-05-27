@@ -13,12 +13,22 @@ interface Props {
   onWhatsApp: () => void;
 }
 
-type StoredPaymentMethod = 'efectivo' | 'deuna' | 'transferencia' | null;
+type StoredPaymentMethod =
+  | 'efectivo'
+  | 'deuna'
+  | 'transferencia'
+  | 'tarjeta'
+  | null;
 
 const getStoredPaymentMethod = (): StoredPaymentMethod => {
   const value = localStorage.getItem('selectedPaymentMethod');
 
-  if (value === 'efectivo' || value === 'deuna' || value === 'transferencia') {
+  if (
+    value === 'efectivo' ||
+    value === 'deuna' ||
+    value === 'transferencia' ||
+    value === 'tarjeta'
+  ) {
     return value;
   }
 
@@ -193,6 +203,21 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
       };
     }
 
+    if (paymentMethod === 'tarjeta') {
+      return {
+        icon: <ShieldCheck size={42} className="relative text-green-600" strokeWidth={2.8} />,
+        title: 'Pedido registrado',
+        subtitle: 'Pago con tarjeta',
+        boxTitle: 'Pago pendiente de aprobación',
+        boxText:
+          'Tu pedido quedó registrado. Si el pago con tarjeta fue aprobado, el negocio podrá confirmarlo y preparar tu pedido.',
+        finalText:
+          'Cuando el pago sea aprobado, el pedido pasará a confirmado y se activará el tiempo estimado.',
+        buttonText: 'Continuar por WhatsApp',
+        tone: 'green',
+      };
+    }
+
     return {
       icon: <Clock3 size={42} className="relative text-orange-500" strokeWidth={2.8} />,
       title: 'Pedido registrado',
@@ -216,6 +241,7 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
         box: 'bg-purple-50 border-purple-100',
         boxIcon: 'text-purple-600',
         boxText: 'text-purple-800',
+        legalBox: 'bg-purple-50 border-purple-100 text-purple-700',
         button:
           'from-green-500 to-green-400 hover:from-green-400 hover:to-green-300 shadow-green-500/25',
         dots: 'bg-purple-300',
@@ -230,9 +256,25 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
         box: 'bg-blue-50 border-blue-100',
         boxIcon: 'text-blue-600',
         boxText: 'text-blue-800',
+        legalBox: 'bg-blue-50 border-blue-100 text-blue-700',
         button:
           'from-green-500 to-green-400 hover:from-green-400 hover:to-green-300 shadow-green-500/25',
         dots: 'bg-blue-300',
+      };
+    }
+
+    if (confirmationCopy.tone === 'green') {
+      return {
+        iconBg: 'bg-green-50 border-green-200 shadow-green-100',
+        ping: 'bg-green-400/10',
+        subtitle: 'text-green-600',
+        box: 'bg-green-50 border-green-100',
+        boxIcon: 'text-green-600',
+        boxText: 'text-green-800',
+        legalBox: 'bg-green-50 border-green-100 text-green-700',
+        button:
+          'from-green-500 to-green-400 hover:from-green-400 hover:to-green-300 shadow-green-500/25',
+        dots: 'bg-green-300',
       };
     }
 
@@ -243,6 +285,7 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
       box: 'bg-orange-50 border-orange-100',
       boxIcon: 'text-orange-500',
       boxText: 'text-orange-700',
+      legalBox: 'bg-orange-50 border-orange-100 text-orange-700',
       button:
         'from-green-500 to-green-400 hover:from-green-400 hover:to-green-300 shadow-green-500/25',
       dots: 'bg-orange-300',
@@ -308,7 +351,7 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
         </p>
 
         <div
-          className={`relative border rounded-[28px] p-4 mb-5 text-left transition-all duration-500 ${toneClasses.box} ${
+          className={`relative border rounded-[28px] p-4 mb-4 text-left transition-all duration-500 ${toneClasses.box} ${
             animateCheck ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
           style={{ transitionDelay: '460ms' }}
@@ -326,6 +369,21 @@ export default function OrderConfirmation({ visible, onWhatsApp }: Props) {
                 {confirmationCopy.boxText}
               </p>
             </div>
+          </div>
+        </div>
+
+        <div
+          className={`relative border rounded-[24px] p-3 mb-5 text-left transition-all duration-500 ${toneClasses.legalBox} ${
+            animateCheck ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}
+          style={{ transitionDelay: '500ms' }}
+        >
+          <div className="flex gap-2.5 items-start">
+            <ShieldCheck size={16} className="mt-0.5 flex-shrink-0" />
+            <p className="text-[9px] font-black uppercase leading-relaxed">
+              Al enviar tu pedido aceptas los Términos y Privacidad, reglas de entrega,
+              confirmación de disponibilidad, pagos y uso de tus datos para coordinar el pedido.
+            </p>
           </div>
         </div>
 
