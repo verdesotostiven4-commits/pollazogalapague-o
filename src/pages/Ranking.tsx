@@ -16,6 +16,8 @@ import {
   Activity,
   BadgeCheck,
   Lock,
+  ShoppingBag,
+  Wallet,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
@@ -94,6 +96,18 @@ function getLevelProgress(exp: number) {
   return Math.min(100, Math.max(0, Math.round((current / range) * 100)));
 }
 
+function getNextLevelText(exp: number) {
+  const level = getCustomerLevel(exp);
+
+  if (!level.nextExp) {
+    return 'Nivel máximo alcanzado';
+  }
+
+  const remaining = Math.max(0, level.nextExp - exp);
+
+  return `Faltan ${remaining.toLocaleString('es-EC')} EXP para el siguiente nivel`;
+}
+
 function getGuerreroTitle(index: number) {
   if (index === 0) return 'Guerrero Galapagueño';
   if (index === 1) return 'Guerrero de Santa Cruz';
@@ -104,6 +118,10 @@ function getGuerreroTitle(index: number) {
 
 function formatCountdownValue(value: number) {
   return Math.max(0, value).toString().padStart(2, '0');
+}
+
+function money(value?: number | null) {
+  return Number(value || 0).toFixed(2);
 }
 
 export default function Ranking() {
@@ -156,13 +174,12 @@ export default function Ranking() {
       return undefined;
     }
 
-    const timer = window.setInterval(() => {
-      const target = new Date(extraSettings.ranking_end_date).getTime();
+    const updateCountdown = () => {
+      const target = new Date(extraSettings.ranking_end_date || '').getTime();
       const diff = target - new Date().getTime();
 
-      if (diff <= 0) {
+      if (!target || Number.isNaN(target) || diff <= 0) {
         setTimeLeft({ d: '0', h: '0', m: '0', s: '0' });
-        window.clearInterval(timer);
         return;
       }
 
@@ -172,7 +189,11 @@ export default function Ranking() {
         m: formatCountdownValue(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))),
         s: formatCountdownValue(Math.floor((diff % (1000 * 60)) / 1000)),
       });
-    }, 1000);
+    };
+
+    updateCountdown();
+
+    const timer = window.setInterval(updateCountdown, 1000);
 
     return () => window.clearInterval(timer);
   }, [eventActive, extraSettings?.ranking_end_date]);
@@ -197,6 +218,7 @@ export default function Ranking() {
   const myExp = myData?.exp || 0;
   const myLevel = getCustomerLevel(myExp);
   const myLevelProgress = getLevelProgress(myExp);
+  const myNextLevelText = getNextLevelText(myExp);
 
   useEffect(() => {
     const rowObserver = new IntersectionObserver(
@@ -227,8 +249,8 @@ export default function Ranking() {
 
     const appUrl = window.location.origin;
     const text = eventActive
-      ? `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\n¡Atrévete a superarme! 😎\n\n${appUrl}`
-      : `Estoy en La Casa del Pollazo 🍗🔥. Pronto vuelve una nueva temporada del Ranking VIP.\n\n${appUrl}`;
+      ? `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\nTengo ${(myData?.points || 0).toLocaleString('es-EC')} puntos de temporada y ${myExp.toLocaleString('es-EC')} EXP permanente.\n¡Atrévete a superarme! 😎\n\n${appUrl}`
+      : `Estoy en La Casa del Pollazo 🍗🔥. Pronto vuelve una nueva temporada del Ranking VIP. Mi EXP permanente sigue creciendo.\n\n${appUrl}`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -324,8 +346,8 @@ export default function Ranking() {
         )}
       </div>
 
-      {myData && (
-        <div className="px-4 -mt-5 relative z-20">
+      <div className="px-4 -mt-5 relative z-20 space-y-4">
+        {myData ? (
           <div className="bg-white rounded-[34px] border border-orange-100 shadow-xl p-5">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -357,10 +379,10 @@ export default function Ranking() {
 
                   <div className="bg-yellow-50 rounded-2xl p-2 border border-yellow-100">
                     <p className="text-[7px] font-black text-yellow-600 uppercase">
-                      Puntos
+                      Temporada
                     </p>
                     <p className="font-black text-slate-900 text-sm">
-                      {(myData.points || 0).toLocaleString()}
+                      {(myData.points || 0).toLocaleString('es-EC')}
                     </p>
                   </div>
 
@@ -391,7 +413,7 @@ export default function Ranking() {
                     {myLevel.title}
                   </p>
                   <p className="text-[9px] font-bold text-slate-400">
-                    {myExp.toLocaleString()} EXP permanente
+                    {myExp.toLocaleString('es-EC')} EXP permanente · {myNextLevelText}
                   </p>
                 </div>
 
@@ -407,9 +429,62 @@ export default function Ranking() {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="bg-green-50 border border-green-100 rounded-2xl p-3">
+                <div className="flex items-center gap-2 text-green-600 mb-1">
+                  <ShoppingBag size={14} />
+                  <p className="text-[8px] font-black uppercase">
+                    Compras válidas
+                  </p>
+                </div>
+                <p className="font-black text-slate-900 text-sm">
+                  {(myData.total_orders || 0).toLocaleString('es-EC')}
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3">
+                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                  <Wallet size={14} />
+                  <p className="text-[8px] font-black uppercase">
+                    Total histórico
+                  </p>
+                </div>
+                <p className="font-black text-slate-900 text-sm">
+                  ${money(myData.total_spent)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-[34px] border border-orange-100 shadow-xl p-6 text-center">
+            <BadgeCheck size={34} className="text-orange-500 mx-auto mb-3" />
+            <h3 className="font-black text-slate-900 uppercase italic">
+              Aún no apareces en el ranking
+            </h3>
+            <p className="text-xs font-bold text-slate-500 leading-relaxed mt-2">
+              Cuando hagas compras válidas, tu perfil empezará a sumar EXP permanente. Si hay temporada activa, también podrás competir por puntos y premios.
+            </p>
+          </div>
+        )}
+
+        <div className="bg-slate-950 rounded-[32px] p-5 text-white shadow-xl border border-orange-500/20">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-orange-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-900/30">
+              <Sparkles size={21} className="text-white" />
+            </div>
+
+            <div>
+              <h3 className="font-black uppercase italic text-sm">
+                ¿Cómo funciona?
+              </h3>
+              <p className="text-[10px] font-bold text-white/65 leading-relaxed mt-1">
+                La <span className="text-yellow-300">EXP permanente</span> sube con tus compras válidas y no se borra. Los <span className="text-orange-300">puntos de temporada</span> solo cuentan cuando el negocio activa un concurso con premios.
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {!eventActive && (
         <div className="mx-4 mt-6 bg-white border border-orange-100 rounded-[32px] p-5 text-center shadow-sm">
@@ -482,14 +557,17 @@ export default function Ranking() {
                       {getGuerreroTitle(i)}
                     </p>
                   </div>
+                  <p className="text-[8px] font-black text-slate-300 uppercase mt-1">
+                    {(c.exp || 0).toLocaleString('es-EC')} EXP permanente
+                  </p>
                 </div>
 
                 <div className="text-right shrink-0">
                   <p className={`text-xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>
-                    {(c.points || 0).toLocaleString()}
+                    {(c.points || 0).toLocaleString('es-EC')}
                   </p>
                   <p className="text-[7px] font-black text-slate-400 uppercase mt-1">
-                    Puntos
+                    PTS temporada
                   </p>
                 </div>
               </div>
@@ -528,15 +606,18 @@ export default function Ranking() {
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">
                     {getGuerreroTitle(actualIndex)}
                   </p>
+                  <p className="text-[8px] font-black text-slate-300 uppercase mt-0.5">
+                    {(c.exp || 0).toLocaleString('es-EC')} EXP
+                  </p>
                 </div>
 
                 <div className="text-right flex items-center gap-3">
                   <div className="text-right">
                     <p className="font-black text-slate-900 text-lg leading-none">
-                      {(c.points || 0).toLocaleString()}
+                      {(c.points || 0).toLocaleString('es-EC')}
                     </p>
                     <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">
-                      Puntos
+                      PTS temporada
                     </p>
                   </div>
 
@@ -727,8 +808,8 @@ export default function Ranking() {
               <div className="bg-slate-50 border border-slate-100 rounded-[24px] p-4">
                 <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
                   {eventActive
-                    ? 'Los puntos de temporada se suman solo en pedidos válidos mientras el evento esté activo.'
-                    : 'La temporada está pausada. Los premios se activarán cuando el negocio inicie un nuevo evento.'}
+                    ? 'Los puntos de temporada se suman solo en pedidos válidos mientras el evento esté activo. La EXP permanente no se borra.'
+                    : 'La temporada está pausada. Los premios se activarán cuando el negocio inicie un nuevo evento. Tu EXP permanente sigue existiendo.'}
                 </p>
               </div>
 
@@ -797,7 +878,7 @@ export default function Ranking() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-white font-black text-xs italic">
-                    {(myData.points || 0).toLocaleString()}
+                    {(myData.points || 0).toLocaleString('es-EC')}
                   </p>
                   <p className="text-[7px] font-black text-white/80 uppercase">
                     PTS
