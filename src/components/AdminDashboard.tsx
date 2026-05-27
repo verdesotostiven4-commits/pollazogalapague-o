@@ -1,4 +1,6 @@
 import { useMemo, useState, Component } from 'react';
+import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Edit3,
   LogOut,
@@ -18,15 +20,23 @@ import {
   Zap,
   MapPin,
   Search,
-  Eye,
-  EyeOff,
   Banknote,
   QrCode,
   Building,
   Crown,
   Medal,
+  Phone,
+  CheckCircle2,
+  AlertTriangle,
+  Truck,
+  ClipboardList,
+  Filter,
+  DollarSign,
+  MessageCircle,
+  Route,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Category, OrderStatus } from '../types';
 import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
 
@@ -43,6 +53,15 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+type OrderBucket =
+  | 'waiting'
+  | 'confirmed'
+  | 'preparing'
+  | 'sent'
+  | 'delivered'
+  | 'cancelled'
+  | 'all';
+
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'Por Confirmar',
   'Recibido',
@@ -50,6 +69,63 @@ const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'Enviado',
   'Entregado',
   'Cancelado',
+];
+
+const ORDER_BUCKETS: Array<{
+  id: OrderBucket;
+  label: string;
+  shortLabel: string;
+  icon: LucideIcon;
+  statuses?: OrderStatus[];
+}> = [
+  {
+    id: 'waiting',
+    label: 'En espera',
+    shortLabel: 'Espera',
+    icon: AlertTriangle,
+    statuses: ['Por Confirmar'],
+  },
+  {
+    id: 'confirmed',
+    label: 'Confirmados',
+    shortLabel: 'Confirm.',
+    icon: ClipboardList,
+    statuses: ['Recibido'],
+  },
+  {
+    id: 'preparing',
+    label: 'Preparando',
+    shortLabel: 'Prep.',
+    icon: Package,
+    statuses: ['Preparando'],
+  },
+  {
+    id: 'sent',
+    label: 'En camino',
+    shortLabel: 'Camino',
+    icon: Truck,
+    statuses: ['Enviado'],
+  },
+  {
+    id: 'delivered',
+    label: 'Entregados',
+    shortLabel: 'OK',
+    icon: CheckCircle2,
+    statuses: ['Entregado'],
+  },
+  {
+    id: 'cancelled',
+    label: 'Cancelados',
+    shortLabel: 'Cancel.',
+    icon: X,
+    statuses: ['Cancelado'],
+  },
+  {
+    id: 'all',
+    label: 'Todos',
+    shortLabel: 'Todos',
+    icon: Filter,
+  },
 ];
 
 const SUBCATEGORIES_MAP: Record<Category, string[]> = {
@@ -66,10 +142,10 @@ const SUBCATEGORIES_MAP: Record<Category, string[]> = {
 };
 
 class AdminErrorBoundary extends Component<
-  { children: React.ReactNode },
+  { children: ReactNode },
   { hasError: boolean; error: unknown; info: any }
 > {
-  constructor(props: { children: React.ReactNode }) {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null, info: null };
   }
@@ -172,12 +248,59 @@ function PinScreen({ onAuth }: { onAuth: () => void }) {
   );
 }
 
+const toNumber = (value: unknown) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const raw = String(value || '').trim();
+
+  if (!raw) return 0;
+
+  const normalized = raw
+    .replace(',', '.')
+    .replace(/[^0-9.-]/g, '');
+
+  const numeric = Number.parseFloat(normalized);
+
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
 const money = (value: unknown) => {
-  const numeric = Number(value || 0);
-  return Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00';
+  return toNumber(value).toFixed(2);
 };
 
 const cleanPhone = (phone?: string | null) => (phone || '').replace(/\D/g, '');
+
+const prettyPhone = (phone?: string | null) => {
+  const clean = cleanPhone(phone);
+
+  if (!clean) return 'Sin teléfono';
+
+  if (clean.length >= 10) {
+    return `+${clean}`;
+  }
+
+  return clean;
+};
+
+const whatsappLink = (phone?: string | null) => {
+  const clean = cleanPhone(phone);
+  return clean ? `https://wa.me/${clean}` : '#';
+};
+
+const isToday = (value?: string | null) => {
+  if (!value) return false;
+
+  const date = new Date(value);
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+};
 
 const paymentIcon = (method?: string | null) => {
   if (method === 'efectivo') return <Banknote size={13} />;
@@ -186,12 +309,106 @@ const paymentIcon = (method?: string | null) => {
   return <PackageSearch size={13} />;
 };
 
+const paymentLabel = (method?: string | null) => {
+  if (method === 'efectivo') return 'Efectivo';
+  if (method === 'deuna') return 'Deuna';
+  if (method === 'transferencia') return 'Transferencia';
+  return 'No definido';
+};
+
+const getStatusTone = (status?: OrderStatus) => {
+  if (status === 'Por Confirmar') {
+    return 'bg-orange-50 text-orange-600 border-orange-200';
+  }
+
+  if (status === 'Recibido') {
+    return 'bg-slate-50 text-slate-600 border-slate-200';
+  }
+
+  if (status === 'Preparando') {
+    return 'bg-blue-50 text-blue-600 border-blue-200';
+  }
+
+  if (status === 'Enviado') {
+    return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+  }
+
+  if (status === 'Entregado') {
+    return 'bg-green-50 text-green-600 border-green-200';
+  }
+
+  if (status === 'Cancelado') {
+    return 'bg-red-50 text-red-500 border-red-100';
+  }
+
+  return 'bg-gray-50 text-gray-400 border-gray-200';
+};
+
+const getStatusHelp = (status?: OrderStatus) => {
+  if (status === 'Por Confirmar') return 'Revisar disponibilidad/pago';
+  if (status === 'Recibido') return 'Pedido aceptado';
+  if (status === 'Preparando') return 'Armando pedido';
+  if (status === 'Enviado') return 'En ruta';
+  if (status === 'Entregado') return 'Venta completada';
+  if (status === 'Cancelado') return 'No se realizará';
+  return 'Sin estado';
+};
+
+const productTextOfOrder = (order: any) => {
+  return (order?.items || [])
+    .map((item: any) => item?.name || item?.product?.name || 'Producto')
+    .join(' ');
+};
+
+function StatCard({
+  label,
+  value,
+  detail,
+  Icon,
+  tone = 'orange',
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  Icon: LucideIcon;
+  tone?: 'orange' | 'green' | 'blue' | 'yellow' | 'red' | 'slate';
+}) {
+  const tones = {
+    orange: 'bg-orange-50 text-orange-600 border-orange-100',
+    green: 'bg-green-50 text-green-600 border-green-100',
+    blue: 'bg-blue-50 text-blue-600 border-blue-100',
+    yellow: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+    red: 'bg-red-50 text-red-500 border-red-100',
+    slate: 'bg-slate-50 text-slate-600 border-slate-100',
+  };
+
+  return (
+    <div className="bg-white rounded-[28px] border border-gray-100 p-4 shadow-sm min-w-[140px]">
+      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border mb-3 ${tones[tone]}`}>
+        <Icon size={18} />
+      </div>
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">
+        {label}
+      </p>
+      <p className="text-2xl font-black text-gray-900 mt-2 leading-none">
+        {value}
+      </p>
+      {detail && (
+        <p className="text-[9px] font-bold text-gray-400 mt-2 leading-tight">
+          {detail}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AdminDashboardContent() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const context = useAdmin();
 
   const [tab, setTab] = useState<TabId>('orders');
   const [search, setSearch] = useState('');
+  const [orderBucket, setOrderBucket] = useState<OrderBucket>('waiting');
   const [points, setPoints] = useState<Record<string, string>>({});
   const [savingBranding, setSavingBranding] = useState(false);
 
@@ -253,6 +470,78 @@ function AdminDashboardContent() {
     return safeOrders.filter(order => order.status !== 'Entregado' && order.status !== 'Cancelado');
   }, [safeOrders]);
 
+  const orderStats = useMemo(() => {
+    const todayOrders = safeOrders.filter(order => isToday(order.created_at));
+
+    const totalWaiting = safeOrders.filter(order => order.status === 'Por Confirmar').length;
+    const totalConfirmed = safeOrders.filter(order => order.status === 'Recibido').length;
+    const totalPreparing = safeOrders.filter(order => order.status === 'Preparando').length;
+    const totalSent = safeOrders.filter(order => order.status === 'Enviado').length;
+    const totalDeliveredToday = todayOrders.filter(order => order.status === 'Entregado').length;
+    const totalCancelled = safeOrders.filter(order => order.status === 'Cancelado').length;
+
+    const todaySales = todayOrders
+      .filter(order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar')
+      .reduce((sum, order) => sum + toNumber(order.total), 0);
+
+    const pendingPayments = safeOrders.filter(order => {
+      return (
+        order.status === 'Por Confirmar' &&
+        (order.payment_method === 'deuna' || order.payment_method === 'transferencia')
+      );
+    }).length;
+
+    return {
+      totalWaiting,
+      totalConfirmed,
+      totalPreparing,
+      totalSent,
+      totalDeliveredToday,
+      totalCancelled,
+      todaySales,
+      pendingPayments,
+    };
+  }, [safeOrders]);
+
+  const filteredOrders = useMemo(() => {
+    const bucket = ORDER_BUCKETS.find(item => item.id === orderBucket);
+    const query = search.toLowerCase().trim();
+
+    return [...safeOrders]
+      .filter(order => {
+        if (bucket?.statuses && !bucket.statuses.includes(order.status)) {
+          return false;
+        }
+
+        if (!query) return true;
+
+        const customer = safeCustomers.find(
+          current => cleanPhone(current?.phone) === cleanPhone(order?.customer_phone)
+        );
+
+        const haystack = [
+          order.order_code,
+          order.customer_phone,
+          customer?.name,
+          order.payment_method,
+          order.delivery_type,
+          order.reference,
+          productTextOfOrder(order),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        return haystack.includes(query);
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at || '').getTime();
+        const dateB = new Date(b.created_at || '').getTime();
+
+        return dateB - dateA;
+      });
+  }, [orderBucket, safeCustomers, safeOrders, search]);
+
   if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
 
   if (!context || context.loading) {
@@ -297,6 +586,43 @@ function AdminDashboardContent() {
     } catch {
       window.alert('Error al guardar');
     }
+  };
+
+  const handleOrderStatus = async (orderId: string | undefined, status: OrderStatus) => {
+    if (!orderId) return;
+
+    try {
+      await context.updateOrderStatus(orderId, status);
+      await context.refreshData();
+    } catch {
+      window.alert('No se pudo actualizar el pedido.');
+    }
+  };
+
+  const handleDeleteTestOrder = async (orderId: string | undefined) => {
+    if (!orderId) return;
+
+    if (!window.confirm('¿Eliminar este pedido de prueba? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      window.alert('Supabase no está configurado.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (error) {
+      window.alert('No se pudo borrar. Puede faltar una política DELETE en Supabase.');
+      console.error(error);
+      return;
+    }
+
+    await context.refreshData();
   };
 
   const startEdit = (product: any) => {
@@ -416,17 +742,109 @@ function AdminDashboardContent() {
 
         {tab === 'orders' && (
           <div className="space-y-4 pb-10 animate-in fade-in duration-500">
-            {safeOrders.length === 0 && (
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard
+                label="En espera"
+                value={orderStats.totalWaiting}
+                detail="Revisar antes de aceptar"
+                Icon={AlertTriangle}
+                tone="orange"
+              />
+              <StatCard
+                label="Confirmados"
+                value={orderStats.totalConfirmed}
+                detail="Listos para preparar"
+                Icon={ClipboardList}
+                tone="slate"
+              />
+              <StatCard
+                label="En camino"
+                value={orderStats.totalSent}
+                detail="Pedidos enviados"
+                Icon={Truck}
+                tone="yellow"
+              />
+              <StatCard
+                label="Ventas hoy"
+                value={`$${money(orderStats.todaySales)}`}
+                detail={`${orderStats.totalDeliveredToday} entregados hoy`}
+                Icon={DollarSign}
+                tone="green"
+              />
+            </section>
+
+            {orderStats.pendingPayments > 0 && (
+              <div className="bg-yellow-50 border border-yellow-100 rounded-[28px] p-4 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-yellow-600 shadow-sm">
+                  <QrCode size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-yellow-700 uppercase">
+                    {orderStats.pendingPayments} pago{orderStats.pendingPayments !== 1 ? 's' : ''} por validar
+                  </p>
+                  <p className="text-[10px] font-bold text-yellow-700/70 mt-1">
+                    Revisa Deuna o transferencia antes de confirmar.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <section className="bg-white rounded-[32px] p-4 border border-gray-100 shadow-sm space-y-3">
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                <input
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="Buscar pedido, cliente, teléfono o producto..."
+                  className="w-full bg-gray-50 rounded-2xl py-4 pl-11 pr-4 text-sm font-bold border border-gray-100 outline-none focus:border-orange-300"
+                />
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {ORDER_BUCKETS.map(bucket => {
+                  const Icon = bucket.icon;
+                  const count = bucket.statuses
+                    ? safeOrders.filter(order => bucket.statuses?.includes(order.status)).length
+                    : safeOrders.length;
+
+                  return (
+                    <button
+                      key={bucket.id}
+                      onClick={() => setOrderBucket(bucket.id)}
+                      className={`flex-shrink-0 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border flex items-center gap-2 ${
+                        orderBucket === bucket.id
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                          : 'bg-white text-gray-400 border-gray-100'
+                      }`}
+                    >
+                      <Icon size={13} />
+                      {bucket.shortLabel}
+                      <span
+                        className={`min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[8px] ${
+                          orderBucket === bucket.id
+                            ? 'bg-white/20 text-white'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {filteredOrders.length === 0 && (
               <div className="bg-white rounded-[32px] p-10 text-center border border-gray-100">
                 <PackageSearch size={38} className="mx-auto text-orange-300 mb-3" />
-                <p className="text-gray-900 font-black uppercase">Aún no hay pedidos</p>
+                <p className="text-gray-900 font-black uppercase">No hay pedidos aquí</p>
                 <p className="text-gray-400 text-xs font-bold mt-1">
-                  Cuando alguien procese un carrito aparecerá aquí.
+                  Cambia de filtro o espera un nuevo pedido.
                 </p>
               </div>
             )}
 
-            {safeOrders.map(order => {
+            {filteredOrders.map(order => {
               const customer = safeCustomers.find(
                 current => cleanPhone(current?.phone) === cleanPhone(order?.customer_phone)
               );
@@ -436,40 +854,61 @@ function AdminDashboardContent() {
               const deliveryRef = order?.reference || customer?.reference || '';
 
               const isPending = order?.status === 'Por Confirmar';
+              const cleanCustomerPhone = cleanPhone(order?.customer_phone);
 
               return (
                 <div
                   key={order?.id}
                   className={`bg-white rounded-[32px] border p-5 space-y-4 shadow-sm ${
                     isPending
-                      ? 'border-orange-300 shadow-orange-100 ring-2 ring-orange-100 animate-pulse'
+                      ? 'border-orange-300 shadow-orange-100 ring-2 ring-orange-100'
                       : 'border-gray-100'
                   }`}
                 >
-                  <div className="flex justify-between items-center border-b pb-3 border-gray-50">
-                    <div className="flex items-center gap-3">
+                  <div className="flex justify-between items-start border-b pb-3 border-gray-50 gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <img
                         src={
                           customer?.avatar_url ||
                           `https://api.dicebear.com/8.x/adventurer/svg?seed=${order?.customer_phone}`
                         }
-                        className="w-11 h-11 rounded-full border-2 border-orange-100 shadow-sm object-cover"
+                        className="w-12 h-12 rounded-2xl border-2 border-orange-100 shadow-sm object-cover flex-shrink-0"
                         alt="Cliente"
                       />
 
-                      <div>
-                        <p className="font-black text-xs uppercase leading-none">
-                          {customer?.name || order?.customer_phone}
-                        </p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-black text-xs uppercase leading-none truncate">
+                            {customer?.name || order?.customer_phone || 'Cliente'}
+                          </p>
+
+                          {isPending && (
+                            <span className="bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
+                              Nuevo
+                            </span>
+                          )}
+                        </div>
 
                         <p className="text-[9px] font-black text-gray-400 mt-1">
                           {order?.order_code || 'Sin código'}
                         </p>
 
+                        <a
+                          href={whatsappLink(order?.customer_phone)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] font-black text-green-600 mt-1 bg-green-50 px-2 py-1 rounded-lg border border-green-100"
+                        >
+                          <Phone size={10} />
+                          {prettyPhone(order?.customer_phone)}
+                        </a>
+
                         <div className="flex items-center gap-1 text-[8px] font-black text-blue-500 mt-1">
                           <Clock size={10} />
                           {order?.created_at
-                            ? new Date(order.created_at).toLocaleTimeString([], {
+                            ? new Date(order.created_at).toLocaleString('es-EC', {
+                                day: '2-digit',
+                                month: '2-digit',
                                 hour: '2-digit',
                                 minute: '2-digit',
                                 hour12: true,
@@ -479,28 +918,20 @@ function AdminDashboardContent() {
                       </div>
                     </div>
 
-                    <div className="text-right leading-none">
-                      <p className="font-black text-orange-600 text-sm italic">
+                    <div className="text-right leading-none flex-shrink-0">
+                      <p className="font-black text-orange-600 text-lg italic">
                         ${money(order?.total)}
                       </p>
 
                       <span
-                        className={`text-[7px] font-black uppercase px-2 py-0.5 rounded-md mt-1 inline-block border ${
-                          order?.status === 'Por Confirmar'
-                            ? 'bg-orange-50 text-orange-600 border-orange-200'
-                            : order?.status === 'Preparando'
-                              ? 'bg-blue-50 text-blue-600 border-blue-200'
-                              : order?.status === 'Enviado'
-                                ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
-                                : order?.status === 'Entregado'
-                                  ? 'bg-green-50 text-green-600 border-green-200'
-                                  : order?.status === 'Cancelado'
-                                    ? 'bg-red-50 text-red-500 border-red-100'
-                                    : 'bg-gray-50 text-gray-400 border-gray-200'
-                        }`}
+                        className={`text-[7px] font-black uppercase px-2 py-1 rounded-md mt-1 inline-block border ${getStatusTone(order?.status)}`}
                       >
                         {order?.status}
                       </span>
+
+                      <p className="text-[8px] text-gray-400 font-black uppercase mt-1">
+                        {getStatusHelp(order?.status)}
+                      </p>
                     </div>
                   </div>
 
@@ -509,14 +940,25 @@ function AdminDashboardContent() {
                       <p className="text-[8px] font-black text-slate-400 uppercase">Pago</p>
                       <p className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1 mt-1">
                         {paymentIcon(order?.payment_method)}
-                        {order?.payment_method || 'No definido'}
+                        {paymentLabel(order?.payment_method)}
+                      </p>
+                      <p className="text-[8px] font-bold text-slate-400 mt-1">
+                        {order?.payment_method === 'efectivo'
+                          ? 'Contra entrega'
+                          : order?.payment_method
+                            ? 'Validar/confirmar'
+                            : 'Sin método'}
                       </p>
                     </div>
 
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                       <p className="text-[8px] font-black text-slate-400 uppercase">Entrega</p>
-                      <p className="text-[10px] font-black text-slate-700 uppercase mt-1">
+                      <p className="text-[10px] font-black text-slate-700 uppercase mt-1 flex items-center gap-1">
+                        <Route size={13} />
                         {order?.delivery_type || 'domicilio'}
+                      </p>
+                      <p className="text-[8px] font-bold text-slate-400 mt-1">
+                        {deliveryLat && deliveryLng ? 'Ubicación lista' : 'Sin GPS'}
                       </p>
                     </div>
                   </div>
@@ -530,7 +972,7 @@ function AdminDashboardContent() {
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-md active:scale-[0.98] shadow-red-600/20"
                       >
                         <MapPin size={14} className="fill-white" />
-                        🔴 ABRIR MAPA DE ENTREGA
+                        Abrir mapa de entrega
                       </a>
 
                       {deliveryRef && (
@@ -550,17 +992,19 @@ function AdminDashboardContent() {
                     {(order?.items || []).length > 0 ? (
                       (order?.items || []).map((item: any, index: number) => {
                         const quantity = Number(item?.quantity || 1);
-                        const unitPrice = Number(item?.custom_price || item?.price || 0);
-                        const lineTotal = Number(item?.subtotal || unitPrice * quantity || 0);
+                        const unitPrice = toNumber(item?.custom_price || item?.price || 0);
+                        const lineTotal = toNumber(item?.subtotal || unitPrice * quantity || 0);
 
                         return (
                           <div
                             key={index}
-                            className="flex justify-between text-[10px] font-bold uppercase py-1 border-b border-orange-100/20 last:border-0"
+                            className="flex justify-between text-[10px] font-bold uppercase py-1.5 border-b border-orange-100/30 last:border-0 gap-3"
                           >
-                            <span className="flex-1 truncate mr-2">
+                            <span className="flex-1 min-w-0">
                               <span className="text-orange-600 font-black">{quantity}x</span>{' '}
-                              {item?.name || item?.product?.name || 'Producto'}
+                              <span className="text-gray-700">
+                                {item?.name || item?.product?.name || 'Producto'}
+                              </span>
                               {item?.custom_price && (
                                 <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded ml-2 font-black">
                                   VALOR FIJO
@@ -568,7 +1012,7 @@ function AdminDashboardContent() {
                               )}
                             </span>
 
-                            <span className="text-gray-400 font-black">
+                            <span className="text-gray-500 font-black flex-shrink-0">
                               ${money(lineTotal)}
                             </span>
                           </div>
@@ -581,11 +1025,53 @@ function AdminDashboardContent() {
                     )}
                   </div>
 
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {order?.status === 'Por Confirmar' && (
+                      <button
+                        onClick={() => handleOrderStatus(order.id, 'Recibido')}
+                        className="bg-orange-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-orange-100 flex items-center justify-center gap-1"
+                      >
+                        <CheckCircle2 size={13} />
+                        Confirmar
+                      </button>
+                    )}
+
+                    {(order?.status === 'Por Confirmar' || order?.status === 'Recibido') && (
+                      <button
+                        onClick={() => handleOrderStatus(order.id, 'Preparando')}
+                        className="bg-blue-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-blue-100 flex items-center justify-center gap-1"
+                      >
+                        <Package size={13} />
+                        Preparar
+                      </button>
+                    )}
+
+                    {(order?.status === 'Recibido' || order?.status === 'Preparando') && (
+                      <button
+                        onClick={() => handleOrderStatus(order.id, 'Enviado')}
+                        className="bg-yellow-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-yellow-100 flex items-center justify-center gap-1"
+                      >
+                        <Truck size={13} />
+                        Enviar
+                      </button>
+                    )}
+
+                    {order?.status === 'Enviado' && (
+                      <button
+                        onClick={() => handleOrderStatus(order.id, 'Entregado')}
+                        className="bg-green-500 text-white py-3 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all shadow-md shadow-green-100 flex items-center justify-center gap-1"
+                      >
+                        <CheckCircle2 size={13} />
+                        Entregar
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <select
                       value={order?.status}
                       onChange={event =>
-                        context.updateOrderStatus(order.id || '', event.target.value as OrderStatus)
+                        handleOrderStatus(order.id || '', event.target.value as OrderStatus)
                       }
                       className="flex-1 bg-gray-50 border rounded-xl p-3 text-[10px] font-black outline-none"
                     >
@@ -604,10 +1090,38 @@ function AdminDashboardContent() {
                       )}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-[#25D366] text-white px-5 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-md active:scale-95 transition-all"
+                      className="bg-[#25D366] text-white px-4 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-md active:scale-95 transition-all"
                     >
-                      <Send size={14} /> Notificar
+                      <Send size={14} /> Estado
                     </a>
+
+                    <a
+                      href={cleanCustomerPhone ? whatsappLink(order?.customer_phone) : '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-green-50 text-green-600 px-4 py-3 rounded-xl font-black text-[10px] flex items-center gap-2 border border-green-100 active:scale-95 transition-all"
+                    >
+                      <MessageCircle size={14} />
+                    </a>
+                  </div>
+
+                  <div className="flex gap-2 border-t border-gray-50 pt-3">
+                    {order?.status !== 'Cancelado' && order?.status !== 'Entregado' && (
+                      <button
+                        onClick={() => handleOrderStatus(order.id, 'Cancelado')}
+                        className="flex-1 bg-red-50 text-red-500 py-3 rounded-xl font-black text-[9px] uppercase border border-red-100 active:scale-95 transition-all"
+                      >
+                        Cancelar pedido
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleDeleteTestOrder(order.id)}
+                      className="px-4 bg-gray-50 text-gray-400 py-3 rounded-xl font-black text-[9px] uppercase border border-gray-100 active:scale-95 transition-all"
+                      title="Eliminar pedido de prueba"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               );
