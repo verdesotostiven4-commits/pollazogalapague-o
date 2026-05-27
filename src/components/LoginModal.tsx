@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
   User,
@@ -11,6 +11,8 @@ import {
   ArrowRight,
   ArrowLeft,
   LocateFixed,
+  ShieldCheck,
+  WifiOff,
 } from 'lucide-react';
 import { PRESET_AVATARS } from '../constants/avatars';
 import { useUser } from '@/context/UserContext';
@@ -45,7 +47,7 @@ type LocationRequestOptions = {
   updateSelectedPoint?: boolean;
 };
 
-const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
+const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 
 const PUERTO_AYORA_BOUNDS = {
@@ -55,7 +57,50 @@ const PUERTO_AYORA_BOUNDS = {
   lngMax: -90.295,
 };
 
+const preloadedAvatarCache = new Set<string>();
+
 const hasLeaflet = () => typeof L !== 'undefined' && Boolean(L?.map);
+
+const cleanDigits = (value: string) => value.replace(/\D/g, '');
+
+const normalizeEcuadorPhone = (phone: string): string => {
+  const digits = cleanDigits(phone);
+
+  if (!digits) return '';
+
+  if (digits.startsWith('593') && digits.length >= 12) {
+    return digits;
+  }
+
+  if (digits.startsWith('0') && digits.length === 10) {
+    return `593${digits.slice(1)}`;
+  }
+
+  if (digits.startsWith('9') && digits.length === 9) {
+    return `593${digits}`;
+  }
+
+  return digits;
+};
+
+const formatPhoneForInput = (phone: string): string => {
+  const digits = cleanDigits(phone);
+
+  if (digits.startsWith('593') && digits.length >= 12) {
+    return `0${digits.slice(3)}`;
+  }
+
+  return digits;
+};
+
+const isValidEcuadorMobile = (phone: string): boolean => {
+  const normalized = normalizeEcuadorPhone(phone);
+  return /^5939\d{8}$/.test(normalized);
+};
+
+const isFiniteNumber = (value: unknown): value is number => {
+  return typeof value === 'number' && Number.isFinite(value);
+};
 
 export default function LoginModal({
   isOpen,
@@ -70,6 +115,7 @@ export default function LoginModal({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
+  const fallbackTileLoadedRef = useRef(false);
 
   const {
     customerName,
@@ -89,11 +135,26 @@ export default function LoginModal({
   const [reference, setReference] = useState('');
 
   const [userActualLocation, setUserActualLocation] = useState<LatLng | null>(null);
+  const [loadedAvatarUrls, setLoadedAvatarUrls] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+
+    if (DEFAULT_AVATAR) {
+      initial.add(DEFAULT_AVATAR);
+    }
+
+    return initial;
+  });
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
   const [error, setError] = useState('');
+
+  const hasSavedDeliveryPoint = useMemo(() => {
+    return isFiniteNumber(customerLat) && isFiniteNumber(customerLng);
+  }, [customerLat, customerLng]);
 
   const modalTitle = title || (step === 1 ? 'Únete al Club' : 'Punto de entrega');
   const modalSubtitle =
@@ -104,23 +165,81 @@ export default function LoginModal({
         ? 'Ajusta tu punto de entrega'
         : 'Marca el punto exacto de entrega');
 
+  const normalizedWhatsapp = useMemo(() => normalizeEcuadorPhone(whatsapp), [whatsapp]);
+  const phoneIsValid = useMemo(() => isValidEcuadorMobile(whatsapp), [whatsapp]);
+
+  const selectedPointIsReady = lat !== null && lng !== null;
+
   const isInsideGeofence =
-    lat !== null &&
-    lng !== null &&
+    selectedPointIsReady &&
     lat >= PUERTO_AYORA_BOUNDS.latMin &&
     lat <= PUERTO_AYORA_BOUNDS.latMax &&
     lng >= PUERTO_AYORA_BOUNDS.lngMin &&
     lng <= PUERTO_AYORA_BOUNDS.lngMax;
 
+  const selectedAvatarReady = avatar.startsWith('data:') || loadedAvatarUrls.has(avatar);
+
+  useEffect(() => {
+    let mounted = true;
+
+    PRESET_AVATARS.forEach(item => {
+      if (!item.url) return;
+
+      if (preloadedAvatarCache.has(item.url)) {
+        setLoadedAvatarUrls(prev => {
+          const next = new Set(prev);
+          next.add(item.url);
+          return next;
+        });
+        return;
+      }
+
+      const img = new Image();
+      img.decoding = 'async';
+
+      img.onload = () => {
+        preloadedAvatarCache.add(item.url);
+
+        if (!mounted) return;
+
+        setLoadedAvatarUrls(prev => {
+          const next = new Set(prev);
+          next.add(item.url);
+          return next;
+        });
+      };
+
+      img.src = item.url;
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const markAvatarLoaded = (url: string) => {
+    if (!url) return;
+
+    preloadedAvatarCache.add(url);
+
+    setLoadedAvatarUrls(prev => {
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  };
+
   const createBlueDotIcon = useCallback(() => {
     return L.divIcon({
       className: 'custom-div-icon',
-      html: `<div class="relative flex items-center justify-center">
-              <div class="absolute w-6 h-6 bg-blue-500/30 rounded-full animate-ping"></div>
-              <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg"></div>
-            </div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+      html: `
+        <div class="pollazo-user-dot">
+          <span class="pollazo-user-halo"></span>
+          <span class="pollazo-user-core"></span>
+        </div>
+      `,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
     });
   }, []);
 
@@ -131,6 +250,7 @@ export default function LoginModal({
       if (!userMarkerRef.current) {
         userMarkerRef.current = L.marker([position.lat, position.lng], {
           icon: createBlueDotIcon(),
+          interactive: false,
         }).addTo(mapInstance.current);
       } else {
         userMarkerRef.current.setLatLng([position.lat, position.lng]);
@@ -143,7 +263,7 @@ export default function LoginModal({
     if (!mapInstance.current) return;
 
     mapInstance.current.flyTo([position.lat, position.lng], zoom, {
-      duration: 1.2,
+      duration: 0.85,
     });
   }, []);
 
@@ -188,7 +308,7 @@ export default function LoginModal({
           setError('Activa el GPS para encontrarte o mueve el mapa manualmente.');
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 20000 }
       );
     },
     [moveMapTo, syncUserMarker]
@@ -197,23 +317,26 @@ export default function LoginModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const hasSavedDeliveryPoint =
-      typeof customerLat === 'number' &&
-      typeof customerLng === 'number';
+    setMapReady(false);
+    setMapFailed(false);
+    fallbackTileLoadedRef.current = false;
 
     setName(customerName || '');
-    setWhatsapp(customerPhone || '');
+    setWhatsapp(formatPhoneForInput(customerPhone || ''));
     setAvatar(customerAvatar || DEFAULT_AVATAR);
     setReference(customerReference || '');
     setUserActualLocation(null);
+
+    const savedLat = hasSavedDeliveryPoint ? customerLat : null;
+    const savedLng = hasSavedDeliveryPoint ? customerLng : null;
 
     if (isChangingLocation) {
       setStep(2);
       setError('');
 
-      if (hasSavedDeliveryPoint) {
-        setLat(customerLat);
-        setLng(customerLng);
+      if (savedLat !== null && savedLng !== null) {
+        setLat(savedLat);
+        setLng(savedLng);
 
         requestLocation({
           moveMap: false,
@@ -234,8 +357,8 @@ export default function LoginModal({
       return;
     }
 
-    setLat(customerLat ?? DEFAULT_CENTER.lat);
-    setLng(customerLng ?? DEFAULT_CENTER.lng);
+    setLat(savedLat ?? DEFAULT_CENTER.lat);
+    setLng(savedLng ?? DEFAULT_CENTER.lng);
 
     if (isMandatory) {
       if (!customerName || !customerPhone) {
@@ -244,14 +367,16 @@ export default function LoginModal({
         return;
       }
 
-      if (!customerLat || !customerLng || !customerReference) {
+      if (!hasSavedDeliveryPoint || !customerReference) {
         setStep(2);
         setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
+
         requestLocation({
           moveMap: true,
           silent: true,
           updateSelectedPoint: true,
         });
+
         return;
       }
     }
@@ -265,6 +390,7 @@ export default function LoginModal({
     customerName,
     customerPhone,
     customerReference,
+    hasSavedDeliveryPoint,
     isChangingLocation,
     isMandatory,
     isOpen,
@@ -278,6 +404,7 @@ export default function LoginModal({
       if (!mapContainerRef.current) return;
 
       if (!hasLeaflet()) {
+        setMapFailed(true);
         setError('No se pudo cargar el mapa. Revisa tu conexión e intenta nuevamente.');
         return;
       }
@@ -288,13 +415,46 @@ export default function LoginModal({
       mapInstance.current = L.map(mapContainerRef.current, {
         center: [startLat, startLng],
         zoom: 17,
+        minZoom: 14,
+        maxZoom: 20,
         zoomControl: false,
         attributionControl: false,
+        scrollWheelZoom: true,
+        tap: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(mapInstance.current);
+      const modernTileLayer = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        {
+          subdomains: 'abcd',
+          maxZoom: 20,
+          detectRetina: true,
+        }
+      );
+
+      const fallbackTileLayer = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+          maxZoom: 19,
+          detectRetina: true,
+        }
+      );
+
+      modernTileLayer.on('tileerror', () => {
+        if (!mapInstance.current || fallbackTileLoadedRef.current) return;
+
+        fallbackTileLoadedRef.current = true;
+
+        try {
+          mapInstance.current.removeLayer(modernTileLayer);
+        } catch {
+          // Si el layer ya fue removido, continuamos con el fallback.
+        }
+
+        fallbackTileLayer.addTo(mapInstance.current);
+      });
+
+      modernTileLayer.addTo(mapInstance.current);
 
       mapInstance.current.on('movestart', () => setIsDragging(true));
 
@@ -317,12 +477,14 @@ export default function LoginModal({
         if (lat !== null && lng !== null) {
           mapInstance.current?.setView([lat, lng], 17, { animate: false });
         }
-      }, 150);
+
+        setMapReady(true);
+      }, 180);
 
       if (userActualLocation) {
         syncUserMarker(userActualLocation);
       }
-    }, 250);
+    }, 220);
 
     return () => {
       window.clearTimeout(timer);
@@ -330,7 +492,7 @@ export default function LoginModal({
   }, [isOpen, lat, lng, step, syncUserMarker, userActualLocation]);
 
   useEffect(() => {
-    if (!isOpen || step !== 2) return;
+    if (!isOpen || step !== 2) return undefined;
 
     return () => {
       if (mapInstance.current) {
@@ -339,6 +501,8 @@ export default function LoginModal({
       }
 
       userMarkerRef.current = null;
+      setMapReady(false);
+      setIsDragging(false);
     };
   }, [isOpen, step]);
 
@@ -349,13 +513,14 @@ export default function LoginModal({
   }, [syncUserMarker, userActualLocation]);
 
   useEffect(() => {
-    if (step === 2 && lat !== null && lng !== null) {
-      if (!isInsideGeofence) {
-        setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
-      } else {
-        setError(prev => (prev.includes('cobertura') ? '' : prev));
-      }
+    if (step !== 2 || lat === null || lng === null) return;
+
+    if (!isInsideGeofence) {
+      setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
+      return;
     }
+
+    setError(prev => (prev.includes('cobertura') ? '' : prev));
   }, [isInsideGeofence, lat, lng, step]);
 
   const handleGetLocation = () => {
@@ -405,7 +570,10 @@ export default function LoginModal({
           size
         );
 
-        setAvatar(canvas.toDataURL('image/jpeg', 0.8));
+        const processedAvatar = canvas.toDataURL('image/jpeg', 0.82);
+
+        setAvatar(processedAvatar);
+        markAvatarLoaded(processedAvatar);
         setIsProcessing(false);
       };
 
@@ -426,18 +594,22 @@ export default function LoginModal({
     e.target.value = '';
   };
 
-  const handleNextStep = () => {
-    if (!name.trim() || !whatsapp.trim()) {
-      setError(
-        isMandatory
-          ? '¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.'
-          : 'Escribe tu nombre y WhatsApp'
-      );
-      return;
-    }
-
+  const goToLocationStep = () => {
     setError('');
     setStep(2);
+
+    if (hasSavedDeliveryPoint) {
+      setLat(customerLat);
+      setLng(customerLng);
+
+      requestLocation({
+        moveMap: false,
+        silent: true,
+        updateSelectedPoint: false,
+      });
+
+      return;
+    }
 
     requestLocation({
       moveMap: true,
@@ -446,21 +618,56 @@ export default function LoginModal({
     });
   };
 
-  const handleSave = () => {
-    if (!reference.trim()) {
+  const handleNextStep = () => {
+    if (!name.trim()) {
       setError(
         isMandatory
-          ? '¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.'
-          : 'Danos una referencia (ej: casa azul)'
+          ? '¡Espera! Necesitamos tu nombre para poder entregarte tu pedido.'
+          : 'Escribe tu nombre o alias'
       );
       return;
     }
 
-    if (!isInsideGeofence) return;
+    if (!whatsapp.trim()) {
+      setError(
+        isMandatory
+          ? '¡Espera! Necesitamos tu WhatsApp para coordinar la entrega.'
+          : 'Escribe tu número de WhatsApp'
+      );
+      return;
+    }
+
+    if (!phoneIsValid) {
+      setError('Escribe un WhatsApp válido de Ecuador. Ej: 098 979 5628');
+      return;
+    }
+
+    goToLocationStep();
+  };
+
+  const handleSave = () => {
+    if (!selectedPointIsReady) {
+      setError('Marca tu punto de entrega en el mapa.');
+      return;
+    }
+
+    if (!isInsideGeofence) {
+      setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
+      return;
+    }
+
+    if (!reference.trim()) {
+      setError(
+        isMandatory
+          ? '¡Ojo! Es obligatorio poner una referencia para entregarte exacto.'
+          : 'Danos una referencia. Ej: casa azul, portón negro.'
+      );
+      return;
+    }
 
     onLogin({
       name: name.trim(),
-      whatsapp: whatsapp.trim(),
+      whatsapp: normalizedWhatsapp,
       avatarUrl: avatar,
       lat,
       lng,
@@ -498,29 +705,36 @@ export default function LoginModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {!isMandatory && (
-              <button
-                onClick={onClose}
-                className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all"
-                aria-label="Cerrar registro"
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
+          {!isMandatory && (
+            <button
+              onClick={onClose}
+              className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all"
+              aria-label="Cerrar registro"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2 space-y-5">
           {step === 1 ? (
             <div className="animate-in slide-in-from-left duration-300">
-              <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
+              <div className="bg-gradient-to-br from-orange-50/70 via-white to-amber-50/50 p-5 rounded-[35px] border border-orange-100/70 shadow-inner flex flex-col items-center gap-5">
                 <div className="relative">
-                  <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group">
+                  <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group relative">
+                    {!selectedAvatarReady && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
+                    )}
+
                     <img
                       src={avatar}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                      className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-110 ${
+                        selectedAvatarReady ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
+                      }`}
                       alt="Avatar seleccionado"
+                      loading="eager"
+                      decoding="async"
+                      onLoad={() => markAvatarLoaded(avatar)}
                     />
 
                     {isProcessing && (
@@ -530,7 +744,7 @@ export default function LoginModal({
                     )}
                   </div>
 
-                  <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white animate-bounce">
+                  <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white">
                     <Check size={14} strokeWidth={4} />
                   </div>
                 </div>
@@ -559,10 +773,30 @@ export default function LoginModal({
                     <input
                       value={whatsapp}
                       onChange={e => setWhatsapp(e.target.value)}
+                      onBlur={() => {
+                        if (whatsapp.trim()) {
+                          setWhatsapp(formatPhoneForInput(normalizeEcuadorPhone(whatsapp)));
+                        }
+                      }}
                       inputMode="tel"
-                      placeholder="Tu # de WhatsApp"
+                      placeholder="Ej: 098 979 5628"
                       className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm"
                     />
+                  </div>
+
+                  <div
+                    className={`flex items-start gap-2 rounded-2xl px-3 py-2 border ${
+                      whatsapp.trim() && phoneIsValid
+                        ? 'bg-green-50 border-green-100 text-green-700'
+                        : 'bg-slate-50 border-slate-100 text-slate-400'
+                    }`}
+                  >
+                    <ShieldCheck size={14} className="mt-0.5 flex-shrink-0" />
+                    <p className="text-[9px] font-black uppercase leading-relaxed">
+                      {whatsapp.trim() && phoneIsValid
+                        ? `Número listo: ${formatPhoneForInput(normalizedWhatsapp)}`
+                        : 'Luego podremos verificar este número por código para proteger tu cuenta.'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -581,23 +815,40 @@ export default function LoginModal({
                     <span className="text-[6px] font-black uppercase mt-0.5">Galería</span>
                   </button>
 
-                  {PRESET_AVATARS.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => setAvatar(item.url)}
-                      className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden ${
-                        avatar === item.url
-                          ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10'
-                          : 'border-transparent opacity-80'
-                      }`}
-                    >
-                      <img
-                        src={item.url}
-                        className="h-full w-full object-cover"
-                        alt={item.id}
-                      />
-                    </button>
-                  ))}
+                  {PRESET_AVATARS.map(item => {
+                    const avatarIsLoaded = loadedAvatarUrls.has(item.url);
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setAvatar(item.url)}
+                        className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden bg-orange-50 ${
+                          avatar === item.url
+                            ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10'
+                            : 'border-transparent opacity-90'
+                        }`}
+                      >
+                        {!avatarIsLoaded && (
+                          <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
+                        )}
+
+                        <img
+                          src={item.url}
+                          className={`h-full w-full object-cover transition-all duration-500 ${
+                            avatarIsLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
+                          }`}
+                          alt={item.id}
+                          loading="eager"
+                          decoding="async"
+                          onLoad={() => markAvatarLoaded(item.url)}
+                        />
+
+                        {avatar === item.url && (
+                          <div className="absolute inset-0 bg-orange-500/10" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -608,35 +859,57 @@ export default function LoginModal({
                 (evita marcar dentro de la casa).
               </p>
 
-              {isChangingLocation && customerLat && customerLng && (
+              {isChangingLocation && hasSavedDeliveryPoint && (
                 <p className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 p-2.5 rounded-2xl text-center uppercase leading-snug">
                   Abrimos tu punto guardado. Ajusta el pin naranja si quieres mover la entrega.
                 </p>
               )}
 
-              <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white bg-slate-100">
+              <div className="relative h-[330px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white bg-slate-100 pollazo-modern-map">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
 
-                <div
-                  className={`absolute top-4 left-1/2 -translate-x-1/2 z-[2000] px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
-                    isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-                  }`}
-                >
-                  <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
-                    {lat ? '📍 Punto marcado correctamente' : 'Mueve para marcar'}
-                  </p>
+                {!mapReady && !mapFailed && (
+                  <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 to-slate-100 flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 rounded-3xl bg-white shadow-lg flex items-center justify-center">
+                      <Navigation size={22} className="text-orange-500 animate-pulse" />
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Cargando mapa...
+                    </p>
+                  </div>
+                )}
+
+                {mapFailed && (
+                  <div className="absolute inset-0 z-[500] bg-white flex flex-col items-center justify-center gap-3 px-6 text-center">
+                    <WifiOff size={32} className="text-orange-500" />
+                    <p className="text-xs font-black text-slate-700 uppercase leading-relaxed">
+                      No se pudo cargar el mapa. Puedes intentar de nuevo con mejor conexión.
+                    </p>
+                  </div>
+                )}
+
+                <div className="absolute inset-x-4 top-4 z-[700] flex justify-center pointer-events-none">
+                  <div
+                    className={`px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
+                      isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+                    }`}
+                  >
+                    <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
+                      {selectedPointIsReady ? '📍 Punto marcado correctamente' : 'Mueve para marcar'}
+                    </p>
+                  </div>
                 </div>
 
                 <div
-                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none transition-opacity duration-200 ${
+                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
                     isDragging ? 'opacity-100' : 'opacity-0'
                   }`}
                 >
-                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full shadow-lg border border-white/50 animate-pulse" />
+                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
                 </div>
 
                 <div
-                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[101] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
+                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
                     isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
                   }`}
                 >
@@ -654,18 +927,29 @@ export default function LoginModal({
 
                 <button
                   onClick={handleGetLocation}
-                  className={`absolute bottom-6 right-6 z-[1000] p-4 rounded-3xl shadow-2xl transition-all ${
+                  className={`absolute bottom-6 right-6 z-[700] p-4 rounded-3xl shadow-2xl transition-all border border-white ${
                     isLocating
-                      ? 'bg-orange-500 animate-pulse text-white'
+                      ? 'bg-orange-500 text-white animate-pulse'
                       : 'bg-white text-slate-800 active:scale-75'
                   }`}
                   aria-label="Usar mi ubicación actual"
                 >
                   <Navigation
                     size={22}
-                    className={lat ? 'fill-orange-500 text-orange-500' : ''}
+                    className={selectedPointIsReady ? 'fill-orange-500 text-orange-500' : ''}
                   />
                 </button>
+
+                {selectedPointIsReady && (
+                  <div className="absolute bottom-6 left-6 z-[700] bg-white/95 backdrop-blur-md rounded-2xl px-3 py-2 shadow-lg border border-white">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">
+                      GPS entrega
+                    </p>
+                    <p className="text-[9px] font-black text-slate-700 leading-none mt-1">
+                      {lat.toFixed(5)}, {lng.toFixed(5)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -725,6 +1009,8 @@ export default function LoginModal({
                 </>
               ) : isProcessing ? (
                 'PROCESANDO...'
+              ) : isChangingLocation ? (
+                'GUARDAR NUEVA DIRECCIÓN 📍'
               ) : (
                 'CONFIRMAR PUNTO 🚀'
               )}
@@ -734,10 +1020,62 @@ export default function LoginModal({
       </div>
 
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .leaflet-container { font-family: inherit; cursor: grab !important; touch-action: pan-x pan-y; }
-        .leaflet-container:active { cursor: grabbing !important; }
-        .custom-div-icon { background: none; border: none; }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        .leaflet-container {
+          font-family: inherit;
+          cursor: grab !important;
+          touch-action: pan-x pan-y;
+          background: #f8fafc;
+        }
+
+        .leaflet-container:active {
+          cursor: grabbing !important;
+        }
+
+        .pollazo-modern-map .leaflet-tile {
+          filter: saturate(1.08) contrast(1.03);
+        }
+
+        .custom-div-icon {
+          background: none;
+          border: none;
+        }
+
+        .pollazo-user-dot {
+          position: relative;
+          width: 22px;
+          height: 22px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .pollazo-user-halo {
+          position: absolute;
+          width: 22px;
+          height: 22px;
+          border-radius: 9999px;
+          background: rgba(59, 130, 246, 0.2);
+          border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+
+        .pollazo-user-core {
+          position: relative;
+          width: 12px;
+          height: 12px;
+          border-radius: 9999px;
+          background: #2563eb;
+          border: 2px solid white;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
       `}</style>
     </div>
   );
