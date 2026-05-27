@@ -12,13 +12,17 @@ import {
   Navigation,
   RefreshCw,
   ShieldCheck,
+  Banknote,
+  QrCode,
+  Building,
+  AlertCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { Order, OrderStatus } from '../types';
+import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '../types';
 
 interface Props {
   isOpen?: boolean;
@@ -280,6 +284,100 @@ const getStatusMessage = (status: OrderStatus) => {
   }
 };
 
+const getPaymentMethodLabel = (method?: PaymentMethod | null) => {
+  if (method === 'efectivo') return 'Efectivo';
+  if (method === 'deuna') return 'Deuna';
+  if (method === 'transferencia') return 'Transferencia';
+  if (method === 'tarjeta') return 'Tarjeta';
+  return 'No definido';
+};
+
+const getPaymentIcon = (method?: PaymentMethod | null): LucideIcon => {
+  if (method === 'efectivo') return Banknote;
+  if (method === 'deuna') return QrCode;
+  if (method === 'transferencia') return Building;
+  if (method === 'tarjeta') return ShieldCheck;
+  return AlertCircle;
+};
+
+const getPaymentStatusLabel = (status?: PaymentStatus | null) => {
+  if (status === 'contra_entrega') return 'Pago contra entrega';
+  if (status === 'validando') return 'Pago en validación';
+  if (status === 'confirmado') return 'Pago confirmado';
+  if (status === 'rechazado') return 'Pago rechazado';
+  if (status === 'pendiente') return 'Pago pendiente';
+  return 'Estado pendiente';
+};
+
+const getPaymentStatusTone = (status?: PaymentStatus | null) => {
+  if (status === 'confirmado') {
+    return {
+      wrapper: 'bg-green-50 border-green-100',
+      icon: 'bg-white text-green-600',
+      title: 'text-green-700',
+      text: 'text-green-700/75',
+    };
+  }
+
+  if (status === 'validando') {
+    return {
+      wrapper: 'bg-blue-50 border-blue-100',
+      icon: 'bg-white text-blue-600',
+      title: 'text-blue-700',
+      text: 'text-blue-700/75',
+    };
+  }
+
+  if (status === 'contra_entrega') {
+    return {
+      wrapper: 'bg-orange-50 border-orange-100',
+      icon: 'bg-white text-orange-600',
+      title: 'text-orange-700',
+      text: 'text-orange-700/75',
+    };
+  }
+
+  if (status === 'rechazado') {
+    return {
+      wrapper: 'bg-red-50 border-red-100',
+      icon: 'bg-white text-red-500',
+      title: 'text-red-600',
+      text: 'text-red-600/75',
+    };
+  }
+
+  return {
+    wrapper: 'bg-gray-50 border-gray-100',
+    icon: 'bg-white text-gray-500',
+    title: 'text-gray-700',
+    text: 'text-gray-500',
+  };
+};
+
+const getPaymentHelpText = (order: Order) => {
+  if (order.payment_status === 'confirmado') {
+    return 'Tu pago ya fue validado. El pedido puede avanzar normalmente.';
+  }
+
+  if (order.payment_status === 'rechazado') {
+    return 'El pago no fue aceptado. Comunícate por WhatsApp para resolverlo.';
+  }
+
+  if (order.payment_method === 'efectivo') {
+    return 'Pagarás al recibir. El negocio debe aceptar el pedido antes de prepararlo.';
+  }
+
+  if (order.payment_method === 'deuna') {
+    return 'Estamos validando tu comprobante de Deuna antes de confirmar el pedido.';
+  }
+
+  if (order.payment_method === 'transferencia') {
+    return 'Estamos validando tu comprobante de transferencia antes de confirmar el pedido.';
+  }
+
+  return 'El negocio revisará el método de pago antes de preparar tu pedido.';
+};
+
 const getPendingPaymentText = (order: Order) => {
   if (order.payment_method === 'efectivo') {
     return 'Tu pedido espera confirmación del negocio antes de prepararse. El pago será contra entrega.';
@@ -430,6 +528,8 @@ export default function OrderTracking({
 
   const estimate = canShowEta ? estimateOrderTiming(activeOrder, now) : null;
   const orderLocation = getOrderLocation(activeOrder);
+  const PaymentIcon = activeOrder ? getPaymentIcon(activeOrder.payment_method) : AlertCircle;
+  const paymentTone = activeOrder ? getPaymentStatusTone(activeOrder.payment_status) : null;
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -506,7 +606,7 @@ export default function OrderTracking({
           )}
         </div>
 
-        {hasActiveOrder && currentStatus ? (
+        {hasActiveOrder && currentStatus && activeOrder ? (
           <div className="py-2">
             <div className="relative flex justify-between items-center px-1 mb-8">
               <div className="absolute left-0 right-0 top-[20px] h-[3px] bg-gray-100 rounded-full" />
@@ -558,7 +658,26 @@ export default function OrderTracking({
               </p>
             </div>
 
-            {currentStatus === 'Por Confirmar' && activeOrder && (
+            {paymentTone && (
+              <div className={`mt-4 rounded-[28px] border p-4 ${paymentTone.wrapper}`}>
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${paymentTone.icon}`}>
+                    <PaymentIcon size={20} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className={`text-[10px] font-black uppercase leading-tight ${paymentTone.title}`}>
+                      {getPaymentMethodLabel(activeOrder.payment_method)} · {getPaymentStatusLabel(activeOrder.payment_status)}
+                    </p>
+                    <p className={`text-[11px] font-bold leading-relaxed mt-1.5 ${paymentTone.text}`}>
+                      {getPaymentHelpText(activeOrder)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStatus === 'Por Confirmar' && (
               <div className="mt-4 bg-yellow-50 border border-yellow-100 rounded-[28px] p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
@@ -615,7 +734,7 @@ export default function OrderTracking({
               </div>
             )}
 
-            {activeOrder?.reference && (
+            {activeOrder.reference && (
               <div className="mt-4 bg-blue-50 border border-blue-100 rounded-2xl p-3 flex items-start gap-3">
                 <MapPin size={17} className="text-blue-500 mt-0.5 flex-shrink-0" />
                 <p className="text-[10px] font-bold text-blue-700 uppercase leading-relaxed">
@@ -633,7 +752,7 @@ export default function OrderTracking({
               </div>
             )}
 
-            {activeOrder?.created_at && (
+            {activeOrder.created_at && (
               <p className="text-center text-[10px] text-gray-300 font-bold uppercase mt-4">
                 Se actualiza automáticamente cuando el admin cambia el estado
               </p>
