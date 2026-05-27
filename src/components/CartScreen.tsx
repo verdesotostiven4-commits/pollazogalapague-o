@@ -12,16 +12,18 @@ import {
   Building,
   AlertCircle,
   MapPin,
+  Lock,
+  Clock3,
+  Info,
+  CheckCircle2,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import {
   deliveryFeeOf,
   isFixedPrice,
-  itemHasKnownPrice,
-  itemUnitPrice,
 } from '../utils/whatsapp';
-import type { Screen } from '../types';
+import type { CartItem, PaymentMethod, Screen } from '../types';
 
 interface Props {
   onCheckout: () => void;
@@ -29,6 +31,8 @@ interface Props {
   onRequireLogin: (mode: 'block' | 'change_location') => void;
   onEarlySave: () => Promise<void> | void;
 }
+
+type SupportedPaymentMethod = Extract<PaymentMethod, 'efectivo' | 'deuna' | 'transferencia'>;
 
 const CONFETTI_COLORS = [
   '#f97316',
@@ -39,6 +43,44 @@ const CONFETTI_COLORS = [
   '#f59e0b',
   '#fdba74',
   '#ffffff',
+];
+
+const BANK_OPTIONS = [
+  {
+    id: 'pichincha',
+    label: 'Banco Pichincha',
+    badge: 'P',
+    activeClass: 'bg-yellow-50 border-yellow-400 text-yellow-900 font-black scale-[1.01]',
+    badgeClass: 'bg-yellow-400 text-yellow-950',
+  },
+  {
+    id: 'guayaquil',
+    label: 'Banco Guayaquil',
+    badge: 'G',
+    activeClass: 'bg-pink-50 border-pink-400 text-pink-700 font-black scale-[1.01]',
+    badgeClass: 'bg-pink-500 text-white',
+  },
+  {
+    id: 'pacifico',
+    label: 'Banco del Pacífico',
+    badge: 'B',
+    activeClass: 'bg-teal-50 border-teal-400 text-teal-800 font-black scale-[1.01]',
+    badgeClass: 'bg-teal-500 text-white',
+  },
+  {
+    id: 'austro',
+    label: 'Banco del Austro',
+    badge: 'A',
+    activeClass: 'bg-red-50 border-red-400 text-red-700 font-black scale-[1.01]',
+    badgeClass: 'bg-red-500 text-white',
+  },
+  {
+    id: 'otros',
+    label: 'Produbanco / Otros Bancos',
+    badge: 'O',
+    activeClass: 'bg-green-50 border-green-400 text-green-700 font-black scale-[1.01]',
+    badgeClass: 'bg-green-600 text-white',
+  },
 ];
 
 function spawnConfetti() {
@@ -117,7 +159,6 @@ function spawnConfetti() {
   requestAnimationFrame(animate);
 }
 
-// ✅ VIBRACIONES HÁPTICAS LOGÍSTICAS DIVERSIFICADAS
 const triggerDryTap = () => {
   try {
     if ('vibrate' in navigator) navigator.vibrate(15);
@@ -134,7 +175,48 @@ const triggerDoubleTap = () => {
   }
 };
 
-const toMoney = (value: number): number => Number(value.toFixed(2));
+const toMoney = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  return Number(value.toFixed(2));
+};
+
+const parsePrice = (price?: string | number | null): number => {
+  if (typeof price === 'number') {
+    return price > 0 ? toMoney(price) : 0;
+  }
+
+  const raw = String(price || '').trim();
+
+  if (!raw) return 0;
+
+  const normalized = raw
+    .replace(',', '.')
+    .replace(/[^0-9.]/g, '');
+
+  const numeric = Number.parseFloat(normalized);
+
+  return Number.isFinite(numeric) ? toMoney(numeric) : 0;
+};
+
+const itemUnitPrice = (item: CartItem): number => {
+  if (typeof item.product.custom_price === 'number' && item.product.custom_price > 0) {
+    return toMoney(item.product.custom_price);
+  }
+
+  if (typeof item.custom_price === 'number' && item.custom_price > 0) {
+    return toMoney(item.custom_price);
+  }
+
+  if (typeof item.price === 'number' && item.price > 0) {
+    return toMoney(item.price);
+  }
+
+  return parsePrice(item.product.price);
+};
+
+const itemHasKnownPrice = (item: CartItem): boolean => {
+  return itemUnitPrice(item) > 0 || isFixedPrice(item.product.price);
+};
 
 export default function CartScreen({
   onCheckout,
@@ -155,11 +237,10 @@ export default function CartScreen({
   const [confirmClear, setConfirmClear] = useState(false);
   const [showArrow, setShowArrow] = useState(true);
 
-  const [paymentMethod, setPaymentMethod] = useState<
-    'efectivo' | 'deuna' | 'transferencia' | null
-  >(null);
+  const [paymentMethod, setPaymentMethod] = useState<SupportedPaymentMethod | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
@@ -172,24 +253,36 @@ export default function CartScreen({
   const hasConsult = items.some(item => !itemHasKnownPrice(item));
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
 
+  const hasProfile = Boolean(customerName && customerPhone);
+  const hasLocation = Boolean(customerLat && customerLng && customerReference);
+
   const isPaymentReady =
     paymentMethod === 'efectivo' ||
     paymentMethod === 'deuna' ||
     (paymentMethod === 'transferencia' && selectedBank !== null);
 
-  const resetSavedOrder = () => {
-    if (isOrderSaved) {
-      setIsOrderSaved(false);
-    }
+  const showNotice = (message: string) => {
+    setActionNotice(message);
+    window.setTimeout(() => setActionNotice(null), 2800);
+  };
+
+  const blockIfOrderSaved = () => {
+    if (!isOrderSaved) return false;
+
+    triggerDryTap();
+    showNotice('Este pedido ya fue registrado. Para evitar errores, termina el envío por WhatsApp o crea un pedido nuevo después.');
+    return true;
   };
 
   const handleClearRequest = () => {
+    if (blockIfOrderSaved()) return;
+
     if (confirmClear) {
       clearCart();
       setConfirmClear(false);
-      setIsOrderSaved(false);
       setPaymentMethod(null);
       setSelectedBank(null);
+      setActionNotice(null);
       return;
     }
 
@@ -198,13 +291,15 @@ export default function CartScreen({
   };
 
   const handleRemoveItem = (productId: string) => {
+    if (blockIfOrderSaved()) return;
+
     removeItem(productId);
-    resetSavedOrder();
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    if (blockIfOrderSaved()) return;
+
     updateQuantity(productId, quantity);
-    resetSavedOrder();
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -218,7 +313,6 @@ export default function CartScreen({
     });
   };
 
-  // ✅ AUTO-SCROLL INTELIGENTE
   useEffect(() => {
     if (paymentMethod) {
       const timer = window.setTimeout(() => {
@@ -231,22 +325,26 @@ export default function CartScreen({
     return undefined;
   }, [paymentMethod, selectedBank, isOrderSaved]);
 
-  const handlePaymentMethodClick = (
-    method: 'efectivo' | 'deuna' | 'transferencia'
-  ) => {
-    const hasProfile = Boolean(customerName && customerPhone);
-    const hasLocation = Boolean(customerLat && customerLng && customerReference);
-
+  const handlePaymentMethodClick = (method: SupportedPaymentMethod) => {
     if (!hasProfile || !hasLocation) {
       triggerDryTap();
       onRequireLogin('block');
       return;
     }
 
+    if (isOrderSaved && paymentMethod && method !== paymentMethod) {
+      triggerDryTap();
+      showNotice('El método de pago ya quedó asociado a este pedido. Finaliza o crea un pedido nuevo.');
+      return;
+    }
+
     setPaymentMethod(method);
-    setIsOrderSaved(false);
 
     if (method === 'transferencia') {
+      if (paymentMethod !== 'transferencia') {
+        setSelectedBank(null);
+      }
+
       triggerDoubleTap();
     } else {
       setSelectedBank(null);
@@ -255,10 +353,11 @@ export default function CartScreen({
   };
 
   const handleEarlySaveClick = async () => {
-    if (!isPaymentReady || isSavingOrder) return;
+    if (!isPaymentReady || isSavingOrder || isOrderSaved) return;
 
     triggerDryTap();
     setIsSavingOrder(true);
+    setActionNotice(null);
 
     try {
       localStorage.setItem('selectedPaymentMethod', paymentMethod || '');
@@ -267,9 +366,16 @@ export default function CartScreen({
       await onEarlySave();
 
       setIsOrderSaved(true);
+
+      if (paymentMethod === 'efectivo') {
+        showNotice('Pedido registrado. Quedará en espera hasta que confirmemos disponibilidad.');
+      } else {
+        showNotice('Pedido registrado. Ahora realiza el pago y envía el comprobante por WhatsApp.');
+      }
     } catch (error) {
       console.error('No se pudo guardar el pedido anticipado:', error);
       setIsOrderSaved(false);
+      showNotice('No se pudo registrar el pedido. Intenta otra vez.');
     } finally {
       setIsSavingOrder(false);
     }
@@ -286,8 +392,9 @@ export default function CartScreen({
   };
 
   const handleBankSelect = (bank: string) => {
+    if (blockIfOrderSaved()) return;
+
     setSelectedBank(bank);
-    setIsOrderSaved(false);
     triggerDoubleTap();
   };
 
@@ -298,6 +405,95 @@ export default function CartScreen({
     spawnConfetti();
 
     window.setTimeout(() => onCheckout(), 200);
+  };
+
+  const renderPaymentStatusBox = () => {
+    if (!paymentMethod) return null;
+
+    if (!isOrderSaved) {
+      return (
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-amber-600 flex-shrink-0 shadow-sm">
+            <Clock3 size={18} />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-black text-amber-700 uppercase">
+              Pedido aún no registrado
+            </p>
+            <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed mt-1">
+              Primero presiona “Registrar pedido”. Luego verás los datos de pago o la confirmación para enviarlo.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (paymentMethod === 'efectivo') {
+      return (
+        <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-600 flex-shrink-0 shadow-sm">
+            <Banknote size={18} />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-black text-orange-700 uppercase">
+              Pago contra entrega
+            </p>
+            <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
+              Tu pedido queda por confirmar. Revisaremos disponibilidad antes de prepararlo. El tiempo estimado aparecerá cuando sea aceptado.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-blue-600 flex-shrink-0 shadow-sm">
+          <CheckCircle2 size={18} />
+        </div>
+
+        <div>
+          <p className="text-[10px] font-black text-blue-700 uppercase">
+            Pago en validación
+          </p>
+          <p className="text-[10px] font-bold text-blue-700/80 leading-relaxed mt-1">
+            Realiza el pago y envía el comprobante por WhatsApp. Cuando sea validado, el pedido pasará a confirmado y se activará el tiempo estimado.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPaymentButton = (
+    method: SupportedPaymentMethod,
+    label: string,
+    icon: React.ReactNode,
+    activeClass: string,
+    defaultClass: string
+  ) => {
+    const active = paymentMethod === method;
+    const lockedOther = isOrderSaved && paymentMethod !== method;
+
+    return (
+      <button
+        onClick={() => handlePaymentMethodClick(method)}
+        disabled={lockedOther}
+        className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
+          active ? activeClass : defaultClass
+        } ${lockedOther ? 'opacity-40 cursor-not-allowed' : ''}`}
+      >
+        {isOrderSaved && active && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center border-2 border-white shadow-sm">
+            <Lock size={10} />
+          </span>
+        )}
+
+        {icon}
+        <span className="text-[11px] mt-1">{label}</span>
+      </button>
+    );
   };
 
   if (items.length === 0) {
@@ -332,6 +528,22 @@ export default function CartScreen({
         onScroll={handleScroll}
         className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto scrollbar-hide"
       >
+        {isOrderSaved && (
+          <div className="bg-slate-900 text-white rounded-2xl p-3 flex items-center gap-3 shadow-lg animate-in fade-in duration-300">
+            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Lock size={17} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest">
+                Pedido registrado
+              </p>
+              <p className="text-[10px] font-bold text-white/70 mt-1 leading-relaxed">
+                Para evitar errores, el carrito y método de pago quedan bloqueados hasta finalizar el envío.
+              </p>
+            </div>
+          </div>
+        )}
+
         {items.map(item => {
           const unitPrice = itemUnitPrice(item);
           const itemSubtotal = unitPrice > 0 ? (unitPrice * item.quantity).toFixed(2) : null;
@@ -341,11 +553,13 @@ export default function CartScreen({
           return (
             <div
               key={item.product.id}
-              className="flex gap-3 bg-white rounded-2xl p-3 shadow-sm border border-gray-100"
+              className={`flex gap-3 bg-white rounded-2xl p-3 shadow-sm border transition-all ${
+                isOrderSaved ? 'border-slate-200 bg-slate-50/50' : 'border-gray-100'
+              }`}
             >
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
                 <img
-                  src={item.product.image}
+                  src={item.product.image || '/logo-final.png'}
                   alt={item.product.name}
                   className="w-full h-full object-contain p-1"
                 />
@@ -371,7 +585,12 @@ export default function CartScreen({
                 <div className="flex items-center gap-2 mt-2">
                   <button
                     onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
-                    className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 active:scale-90 active:bg-orange-100 transition-all"
+                    disabled={isOrderSaved}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                      isOrderSaved
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-600 active:scale-90 active:bg-orange-100'
+                    }`}
                     aria-label="Restar producto"
                   >
                     <Minus size={13} />
@@ -383,7 +602,12 @@ export default function CartScreen({
 
                   <button
                     onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
-                    className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 active:scale-90 active:bg-orange-200 transition-all"
+                    disabled={isOrderSaved}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                      isOrderSaved
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                        : 'bg-orange-100 text-orange-600 active:scale-90 active:bg-orange-200'
+                    }`}
                     aria-label="Sumar producto"
                   >
                     <Plus size={13} />
@@ -393,7 +617,12 @@ export default function CartScreen({
 
               <button
                 onClick={() => handleRemoveItem(item.product.id)}
-                className="self-center p-2 text-gray-300 hover:text-red-400 active:text-red-500 rounded-xl hover:bg-red-50 transition-all"
+                disabled={isOrderSaved}
+                className={`self-center p-2 rounded-xl transition-all ${
+                  isOrderSaved
+                    ? 'text-gray-200 cursor-not-allowed'
+                    : 'text-gray-300 hover:text-red-400 active:text-red-500 hover:bg-red-50'
+                }`}
                 aria-label="Eliminar producto"
               >
                 <Trash2 size={16} />
@@ -404,16 +633,22 @@ export default function CartScreen({
 
         <button
           onClick={handleClearRequest}
+          disabled={isOrderSaved}
           className={`w-full text-xs font-semibold py-4 transition-all duration-300 ${
-            confirmClear
-              ? 'text-red-600 font-black scale-105'
-              : 'text-gray-400 active:text-red-400'
+            isOrderSaved
+              ? 'text-gray-200 cursor-not-allowed'
+              : confirmClear
+                ? 'text-red-600 font-black scale-105'
+                : 'text-gray-400 active:text-red-400'
           }`}
         >
-          {confirmClear ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌' : 'Vaciar carrito'}
+          {isOrderSaved
+            ? 'Pedido registrado: carrito bloqueado'
+            : confirmClear
+              ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌'
+              : 'Vaciar carrito'}
         </button>
 
-        {/* ✅ SECCIÓN DE CONFIRMACIÓN / CAMBIO DE UBICACIÓN */}
         {customerLat && customerLng && (
           <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -432,76 +667,76 @@ export default function CartScreen({
             </div>
 
             <button
-              onClick={() => onRequireLogin('change_location')}
-              className="text-[11px] bg-white text-orange-600 font-black px-3 py-1.5 rounded-xl border border-gray-200/80 active:scale-95 transition-all flex-shrink-0 shadow-sm"
+              onClick={() => {
+                if (blockIfOrderSaved()) return;
+                onRequireLogin('change_location');
+              }}
+              disabled={isOrderSaved}
+              className={`text-[11px] font-black px-3 py-1.5 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
+                isOrderSaved
+                  ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                  : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
+              }`}
             >
               Cambiar
             </button>
           </div>
         )}
 
-        {/* SECCIÓN DE MÉTODOS DE PAGO INTERACTIVOS */}
+        {actionNotice && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-blue-500 flex-shrink-0 shadow-sm">
+              <Info size={16} />
+            </div>
+            <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed">
+              {actionNotice}
+            </p>
+          </div>
+        )}
+
         <div className="pt-4 border-t border-gray-100 space-y-3">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">
             Método de Pago
           </h3>
 
           <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => handlePaymentMethodClick('efectivo')}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
-                paymentMethod === 'efectivo'
-                  ? 'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm'
-                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
-              }`}
-            >
+            {renderPaymentButton(
+              'efectivo',
+              'Efectivo',
               <Banknote
                 size={20}
                 className={paymentMethod === 'efectivo' ? 'text-orange-500' : 'text-gray-400'}
-              />
-              <span className="text-[11px] mt-1">Efectivo</span>
-            </button>
+              />,
+              'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm',
+              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+            )}
 
-            <button
-              onClick={() => handlePaymentMethodClick('deuna')}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
-                paymentMethod === 'deuna'
-                  ? 'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm'
-                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
-              }`}
-            >
+            {renderPaymentButton(
+              'deuna',
+              'Deuna!',
               <QrCode
                 size={20}
                 className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-gray-400'}
-              />
-              <span className="text-[11px] mt-1">Deuna!</span>
-            </button>
+              />,
+              'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm',
+              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+            )}
 
-            <button
-              onClick={() => handlePaymentMethodClick('transferencia')}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
-                paymentMethod === 'transferencia'
-                  ? 'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm'
-                  : 'bg-gray-50 border-gray-100 text-gray-400 font-bold'
-              }`}
-            >
+            {renderPaymentButton(
+              'transferencia',
+              'Transferencia',
               <Building
                 size={20}
                 className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-gray-400'}
-              />
-              <span className="text-[11px] mt-1">Transferencia</span>
-            </button>
+              />,
+              'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm',
+              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+            )}
           </div>
 
-          <div className="transition-all duration-300">
-            {isOrderSaved && paymentMethod === 'efectivo' && (
-              <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 text-center animate-in fade-in duration-300">
-                <p className="text-xs text-gray-500 font-bold">
-                  Pagas en efectivo al recibir tu pedido en tu puerta. 💵
-                </p>
-              </div>
-            )}
+          {renderPaymentStatusBox()}
 
+          <div className="transition-all duration-300">
             {isOrderSaved && paymentMethod === 'deuna' && (
               <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in duration-300">
                 <p className="text-xs text-purple-900 font-black uppercase tracking-tight">
@@ -536,7 +771,7 @@ export default function CartScreen({
                 </div>
 
                 <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">
-                  ⚠️ RECUERDA ENVIAR EL COMPROBANTE DE PAGO AL FINALIZAR
+                  ⚠️ Envía el comprobante por WhatsApp para validar tu pago.
                 </p>
               </div>
             )}
@@ -548,75 +783,25 @@ export default function CartScreen({
                 </p>
 
                 <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleBankSelect('pichincha')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'pichincha'
-                        ? 'bg-yellow-50 border-yellow-400 text-yellow-900 font-black scale-[1.01]'
-                        : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center text-xs text-yellow-950 font-black">
-                      P
-                    </span>
-                    <span className="text-xs">Banco Pichincha</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleBankSelect('guayaquil')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'guayaquil'
-                        ? 'bg-pink-50 border-pink-400 text-pink-700 font-black scale-[1.01]'
-                        : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-xs text-white font-black">
-                      G
-                    </span>
-                    <span className="text-xs">Banco Guayaquil</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleBankSelect('pacifico')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'pacifico'
-                        ? 'bg-teal-50 border-teal-400 text-teal-800 font-black scale-[1.01]'
-                        : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center text-xs text-white font-black">
-                      B
-                    </span>
-                    <span className="text-xs">Banco del Pacífico</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleBankSelect('austro')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'austro'
-                        ? 'bg-red-50 border-red-400 text-red-700 font-black scale-[1.01]'
-                        : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-xs text-white font-black">
-                      A
-                    </span>
-                    <span className="text-xs">Banco del Austro</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleBankSelect('otros')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedBank === 'otros'
-                        ? 'bg-green-50 border-green-400 text-green-700 font-black scale-[1.01]'
-                        : 'bg-white border-gray-100 text-gray-600 font-bold'
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center text-xs text-white font-black">
-                      O
-                    </span>
-                    <span className="text-xs">Produbanco / Otros Bancos</span>
-                  </button>
+                  {BANK_OPTIONS.map(bank => (
+                    <button
+                      key={bank.id}
+                      onClick={() => handleBankSelect(bank.id)}
+                      disabled={isOrderSaved && selectedBank !== bank.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                        selectedBank === bank.id
+                          ? bank.activeClass
+                          : 'bg-white border-gray-100 text-gray-600 font-bold'
+                      } ${isOrderSaved && selectedBank !== bank.id ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${bank.badgeClass}`}
+                      >
+                        {bank.badge}
+                      </span>
+                      <span className="text-xs">{bank.label}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {isOrderSaved && selectedBank && (
@@ -658,7 +843,7 @@ export default function CartScreen({
                       <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
                         <div>
                           <span className="text-[9px] text-gray-400 block font-bold uppercase">
-                            Cédula del Titular (Para Interbancarios)
+                            Cédula del Titular
                           </span>
                           <span className="font-mono font-black text-gray-800">
                             1726543210
@@ -686,7 +871,7 @@ export default function CartScreen({
                     </div>
 
                     <p className="text-[10px] text-blue-500 font-black uppercase tracking-tight mt-1">
-                      ⚠️ RECUERDA ENVIAR EL COMPROBANTE DE PAGO AL FINALIZAR
+                      ⚠️ Envía el comprobante por WhatsApp para validar tu pago.
                     </p>
                   </div>
                 )}
@@ -743,8 +928,17 @@ export default function CartScreen({
 
           {hasConsult && (
             <p className="text-xs text-gray-400 pt-1 border-t border-gray-200 uppercase font-bold text-[9px]">
-              Algunos productos requieren confirmación de precio
+              Algunos productos requieren confirmación de precio.
             </p>
+          )}
+
+          {isPaymentReady && (
+            <div className="bg-white border border-gray-100 rounded-xl p-2 flex items-start gap-2">
+              <AlertCircle size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[9px] text-gray-500 font-black uppercase leading-relaxed">
+                Todo pedido queda por confirmar hasta que el negocio valide disponibilidad y/o pago.
+              </p>
+            </div>
           )}
         </div>
 
@@ -757,7 +951,7 @@ export default function CartScreen({
               <MessageCircle size={20} />
               {paymentMethod === 'efectivo'
                 ? 'Enviar pedido por WhatsApp'
-                : 'LISTO, ENVIAR COMPROBANTE POR WHATSAPP 💬'}
+                : 'ENVIAR COMPROBANTE POR WHATSAPP 💬'}
             </button>
           ) : (
             <button
@@ -767,7 +961,7 @@ export default function CartScreen({
                 isSavingOrder ? 'opacity-70 cursor-wait' : ''
               }`}
             >
-              {isSavingOrder ? 'GUARDANDO PEDIDO...' : 'PROCESAR PEDIDO Y VER DATOS DE PAGO 🚀'}
+              {isSavingOrder ? 'REGISTRANDO PEDIDO...' : 'REGISTRAR PEDIDO Y VER INSTRUCCIONES 🚀'}
             </button>
           )
         ) : (
