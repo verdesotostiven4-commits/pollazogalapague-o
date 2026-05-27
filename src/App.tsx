@@ -29,10 +29,16 @@ import type {
   Category,
   OrderStatus,
   PaymentMethod,
-  PaymentStatus,
   Product,
   Screen,
 } from './types';
+
+type AppPaymentStatus =
+  | 'pendiente'
+  | 'validando'
+  | 'confirmado'
+  | 'rechazado'
+  | 'contra_entrega';
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -51,8 +57,12 @@ class ErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="p-10 bg-orange-50 min-h-screen text-center flex flex-col items-center justify-center">
-          <h1 className="text-orange-600 font-black text-2xl">🚨 REINICIO NECESARIO</h1>
-          <p className="text-gray-600 mt-2 italic font-bold">Recuperando el Imperio...</p>
+          <h1 className="text-orange-600 font-black text-2xl">
+            🚨 REINICIO NECESARIO
+          </h1>
+          <p className="text-gray-600 mt-2 italic font-bold">
+            Recuperando el Imperio...
+          </p>
           <button
             onClick={() => {
               localStorage.clear();
@@ -76,12 +86,7 @@ const toMoney = (value: number): number => {
 };
 
 const isPaymentMethod = (value: string | null): value is PaymentMethod => {
-  return (
-    value === 'efectivo' ||
-    value === 'deuna' ||
-    value === 'transferencia' ||
-    value === 'tarjeta'
-  );
+  return value === 'efectivo' || value === 'deuna' || value === 'transferencia';
 };
 
 const getStoredPaymentMethod = (): PaymentMethod | undefined => {
@@ -89,16 +94,16 @@ const getStoredPaymentMethod = (): PaymentMethod | undefined => {
   return isPaymentMethod(value) ? value : undefined;
 };
 
-const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): PaymentStatus => {
+const clearStoredPaymentMethod = () => {
+  localStorage.removeItem('selectedPaymentMethod');
+};
+
+const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): AppPaymentStatus => {
   if (paymentMethod === 'efectivo') {
     return 'contra_entrega';
   }
 
-  if (
-    paymentMethod === 'deuna' ||
-    paymentMethod === 'transferencia' ||
-    paymentMethod === 'tarjeta'
-  ) {
+  if (paymentMethod === 'deuna' || paymentMethod === 'transferencia') {
     return 'validando';
   }
 
@@ -119,6 +124,20 @@ const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
   return createdTime > Date.now() - 24 * 60 * 60 * 1000;
 };
 
+const hasValidDeliveryLocation = (
+  lat: number | null,
+  lng: number | null,
+  reference: string
+): boolean => {
+  return (
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng) &&
+    reference.trim().length > 0
+  );
+};
+
 const findCatalogProduct = (
   item: unknown,
   catalogProducts: Product[]
@@ -132,7 +151,7 @@ const findCatalogProduct = (
     safeItem?.product?.id,
   ]
     .filter(Boolean)
-    .map((value: string) => String(value));
+    .map(value => String(value));
 
   for (const id of possibleIds) {
     const direct = catalogProducts.find(product => product.id === id);
@@ -288,6 +307,14 @@ function AppShell() {
 
   const mainRef = useRef<HTMLElement>(null);
 
+  const hasCustomerIdentity = useMemo(() => {
+    return Boolean(customerName.trim() && customerPhone.trim());
+  }, [customerName, customerPhone]);
+
+  const hasDeliveryData = useMemo(() => {
+    return hasValidDeliveryLocation(customerLat, customerLng, customerReference);
+  }, [customerLat, customerLng, customerReference]);
+
   const hasTrackableOrder = useMemo(() => {
     const cleanUserPhone = cleanPhoneTail(customerPhone);
 
@@ -397,6 +424,13 @@ function AppShell() {
     }
   };
 
+  const requireCustomerBeforeOrder = () => {
+    setPendingOrder(true);
+    setShowConfirmation(false);
+    setIsChangingLocation(false);
+    setShowLoginModal(true);
+  };
+
   const buildOrderPayload = (code: string, status: OrderStatus = 'Por Confirmar') => {
     const detailedItems = normalizeItemsForOrder(items, products);
     const subtotal = toMoney(
@@ -425,7 +459,7 @@ function AppShell() {
       delivery_type: 'domicilio' as const,
       lat: customerLat,
       lng: customerLng,
-      reference: customerReference || undefined,
+      reference: customerReference.trim(),
       counted_in_metrics: false,
       is_test_order: false,
       created_at: new Date().toISOString(),
@@ -433,8 +467,8 @@ function AppShell() {
   };
 
   const handleEarlySave = async () => {
-    if (!customerName || !customerPhone || items.length === 0) return;
-
+    if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) return;
+    if (!getStoredPaymentMethod()) return;
     if (activeOrderCode) return;
 
     const code = orderCode();
@@ -449,17 +483,15 @@ function AppShell() {
   };
 
   const handleWhatsApp = async () => {
-    if (!customerName || !customerPhone) {
-      setPendingOrder(true);
-      setShowConfirmation(false);
-      setShowLoginModal(true);
-      return;
-    }
-
     if (items.length === 0) {
       setShowConfirmation(false);
       setScreen('home');
       setActiveOrderCode(null);
+      return;
+    }
+
+    if (!hasCustomerIdentity || !hasDeliveryData) {
+      requireCustomerBeforeOrder();
       return;
     }
 
@@ -478,6 +510,7 @@ function AppShell() {
 
     window.setTimeout(() => {
       clearCart();
+      clearStoredPaymentMethod();
       setShowConfirmation(false);
       setScreen('home');
       setShowTracking(true);
@@ -553,7 +586,9 @@ function AppShell() {
           aria-label="Abrir rastreo de pedido"
         >
           <PackageSearch size={18} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Rastrear</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">
+            Rastrear
+          </span>
         </button>
       )}
 
@@ -598,33 +633,47 @@ export default function App() {
   });
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if (!('serviceWorker' in navigator)) return undefined;
+
+    const updateRegistration = () => {
       navigator.serviceWorker.ready
         .then(registration => registration.update())
         .catch(() => undefined);
-    }
+    };
+
+    updateRegistration();
+
+    window.addEventListener('load', updateRegistration);
+
+    return () => {
+      window.removeEventListener('load', updateRegistration);
+    };
   }, []);
 
   if (window.location.pathname === '/admin') {
     return (
-      <AdminProvider>
-        <AdminDashboard />
-      </AdminProvider>
+      <ErrorBoundary>
+        <AdminProvider>
+          <AdminDashboard />
+        </AdminProvider>
+      </ErrorBoundary>
     );
   }
 
   if (!landingDone) {
     return (
-      <AdminProvider>
-        <LandingPage
-          onInstall={() => undefined}
-          canInstall={false}
-          onContinueWeb={() => {
-            localStorage.setItem('pollazo_landing_dismissed', '1');
-            setLandingDone(true);
-          }}
-        />
-      </AdminProvider>
+      <ErrorBoundary>
+        <AdminProvider>
+          <LandingPage
+            onInstall={() => undefined}
+            canInstall={false}
+            onContinueWeb={() => {
+              localStorage.setItem('pollazo_landing_dismissed', '1');
+              setLandingDone(true);
+            }}
+          />
+        </AdminProvider>
+      </ErrorBoundary>
     );
   }
 
