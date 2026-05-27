@@ -1,13 +1,13 @@
-import { Product } from '../types'; 
+import type { Product } from '../types'; 
 export const products: Product[] = [ 
   // ── POLLOS ──────────────────────────────────────────────────────────────── 
-{ 
-    id: 'pollo-entero', 
-    name: 'Pollo entero', 
-    category: 'Pollos', 
-    price: 'Consultar precio', 
-    description: '...', 
-    image: 'https://...', 
+{
+    id: 'pollo-entero',
+    name: 'Pollo entero',
+    category: 'Pollos',
+    price: 'Consultar precio',
+    description: 'Pollo entero fresco. Tú eliges el valor que quieres comprar.',
+    image: '/logo-final.png',
     badge: 'Fresco',
     is_variable: true,
   },
@@ -1717,7 +1717,7 @@ export const products: Product[] = [
   { 
     id: 'guitig-300ml', 
     name: 'Guitig personal 300 ml', 
-    category: 'Cuidado personal', 
+    category: 'Bebidas', 
     price: '$1.00', 
     description: 'Agua mineral Guitig personal 300 ml.', 
     image: 'https://images.pexels.com/photos/327090/pexels-photo-327090.jpeg?auto=compress&cs=tinysrgb&w=400', 
@@ -1725,7 +1725,7 @@ export const products: Product[] = [
   { 
     id: 'guitig-1l', 
     name: 'Guitig grande 1 l', 
-    category: 'Cuidado personal', 
+    category: 'Bebidas', 
     price: '$2.50', 
     description: 'Agua mineral Guitig 1 litro.', 
     image: 'https://images.pexels.com/photos/327090/pexels-photo-327090.jpeg?auto=compress&cs=tinysrgb&w=400', 
