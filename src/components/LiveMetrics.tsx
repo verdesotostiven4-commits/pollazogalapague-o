@@ -1,38 +1,55 @@
-import { useState, useEffect, useRef } from 'react';
-import { Users, Eye, ShoppingBag } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useEffect, useRef, useState } from 'react';
+import { Users, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const ONLINE_KEY = 'pollazo_session_id';
 const VISIT_COUNTED_KEY = 'pollazo_visit_counted';
 
 function getSessionId(): string {
   let id = sessionStorage.getItem(ONLINE_KEY);
+
   if (!id) {
     id = Math.random().toString(36).slice(2);
     sessionStorage.setItem(ONLINE_KEY, id);
   }
+
   return id;
 }
 
 function AnimatedCount({ value }: { value: number }) {
   const [displayed, setDisplayed] = useState(0);
+  const displayedRef = useRef(0);
   const targetRef = useRef(value);
 
   useEffect(() => {
     targetRef.current = value;
-    let start = displayed;
+
+    const start = displayedRef.current;
     const diff = value - start;
-    if (diff === 0) return;
-    const steps = 40;
+
+    if (diff === 0) return undefined;
+
+    const steps = 38;
     let step = 0;
-    const timer = setInterval(() => {
-      step++;
+
+    const timer = window.setInterval(() => {
+      step += 1;
+
       const progress = step / steps;
       const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayed(Math.round(start + diff * eased));
-      if (step >= steps) { clearInterval(timer); setDisplayed(targetRef.current); }
-    }, 20);
-    return () => clearInterval(timer);
+      const nextValue = Math.round(start + diff * eased);
+
+      displayedRef.current = nextValue;
+      setDisplayed(nextValue);
+
+      if (step >= steps) {
+        displayedRef.current = targetRef.current;
+        setDisplayed(targetRef.current);
+        window.clearInterval(timer);
+      }
+    }, 18);
+
+    return () => window.clearInterval(timer);
   }, [value]);
 
   return <span>{displayed.toLocaleString('es-EC')}</span>;
@@ -42,43 +59,116 @@ export default function LiveMetrics() {
   const [onlineCount, setOnlineCount] = useState(1);
   const [totalVisits, setTotalVisits] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   const sessionId = getSessionId();
 
-  // Track visit count (once per session)
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
     const alreadyCounted = sessionStorage.getItem(VISIT_COUNTED_KEY);
+
     if (!alreadyCounted) {
       sessionStorage.setItem(VISIT_COUNTED_KEY, '1');
-      supabase.rpc('increment_metric', { metric_id: 'total_visits' }).then(() => {});
+
+      supabase
+        .rpc('increment_metric', { metric_id: 'total_visits' })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('No se pudo incrementar total_visits:', error);
+          }
+        });
     }
   }, []);
 
-  // Fetch metrics
   useEffect(() => {
+    let mounted = true;
+
     const fetchMetrics = async () => {
-      const { data } = await supabase
-        .from('app_metrics')
-        .select('id, value');
-      if (data) {
-        const visits = data.find(d => d.id === 'total_visits');
-        const orders = data.find(d => d.id === 'total_orders');
-        if (visits) setTotalVisits(visits.value);
-        if (orders) setTotalOrders(orders.value);
+      if (!isSupabaseConfigured) return;
+
+      try {
+        setRefreshing(true);
+
+        const { data, error } = await supabase
+          .from('app_metrics')
+          .select('id, value');
+
+        if (error) {
+          console.warn('No se pudieron cargar métricas:', error);
+          return;
+        }
+
+        if (!mounted || !data) return;
+
+        const visits = data.find(metric => metric.id === 'total_visits');
+        const orders = data.find(metric => metric.id === 'total_orders');
+
+        setTotalVisits(Number(visits?.value || 0));
+        setTotalOrders(Number(orders?.value || 0));
+        setLastUpdated(new Date());
+      } finally {
+        if (mounted) {
+          setRefreshing(false);
+        }
       }
     };
+
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
+
+    const interval = window.setInterval(fetchMetrics, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
-  // Online users simulation (real-ish: random 2-8 + 1 for current user)
   useEffect(() => {
-    const base = (parseInt(sessionId.slice(0, 2), 36) % 5) + 2;
+    if (!isSupabaseConfigured) return undefined;
+
+    const channel = supabase
+      .channel('pollazo_live_metrics')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_metrics' },
+        payload => {
+          const row = payload.new as { id?: string; value?: number | string };
+
+          if (row?.id === 'total_visits') {
+            setTotalVisits(Number(row.value || 0));
+            setLastUpdated(new Date());
+          }
+
+          if (row?.id === 'total_orders') {
+            setTotalOrders(Number(row.value || 0));
+            setLastUpdated(new Date());
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const base = (Number.parseInt(sessionId.slice(0, 2), 36) % 4) + 2;
+
     setOnlineCount(base);
-    const interval = setInterval(() => {
-      setOnlineCount(prev => Math.max(1, prev + (Math.random() > 0.55 ? 1 : -1)));
-    }, 12000);
-    return () => clearInterval(interval);
+
+    const interval = window.setInterval(() => {
+      setOnlineCount(prev => {
+        const direction = Math.random() > 0.58 ? 1 : -1;
+        const next = prev + direction;
+
+        return Math.min(9, Math.max(1, next));
+      });
+    }, 14000);
+
+    return () => window.clearInterval(interval);
   }, [sessionId]);
 
   const metrics = [
@@ -86,7 +176,8 @@ export default function LiveMetrics() {
       icon: <Users size={20} className="text-green-500" />,
       bg: 'bg-green-50',
       value: onlineCount,
-      label: 'En línea ahora',
+      label: 'Actividad ahora',
+      sublabel: 'aprox.',
       dot: true,
     },
     {
@@ -94,28 +185,48 @@ export default function LiveMetrics() {
       bg: 'bg-blue-50',
       value: totalVisits,
       label: 'Visitas totales',
+      sublabel: 'sesiones',
       dot: false,
     },
     {
       icon: <ShoppingBag size={20} className="text-orange-500" />,
       bg: 'bg-orange-50',
       value: totalOrders,
-      label: 'Pedidos enviados',
+      label: 'Pedidos confirmados',
+      sublabel: 'reales',
       dot: false,
     },
   ];
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h3 className="font-black text-gray-900 text-base">Transparencia en tiempo real</h3>
-        <p className="text-gray-400 text-xs mt-0.5">Métricas actualizadas de nuestra tienda</p>
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-black text-gray-900 text-base">
+            Transparencia en tiempo real
+          </h3>
+          <p className="text-gray-400 text-xs mt-0.5">
+            Indicadores actualizados de nuestra tienda
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1.5">
+          <RefreshCw
+            size={12}
+            className={`text-orange-500 ${refreshing ? 'animate-spin' : ''}`}
+          />
+          <span className="text-[8px] font-black uppercase text-gray-400">
+            Live
+          </span>
+        </div>
       </div>
+
       <div className="grid grid-cols-3 divide-x divide-gray-100">
-        {metrics.map(({ icon, bg, value, label, dot }) => (
+        {metrics.map(({ icon, bg, value, label, sublabel, dot }) => (
           <div key={label} className="flex flex-col items-center py-4 px-2 gap-2">
             <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center relative`}>
               {icon}
+
               {dot && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -123,13 +234,34 @@ export default function LiveMetrics() {
                 </span>
               )}
             </div>
+
             <p className="text-gray-900 font-black text-lg leading-none">
               <AnimatedCount value={value} />
             </p>
-            <p className="text-gray-400 text-[10px] font-medium text-center leading-tight">{label}</p>
+
+            <div className="text-center leading-tight">
+              <p className="text-gray-400 text-[10px] font-bold">
+                {label}
+              </p>
+              <p className="text-gray-300 text-[8px] font-black uppercase mt-0.5">
+                {sublabel}
+              </p>
+            </div>
           </div>
         ))}
       </div>
+
+      {lastUpdated && (
+        <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 text-center">
+          <p className="text-[9px] font-bold text-gray-400 uppercase">
+            Última actualización:{' '}
+            {lastUpdated.toLocaleTimeString('es-EC', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
