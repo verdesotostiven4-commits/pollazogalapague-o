@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Users, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -61,8 +61,35 @@ export default function LiveMetrics() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [presenceReady, setPresenceReady] = useState(false);
 
   const sessionId = getSessionId();
+
+  const fetchMetrics = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+
+    try {
+      setRefreshing(true);
+
+      const { data, error } = await supabase
+        .from('app_metrics')
+        .select('id, value');
+
+      if (error) {
+        console.warn('No se pudieron cargar métricas:', error);
+        return;
+      }
+
+      const visits = data?.find(metric => metric.id === 'total_visits');
+      const orders = data?.find(metric => metric.id === 'total_orders');
+
+      setTotalVisits(Number(visits?.value || 0));
+      setTotalOrders(Number(orders?.value || 0));
+      setLastUpdated(new Date());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -85,45 +112,20 @@ export default function LiveMetrics() {
   useEffect(() => {
     let mounted = true;
 
-    const fetchMetrics = async () => {
-      if (!isSupabaseConfigured) return;
-
-      try {
-        setRefreshing(true);
-
-        const { data, error } = await supabase
-          .from('app_metrics')
-          .select('id, value');
-
-        if (error) {
-          console.warn('No se pudieron cargar métricas:', error);
-          return;
-        }
-
-        if (!mounted || !data) return;
-
-        const visits = data.find(metric => metric.id === 'total_visits');
-        const orders = data.find(metric => metric.id === 'total_orders');
-
-        setTotalVisits(Number(visits?.value || 0));
-        setTotalOrders(Number(orders?.value || 0));
-        setLastUpdated(new Date());
-      } finally {
-        if (mounted) {
-          setRefreshing(false);
-        }
-      }
+    const safeFetch = async () => {
+      if (!mounted) return;
+      await fetchMetrics();
     };
 
-    fetchMetrics();
+    safeFetch();
 
-    const interval = window.setInterval(fetchMetrics, 30000);
+    const interval = window.setInterval(safeFetch, 30000);
 
     return () => {
       mounted = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [fetchMetrics]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -155,20 +157,62 @@ export default function LiveMetrics() {
   }, []);
 
   useEffect(() => {
-    const base = (Number.parseInt(sessionId.slice(0, 2), 36) % 4) + 2;
+    if (!isSupabaseConfigured) {
+      setOnlineCount(1);
+      setPresenceReady(false);
+      return undefined;
+    }
 
-    setOnlineCount(base);
+    const channel = supabase.channel('pollazo_presence_online', {
+      config: {
+        presence: {
+          key: sessionId,
+        },
+      },
+    });
 
-    const interval = window.setInterval(() => {
-      setOnlineCount(prev => {
-        const direction = Math.random() > 0.58 ? 1 : -1;
-        const next = prev + direction;
+    const updateOnlineCount = () => {
+      const presenceState = channel.presenceState();
+      const activeSessions = Object.keys(presenceState).length;
 
-        return Math.min(9, Math.max(1, next));
+      setOnlineCount(Math.max(1, activeSessions));
+      setPresenceReady(true);
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, updateOnlineCount)
+      .on('presence', { event: 'join' }, updateOnlineCount)
+      .on('presence', { event: 'leave' }, updateOnlineCount)
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            session_id: sessionId,
+            online_at: new Date().toISOString(),
+          });
+
+          updateOnlineCount();
+        }
       });
-    }, 14000);
 
-    return () => window.clearInterval(interval);
+    const visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        channel
+          .track({
+            session_id: sessionId,
+            online_at: new Date().toISOString(),
+          })
+          .then(updateOnlineCount)
+          .catch(() => undefined);
+      }
+    };
+
+    document.addEventListener('visibilitychange', visibilityHandler);
+
+    return () => {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+      channel.untrack().catch(() => undefined);
+      supabase.removeChannel(channel);
+    };
   }, [sessionId]);
 
   const metrics = [
@@ -176,8 +220,8 @@ export default function LiveMetrics() {
       icon: <Users size={20} className="text-green-500" />,
       bg: 'bg-green-50',
       value: onlineCount,
-      label: 'Actividad ahora',
-      sublabel: 'aprox.',
+      label: 'En línea ahora',
+      sublabel: presenceReady ? 'sesiones activas' : 'conectando',
       dot: true,
     },
     {
@@ -210,7 +254,12 @@ export default function LiveMetrics() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={fetchMetrics}
+          className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1.5 active:scale-95 transition-all"
+          aria-label="Actualizar métricas"
+        >
           <RefreshCw
             size={12}
             className={`text-orange-500 ${refreshing ? 'animate-spin' : ''}`}
@@ -218,7 +267,7 @@ export default function LiveMetrics() {
           <span className="text-[8px] font-black uppercase text-gray-400">
             Live
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-gray-100">
