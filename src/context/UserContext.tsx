@@ -10,9 +10,9 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface SetUserDataInput {
-  phone: string;
-  name: string;
-  avatar: string;
+  phone?: string;
+  name?: string;
+  avatar?: string;
   lat?: number | null;
   lng?: number | null;
   reference?: string;
@@ -93,7 +93,7 @@ const normalizeEcuadorPhone = (phone: string): string => {
 const formatPhoneForUser = (phone: string): string => {
   const digits = cleanDigits(phone);
 
-  if (digits.startsWith('593') && digits.length >= 12) {
+  if (digits.startsWith('593') && digits.length >= 11) {
     return `0${digits.slice(3)}`;
   }
 
@@ -138,8 +138,22 @@ const persistNumber = (key: string, value: number | null) => {
   }
 };
 
+const persistInteger = (key: string, value: number | null | undefined) => {
+  const safeValue = typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
+
+  localStorage.setItem(key, safeValue.toString());
+
+  return safeValue;
+};
+
 const persistBoolean = (key: string, value: boolean) => {
   localStorage.setItem(key, value.toString());
+};
+
+const isValidCoordinate = (value: unknown): value is number => {
+  return typeof value === 'number' && Number.isFinite(value);
 };
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -154,17 +168,33 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isVip, setIsVip] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
 
-  const applyServerStats = useCallback((customer: CustomerSyncRow | null) => {
+  const applyServerCustomer = useCallback((customer: CustomerSyncRow | null) => {
     if (!customer) return;
 
+    if (typeof customer.phone === 'string' && customer.phone.trim()) {
+      const normalizedPhone = normalizeEcuadorPhone(customer.phone);
+      setCustomerPhone(normalizedPhone);
+      persistText(STORAGE_KEYS.phone, normalizedPhone);
+    }
+
+    if (typeof customer.name === 'string') {
+      const nextName = customer.name || '';
+      setCustomerName(nextName);
+      persistText(STORAGE_KEYS.name, nextName);
+    }
+
+    if (typeof customer.avatar_url === 'string') {
+      const nextAvatar = customer.avatar_url || '';
+      setCustomerAvatar(nextAvatar);
+      persistText(STORAGE_KEYS.avatar, nextAvatar);
+    }
+
     if (typeof customer.points === 'number') {
-      setCustomerPoints(customer.points);
-      localStorage.setItem(STORAGE_KEYS.points, customer.points.toString());
+      setCustomerPoints(persistInteger(STORAGE_KEYS.points, customer.points));
     }
 
     if (typeof customer.exp === 'number') {
-      setCustomerExp(customer.exp);
-      localStorage.setItem(STORAGE_KEYS.exp, customer.exp.toString());
+      setCustomerExp(persistInteger(STORAGE_KEYS.exp, customer.exp));
     }
 
     if (typeof customer.is_vip === 'boolean') {
@@ -177,21 +207,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
       persistBoolean(STORAGE_KEYS.phoneVerified, customer.phone_verified);
     }
 
-    if (typeof customer.lat === 'number') {
-      setCustomerLat(customer.lat);
-      persistNumber(STORAGE_KEYS.lat, customer.lat);
+    if ('lat' in customer) {
+      const nextLat = isValidCoordinate(customer.lat) ? customer.lat : null;
+      setCustomerLat(nextLat);
+      persistNumber(STORAGE_KEYS.lat, nextLat);
     }
 
-    if (typeof customer.lng === 'number') {
-      setCustomerLng(customer.lng);
-      persistNumber(STORAGE_KEYS.lng, customer.lng);
+    if ('lng' in customer) {
+      const nextLng = isValidCoordinate(customer.lng) ? customer.lng : null;
+      setCustomerLng(nextLng);
+      persistNumber(STORAGE_KEYS.lng, nextLng);
     }
 
-    if (typeof customer.reference === 'string') {
-      setCustomerReference(customer.reference);
-      persistText(STORAGE_KEYS.reference, customer.reference);
+    if ('reference' in customer) {
+      const nextReference = typeof customer.reference === 'string'
+        ? customer.reference
+        : '';
+
+      setCustomerReference(nextReference);
+      persistText(STORAGE_KEYS.reference, nextReference);
     }
   }, []);
+
+  const fetchCustomerFromSupabase = useCallback(
+    async (phone: string) => {
+      const normalizedPhone = normalizeEcuadorPhone(phone);
+
+      if (!isSupabaseConfigured || !normalizedPhone) return;
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select(
+          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference'
+        )
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('No se pudo cargar cliente desde Supabase:', error);
+        return;
+      }
+
+      applyServerCustomer(data as CustomerSyncRow | null);
+    },
+    [applyServerCustomer]
+  );
 
   const syncCustomerToSupabase = useCallback(
     async (data: SetUserDataInput, normalizedPhone: string) => {
@@ -199,17 +259,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       const payload: Record<string, unknown> = {
         phone: normalizedPhone,
-        name: data.name.trim() || null,
-        avatar_url: data.avatar.trim() || null,
         updated_at: new Date().toISOString(),
       };
 
+      if (data.name !== undefined) {
+        payload.name = data.name.trim() || null;
+      }
+
+      if (data.avatar !== undefined) {
+        payload.avatar_url = data.avatar.trim() || null;
+      }
+
       if (data.lat !== undefined) {
-        payload.lat = data.lat;
+        payload.lat = isValidCoordinate(data.lat) ? data.lat : null;
       }
 
       if (data.lng !== undefined) {
-        payload.lng = data.lng;
+        payload.lng = isValidCoordinate(data.lng) ? data.lng : null;
       }
 
       if (data.reference !== undefined) {
@@ -217,11 +283,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.points !== undefined) {
-        payload.points = data.points;
+        payload.points = Math.max(0, Math.floor(data.points));
       }
 
       if (data.exp !== undefined) {
-        payload.exp = data.exp;
+        payload.exp = Math.max(0, Math.floor(data.exp));
       }
 
       if (data.isVip !== undefined) {
@@ -245,9 +311,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      applyServerStats(savedCustomer as CustomerSyncRow | null);
+      applyServerCustomer(savedCustomer as CustomerSyncRow | null);
     },
-    [applyServerStats]
+    [applyServerCustomer]
   );
 
   useEffect(() => {
@@ -270,6 +336,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (normalizedPhone) {
       setCustomerPhone(normalizedPhone);
       localStorage.setItem(STORAGE_KEYS.phone, normalizedPhone);
+      void fetchCustomerFromSupabase(normalizedPhone);
     }
 
     setCustomerName(storedName);
@@ -281,14 +348,40 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerExp(storedExp);
     setIsVip(storedVip);
     setPhoneVerified(storedPhoneVerified);
-  }, []);
+  }, [fetchCustomerFromSupabase]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !customerPhone) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel(`pollazo_customer_${customerPhone}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customers' },
+        payload => {
+          const nextCustomer = payload.new as CustomerSyncRow | null;
+          const nextPhone = normalizeEcuadorPhone(nextCustomer?.phone || '');
+
+          if (nextPhone === customerPhone) {
+            applyServerCustomer(nextCustomer);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [applyServerCustomer, customerPhone]);
 
   const setUserData = useCallback(
     (data: SetUserDataInput) => {
-      const normalizedPhone = normalizeEcuadorPhone(data.phone);
-      const name = data.name.trim();
-      const avatar = data.avatar.trim();
-      const reference = data.reference?.trim() || '';
+      const normalizedPhone = normalizeEcuadorPhone(data.phone ?? customerPhone);
+      const name = (data.name ?? customerName).trim();
+      const avatar = (data.avatar ?? customerAvatar).trim();
+      const reference = data.reference?.trim() ?? customerReference;
 
       const samePhone = normalizedPhone && normalizedPhone === customerPhone;
       const nextPhoneVerified = data.phoneVerified ?? (samePhone ? phoneVerified : false);
@@ -298,19 +391,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setCustomerAvatar(avatar);
       setPhoneVerified(nextPhoneVerified);
 
-      localStorage.setItem(STORAGE_KEYS.phone, normalizedPhone);
+      persistText(STORAGE_KEYS.phone, normalizedPhone);
       persistText(STORAGE_KEYS.name, name);
       persistText(STORAGE_KEYS.avatar, avatar);
       persistBoolean(STORAGE_KEYS.phoneVerified, nextPhoneVerified);
 
       if (data.lat !== undefined) {
-        setCustomerLat(data.lat);
-        persistNumber(STORAGE_KEYS.lat, data.lat);
+        const nextLat = isValidCoordinate(data.lat) ? data.lat : null;
+        setCustomerLat(nextLat);
+        persistNumber(STORAGE_KEYS.lat, nextLat);
       }
 
       if (data.lng !== undefined) {
-        setCustomerLng(data.lng);
-        persistNumber(STORAGE_KEYS.lng, data.lng);
+        const nextLng = isValidCoordinate(data.lng) ? data.lng : null;
+        setCustomerLng(nextLng);
+        persistNumber(STORAGE_KEYS.lng, nextLng);
       }
 
       if (data.reference !== undefined) {
@@ -319,13 +414,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.points !== undefined) {
-        setCustomerPoints(data.points);
-        localStorage.setItem(STORAGE_KEYS.points, data.points.toString());
+        setCustomerPoints(persistInteger(STORAGE_KEYS.points, data.points));
       }
 
       if (data.exp !== undefined) {
-        setCustomerExp(data.exp);
-        localStorage.setItem(STORAGE_KEYS.exp, data.exp.toString());
+        setCustomerExp(persistInteger(STORAGE_KEYS.exp, data.exp));
       }
 
       if (data.isVip !== undefined) {
@@ -333,19 +426,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
         persistBoolean(STORAGE_KEYS.isVip, data.isVip);
       }
 
-      void syncCustomerToSupabase(
-        {
-          ...data,
-          phone: normalizedPhone,
-          name,
-          avatar,
-          reference,
-          phoneVerified: nextPhoneVerified,
-        },
-        normalizedPhone
-      );
+      if (normalizedPhone) {
+        void syncCustomerToSupabase(
+          {
+            ...data,
+            phone: normalizedPhone,
+            name,
+            avatar,
+            reference,
+            phoneVerified: nextPhoneVerified,
+          },
+          normalizedPhone
+        );
+      }
     },
-    [customerPhone, phoneVerified, syncCustomerToSupabase]
+    [
+      customerAvatar,
+      customerName,
+      customerPhone,
+      customerReference,
+      phoneVerified,
+      syncCustomerToSupabase,
+    ]
   );
 
   const logout = useCallback(() => {
@@ -372,9 +474,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       customerLat !== null &&
         customerLng !== null &&
         Number.isFinite(customerLat) &&
-        Number.isFinite(customerLng)
+        Number.isFinite(customerLng) &&
+        customerReference.trim().length > 0
     );
-  }, [customerLat, customerLng]);
+  }, [customerLat, customerLng, customerReference]);
 
   const phoneDisplay = useMemo(() => {
     return formatPhoneForUser(customerPhone);
