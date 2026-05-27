@@ -81,6 +81,20 @@ class ErrorBoundary extends Component<
   }
 }
 
+const FINAL_TRACKING_MINUTES = 20;
+
+const ACTIVE_TRACKING_STATUSES: OrderStatus[] = [
+  'Por Confirmar',
+  'Recibido',
+  'Preparando',
+  'Enviado',
+];
+
+const FINAL_TRACKING_STATUSES: OrderStatus[] = [
+  'Entregado',
+  'Cancelado',
+];
+
 const toMoney = (value: number): number => {
   if (!Number.isFinite(value)) return 0;
 
@@ -124,7 +138,7 @@ const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): AppPaymentStatu
 };
 
 const cleanPhoneTail = (phone?: string | null): string => {
-  return (phone || '').replace(/\D/g, '').slice(-8);
+  return (phone || '').replace(/\D/g, '').slice(-9);
 };
 
 const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
@@ -135,6 +149,20 @@ const isRecentTrackableOrder = (createdAt?: string | null): boolean => {
   }
 
   return createdTime > Date.now() - 24 * 60 * 60 * 1000;
+};
+
+const isRecentlyFinalizedOrder = (
+  updatedAt?: string | null,
+  createdAt?: string | null
+): boolean => {
+  const referenceTime = updatedAt || createdAt;
+  const time = referenceTime ? new Date(referenceTime).getTime() : 0;
+
+  if (!time || Number.isNaN(time)) {
+    return false;
+  }
+
+  return time > Date.now() - FINAL_TRACKING_MINUTES * 60 * 1000;
 };
 
 const hasValidDeliveryLocation = (
@@ -338,9 +366,13 @@ function AppShell() {
         const cleanOrderPhone = cleanPhoneTail(order.customer_phone);
         const isSameCustomer = cleanOrderPhone === cleanUserPhone;
         const isRecent = isRecentTrackableOrder(order.created_at);
-        const isActiveStatus = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'].includes(order.status);
+        const isActiveStatus = ACTIVE_TRACKING_STATUSES.includes(order.status);
+        const isFinalStatus = FINAL_TRACKING_STATUSES.includes(order.status);
+        const isFreshFinalStatus = isFinalStatus
+          ? isRecentlyFinalizedOrder(order.updated_at, order.created_at)
+          : false;
 
-        return isSameCustomer && isRecent && isActiveStatus;
+        return isSameCustomer && isRecent && (isActiveStatus || isFreshFinalStatus);
       })
     );
   }, [customerPhone, orders]);
