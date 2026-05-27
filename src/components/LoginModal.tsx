@@ -30,11 +30,6 @@ interface LoginModalProps {
   }) => void;
   isMandatory?: boolean;
   isChangingLocation?: boolean;
-
-  /**
-   * Compatibilidad opcional por si algún archivo antiguo todavía los envía.
-   * No son obligatorios y no cambian el flujo actual.
-   */
   title?: string;
   subtitle?: string;
 }
@@ -47,7 +42,6 @@ interface LatLng {
 const DEFAULT_AVATAR = PRESET_AVATARS[0].url;
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 
-// ✅ LÍMITES GEOGRÁFICOS DE PUERTO AYORA
 const PUERTO_AYORA_BOUNDS = {
   latMin: -0.765,
   latMax: -0.728,
@@ -165,7 +159,7 @@ export default function LoginModal({
 
           if (mapInstance.current && options?.moveMap !== false) {
             mapInstance.current.flyTo([nextPosition.lat, nextPosition.lng], 18, {
-              duration: 1.5,
+              duration: 1.2,
             });
           }
 
@@ -175,15 +169,62 @@ export default function LoginModal({
           setError('Activa el GPS para encontrarte o mueve el mapa manualmente.');
           setIsLocating(false);
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
     },
     [syncUserMarker]
   );
 
-  // 1. 🔥 MOTOR DE MAPA MODERNO CON INTEGRACIÓN INMEDIATA DE PUNTO AZUL
   useEffect(() => {
-    if (step !== 2 || !mapContainerRef.current || mapInstance.current) return undefined;
+    if (!isOpen) return;
+
+    setName(customerName || '');
+    setWhatsapp(customerPhone || '');
+    setAvatar(customerAvatar || DEFAULT_AVATAR);
+    setLat(customerLat ?? DEFAULT_CENTER.lat);
+    setLng(customerLng ?? DEFAULT_CENTER.lng);
+    setReference(customerReference || '');
+    setUserActualLocation(null);
+
+    if (isChangingLocation) {
+      setStep(2);
+      setError('');
+      requestLocation({ moveMap: true, silent: true });
+      return;
+    }
+
+    if (isMandatory) {
+      if (!customerName || !customerPhone) {
+        setStep(1);
+        setError('¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.');
+        return;
+      }
+
+      if (!customerLat || !customerLng || !customerReference) {
+        setStep(2);
+        setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
+        requestLocation({ moveMap: true, silent: true });
+        return;
+      }
+    }
+
+    setStep(1);
+    setError('');
+  }, [
+    customerAvatar,
+    customerLat,
+    customerLng,
+    customerName,
+    customerPhone,
+    customerReference,
+    isChangingLocation,
+    isMandatory,
+    isOpen,
+    requestLocation,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || step !== 2 || !mapContainerRef.current || mapInstance.current) return undefined;
 
     const timer = window.setTimeout(() => {
       if (!mapContainerRef.current) return;
@@ -203,9 +244,8 @@ export default function LoginModal({
         attributionControl: false,
       });
 
-      L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
       }).addTo(mapInstance.current);
 
       mapInstance.current.on('movestart', () => setIsDragging(true));
@@ -216,22 +256,34 @@ export default function LoginModal({
         setLng(center.lng);
       });
 
-      mapInstance.current.on('moveend', () => setIsDragging(false));
+      mapInstance.current.on('moveend', () => {
+        const center = mapInstance.current.getCenter();
+        setLat(center.lat);
+        setLng(center.lng);
+        setIsDragging(false);
+      });
 
-      mapInstance.current.invalidateSize();
+      window.setTimeout(() => {
+        mapInstance.current?.invalidateSize();
+      }, 150);
 
       if (userActualLocation) {
+        syncUserMarker(userActualLocation);
         mapInstance.current.flyTo([userActualLocation.lat, userActualLocation.lng], 18, {
           duration: 1.2,
         });
-
-        syncUserMarker(userActualLocation);
       }
-    }, 300);
+    }, 250);
 
     return () => {
       window.clearTimeout(timer);
+    };
+  }, [isOpen, step, syncUserMarker, userActualLocation]);
 
+  useEffect(() => {
+    if (!isOpen || step !== 2) return;
+
+    return () => {
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
@@ -239,16 +291,14 @@ export default function LoginModal({
 
       userMarkerRef.current = null;
     };
-  }, [lat, lng, step, syncUserMarker, userActualLocation]);
+  }, [isOpen, step]);
 
-  // 🔵 PUNTO AZUL DE RESPALDO
   useEffect(() => {
     if (mapInstance.current && userActualLocation) {
       syncUserMarker(userActualLocation);
     }
-  }, [step, syncUserMarker, userActualLocation]);
+  }, [syncUserMarker, userActualLocation]);
 
-  // ✅ VALIDACIÓN DE ESCUDO GEOGRÁFICO EN TIEMPO REAL
   useEffect(() => {
     if (step === 2 && lat !== null && lng !== null) {
       if (!isInsideGeofence) {
@@ -262,53 +312,6 @@ export default function LoginModal({
   const handleGetLocation = () => {
     requestLocation({ moveMap: true });
   };
-
-  // ✅ CONTROL INTERCEPTOR DE INICIALIZACIÓN CON DISPARO AUTO-GPS EN CAMBIO VOLUNTARIO
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setName(customerName || '');
-    setWhatsapp(customerPhone || '');
-    setAvatar(customerAvatar || DEFAULT_AVATAR);
-    setLat(customerLat ?? null);
-    setLng(customerLng ?? null);
-    setReference(customerReference || '');
-
-    if (isChangingLocation) {
-      setStep(2);
-      setError('');
-      requestLocation({ moveMap: true, silent: true });
-      return;
-    }
-
-    if (isMandatory) {
-      if (!customerName || !customerPhone) {
-        setStep(1);
-        setError('¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.');
-        return;
-      }
-
-      if (!customerLat || !customerLng || !customerReference) {
-        setStep(2);
-        setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
-        return;
-      }
-    }
-
-    setStep(1);
-    setError('');
-  }, [
-    customerAvatar,
-    customerLat,
-    customerLng,
-    customerName,
-    customerPhone,
-    customerReference,
-    isChangingLocation,
-    isMandatory,
-    isOpen,
-    requestLocation,
-  ]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -418,7 +421,6 @@ export default function LoginModal({
       />
 
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
-        {/* HEADER */}
         <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200">
@@ -454,7 +456,6 @@ export default function LoginModal({
 
         <div className="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2 space-y-5">
           {step === 1 ? (
-            /* PASO 1: PERFIL */
             <div className="animate-in slide-in-from-left duration-300">
               <div className="bg-gradient-to-br from-orange-50/50 to-white p-5 rounded-[35px] border border-orange-100/50 shadow-inner flex flex-col items-center gap-5">
                 <div className="relative">
@@ -544,17 +545,15 @@ export default function LoginModal({
               </div>
             </div>
           ) : (
-            /* 📍 PASO 2: MAPA INTERACTIVO */
             <div className="animate-in slide-in-from-right duration-300 space-y-4">
               <p className="text-[11px] font-bold text-slate-500 bg-orange-50/50 border border-orange-100/40 p-2.5 rounded-2xl text-center leading-snug">
                 📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido
                 (evita marcar dentro de la casa).
               </p>
 
-              <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white">
+              <div className="relative h-[320px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white bg-slate-100">
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
 
-                {/* OVERLAY DE CONFIRMACIÓN */}
                 <div
                   className={`absolute top-4 left-1/2 -translate-x-1/2 z-[2000] px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
                     isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -565,7 +564,6 @@ export default function LoginModal({
                   </p>
                 </div>
 
-                {/* PUNTO DE PRECISIÓN GRIS PALPITANTE */}
                 <div
                   className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none transition-opacity duration-200 ${
                     isDragging ? 'opacity-100' : 'opacity-0'
@@ -574,7 +572,6 @@ export default function LoginModal({
                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full shadow-lg border border-white/50 animate-pulse" />
                 </div>
 
-                {/* PIN DINÁMICO */}
                 <div
                   className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[101] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
                     isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
@@ -592,12 +589,11 @@ export default function LoginModal({
                   <div className="w-2 h-1 bg-black/20 rounded-full blur-[1px]" />
                 </div>
 
-                {/* 🧭 BOTÓN GPS FLOTANTE MODERNO */}
                 <button
                   onClick={handleGetLocation}
                   className={`absolute bottom-6 right-6 z-[1000] p-4 rounded-3xl shadow-2xl transition-all ${
                     isLocating
-                      ? 'bg-orange-500 animate-spin text-white'
+                      ? 'bg-orange-500 animate-pulse text-white'
                       : 'bg-white text-slate-800 active:scale-75'
                   }`}
                   aria-label="Usar mi ubicación actual"
@@ -633,7 +629,6 @@ export default function LoginModal({
           />
         </div>
 
-        {/* FOOTER */}
         <div className="p-6 pt-2 bg-white flex-shrink-0 border-t border-slate-50 flex gap-3">
           {step === 2 && !isChangingLocation && (
             <button
@@ -677,7 +672,8 @@ export default function LoginModal({
 
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .leaflet-container { font-family: inherit; cursor: crosshair !important; }
+        .leaflet-container { font-family: inherit; cursor: grab !important; touch-action: pan-x pan-y; }
+        .leaflet-container:active { cursor: grabbing !important; }
         .custom-div-icon { background: none; border: none; }
       `}</style>
     </div>
