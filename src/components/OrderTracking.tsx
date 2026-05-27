@@ -16,6 +16,7 @@ import {
   QrCode,
   Building,
   AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -43,7 +44,7 @@ const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon 
 ];
 
 const cleanPhoneTail = (phone?: string | null) => {
-  return (phone || '').replace(/\D/g, '').slice(-8);
+  return (phone || '').replace(/\D/g, '').slice(-9);
 };
 
 const toRadians = (value: number) => {
@@ -297,6 +298,7 @@ const getPaymentIcon = (method?: PaymentMethod | null): LucideIcon => {
   if (method === 'deuna') return QrCode;
   if (method === 'transferencia') return Building;
   if (method === 'tarjeta') return ShieldCheck;
+
   return AlertCircle;
 };
 
@@ -306,6 +308,7 @@ const getPaymentStatusLabel = (status?: PaymentStatus | null) => {
   if (status === 'confirmado') return 'Pago confirmado';
   if (status === 'rechazado') return 'Pago rechazado';
   if (status === 'pendiente') return 'Pago pendiente';
+
   return 'Estado pendiente';
 };
 
@@ -375,6 +378,10 @@ const getPaymentHelpText = (order: Order) => {
     return 'Estamos validando tu comprobante de transferencia antes de confirmar el pedido.';
   }
 
+  if (order.payment_method === 'tarjeta') {
+    return 'El pedido avanzará cuando el pago con tarjeta sea aprobado.';
+  }
+
   return 'El negocio revisará el método de pago antes de preparar tu pedido.';
 };
 
@@ -391,7 +398,20 @@ const getPendingPaymentText = (order: Order) => {
     return 'Tu pedido espera validación de transferencia antes de activar el tiempo estimado.';
   }
 
+  if (order.payment_method === 'tarjeta') {
+    return 'Tu pedido espera aprobación del pago con tarjeta antes de activar el tiempo estimado.';
+  }
+
   return 'Cuando el negocio confirme tu pedido, aquí aparecerá el tiempo estimado de entrega.';
+};
+
+const getHeaderIcon = (status?: OrderStatus) => {
+  if (status === 'Cancelado') return XCircle;
+  if (status === 'Por Confirmar') return Clock3;
+  if (status === 'Entregado') return CheckCircle2;
+  if (status === 'Enviado') return Truck;
+
+  return PackageSearch;
 };
 
 export default function OrderTracking({
@@ -423,7 +443,7 @@ export default function OrderTracking({
 
     const clock = window.setInterval(() => {
       setNow(new Date());
-    }, 15000);
+    }, 10000);
 
     return () => window.clearInterval(clock);
   }, [isOpen]);
@@ -433,7 +453,7 @@ export default function OrderTracking({
 
     refreshTracking();
 
-    const interval = window.setInterval(refreshTracking, 12000);
+    const interval = window.setInterval(refreshTracking, 6000);
 
     return () => {
       window.clearInterval(interval);
@@ -480,9 +500,11 @@ export default function OrderTracking({
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', refreshTracking);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', refreshTracking);
     };
   }, [isOpen, refreshTracking]);
 
@@ -496,15 +518,11 @@ export default function OrderTracking({
         ?.filter(order => {
           const cleanOrder = cleanPhoneTail(order.customer_phone);
 
-          return (
-            cleanOrder === cleanUserPhone &&
-            isRecentOrder(order) &&
-            order.status !== 'Cancelado'
-          );
+          return cleanOrder === cleanUserPhone && isRecentOrder(order);
         })
         .sort((a, b) => {
-          const dateA = new Date(a.created_at || '').getTime();
-          const dateB = new Date(b.created_at || '').getTime();
+          const dateA = new Date(a.updated_at || a.created_at || '').getTime();
+          const dateB = new Date(b.updated_at || b.created_at || '').getTime();
 
           return dateB - dateA;
         })[0] || null
@@ -530,6 +548,7 @@ export default function OrderTracking({
   const orderLocation = getOrderLocation(activeOrder);
   const PaymentIcon = activeOrder ? getPaymentIcon(activeOrder.payment_method) : AlertCircle;
   const paymentTone = activeOrder ? getPaymentStatusTone(activeOrder.payment_status) : null;
+  const HeaderIcon = getHeaderIcon(currentStatus);
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -551,29 +570,29 @@ export default function OrderTracking({
         <div className="text-center mb-8">
           <div
             className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 ${
-              hasActiveOrder
-                ? currentStatus === 'Por Confirmar'
+              currentStatus === 'Cancelado'
+                ? 'bg-red-100 text-red-500'
+                : currentStatus === 'Por Confirmar'
                   ? 'bg-orange-100 text-orange-500'
-                  : 'bg-green-100 text-green-600'
-                : 'bg-orange-100 text-orange-500'
+                  : currentStatus === 'Entregado'
+                    ? 'bg-green-100 text-green-600'
+                    : hasActiveOrder
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-orange-100 text-orange-500'
             }`}
           >
-            {hasActiveOrder ? (
-              currentStatus === 'Por Confirmar' ? (
-                <Clock3 size={40} />
-              ) : (
-                <Truck size={40} />
-              )
-            ) : (
-              <PackageSearch size={40} />
-            )}
+            <HeaderIcon size={40} />
           </div>
 
           <h2 className="text-2xl font-black text-gray-900 uppercase italic leading-none">
             {hasActiveOrder
               ? currentStatus === 'Por Confirmar'
                 ? 'Esperando Confirmación'
-                : 'Pedido en Curso'
+                : currentStatus === 'Entregado'
+                  ? 'Pedido Entregado'
+                  : currentStatus === 'Cancelado'
+                    ? 'Pedido Cancelado'
+                    : 'Pedido en Curso'
               : 'Rastreo en Vivo'}
           </h2>
 
@@ -608,50 +627,56 @@ export default function OrderTracking({
 
         {hasActiveOrder && currentStatus && activeOrder ? (
           <div className="py-2">
-            <div className="relative flex justify-between items-center px-1 mb-8">
-              <div className="absolute left-0 right-0 top-[20px] h-[3px] bg-gray-100 rounded-full" />
+            {currentStatus !== 'Cancelado' && (
+              <div className="relative flex justify-between items-center px-1 mb-8">
+                <div className="absolute left-0 right-0 top-[20px] h-[3px] bg-gray-100 rounded-full" />
 
-              {statusSteps.map((step, idx) => {
-                const isCompleted = currentStatusIdx >= idx;
-                const isCurrent = currentStatus === step.status;
-                const Icon = step.icon;
+                {statusSteps.map((step, idx) => {
+                  const isCompleted = currentStatusIdx >= idx;
+                  const isCurrent = currentStatus === step.status;
+                  const Icon = step.icon;
 
-                return (
-                  <div key={step.status} className="flex flex-col items-center gap-2 z-10">
-                    <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-                        isCompleted
-                          ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
-                          : 'bg-white border-2 border-gray-100 text-gray-300'
-                      } ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}
-                    >
-                      <Icon size={18} />
+                  return (
+                    <div key={step.status} className="flex flex-col items-center gap-2 z-10">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                          isCompleted
+                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
+                            : 'bg-white border-2 border-gray-100 text-gray-300'
+                        } ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}
+                      >
+                        <Icon size={18} />
+                      </div>
+
+                      <span
+                        className={`text-[7px] font-black uppercase tracking-tighter text-center max-w-[58px] leading-tight ${
+                          isCompleted ? 'text-gray-900' : 'text-gray-300'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
                     </div>
-
-                    <span
-                      className={`text-[7px] font-black uppercase tracking-tighter text-center max-w-[58px] leading-tight ${
-                        isCompleted ? 'text-gray-900' : 'text-gray-300'
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div
               className={`p-4 rounded-2xl border text-center shadow-sm ${
-                currentStatus === 'Por Confirmar'
-                  ? 'bg-orange-50 border-orange-100'
-                  : 'bg-green-50 border-green-100'
+                currentStatus === 'Cancelado'
+                  ? 'bg-red-50 border-red-100'
+                  : currentStatus === 'Por Confirmar'
+                    ? 'bg-orange-50 border-orange-100'
+                    : 'bg-green-50 border-green-100'
               }`}
             >
               <p
                 className={`text-xs font-black uppercase italic leading-relaxed ${
-                  currentStatus === 'Por Confirmar'
-                    ? 'text-orange-600'
-                    : 'text-green-700'
+                  currentStatus === 'Cancelado'
+                    ? 'text-red-600'
+                    : currentStatus === 'Por Confirmar'
+                      ? 'text-orange-600'
+                      : 'text-green-700'
                 }`}
               >
                 {getStatusMessage(currentStatus)}
@@ -734,6 +759,24 @@ export default function OrderTracking({
               </div>
             )}
 
+            {currentStatus === 'Entregado' && (
+              <div className="mt-4 bg-green-50 border border-green-100 rounded-[28px] p-4 text-center">
+                <CheckCircle2 size={28} className="text-green-600 mx-auto mb-2" />
+                <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
+                  Gracias por tu compra. Tu historial y experiencia se actualizarán si aplica.
+                </p>
+              </div>
+            )}
+
+            {currentStatus === 'Cancelado' && (
+              <div className="mt-4 bg-red-50 border border-red-100 rounded-[28px] p-4 text-center">
+                <XCircle size={28} className="text-red-500 mx-auto mb-2" />
+                <p className="text-[10px] font-black text-red-600 uppercase leading-relaxed">
+                  Si crees que hubo un error, comunícate por WhatsApp con el negocio.
+                </p>
+              </div>
+            )}
+
             {activeOrder.reference && (
               <div className="mt-4 bg-blue-50 border border-blue-100 rounded-2xl p-3 flex items-start gap-3">
                 <MapPin size={17} className="text-blue-500 mt-0.5 flex-shrink-0" />
@@ -743,18 +786,20 @@ export default function OrderTracking({
               </div>
             )}
 
-            {!orderLocation && currentStatus !== 'Por Confirmar' && (
-              <div className="mt-4 bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-3">
-                <MapPin size={17} className="text-orange-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[10px] font-bold text-orange-700 uppercase leading-relaxed">
-                  No encontramos GPS exacto en este pedido. El tiempo se calcula como zona cercana.
-                </p>
-              </div>
-            )}
+            {!orderLocation &&
+              currentStatus !== 'Por Confirmar' &&
+              currentStatus !== 'Cancelado' && (
+                <div className="mt-4 bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-3">
+                  <MapPin size={17} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-orange-700 uppercase leading-relaxed">
+                    No encontramos GPS exacto en este pedido. El tiempo se calcula como zona cercana.
+                  </p>
+                </div>
+              )}
 
             {activeOrder.created_at && (
               <p className="text-center text-[10px] text-gray-300 font-bold uppercase mt-4">
-                Se actualiza automáticamente cuando el admin cambia el estado
+                Se actualiza automáticamente cuando el admin o repartidor cambia el estado
               </p>
             )}
           </div>
