@@ -28,6 +28,8 @@ const LOGO_OFFICIAL =
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 
+type InstallStatus = 'idle' | 'installing' | 'installed';
+
 export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
   const admin = useAdmin() as any;
   const settings = admin?.settings;
@@ -38,6 +40,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [installMessage, setInstallMessage] = useState('');
+  const [installStatus, setInstallStatus] = useState<InstallStatus>('idle');
 
   const logoUrl = extraSettings?.logo_url || LOGO_OFFICIAL;
   const primaryColor = settings?.primary_color || '#f97316';
@@ -48,15 +51,28 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+
+      if (installStatus !== 'installed') {
+        setInstallStatus('idle');
+        setInstallMessage('');
+      }
+    };
+
+    const handleAppInstalled = () => {
+      setInstallStatus('installed');
+      setInstallMessage('App instalada. Revisa tu pantalla de inicio y ábrela desde el ícono.');
+      localStorage.setItem('pollazo_landing_dismissed', '1');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [installStatus]);
 
   const isIOS = () => {
     return (
@@ -65,34 +81,87 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
     );
   };
 
+  const markInstalledSoon = () => {
+    window.setTimeout(() => {
+      setInstallStatus('installed');
+      setInstallMessage('App instalada. Revisa tu pantalla de inicio y ábrela desde el ícono.');
+      localStorage.setItem('pollazo_landing_dismissed', '1');
+    }, 1200);
+  };
+
   const handleInstallClick = async () => {
+    if (installStatus === 'installed') {
+      setInstallMessage('La app ya debería estar instalada. Revisa tu pantalla de inicio.');
+      return;
+    }
+
     if (isIOS()) {
       setShowIOSModal(true);
       return;
     }
 
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
+    setInstallStatus('installing');
+    setInstallMessage('Preparando instalación...');
 
-      if (choice.outcome === 'dismissed') {
-        setInstallMessage('Instalación cancelada.');
-      } else {
-        setInstallMessage('Instalación iniciada. Luego toca “Continuar”.');
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+
+        if (choice.outcome === 'dismissed') {
+          setInstallStatus('idle');
+          setInstallMessage('Instalación cancelada. Puedes intentarlo otra vez.');
+        } else {
+          setInstallMessage('Instalación aceptada. Revisa tu pantalla de inicio en unos segundos.');
+          markInstalledSoon();
+        }
+
+        setDeferredPrompt(null);
+      } catch {
+        setInstallStatus('idle');
+        setInstallMessage('No se pudo abrir la instalación. Intenta otra vez o usa el menú de Chrome.');
       }
 
-      setDeferredPrompt(null);
       return;
     }
 
-    setInstallMessage('Usa el menú de tu navegador para instalar la App.');
     onInstall();
+
+    window.setTimeout(() => {
+      setInstallStatus('idle');
+
+      if (canInstall) {
+        setInstallMessage('Si no apareció la ventana de instalación, intenta tocar nuevamente.');
+      } else {
+        setInstallMessage('Usa el menú de Chrome y elige “Instalar app” o “Agregar a pantalla principal”.');
+      }
+    }, 900);
   };
 
   const handleContinueWeb = () => {
     localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
     localStorage.setItem('pollazo_landing_dismissed', '1');
     onContinueWeb();
+  };
+
+  const installButtonContent = () => {
+    if (installStatus === 'installing') {
+      return (
+        <>
+          <Loader2 size={20} className="animate-spin" /> Instalando...
+        </>
+      );
+    }
+
+    if (installStatus === 'installed') {
+      return <>✅ App instalada</>;
+    }
+
+    return (
+      <>
+        <Download size={20} /> Instalar App
+      </>
+    );
   };
 
   return (
@@ -161,18 +230,21 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             <button
               type="button"
               onClick={handleInstallClick}
-              className="w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
+              disabled={installStatus === 'installing'}
+              className={`w-full py-4 bg-white text-orange-600 rounded-3xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 ${
+                installStatus === 'installing' ? 'opacity-80 cursor-wait' : ''
+              }`}
             >
-              {!deferredPrompt && !canInstall && !isIOS() ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" /> Preparando...
-                </>
-              ) : (
-                <>
-                  <Download size={20} /> Instalar App
-                </>
-              )}
+              {installButtonContent()}
             </button>
+
+            {installStatus === 'installed' && (
+              <div className="bg-white/90 border border-white rounded-3xl p-4 shadow-lg">
+                <p className="text-orange-700 text-[11px] font-black uppercase leading-relaxed">
+                  Revisa tu pantalla de inicio. Si ya ves el ícono, abre la app desde ahí.
+                </p>
+              </div>
+            )}
 
             <button
               type="button"
@@ -199,7 +271,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             </div>
 
             {installMessage && (
-              <p className="text-white/75 text-[10px] font-bold uppercase mt-2">
+              <p className="text-white/80 text-[10px] font-black uppercase mt-2 leading-relaxed px-2">
                 {installMessage}
               </p>
             )}
@@ -275,7 +347,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
 
             <div className="mt-6 bg-orange-50 border border-orange-100 rounded-3xl p-4 text-center">
               <p className="text-[10px] font-bold text-orange-700 leading-relaxed">
-                Después de instalar, abre la app y toca “Continuar” para aceptar términos y entrar.
+                Después de instalar, abre la app desde el ícono. Si es la primera vez, te aparecerán los términos para aceptar.
               </p>
 
               <button
