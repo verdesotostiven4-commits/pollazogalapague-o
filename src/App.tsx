@@ -1,4 +1,4 @@
-import { useState, useRef, Component, useEffect, useMemo } from 'react';
+import { useState, useRef, Component, useEffect, useMemo, type ReactNode } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
@@ -14,6 +14,7 @@ import AppHeader from './components/AppHeader';
 import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
 import AdminDashboard from './components/AdminDashboard';
+import DeliveryDashboard from './components/DeliveryDashboard';
 import LoginModal from './components/LoginModal';
 import OrderTracking from './components/OrderTracking';
 import Ranking from './pages/Ranking';
@@ -41,10 +42,10 @@ type AppPaymentStatus =
   | 'contra_entrega';
 
 class ErrorBoundary extends Component<
-  { children: React.ReactNode },
+  { children: ReactNode },
   { hasError: boolean; error: unknown }
 > {
-  constructor(props: { children: React.ReactNode }) {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -82,15 +83,22 @@ class ErrorBoundary extends Component<
 
 const toMoney = (value: number): number => {
   if (!Number.isFinite(value)) return 0;
+
   return Number(value.toFixed(2));
 };
 
 const isPaymentMethod = (value: string | null): value is PaymentMethod => {
-  return value === 'efectivo' || value === 'deuna' || value === 'transferencia';
+  return (
+    value === 'efectivo' ||
+    value === 'deuna' ||
+    value === 'transferencia' ||
+    value === 'tarjeta'
+  );
 };
 
 const getStoredPaymentMethod = (): PaymentMethod | undefined => {
   const value = localStorage.getItem('selectedPaymentMethod');
+
   return isPaymentMethod(value) ? value : undefined;
 };
 
@@ -105,6 +113,10 @@ const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): AppPaymentStatu
   }
 
   if (paymentMethod === 'deuna' || paymentMethod === 'transferencia') {
+    return 'validando';
+  }
+
+  if (paymentMethod === 'tarjeta') {
     return 'validando';
   }
 
@@ -497,21 +509,22 @@ function AppShell() {
     }
 
     const code = activeOrderCode || orderCode();
+
     const whatsappUrl = buildWhatsAppUrl(
-  items,
-  customerPhone,
-  customerName,
-  code,
-  !isStoreOpen(),
-  {
-    paymentMethod: getStoredPaymentMethod(),
-    selectedBank: localStorage.getItem('selectedBank'),
-    customerReference: customerReference.trim(),
-    customerLat,
-    customerLng,
-    deliveryType: 'domicilio',
-  }
-);
+      items,
+      customerPhone,
+      customerName,
+      code,
+      !isStoreOpen(),
+      {
+        paymentMethod: getStoredPaymentMethod(),
+        selectedBank: localStorage.getItem('selectedBank'),
+        customerReference: customerReference.trim(),
+        customerLat,
+        customerLng,
+        deliveryType: 'domicilio',
+      }
+    );
 
     if (!activeOrderCode) {
       try {
@@ -542,7 +555,10 @@ function AppShell() {
         customerAvatar={customerAvatar}
       />
 
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner">
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner"
+      >
         <OrderTracking
           isOpen={showTracking}
           onClose={() => setShowTracking(false)}
@@ -670,6 +686,16 @@ export default function App() {
       <ErrorBoundary>
         <AdminProvider>
           <AdminDashboard />
+        </AdminProvider>
+      </ErrorBoundary>
+    );
+  }
+
+  if (window.location.pathname === '/repartidor') {
+    return (
+      <ErrorBoundary>
+        <AdminProvider>
+          <DeliveryDashboard />
         </AdminProvider>
       </ErrorBoundary>
     );
