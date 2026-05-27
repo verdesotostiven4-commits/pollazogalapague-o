@@ -27,9 +27,11 @@ import {
   Truck,
   Navigation,
   ShoppingBag,
+  Scale,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
+import LegalModal from './LegalModal';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import type { Order, Screen } from '../types';
@@ -687,7 +689,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         <StatPill
           icon={<Activity size={18} />}
           label={seasonActive ? 'Temporada' : 'Pausado'}
-          value={seasonActive ? `${points} pts` : `${points} pts`}
+          value={`${points} pts`}
           muted={!seasonActive}
         />
       </div>
@@ -791,6 +793,7 @@ interface Props {
 
 export default function InfoScreen({ onNavigate }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   const closeLightbox = () => setLightboxIndex(null);
@@ -943,6 +946,27 @@ export default function InfoScreen({ onNavigate }: Props) {
 
           <ChevronRight className="text-gray-300" size={18} />
         </a>
+
+        <button
+          type="button"
+          onClick={() => setShowLegalModal(true)}
+          className="w-full flex items-center gap-3 px-4 py-4 active:bg-orange-50 transition-colors text-left"
+        >
+          <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Scale size={20} className="text-orange-500" />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm font-black text-gray-800 uppercase leading-none">
+              Términos y Privacidad
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Reglas de pedidos, pagos, puntos y datos
+            </p>
+          </div>
+
+          <ChevronRight className="text-gray-300" size={18} />
+        </button>
       </div>
 
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
@@ -1042,6 +1066,11 @@ export default function InfoScreen({ onNavigate }: Props) {
         <Heart size={12} className="text-orange-400 fill-orange-400" />
         <span>en Galápagos</span>
       </div>
+
+      <LegalModal
+        isOpen={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+      />
 
       {lightboxIndex !== null && (
         <div
