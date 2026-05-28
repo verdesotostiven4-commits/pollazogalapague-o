@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-v15';
+const CACHE_VERSION = 'pollazo-cache-v16';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
