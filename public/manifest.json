@@ -2,8 +2,8 @@
   "name": "Pollazo Galapagueño El Mirador",
   "short_name": "Pollazo Gal",
   "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
-  "id": "/?pollazo_app=white_v18",
-  "start_url": "/?pollazo_app=white_v18",
+  "id": "/?pollazo_app=white_v19",
+  "start_url": "/?pollazo_app=white_v19",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -11,19 +11,19 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEg_Q1yWEJYIv8XNMCL9_el1x1KycNJxlGSsnr3SQ862kzYdYa6a-jwIZ1vJhCGu4gpU9IcVYN5lhM9USlDnsOB2aWK9FFlkobHLPrm9gv_msHkEozh9svVY_L4QTqWBsyQlx_wprnJUksy23TmqAApNl00SBONc-p8X8cEI_Mv3ezndd5lydCyFNy4kURM",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEg_Q1yWEJYIv8XNMCL9_el1x1KycNJxlGSsnr3SQ862kzYdYa6a-jwIZ1vJhCGu4gpU9IcVYN5lhM9USlDnsOB2aWK9FFlkobHLPrm9gv_msHkEozh9svVY_L4QTqWBsyQlx_wprnJUksy23TmqAApNl00SBONc-p8X8cEI_Mv3ezndd5lydCyFNy4kURM",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEg_Q1yWEJYIv8XNMCL9_el1x1KycNJxlGSsnr3SQ862kzYdYa6a-jwIZ1vJhCGu4gpU9IcVYN5lhM9USlDnsOB2aWK9FFlkobHLPrm9gv_msHkEozh9svVY_L4QTqWBsyQlx_wprnJUksy23TmqAApNl00SBONc-p8X8cEI_Mv3ezndd5lydCyFNy4kURM",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
