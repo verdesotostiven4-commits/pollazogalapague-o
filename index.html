@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=10" />
+    <link rel="manifest" href="/manifest.json?v=11" />
     <meta name="theme-color" content="#f97316" />
     <meta name="background-color" content="#f97316" />
 
@@ -31,15 +31,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pollazo Gal" />
 
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=10" />
-    <link rel="icon" type="image/png" href="/favicon-48.png?v=10" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=11" />
+    <link rel="icon" type="image/png" href="/favicon-48.png?v=11" />
 
     <meta property="og:title" content="Pollazo Galapagueño El Mirador" />
     <meta
       property="og:description"
       content="Pollo fresco y productos para tu hogar en Galápagos."
     />
-    <meta property="og:image" content="/splash-logo-1024.png?v=10" />
+    <meta property="og:image" content="/splash-logo-1024.png?v=11" />
     <meta property="og:type" content="website" />
 
     <style>
@@ -88,8 +88,8 @@
 
       #html-splash img {
         position: relative;
-        width: min(78vw, 310px);
-        height: min(78vw, 310px);
+        width: min(84vw, 330px);
+        height: min(84vw, 330px);
         object-fit: contain;
         animation: splashPulse 2s ease-in-out infinite;
       }
@@ -101,7 +101,7 @@
         }
 
         50% {
-          transform: scale(1.035);
+          transform: scale(1.03);
         }
       }
     </style>
@@ -110,7 +110,7 @@
   <body>
     <div id="html-splash">
       <img
-        src="/splash-logo-1024.png?v=10"
+        src="/splash-logo-1024.png?v=11"
         alt="Pollazo Galapagueño"
       />
     </div>
@@ -122,7 +122,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=10").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=11").catch(() => {});
         });
       }
 
