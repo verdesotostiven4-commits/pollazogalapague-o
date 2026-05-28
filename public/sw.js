@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-v9';
+const CACHE_VERSION = 'pollazo-cache-v10';
 
 const APP_SHELL = [
   '/',
