@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=11" />
+    <link rel="manifest" href="/manifest.json?v=12" />
     <meta name="theme-color" content="#f97316" />
     <meta name="background-color" content="#f97316" />
 
@@ -31,20 +31,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pollazo Gal" />
 
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=11" />
-    <link rel="icon" type="image/png" href="/favicon-48.png?v=11" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=12" />
+    <link rel="icon" type="image/png" href="/favicon-48.png?v=12" />
 
     <meta property="og:title" content="Pollazo Galapagueño El Mirador" />
     <meta
       property="og:description"
       content="Pollo fresco y productos para tu hogar en Galápagos."
     />
-    <meta property="og:image" content="/splash-logo-1024.png?v=11" />
+    <meta property="og:image" content="/splash-logo-1024.png?v=12" />
     <meta property="og:type" content="website" />
 
     <style>
       html,
       body {
+        margin: 0;
+        min-height: 100%;
+        background: #f97316;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -53,7 +56,6 @@
         user-select: none;
         -webkit-tap-highlight-color: transparent;
         touch-action: pan-x pan-y;
-        background: #f97316;
       }
 
       input,
@@ -66,55 +68,14 @@
         user-select: auto !important;
       }
 
-      #html-splash {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background:
-          radial-gradient(circle at 50% 35%, rgba(251, 191, 36, 0.45), transparent 34%),
-          linear-gradient(180deg, #fb923c 0%, #f97316 48%, #ea580c 100%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        transition: opacity 0.4s ease;
-        overflow: hidden;
-      }
-
-      #html-splash.fade-out {
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      #html-splash img {
-        position: relative;
-        width: min(84vw, 330px);
-        height: min(84vw, 330px);
-        object-fit: contain;
-        animation: splashPulse 2s ease-in-out infinite;
-      }
-
-      @keyframes splashPulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-
-        50% {
-          transform: scale(1.03);
-        }
+      #root {
+        min-height: 100dvh;
+        background: #f97316;
       }
     </style>
   </head>
 
   <body>
-    <div id="html-splash">
-      <img
-        src="/splash-logo-1024.png?v=11"
-        alt="Pollazo Galapagueño"
-      />
-    </div>
-
     <div id="root"></div>
 
     <script type="module" src="/src/main.tsx"></script>
@@ -122,20 +83,9 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=11").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=12").catch(() => {});
         });
       }
-
-      window.addEventListener("load", () => {
-        const splash = document.getElementById("html-splash");
-
-        if (splash) {
-          setTimeout(() => {
-            splash.classList.add("fade-out");
-            setTimeout(() => splash.remove(), 400);
-          }, 400);
-        }
-      });
     </script>
   </body>
 </html>
