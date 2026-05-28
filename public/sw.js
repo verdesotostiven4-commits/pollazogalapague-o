@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-v13';
+const CACHE_VERSION = 'pollazo-cache-v14';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -8,9 +8,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches
       .keys()
-      .then(keys => {
-        return Promise.all(keys.map(key => caches.delete(key)));
-      })
+      .then(keys => Promise.all(keys.map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -33,14 +31,9 @@ self.addEventListener('fetch', event => {
   }
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/'))
-    );
-
+    event.respondWith(fetch(request).catch(() => caches.match('/')));
     return;
   }
 
-  event.respondWith(
-    fetch(request).catch(() => caches.match(request))
-  );
+  event.respondWith(fetch(request).catch(() => caches.match(request)));
 });
