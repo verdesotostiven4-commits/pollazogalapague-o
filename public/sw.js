@@ -1,4 +1,5 @@
-const CACHE_VERSION = 'pollazo-cache-v6';
+const CACHE_VERSION = 'pollazo-cache-v8';
+
 const APP_SHELL = [
   '/',
   '/manifest.json',
@@ -24,13 +25,16 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys
-          .filter(key => key !== CACHE_VERSION)
-          .map(key => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then(keys => {
+        return Promise.all(
+          keys
+            .filter(key => key !== CACHE_VERSION)
+            .map(key => caches.delete(key))
+        );
+      })
+      .then(() => self.clients.claim())
   );
 });
 
