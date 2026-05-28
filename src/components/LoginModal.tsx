@@ -63,6 +63,15 @@ const hasLeaflet = () => typeof L !== 'undefined' && Boolean(L?.map);
 
 const cleanDigits = (value: string) => value.replace(/\D/g, '');
 
+const isPointInsidePuertoAyora = (position: LatLng): boolean => {
+  return (
+    position.lat >= PUERTO_AYORA_BOUNDS.latMin &&
+    position.lat <= PUERTO_AYORA_BOUNDS.latMax &&
+    position.lng >= PUERTO_AYORA_BOUNDS.lngMin &&
+    position.lng <= PUERTO_AYORA_BOUNDS.lngMax
+  );
+};
+
 const normalizeEcuadorPhone = (phone: string): string => {
   const digits = cleanDigits(phone);
 
@@ -151,6 +160,7 @@ export default function LoginModal({
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [error, setError] = useState('');
+  const [gpsNotice, setGpsNotice] = useState('');
 
   const hasSavedDeliveryPoint = useMemo(() => {
     return isFiniteNumber(customerLat) && isFiniteNumber(customerLng);
@@ -259,13 +269,40 @@ export default function LoginModal({
     [createBlueDotIcon]
   );
 
-  const moveMapTo = useCallback((position: LatLng, zoom = 18) => {
+  const moveMapTo = useCallback((position: LatLng, zoom = 17) => {
     if (!mapInstance.current) return;
 
     mapInstance.current.flyTo([position.lat, position.lng], zoom, {
       duration: 0.85,
     });
   }, []);
+
+  const goToPuertoAyora = useCallback(
+    (message?: string) => {
+      setLat(DEFAULT_CENTER.lat);
+      setLng(DEFAULT_CENTER.lng);
+      setUserActualLocation(null);
+
+      if (userMarkerRef.current && mapInstance.current) {
+        try {
+          mapInstance.current.removeLayer(userMarkerRef.current);
+        } catch {
+          // Continuamos aunque Leaflet ya haya removido el marcador.
+        }
+
+        userMarkerRef.current = null;
+      }
+
+      if (message) {
+        setGpsNotice(message);
+      }
+
+      if (mapInstance.current) {
+        moveMapTo(DEFAULT_CENTER, 16);
+      }
+    },
+    [moveMapTo]
+  );
 
   const requestLocation = useCallback(
     (options?: LocationRequestOptions) => {
@@ -281,6 +318,7 @@ export default function LoginModal({
 
       if (!options?.silent) {
         setError('');
+        setGpsNotice('');
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -290,8 +328,29 @@ export default function LoginModal({
             lng: pos.coords.longitude,
           };
 
-          setUserActualLocation(nextPosition);
           setIsLocating(false);
+
+          if (!isPointInsidePuertoAyora(nextPosition)) {
+            setUserActualLocation(null);
+
+            if (shouldUpdateSelectedPoint) {
+              setLat(DEFAULT_CENTER.lat);
+              setLng(DEFAULT_CENTER.lng);
+            }
+
+            if (mapInstance.current && options?.moveMap !== false) {
+              moveMapTo(DEFAULT_CENTER, 16);
+            }
+
+            setGpsNotice(
+              'Tu GPS está fuera de Puerto Ayora. Te dejamos el mapa en la zona de entrega para que marques manualmente.'
+            );
+
+            return;
+          }
+
+          setUserActualLocation(nextPosition);
+          setGpsNotice('');
 
           if (shouldUpdateSelectedPoint) {
             setLat(nextPosition.lat);
@@ -299,7 +358,7 @@ export default function LoginModal({
           }
 
           if (mapInstance.current && options?.moveMap !== false) {
-            moveMapTo(nextPosition);
+            moveMapTo(nextPosition, 18);
           }
 
           syncUserMarker(nextPosition);
@@ -326,6 +385,7 @@ export default function LoginModal({
     setAvatar(customerAvatar || DEFAULT_AVATAR);
     setReference(customerReference || '');
     setUserActualLocation(null);
+    setGpsNotice('');
 
     const savedLat = hasSavedDeliveryPoint ? customerLat : null;
     const savedLng = hasSavedDeliveryPoint ? customerLng : null;
@@ -414,13 +474,14 @@ export default function LoginModal({
 
       mapInstance.current = L.map(mapContainerRef.current, {
         center: [startLat, startLng],
-        zoom: 17,
-        minZoom: 14,
+        zoom: 16,
+        minZoom: 5,
         maxZoom: 20,
         zoomControl: false,
         attributionControl: false,
         scrollWheelZoom: true,
         tap: true,
+        worldCopyJump: true,
       });
 
       const modernTileLayer = L.tileLayer(
@@ -475,13 +536,13 @@ export default function LoginModal({
         mapInstance.current?.invalidateSize();
 
         if (lat !== null && lng !== null) {
-          mapInstance.current?.setView([lat, lng], 17, { animate: false });
+          mapInstance.current?.setView([lat, lng], 16, { animate: false });
         }
 
         setMapReady(true);
       }, 180);
 
-      if (userActualLocation) {
+      if (userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
         syncUserMarker(userActualLocation);
       }
     }, 220);
@@ -507,7 +568,7 @@ export default function LoginModal({
   }, [isOpen, step]);
 
   useEffect(() => {
-    if (mapInstance.current && userActualLocation) {
+    if (mapInstance.current && userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
       syncUserMarker(userActualLocation);
     }
   }, [syncUserMarker, userActualLocation]);
@@ -528,6 +589,11 @@ export default function LoginModal({
       moveMap: true,
       updateSelectedPoint: true,
     });
+  };
+
+  const handlePuertoAyoraButton = () => {
+    setError('');
+    goToPuertoAyora('Mapa centrado en Puerto Ayora. Ahora mueve el pin hasta tu punto de entrega.');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -610,6 +676,9 @@ export default function LoginModal({
 
       return;
     }
+
+    setLat(DEFAULT_CENTER.lat);
+    setLng(DEFAULT_CENTER.lng);
 
     requestLocation({
       moveMap: true,
@@ -746,14 +815,23 @@ export default function LoginModal({
             </button>
           </div>
 
-          <div className="mt-3 flex justify-center pointer-events-none">
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={handlePuertoAyoraButton}
+              className="px-4 py-2 bg-slate-950 text-white rounded-full shadow-lg text-[9px] font-black uppercase active:scale-95 transition-transform flex items-center gap-1.5"
+            >
+              <MapPin size={12} />
+              Puerto Ayora
+            </button>
+
             <div
               className={`px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
                 isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
             >
               <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
-                {selectedPointIsReady ? '📍 Punto marcado correctamente' : 'Mueve el mapa para marcar'}
+                {selectedPointIsReady ? '📍 Punto marcado' : 'Mueve el mapa'}
               </p>
             </div>
           </div>
@@ -804,8 +882,14 @@ export default function LoginModal({
             </p>
           )}
 
+          {gpsNotice && (
+            <p className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-2xl text-center uppercase leading-snug mb-3">
+              {gpsNotice}
+            </p>
+          )}
+
           <p className="text-[11px] font-bold text-slate-500 bg-orange-50/70 border border-orange-100/50 p-2.5 rounded-2xl text-center leading-snug mb-3">
-            📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido.
+            📍 Marca en Puerto Ayora el punto exacto donde quieres que llegue tu pedido.
           </p>
 
           <div className="space-y-2">
