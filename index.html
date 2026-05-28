@@ -20,18 +20,28 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=24" />
+    <link rel="manifest" href="/manifest-v25.json" />
 
-    <meta name="theme-color" content="#f59e0b" />
-    <meta name="background-color" content="#f59e0b" />
+    <meta name="theme-color" content="#ff8a00" />
+    <meta name="background-color" content="#ff8a00" />
 
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Pollazo Galapagueño" />
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pollazo Galapagueño" />
 
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+    />
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+    />
     <link
       rel="apple-touch-icon"
       href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
@@ -52,8 +62,8 @@
       :root {
         color-scheme: light;
         --pollazo-bg-1: #ff5a00;
-        --pollazo-bg-2: #ff9100;
-        --pollazo-bg-3: #ffc107;
+        --pollazo-bg-2: #ff8a00;
+        --pollazo-bg-3: #ffc400;
         --pollazo-bg-4: #ffe600;
       }
 
@@ -62,7 +72,7 @@
         margin: 0;
         min-height: 100%;
         background:
-          radial-gradient(circle at 50% 58%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 28%, var(--pollazo-bg-2) 62%, var(--pollazo-bg-1) 100%);
+          radial-gradient(circle at 50% 62%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 30%, var(--pollazo-bg-2) 64%, var(--pollazo-bg-1) 100%);
         background-attachment: fixed;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
@@ -88,7 +98,7 @@
       #root {
         min-height: 100dvh;
         background:
-          radial-gradient(circle at 50% 58%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 28%, var(--pollazo-bg-2) 62%, var(--pollazo-bg-1) 100%);
+          radial-gradient(circle at 50% 62%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 30%, var(--pollazo-bg-2) 64%, var(--pollazo-bg-1) 100%);
       }
     </style>
   </head>
@@ -101,7 +111,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=24").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=25").catch(() => {});
         });
       }
     </script>
