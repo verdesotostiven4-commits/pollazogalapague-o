@@ -20,9 +20,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=16" />
-    <meta name="theme-color" content="#f97316" />
-    <meta name="background-color" content="#f97316" />
+    <link rel="manifest" href="/manifest.json?v=17" />
+
+    <meta name="theme-color" content="#ff6a12" />
+    <meta name="background-color" content="#ff6a12" />
 
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Pollazo Gal" />
@@ -48,11 +49,19 @@
     <meta property="og:type" content="website" />
 
     <style>
+      :root {
+        --pollazo-boot-bg: #ff6a12;
+        --pollazo-boot-bg-2: #f97316;
+        --pollazo-boot-bg-3: #ff8a1f;
+      }
+
       html,
       body {
         margin: 0;
         min-height: 100%;
-        background: #f97316;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(255, 179, 44, 0.22), transparent 34%),
+          linear-gradient(180deg, var(--pollazo-boot-bg-3) 0%, var(--pollazo-boot-bg) 45%, var(--pollazo-boot-bg-2) 100%);
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -61,6 +70,7 @@
         user-select: none;
         -webkit-tap-highlight-color: transparent;
         touch-action: pan-x pan-y;
+        overscroll-behavior: none;
       }
 
       input,
@@ -75,7 +85,9 @@
 
       #root {
         min-height: 100dvh;
-        background: #f97316;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(255, 179, 44, 0.22), transparent 34%),
+          linear-gradient(180deg, var(--pollazo-boot-bg-3) 0%, var(--pollazo-boot-bg) 45%, var(--pollazo-boot-bg-2) 100%);
       }
     </style>
   </head>
@@ -88,7 +100,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=16").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=17").catch(() => {});
         });
       }
     </script>
