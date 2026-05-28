@@ -1,16 +1,16 @@
-const CACHE_VERSION = 'pollazo-cache-v8';
+const CACHE_VERSION = 'pollazo-cache-v9';
 
 const APP_SHELL = [
   '/',
   '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/maskable-192.png',
-  '/icons/maskable-512.png',
-  '/icons/apple-touch-icon.png',
-  '/icons/splash-logo-512.png',
-  '/icons/splash-logo-1024.png',
-  '/icons/favicon-48.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/maskable-192.png',
+  '/maskable-512.png',
+  '/apple-touch-icon.png',
+  '/splash-logo-512.png',
+  '/splash-logo-1024.png',
+  '/favicon-48.png',
 ];
 
 self.addEventListener('install', event => {
