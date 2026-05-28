@@ -158,6 +158,63 @@ const slug = (text: string) => {
 const cleanPhone = (phone?: string | null) => {
   return (phone || '').replace(/\D/g, '');
 };
+const normalizeEcuadorPhone = (phone?: string | null) => {
+  const clean = cleanPhone(phone);
+
+  if (!clean) return '';
+
+  if (clean.startsWith('593') && clean.length >= 11) {
+    return clean;
+  }
+
+  if (clean.startsWith('0') && clean.length === 10) {
+    return `593${clean.slice(1)}`;
+  }
+
+  if (clean.startsWith('9') && clean.length === 9) {
+    return `593${clean}`;
+  }
+
+  return clean;
+};
+
+const cleanPhoneTail = (phone?: string | null) => {
+  return cleanPhone(phone).slice(-9);
+};
+
+const findBestCustomerByPhone = (
+  customerList: ExtendedCustomer[],
+  phone?: string | null
+) => {
+  const tail = cleanPhoneTail(phone);
+
+  if (!tail) return null;
+
+  const matches = customerList.filter(customer => cleanPhoneTail(customer.phone) === tail);
+
+  if (matches.length === 0) return null;
+
+  return [...matches].sort((a, b) => {
+    const scoreA =
+      (a.total_orders || 0) * 100000 +
+      (a.total_spent || 0) * 1000 +
+      (a.exp || 0) * 10 +
+      (a.points || 0);
+
+    const scoreB =
+      (b.total_orders || 0) * 100000 +
+      (b.total_spent || 0) * 1000 +
+      (b.exp || 0) * 10 +
+      (b.points || 0);
+
+    if (scoreB !== scoreA) return scoreB - scoreA;
+
+    return (
+      new Date(b.updated_at || b.created_at || '').getTime() -
+      new Date(a.updated_at || a.created_at || '').getTime()
+    );
+  })[0];
+};
 
 const toMoneyNumber = (value: unknown) => {
   if (typeof value === 'number') {
