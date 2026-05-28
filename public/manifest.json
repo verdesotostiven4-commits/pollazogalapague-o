@@ -2,28 +2,28 @@
   "name": "Pollazo Galapagueño El Mirador",
   "short_name": "Pollazo Gal",
   "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
-  "id": "/?pollazo_app=final_v17",
-  "start_url": "/?pollazo_app=final_v17",
+  "id": "/?pollazo_app=white_v18",
+  "start_url": "/?pollazo_app=white_v18",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ff6a12",
-  "theme_color": "#ff6a12",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEimLXaGN_NFfO-DKdPE506yLZjL1xfRe8ZjcKTH7Ih3Ht8ouvBvO4uAlsY1AAmUDcLUErFQ3ke6upProXGiYj-6qwvgnop30J-Na6S52dq5s84EHevAauKQPyNol0zwwxdxUCbEhiNdrBJnCZKG_rliqY7eyKI623XZZO_mjsPd7PCok8ukQAEWMY_P-RU",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEimLXaGN_NFfO-DKdPE506yLZjL1xfRe8ZjcKTH7Ih3Ht8ouvBvO4uAlsY1AAmUDcLUErFQ3ke6upProXGiYj-6qwvgnop30J-Na6S52dq5s84EHevAauKQPyNol0zwwxdxUCbEhiNdrBJnCZKG_rliqY7eyKI623XZZO_mjsPd7PCok8ukQAEWMY_P-RU",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEimLXaGN_NFfO-DKdPE506yLZjL1xfRe8ZjcKTH7Ih3Ht8ouvBvO4uAlsY1AAmUDcLUErFQ3ke6upProXGiYj-6qwvgnop30J-Na6S52dq5s84EHevAauKQPyNol0zwwxdxUCbEhiNdrBJnCZKG_rliqY7eyKI623XZZO_mjsPd7PCok8ukQAEWMY_P-RU",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
