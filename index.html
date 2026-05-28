@@ -20,10 +20,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=20" />
+    <link rel="manifest" href="/manifest.json?v=21" />
 
-    <meta name="theme-color" content="#f97316" />
-    <meta name="background-color" content="#f97316" />
+    <meta name="theme-color" content="#f9a10f" />
+    <meta name="background-color" content="#f9a10f" />
 
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Pollazo Gal" />
@@ -34,7 +34,7 @@
 
     <link
       rel="apple-touch-icon"
-      href="https://blogger.googleusercontent.com/img/a/AVvXsEjNwR5ecmkTzUKNGMXiBhpm4Q5JZXUSfNI72NxxqrhSScgqZSbnnyCL4ZKbexXjAHI4hgU_42gv0-faQdJa9FLNfD1LEE22wV73E9NjdgYLnn3UpERuQilQ9qz3U33NJYuqJ3bcsXXEdvmYfL3nUxjHEH__mbi_11azzGzzj7Peuk-IfZw__jfZS5rtYT8"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEhqSS9Xj9AynzdWD4von6WBQtLzzoSzugP4aApuVwTUwwJBa4yrms72JpH1QMtLaaO8QBoKde7ouJJRbIMEUFL_OTJZQssqlOS9z8vo81g2blvaX-BJA2xNUz8n8Bt6wgd7nR3omj4bPP31dATnaPbMvA7_R16I8rkQdSDx-GLJc5NXEbqu65y2FHBSrPM"
     />
 
     <meta property="og:title" content="Pollazo Galapagueño" />
@@ -44,20 +44,21 @@
     />
     <meta
       property="og:image"
-      content="https://blogger.googleusercontent.com/img/a/AVvXsEjNwR5ecmkTzUKNGMXiBhpm4Q5JZXUSfNI72NxxqrhSScgqZSbnnyCL4ZKbexXjAHI4hgU_42gv0-faQdJa9FLNfD1LEE22wV73E9NjdgYLnn3UpERuQilQ9qz3U33NJYuqJ3bcsXXEdvmYfL3nUxjHEH__mbi_11azzGzzj7Peuk-IfZw__jfZS5rtYT8"
+      content="https://blogger.googleusercontent.com/img/a/AVvXsEhqSS9Xj9AynzdWD4von6WBQtLzzoSzugP4aApuVwTUwwJBa4yrms72JpH1QMtLaaO8QBoKde7ouJJRbIMEUFL_OTJZQssqlOS9z8vo81g2blvaX-BJA2xNUz8n8Bt6wgd7nR3omj4bPP31dATnaPbMvA7_R16I8rkQdSDx-GLJc5NXEbqu65y2FHBSrPM"
     />
     <meta property="og:type" content="website" />
 
     <style>
       :root {
         color-scheme: light;
+        --pollazo-splash-bg: #f9a10f;
       }
 
       html,
       body {
         margin: 0;
         min-height: 100%;
-        background: #f97316;
+        background: var(--pollazo-splash-bg);
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -81,7 +82,7 @@
 
       #root {
         min-height: 100dvh;
-        background: #f97316;
+        background: var(--pollazo-splash-bg);
       }
     </style>
   </head>
@@ -94,7 +95,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=20").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=21").catch(() => {});
         });
       }
     </script>
