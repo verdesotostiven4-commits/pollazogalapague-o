@@ -789,12 +789,21 @@ interface Props {
   onInstall?: () => void;
   canInstall?: boolean;
   onNavigate: (screen: Screen) => void;
+  onChangeLocation?: () => void;
 }
 
-export default function InfoScreen({ onNavigate }: Props) {
+export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const { customerLat, customerLng, customerReference } = useUser();
+
+  const hasDeliveryLocation =
+    typeof customerLat === 'number' &&
+    Number.isFinite(customerLat) &&
+    typeof customerLng === 'number' &&
+    Number.isFinite(customerLng) &&
+    customerReference.trim().length > 0;
 
   const closeLightbox = () => setLightboxIndex(null);
 
@@ -937,7 +946,7 @@ export default function InfoScreen({ onNavigate }: Props) {
 
           <div className="flex-1">
             <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Ubicación
+              Ubicación del negocio
             </p>
             <p className="text-xs text-gray-500 mt-1">
               El Mirador, Puerto Ayora
@@ -946,6 +955,38 @@ export default function InfoScreen({ onNavigate }: Props) {
 
           <ChevronRight className="text-gray-300" size={18} />
         </a>
+
+        <button
+          type="button"
+          onClick={onChangeLocation}
+          className="w-full flex items-center gap-3 px-4 py-4 border-b border-gray-100 active:bg-orange-50 transition-colors text-left"
+        >
+          <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Navigation size={20} className="text-orange-500" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-gray-800 uppercase leading-none">
+              Mi ubicación de entrega
+            </p>
+
+            <p className="text-xs text-gray-500 mt-1 truncate">
+              {hasDeliveryLocation
+                ? customerReference
+                : 'Agrega o cambia tu punto de entrega'}
+            </p>
+          </div>
+
+          <span
+            className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase flex-shrink-0 ${
+              hasDeliveryLocation
+                ? 'bg-green-100 text-green-600'
+                : 'bg-orange-100 text-orange-600'
+            }`}
+          >
+            {hasDeliveryLocation ? 'Cambiar' : 'Agregar'}
+          </span>
+        </button>
 
         <button
           type="button"
