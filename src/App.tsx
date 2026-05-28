@@ -407,18 +407,6 @@ function AppShell() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [screen]);
 
-  useEffect(() => {
-    if (!customerName && !loading) {
-      const timer = window.setTimeout(() => {
-        setShowLoginModal(true);
-      }, 3000);
-
-      return () => window.clearTimeout(timer);
-    }
-
-    return undefined;
-  }, [customerName, loading]);
-
   const handleNavigate = (nextScreen: Screen) => {
     if (nextScreen !== 'catalog') {
       setActiveCategory('Todos');
