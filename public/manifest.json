@@ -2,31 +2,25 @@
   "name": "Pollazo Galapagueño",
   "short_name": "Pollazo Gal",
   "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
-  "id": "/?pollazo_app=final_v22",
-  "start_url": "/?pollazo_app=final_v22",
+  "id": "/?pollazo_app=logo_original_v23",
+  "start_url": "/?pollazo_app=logo_original_v23",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f9a915",
-  "theme_color": "#f9a915",
+  "background_color": "#fff4df",
+  "theme_color": "#fff4df",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEjpEPMiFlOhsZj6qFWu-JwZ-PfuSH0RR4CGPtn603gqz2LqAfLypoCBJ-58YhlrdIQ3vycTZhviraTGNFOO8AzZzM_QXYbvB7eJLe_zIfVB92_ssaYxwJlRDQpxsk8e7UrBCyZV4TOo4bMwSymKereR1X5YUAlvLc3xYv-uvWGEICrOcAORbcRCCXK7dT0",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEjpEPMiFlOhsZj6qFWu-JwZ-PfuSH0RR4CGPtn603gqz2LqAfLypoCBJ-58YhlrdIQ3vycTZhviraTGNFOO8AzZzM_QXYbvB7eJLe_zIfVB92_ssaYxwJlRDQpxsk8e7UrBCyZV4TOo4bMwSymKereR1X5YUAlvLc3xYv-uvWGEICrOcAORbcRCCXK7dT0",
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEjpEPMiFlOhsZj6qFWu-JwZ-PfuSH0RR4CGPtn603gqz2LqAfLypoCBJ-58YhlrdIQ3vycTZhviraTGNFOO8AzZzM_QXYbvB7eJLe_zIfVB92_ssaYxwJlRDQpxsk8e7UrBCyZV4TOo4bMwSymKereR1X5YUAlvLc3xYv-uvWGEICrOcAORbcRCCXK7dT0",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }
