@@ -20,15 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=30" />
-
-    <!-- IMPORTANTE: esto arregla el icono de la pestaña -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=30" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=30" />
-    <link rel="shortcut icon" href="/favicon-32x32.png?v=30" />
-
-    <!-- iPhone / iPad -->
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=30" />
+    <link rel="manifest" href="/manifest.json?v=31" />
 
     <meta name="theme-color" content="#ffffff" />
     <meta name="background-color" content="#ffffff" />
@@ -39,6 +31,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Pollazo Galapagueño" />
+
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+    />
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+    />
 
     <meta property="og:title" content="Pollazo Galapagueño" />
     <meta
@@ -52,6 +59,10 @@
     <meta property="og:type" content="website" />
 
     <style>
+      :root {
+        color-scheme: light;
+      }
+
       html,
       body {
         margin: 0;
@@ -93,7 +104,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=30").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=31").catch(() => {});
         });
       }
     </script>
