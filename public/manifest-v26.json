@@ -1,0 +1,26 @@
+{
+  "name": "Pollazo Galapagueño",
+  "short_name": "Pollazo Galapagueño",
+  "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
+  "id": "/pollazo-galapagueno-v26",
+  "start_url": "/?app=pollazo-galapagueno-v26",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ff7a00",
+  "theme_color": "#ff7a00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
