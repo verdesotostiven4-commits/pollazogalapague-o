@@ -677,6 +677,224 @@ export default function LoginModal({
 
   if (!isOpen) return null;
 
+  if (step === 2) {
+    return (
+      <div className="fixed inset-0 z-[10000] bg-slate-100 overflow-hidden">
+        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+
+        {!mapReady && !mapFailed && (
+          <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
+            <div className="w-14 h-14 rounded-[28px] bg-white shadow-xl flex items-center justify-center">
+              <Navigation size={25} className="text-orange-500 animate-pulse" />
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Cargando mapa...
+            </p>
+          </div>
+        )}
+
+        {mapFailed && (
+          <div className="absolute inset-0 z-[500] bg-white flex flex-col items-center justify-center gap-3 px-8 text-center">
+            <WifiOff size={36} className="text-orange-500" />
+            <p className="text-sm font-black text-slate-800 uppercase leading-relaxed">
+              No se pudo cargar el mapa
+            </p>
+            <p className="text-xs font-bold text-slate-400 leading-relaxed">
+              Revisa tu conexión e intenta nuevamente. También puedes cerrar y volver a abrir.
+            </p>
+          </div>
+        )}
+
+        <div className="absolute top-0 left-0 right-0 z-[720] pt-[calc(env(safe-area-inset-top)+14px)] px-4 pb-5 bg-gradient-to-b from-white/95 via-white/80 to-transparent backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (isChangingLocation) {
+                  if (!isMandatory) onClose();
+                  return;
+                }
+
+                setStep(1);
+              }}
+              className="w-12 h-12 rounded-2xl bg-white/95 text-slate-700 shadow-xl border border-white flex items-center justify-center active:scale-90 transition-transform"
+              aria-label={isChangingLocation ? 'Cerrar mapa' : 'Volver'}
+            >
+              {isChangingLocation ? <X size={21} /> : <ArrowLeft size={21} />}
+            </button>
+
+            <div className="flex-1 min-w-0 bg-white/95 border border-white rounded-[24px] px-4 py-3 shadow-xl">
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest leading-none">
+                {isChangingLocation ? 'Cambiar ubicación' : 'Ubicación de entrega'}
+              </p>
+              <p className="text-sm font-black text-slate-900 uppercase truncate mt-1 leading-none">
+                {isChangingLocation ? 'Ajusta tu dirección' : 'Marca tu punto exacto'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGetLocation}
+              className={`w-12 h-12 rounded-2xl shadow-xl border border-white flex items-center justify-center active:scale-90 transition-all ${
+                isLocating
+                  ? 'bg-orange-500 text-white animate-pulse'
+                  : 'bg-white/95 text-orange-500'
+              }`}
+              aria-label="Usar mi ubicación actual"
+            >
+              <LocateFixed size={21} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex justify-center pointer-events-none">
+            <div
+              className={`px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
+                isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              }`}
+            >
+              <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
+                {selectedPointIsReady ? '📍 Punto marcado correctamente' : 'Mueve el mapa para marcar'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
+            isDragging ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
+        </div>
+
+        <div
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
+            isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
+          }`}
+        >
+          <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
+            <MapPin size={28} className="text-white fill-white" />
+          </div>
+
+          <div
+            className={`w-[3px] bg-orange-600 transition-all duration-300 ${
+              isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
+            }`}
+          />
+          <div className="w-3 h-1.5 bg-black/20 rounded-full blur-[1px]" />
+        </div>
+
+        {selectedPointIsReady && (
+          <div className="absolute left-4 bottom-[245px] z-[700] bg-white/95 backdrop-blur-md rounded-2xl px-3 py-2 shadow-lg border border-white max-w-[210px]">
+            <p className="text-[8px] font-black text-slate-400 uppercase">
+              GPS entrega
+            </p>
+            <p className="text-[9px] font-black text-slate-700 leading-none mt-1">
+              {lat.toFixed(5)}, {lng.toFixed(5)}
+            </p>
+          </div>
+        )}
+
+        <div className="absolute left-0 right-0 bottom-0 z-[730] bg-white rounded-t-[36px] shadow-[0_-18px_60px_rgba(15,23,42,0.18)] border-t border-white px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+18px)]">
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+
+          {isChangingLocation && hasSavedDeliveryPoint && (
+            <p className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 p-2.5 rounded-2xl text-center uppercase leading-snug mb-3">
+              Abrimos tu punto guardado. Mueve el mapa si quieres cambiar la entrega.
+            </p>
+          )}
+
+          <p className="text-[11px] font-bold text-slate-500 bg-orange-50/70 border border-orange-100/50 p-2.5 rounded-2xl text-center leading-snug mb-3">
+            📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido.
+          </p>
+
+          <div className="space-y-2">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+              Referencia de entrega
+            </h3>
+
+            <textarea
+              value={reference}
+              onChange={e => setReference(e.target.value)}
+              placeholder="Ej: Casa blanca de dos pisos, portón negro, junto a la farmacia..."
+              className="w-full h-20 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
+            />
+          </div>
+
+          {error && (
+            <p className="text-center text-[10px] font-black text-red-500 uppercase mt-3 leading-tight">
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={!isInsideGeofence}
+            className={`mt-4 w-full rounded-[26px] bg-gradient-to-r from-orange-500 to-orange-600 h-15 min-h-[60px] text-[12px] font-black text-white shadow-xl shadow-orange-500/35 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
+              !isInsideGeofence ? 'opacity-40 cursor-not-allowed select-none' : ''
+            }`}
+          >
+            {isProcessing
+              ? 'PROCESANDO...'
+              : isChangingLocation
+                ? 'GUARDAR NUEVA DIRECCIÓN 📍'
+                : 'CONFIRMAR PUNTO 🚀'}
+          </button>
+        </div>
+
+        <style>{`
+          .leaflet-container {
+            font-family: inherit;
+            cursor: grab !important;
+            touch-action: pan-x pan-y;
+            background: #f8fafc;
+          }
+
+          .leaflet-container:active {
+            cursor: grabbing !important;
+          }
+
+          .leaflet-tile {
+            filter: saturate(1.08) contrast(1.03);
+          }
+
+          .custom-div-icon {
+            background: none;
+            border: none;
+          }
+
+          .pollazo-user-dot {
+            position: relative;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .pollazo-user-halo {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 9999px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+          }
+
+          .pollazo-user-core {
+            position: relative;
+            width: 12px;
+            height: 12px;
+            border-radius: 9999px;
+            background: #2563eb;
+            border: 2px solid white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <div
@@ -688,11 +906,7 @@ export default function LoginModal({
         <div className="p-6 pb-2 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200">
-              {step === 1 ? (
-                <Sparkles size={18} className="text-white fill-white" />
-              ) : (
-                <LocateFixed size={18} className="text-white" />
-              )}
+              <Sparkles size={18} className="text-white fill-white" />
             </div>
 
             <div className="text-left leading-tight">
@@ -717,255 +931,140 @@ export default function LoginModal({
         </div>
 
         <div className="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2 space-y-5">
-          {step === 1 ? (
-            <div className="animate-in slide-in-from-left duration-300">
-              <div className="bg-gradient-to-br from-orange-50/70 via-white to-amber-50/50 p-5 rounded-[35px] border border-orange-100/70 shadow-inner flex flex-col items-center gap-5">
-                <div className="relative">
-                  <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group relative">
-                    {!selectedAvatarReady && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
-                    )}
+          <div className="animate-in slide-in-from-left duration-300">
+            <div className="bg-gradient-to-br from-orange-50/70 via-white to-amber-50/50 p-5 rounded-[35px] border border-orange-100/70 shadow-inner flex flex-col items-center gap-5">
+              <div className="relative">
+                <div className="h-24 w-24 rounded-[32px] overflow-hidden ring-[6px] ring-white shadow-xl bg-white group relative">
+                  {!selectedAvatarReady && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
+                  )}
 
-                    <img
-                      src={avatar}
-                      className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-110 ${
-                        selectedAvatarReady ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
-                      }`}
-                      alt="Avatar seleccionado"
-                      loading="eager"
-                      decoding="async"
-                      onLoad={() => markAvatarLoaded(avatar)}
-                    />
+                  <img
+                    src={avatar}
+                    className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-110 ${
+                      selectedAvatarReady ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
+                    }`}
+                    alt="Avatar seleccionado"
+                    loading="eager"
+                    decoding="async"
+                    onLoad={() => markAvatarLoaded(avatar)}
+                  />
 
-                    {isProcessing && (
-                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-[32px]">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white">
-                    <Check size={14} strokeWidth={4} />
-                  </div>
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-[32px]">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                    </div>
+                  )}
                 </div>
 
-                <div className="w-full space-y-2.5">
-                  <div className="relative group">
-                    <User
-                      size={14}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors"
-                    />
-
-                    <input
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      placeholder="Tu Nombre o Alias"
-                      className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm"
-                    />
-                  </div>
-
-                  <div className="relative group">
-                    <Phone
-                      size={14}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors"
-                    />
-
-                    <input
-                      value={whatsapp}
-                      onChange={e => setWhatsapp(e.target.value)}
-                      onBlur={() => {
-                        if (whatsapp.trim()) {
-                          setWhatsapp(formatPhoneForInput(normalizeEcuadorPhone(whatsapp)));
-                        }
-                      }}
-                      inputMode="tel"
-                      placeholder="Ej: 098 979 5628"
-                      className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm"
-                    />
-                  </div>
-
-                  <div
-                    className={`flex items-start gap-2 rounded-2xl px-3 py-2 border ${
-                      whatsapp.trim() && phoneIsValid
-                        ? 'bg-green-50 border-green-100 text-green-700'
-                        : 'bg-slate-50 border-slate-100 text-slate-400'
-                    }`}
-                  >
-                    <ShieldCheck size={14} className="mt-0.5 flex-shrink-0" />
-                    <p className="text-[9px] font-black uppercase leading-relaxed">
-                      {whatsapp.trim() && phoneIsValid
-                        ? `Número listo: ${formatPhoneForInput(normalizedWhatsapp)}`
-                        : 'Luego podremos verificar este número por código para proteger tu cuenta.'}
-                    </p>
-                  </div>
+                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-xl shadow-lg border-4 border-white">
+                  <Check size={14} strokeWidth={4} />
                 </div>
               </div>
 
-              <div className="mt-6 space-y-4">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">
-                  Personaliza tu Avatar
-                </h3>
+              <div className="w-full space-y-2.5">
+                <div className="relative group">
+                  <User
+                    size={14}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors"
+                  />
 
-                <div className="grid grid-cols-4 gap-3 px-1">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50"
-                  >
-                    <Camera size={18} />
-                    <span className="text-[6px] font-black uppercase mt-0.5">Galería</span>
-                  </button>
+                  <input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Tu Nombre o Alias"
+                    className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm"
+                  />
+                </div>
 
-                  {PRESET_AVATARS.map(item => {
-                    const avatarIsLoaded = loadedAvatarUrls.has(item.url);
+                <div className="relative group">
+                  <Phone
+                    size={14}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500 transition-colors"
+                  />
 
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setAvatar(item.url)}
-                        className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden bg-orange-50 ${
-                          avatar === item.url
-                            ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10'
-                            : 'border-transparent opacity-90'
-                        }`}
-                      >
-                        {!avatarIsLoaded && (
-                          <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
-                        )}
+                  <input
+                    value={whatsapp}
+                    onChange={e => setWhatsapp(e.target.value)}
+                    onBlur={() => {
+                      if (whatsapp.trim()) {
+                        setWhatsapp(formatPhoneForInput(normalizeEcuadorPhone(whatsapp)));
+                      }
+                    }}
+                    inputMode="tel"
+                    placeholder="Ej: 098 979 5628"
+                    className="h-11 w-full rounded-2xl bg-white border border-slate-100 pl-11 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all shadow-sm"
+                  />
+                </div>
 
-                        <img
-                          src={item.url}
-                          className={`h-full w-full object-cover transition-all duration-500 ${
-                            avatarIsLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
-                          }`}
-                          alt={item.id}
-                          loading="eager"
-                          decoding="async"
-                          onLoad={() => markAvatarLoaded(item.url)}
-                        />
-
-                        {avatar === item.url && (
-                          <div className="absolute inset-0 bg-orange-500/10" />
-                        )}
-                      </button>
-                    );
-                  })}
+                <div
+                  className={`flex items-start gap-2 rounded-2xl px-3 py-2 border ${
+                    whatsapp.trim() && phoneIsValid
+                      ? 'bg-green-50 border-green-100 text-green-700'
+                      : 'bg-slate-50 border-slate-100 text-slate-400'
+                  }`}
+                >
+                  <ShieldCheck size={14} className="mt-0.5 flex-shrink-0" />
+                  <p className="text-[9px] font-black uppercase leading-relaxed">
+                    {whatsapp.trim() && phoneIsValid
+                      ? `Número listo: ${formatPhoneForInput(normalizedWhatsapp)}`
+                      : 'Luego podremos verificar este número por código para proteger tu cuenta.'}
+                  </p>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="animate-in slide-in-from-right duration-300 space-y-4">
-              <p className="text-[11px] font-bold text-slate-500 bg-orange-50/50 border border-orange-100/40 p-2.5 rounded-2xl text-center leading-snug">
-                📍 Marca en la calle el punto exacto donde quieres que llegue tu pedido
-                (evita marcar dentro de la casa).
-              </p>
 
-              {isChangingLocation && hasSavedDeliveryPoint && (
-                <p className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 p-2.5 rounded-2xl text-center uppercase leading-snug">
-                  Abrimos tu punto guardado. Ajusta el pin naranja si quieres mover la entrega.
-                </p>
-              )}
+            <div className="mt-6 space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">
+                Personaliza tu Avatar
+              </h3>
 
-              <div className="relative h-[330px] w-full rounded-[40px] overflow-hidden shadow-2xl border-2 border-white bg-slate-100 pollazo-modern-map">
-                <div ref={mapContainerRef} className="h-full w-full z-0" />
-
-                {!mapReady && !mapFailed && (
-                  <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 to-slate-100 flex flex-col items-center justify-center gap-3">
-                    <div className="w-12 h-12 rounded-3xl bg-white shadow-lg flex items-center justify-center">
-                      <Navigation size={22} className="text-orange-500 animate-pulse" />
-                    </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Cargando mapa...
-                    </p>
-                  </div>
-                )}
-
-                {mapFailed && (
-                  <div className="absolute inset-0 z-[500] bg-white flex flex-col items-center justify-center gap-3 px-6 text-center">
-                    <WifiOff size={32} className="text-orange-500" />
-                    <p className="text-xs font-black text-slate-700 uppercase leading-relaxed">
-                      No se pudo cargar el mapa. Puedes intentar de nuevo con mejor conexión.
-                    </p>
-                  </div>
-                )}
-
-                <div className="absolute inset-x-4 top-4 z-[700] flex justify-center pointer-events-none">
-                  <div
-                    className={`px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-orange-100 transition-all duration-300 ${
-                      isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-                    }`}
-                  >
-                    <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
-                      {selectedPointIsReady ? '📍 Punto marcado correctamente' : 'Mueve para marcar'}
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
-                    isDragging ? 'opacity-100' : 'opacity-0'
-                  }`}
-                >
-                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
-                </div>
-
-                <div
-                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
-                    isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
-                  }`}
-                >
-                  <div className="bg-orange-500 p-2 rounded-2xl shadow-[0_10px_20px_rgba(249,115,22,0.4)] border-2 border-white">
-                    <MapPin size={24} className="text-white fill-white" />
-                  </div>
-
-                  <div
-                    className={`w-[3px] bg-orange-600 transition-all duration-300 ${
-                      isDragging ? 'h-10 opacity-40' : 'h-4 opacity-100'
-                    }`}
-                  />
-                  <div className="w-2 h-1 bg-black/20 rounded-full blur-[1px]" />
-                </div>
-
+              <div className="grid grid-cols-4 gap-3 px-1">
                 <button
-                  onClick={handleGetLocation}
-                  className={`absolute bottom-6 right-6 z-[700] p-4 rounded-3xl shadow-2xl transition-all border border-white ${
-                    isLocating
-                      ? 'bg-orange-500 text-white animate-pulse'
-                      : 'bg-white text-slate-800 active:scale-75'
-                  }`}
-                  aria-label="Usar mi ubicación actual"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50 active:scale-95 transition-all hover:bg-orange-50"
                 >
-                  <Navigation
-                    size={22}
-                    className={selectedPointIsReady ? 'fill-orange-500 text-orange-500' : ''}
-                  />
+                  <Camera size={18} />
+                  <span className="text-[6px] font-black uppercase mt-0.5">Galería</span>
                 </button>
 
-                {selectedPointIsReady && (
-                  <div className="absolute bottom-6 left-6 z-[700] bg-white/95 backdrop-blur-md rounded-2xl px-3 py-2 shadow-lg border border-white">
-                    <p className="text-[8px] font-black text-slate-400 uppercase">
-                      GPS entrega
-                    </p>
-                    <p className="text-[9px] font-black text-slate-700 leading-none mt-1">
-                      {lat.toFixed(5)}, {lng.toFixed(5)}
-                    </p>
-                  </div>
-                )}
-              </div>
+                {PRESET_AVATARS.map(item => {
+                  const avatarIsLoaded = loadedAvatarUrls.has(item.url);
 
-              <div className="space-y-2">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                  Añade Referencias
-                </h3>
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setAvatar(item.url)}
+                      className={`relative aspect-square rounded-2xl border-2 transition-all active:scale-95 overflow-hidden bg-orange-50 ${
+                        avatar === item.url
+                          ? 'border-orange-500 ring-4 ring-orange-100 scale-105 z-10'
+                          : 'border-transparent opacity-90'
+                      }`}
+                    >
+                      {!avatarIsLoaded && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-50 animate-pulse" />
+                      )}
 
-                <textarea
-                  value={reference}
-                  onChange={e => setReference(e.target.value)}
-                  placeholder="Ej: Casa blanca de dos pisos, portón negro, junto a la farmacia..."
-                  className="w-full h-20 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
-                />
+                      <img
+                        src={item.url}
+                        className={`h-full w-full object-cover transition-all duration-500 ${
+                          avatarIsLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
+                        }`}
+                        alt={item.id}
+                        loading="eager"
+                        decoding="async"
+                        onLoad={() => markAvatarLoaded(item.url)}
+                      />
+
+                      {avatar === item.url && (
+                        <div className="absolute inset-0 bg-orange-500/10" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+          </div>
 
           <input
             ref={fileInputRef}
@@ -977,16 +1076,6 @@ export default function LoginModal({
         </div>
 
         <div className="p-6 pt-2 bg-white flex-shrink-0 border-t border-slate-50 flex gap-3">
-          {step === 2 && !isChangingLocation && (
-            <button
-              onClick={() => setStep(1)}
-              className="p-4 rounded-2xl bg-slate-100 text-slate-500 active:scale-90 transition-all"
-              aria-label="Volver al perfil"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          )}
-
           <div className="flex-1 flex flex-col">
             {error && (
               <p className="text-center text-[10px] font-black text-red-500 uppercase mb-3 animate-bounce leading-tight">
@@ -995,25 +1084,10 @@ export default function LoginModal({
             )}
 
             <button
-              onClick={step === 1 ? handleNextStep : handleSave}
-              disabled={step === 2 && !isInsideGeofence}
-              className={`w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
-                step === 2 && !isInsideGeofence
-                  ? 'opacity-40 cursor-not-allowed select-none'
-                  : ''
-              }`}
+              onClick={handleNextStep}
+              className="w-full rounded-3xl bg-gradient-to-r from-orange-500 to-orange-600 h-16 text-[12px] font-black text-white shadow-xl shadow-orange-500/40 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2"
             >
-              {step === 1 ? (
-                <>
-                  CONTINUAR A UBICACIÓN <ArrowRight size={16} />
-                </>
-              ) : isProcessing ? (
-                'PROCESANDO...'
-              ) : isChangingLocation ? (
-                'GUARDAR NUEVA DIRECCIÓN 📍'
-              ) : (
-                'CONFIRMAR PUNTO 🚀'
-              )}
+              CONTINUAR A UBICACIÓN <ArrowRight size={16} />
             </button>
           </div>
         </div>
@@ -1027,54 +1101,6 @@ export default function LoginModal({
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
-        }
-
-        .leaflet-container {
-          font-family: inherit;
-          cursor: grab !important;
-          touch-action: pan-x pan-y;
-          background: #f8fafc;
-        }
-
-        .leaflet-container:active {
-          cursor: grabbing !important;
-        }
-
-        .pollazo-modern-map .leaflet-tile {
-          filter: saturate(1.08) contrast(1.03);
-        }
-
-        .custom-div-icon {
-          background: none;
-          border: none;
-        }
-
-        .pollazo-user-dot {
-          position: relative;
-          width: 22px;
-          height: 22px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .pollazo-user-halo {
-          position: absolute;
-          width: 22px;
-          height: 22px;
-          border-radius: 9999px;
-          background: rgba(59, 130, 246, 0.2);
-          border: 1px solid rgba(59, 130, 246, 0.35);
-        }
-
-        .pollazo-user-core {
-          position: relative;
-          width: 12px;
-          height: 12px;
-          border-radius: 9999px;
-          background: #2563eb;
-          border: 2px solid white;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
         }
       `}</style>
     </div>
