@@ -1,13 +1,13 @@
 {
   "name": "Pollazo Galapagueño",
-  "short_name": "Pollazo Gal",
+  "short_name": "Pollazo Galapagueño",
   "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
-  "id": "/?pollazo_app=logo_original_v23",
-  "start_url": "/?pollazo_app=logo_original_v23",
+  "id": "/?pollazo_app=logo_original_v24",
+  "start_url": "/?pollazo_app=logo_original_v24",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fff4df",
-  "theme_color": "#fff4df",
+  "background_color": "#f59e0b",
+  "theme_color": "#f59e0b",
   "orientation": "portrait",
   "icons": [
     {
