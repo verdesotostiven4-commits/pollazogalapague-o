@@ -6,45 +6,64 @@
     <meta http-equiv="Expires" content="0" />
 
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Pollazo El Mirador</title>
-    <meta name="description" content="Tu market de confianza con pollo fresco enfundado en Puerto Ayora." />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+
+    <title>Pollazo Galapagueño</title>
+    <meta
+      name="description"
+      content="Tu market de confianza con pollo fresco enfundado en Puerto Ayora."
+    />
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.json?v=4" />
     <meta name="theme-color" content="#f97316" />
+    <meta name="background-color" content="#f97316" />
+
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Pollazo Gal" />
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Pollazo" />
-    
-    <link rel="apple-touch-icon" href="https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Pollazo Gal" />
 
-    <meta property="og:title" content="Pollazo El Mirador" />
-    <meta property="og:description" content="Pollo fresco y productos para tu hogar en Galápagos." />
-    
-    <meta property="og:image" content="https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0" />
+    <link
+      rel="apple-touch-icon"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEin3pN4YDaHP3IxmNrtpbD2swEb9qpEJOsOmbbbtAmlaSgSicNgZbB9jYTdfdX4oiDOBORD4h5oDSRlFbzw6-3B6c2sFH7s3T0tla5kFjCe6treln_EPQ5a2i7V-ghUqJyTeVztj1ORThqO-G-eqO1eyDxo3MsEsoiBW60fatCa7SNeVHtJd-a3vLrjhtg?v=4"
+    />
+
+    <meta property="og:title" content="Pollazo Galapagueño El Mirador" />
+    <meta
+      property="og:description"
+      content="Pollo fresco y productos para tu hogar en Galápagos."
+    />
+    <meta
+      property="og:image"
+      content="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA?v=4"
+    />
     <meta property="og:type" content="website" />
 
     <style>
-      /* =========================================================
-         🛡️ BLOQUEO DE SELECCIÓN DE TEXTO Y MENÚS FLOTANTES NATIVOS
-         ========================================================= */
-      html, body {
-        -webkit-touch-callout: none; /* iOS Safari: Desactiva el menú flotante al mantener pulsado */
-        -webkit-user-select: none;   /* Safari */
-        -khtml-user-select: none;    /* Konqueror HTML */
-        -moz-user-select: none;      /* Firefox antiguo */
-        -ms-user-select: none;       /* IE/Edge */
-        user-select: none;           /* Chrome, Edge, Firefox moderno */
-        -webkit-tap-highlight-color: transparent; /* Quita el cuadro azul en Android al hacer tap */
-        touch-action: pan-x pan-y;   /* Permite scroll fluido pero anula gestos raros como doble-tap-zoom */
+      html,
+      body {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: pan-x pan-y;
+        background: #f97316;
       }
 
-      /* 🔓 EXCEPCIÓN: Los inputs y textareas SÍ deben poder seleccionarse para escribir */
-      input, textarea, select {
+      input,
+      textarea,
+      select {
         -webkit-user-select: auto !important;
         -khtml-user-select: auto !important;
         -moz-user-select: auto !important;
@@ -56,51 +75,79 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #f97316; /* Naranja Pollazo */
+        background:
+          radial-gradient(circle at 50% 35%, rgba(251, 191, 36, 0.55), transparent 34%),
+          linear-gradient(180deg, #fb923c 0%, #f97316 48%, #ea580c 100%);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         transition: opacity 0.4s ease;
+        overflow: hidden;
       }
+
+      #html-splash::before {
+        content: "";
+        position: absolute;
+        width: 340px;
+        height: 340px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        filter: blur(20px);
+      }
+
       #html-splash.fade-out {
         opacity: 0;
         pointer-events: none;
       }
+
       #html-splash img {
-        width: 180px;
-        height: 180px;
+        position: relative;
+        width: min(74vw, 300px);
+        height: min(74vw, 300px);
         object-fit: contain;
-        filter: drop-shadow(0 15px 35px rgba(0,0,0,0.25));
+        filter: drop-shadow(0 18px 38px rgba(0, 0, 0, 0.28));
         animation: splashPulse 2s ease-in-out infinite;
       }
+
       @keyframes splashPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.06); }
+        0%,
+        100% {
+          transform: scale(1);
+        }
+
+        50% {
+          transform: scale(1.055);
+        }
       }
     </style>
   </head>
+
   <body>
     <div id="html-splash">
-      <img src="https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0" alt="Pollazo El Mirador" />
+      <img
+        src="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA?v=4"
+        alt="Pollazo Galapagueño"
+      />
     </div>
 
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
+
     <script>
-      // Registro del Service Worker para que se pueda instalar
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
         });
       }
 
-      // Quitar el splash cuando React esté listo
-      window.addEventListener('load', () => {
-        const splash = document.getElementById('html-splash');
+      window.addEventListener("load", () => {
+        const splash = document.getElementById("html-splash");
+
         if (splash) {
           setTimeout(() => {
-            splash.classList.add('fade-out');
+            splash.classList.add("fade-out");
             setTimeout(() => splash.remove(), 400);
           }, 400);
         }
