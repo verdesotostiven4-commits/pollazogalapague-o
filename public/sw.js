@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-v31';
+const CACHE_VERSION = 'pollazo-cache-clean-v32';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -31,9 +31,9 @@ self.addEventListener('fetch', event => {
   }
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    event.respondWith(fetch(request));
     return;
   }
 
-  event.respondWith(fetch(request).catch(() => caches.match(request)));
+  event.respondWith(fetch(request));
 });
