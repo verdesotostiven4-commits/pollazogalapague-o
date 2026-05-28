@@ -431,6 +431,20 @@ function AppShell() {
     }
   };
 
+  const handleOpenDeliveryLocation = () => {
+    setShowConfirmation(false);
+    setPendingOrder(false);
+    setShowTracking(false);
+
+    if (hasCustomerIdentity) {
+      setIsChangingLocation(true);
+    } else {
+      setIsChangingLocation(false);
+    }
+
+    setShowLoginModal(true);
+  };
+
   const handleLogin = async (u: {
     name: string;
     whatsapp: string;
@@ -633,6 +647,7 @@ function AppShell() {
             onInstall={() => undefined}
             canInstall={false}
             onNavigate={handleNavigate}
+            onChangeLocation={handleOpenDeliveryLocation}
           />
         )}
 
