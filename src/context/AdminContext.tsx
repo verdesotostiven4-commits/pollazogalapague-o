@@ -158,6 +158,7 @@ const slug = (text: string) => {
 const cleanPhone = (phone?: string | null) => {
   return (phone || '').replace(/\D/g, '');
 };
+
 const normalizeEcuadorPhone = (phone?: string | null) => {
   const clean = cleanPhone(phone);
 
@@ -256,7 +257,7 @@ const resolvePaymentStatus = (
     return 'contra_entrega';
   }
 
-  if (method === 'deuna' || method === 'transferencia') {
+  if (method === 'deuna' || method === 'transferencia' || method === 'tarjeta') {
     return CONFIRMED_STATUSES.includes(nextStatus) ? 'confirmado' : 'validando';
   }
 
@@ -275,7 +276,7 @@ const shouldCountOrderNow = (
     return nextStatus === 'Entregado';
   }
 
-  if (method === 'deuna' || method === 'transferencia') {
+  if (method === 'deuna' || method === 'transferencia' || method === 'tarjeta') {
     return CONFIRMED_STATUSES.includes(nextStatus);
   }
 
@@ -831,13 +832,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       avatar_url?: string | null,
       locationPatch?: CustomerLocationPatch
     ) => {
-      const clean = cleanPhone(phone);
+      const clean = normalizeEcuadorPhone(phone);
 
       if (!clean) return null;
 
+      const now = new Date().toISOString();
+
       const payload: Record<string, unknown> = {
         phone: clean,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       };
 
       if (name !== undefined) {
@@ -866,6 +869,30 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
+      const existingCustomer = findBestCustomerByPhone(customers, clean);
+
+      if (existingCustomer?.id) {
+        const updatePayload = { ...payload };
+
+        delete updatePayload.phone;
+
+        const { data, error } = await supabase
+          .from('customers')
+          .update(updatePayload)
+          .eq('id', existingCustomer.id)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('❌ Error actualizando cliente existente:', error);
+          return null;
+        }
+
+        await load();
+
+        return data as ExtendedCustomer | null;
+      }
+
       const { data, error } = await supabase
         .from('customers')
         .upsert(payload, { onConflict: 'phone' })
@@ -881,7 +908,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
       return data as ExtendedCustomer | null;
     },
-    [load]
+    [customers, load]
   );
 
   const addCustomerPoints = useCallback(
@@ -995,7 +1022,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     async (order: ExtendedOrder) => {
       if (!isSupabaseConfigured) return;
 
-      const cleanCustomerPhone = cleanPhone(order.customer_phone);
+      const cleanCustomerPhone = normalizeEcuadorPhone(order.customer_phone);
       const orderTotal = toMoneyNumber(order.total);
       const expToAdd = getExpFromTotal(orderTotal);
       const shouldAddSeasonPoints = extraSettings.event_active !== false;
@@ -1013,8 +1040,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const currentCustomer =
-        customers.find(customer => cleanPhone(customer.phone) === cleanCustomerPhone) || null;
+      const currentCustomer = findBestCustomerByPhone(customers, cleanCustomerPhone);
 
       if (currentCustomer) {
         const nextExp = Math.max(0, (currentCustomer.exp || 0) + expToAdd);
