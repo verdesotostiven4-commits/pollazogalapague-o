@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=31" />
+    <link rel="manifest" href="/manifest.json" />
 
     <meta name="theme-color" content="#ffffff" />
     <meta name="background-color" content="#ffffff" />
@@ -35,16 +35,16 @@
     <link
       rel="icon"
       type="image/png"
-      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o"
     />
     <link
       rel="shortcut icon"
       type="image/png"
-      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o"
     />
     <link
       rel="apple-touch-icon"
-      href="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o"
     />
 
     <meta property="og:title" content="Pollazo Galapagueño" />
@@ -54,7 +54,7 @@
     />
     <meta
       property="og:image"
-      content="https://blogger.googleusercontent.com/img/a/AVvXsEiaSzhzBcTVRTli7NO3yfJjf_xqBKwZWAiQ4mdn_mxI-T9AmbJBi1JJm5NSy0l2bRR70Y4KSkm7FCXnPcAgUTJRLWBriM7BioI8sNUkhrwfh9Dhg8wWRkmv5SrfOkyo1L_Tb3rvjPFaZ2omI6hHF2tc-GXUm-OI9EN7WdAf9YDu_i8GdQJGImUGzzOtKLA"
+      content="https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o"
     />
     <meta property="og:type" content="website" />
 
@@ -103,8 +103,13 @@
 
     <script>
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=31").catch(() => {});
+        window.addEventListener("load", async () => {
+          try {
+            const registration = await navigator.serviceWorker.register("/sw.js");
+            registration.update().catch(() => {});
+          } catch {
+            // No pasa nada si falla el service worker.
+          }
         });
       }
     </script>
