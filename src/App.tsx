@@ -340,7 +340,7 @@ function AppShell() {
   });
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, loading, orders, products } = useAdmin();
+  const { createOrder, upsertCustomer, orders, products } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
