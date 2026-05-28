@@ -20,17 +20,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=23" />
+    <link rel="manifest" href="/manifest.json?v=24" />
 
-    <meta name="theme-color" content="#fff4df" />
-    <meta name="background-color" content="#fff4df" />
+    <meta name="theme-color" content="#f59e0b" />
+    <meta name="background-color" content="#f59e0b" />
 
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="Pollazo Gal" />
+    <meta name="application-name" content="Pollazo Galapagueño" />
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Pollazo Gal" />
+    <meta name="apple-mobile-web-app-title" content="Pollazo Galapagueño" />
 
     <link
       rel="apple-touch-icon"
@@ -51,14 +51,19 @@
     <style>
       :root {
         color-scheme: light;
-        --pollazo-boot-bg: #fff4df;
+        --pollazo-bg-1: #ff5a00;
+        --pollazo-bg-2: #ff9100;
+        --pollazo-bg-3: #ffc107;
+        --pollazo-bg-4: #ffe600;
       }
 
       html,
       body {
         margin: 0;
         min-height: 100%;
-        background: var(--pollazo-boot-bg);
+        background:
+          radial-gradient(circle at 50% 58%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 28%, var(--pollazo-bg-2) 62%, var(--pollazo-bg-1) 100%);
+        background-attachment: fixed;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -82,7 +87,8 @@
 
       #root {
         min-height: 100dvh;
-        background: var(--pollazo-boot-bg);
+        background:
+          radial-gradient(circle at 50% 58%, var(--pollazo-bg-4) 0%, var(--pollazo-bg-3) 28%, var(--pollazo-bg-2) 62%, var(--pollazo-bg-1) 100%);
       }
     </style>
   </head>
@@ -95,7 +101,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=23").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=24").catch(() => {});
         });
       }
     </script>
