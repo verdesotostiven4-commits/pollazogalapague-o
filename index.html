@@ -20,21 +20,21 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="manifest" href="/manifest.json?v=17" />
+    <link rel="manifest" href="/manifest.json?v=18" />
 
-    <meta name="theme-color" content="#ff6a12" />
-    <meta name="background-color" content="#ff6a12" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="background-color" content="#ffffff" />
 
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Pollazo Gal" />
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Pollazo Gal" />
 
     <link
       rel="apple-touch-icon"
-      href="https://blogger.googleusercontent.com/img/a/AVvXsEimLXaGN_NFfO-DKdPE506yLZjL1xfRe8ZjcKTH7Ih3Ht8ouvBvO4uAlsY1AAmUDcLUErFQ3ke6upProXGiYj-6qwvgnop30J-Na6S52dq5s84EHevAauKQPyNol0zwwxdxUCbEhiNdrBJnCZKG_rliqY7eyKI623XZZO_mjsPd7PCok8ukQAEWMY_P-RU"
+      href="https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g"
     />
 
     <meta property="og:title" content="Pollazo Galapagueño El Mirador" />
@@ -44,24 +44,16 @@
     />
     <meta
       property="og:image"
-      content="https://blogger.googleusercontent.com/img/a/AVvXsEimLXaGN_NFfO-DKdPE506yLZjL1xfRe8ZjcKTH7Ih3Ht8ouvBvO4uAlsY1AAmUDcLUErFQ3ke6upProXGiYj-6qwvgnop30J-Na6S52dq5s84EHevAauKQPyNol0zwwxdxUCbEhiNdrBJnCZKG_rliqY7eyKI623XZZO_mjsPd7PCok8ukQAEWMY_P-RU"
+      content="https://blogger.googleusercontent.com/img/a/AVvXsEiSwpbezrLJ_jVmvgwIlO1LICMnnHYHk_PxjUn39cm4odqvoV2P48w4R-AKzG8P_yLVV4vs0HGztoBxtOlMPfD94tRQYFYTpwpSUItAWM1-nRkVqx-DIMnkdFjL2ngSfhthsmjwscG1i4RwOwOYlQS22ygNaWeBxczcT3CIatvNfeVZbdlNCPu2KdHMO3g"
     />
     <meta property="og:type" content="website" />
 
     <style>
-      :root {
-        --pollazo-boot-bg: #ff6a12;
-        --pollazo-boot-bg-2: #f97316;
-        --pollazo-boot-bg-3: #ff8a1f;
-      }
-
       html,
       body {
         margin: 0;
         min-height: 100%;
-        background:
-          radial-gradient(circle at 50% 42%, rgba(255, 179, 44, 0.22), transparent 34%),
-          linear-gradient(180deg, var(--pollazo-boot-bg-3) 0%, var(--pollazo-boot-bg) 45%, var(--pollazo-boot-bg-2) 100%);
+        background: #ffffff;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -85,9 +77,7 @@
 
       #root {
         min-height: 100dvh;
-        background:
-          radial-gradient(circle at 50% 42%, rgba(255, 179, 44, 0.22), transparent 34%),
-          linear-gradient(180deg, var(--pollazo-boot-bg-3) 0%, var(--pollazo-boot-bg) 45%, var(--pollazo-boot-bg-2) 100%);
+        background: #ffffff;
       }
     </style>
   </head>
@@ -100,7 +90,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js?v=17").catch(() => {});
+          navigator.serviceWorker.register("/sw.js?v=18").catch(() => {});
         });
       }
     </script>
