@@ -13,13 +13,19 @@ import type { CartItem, Product } from '../types';
 interface CartContextType {
   items: CartItem[];
   total: number;
+
+  // Compatibilidad nueva y vieja
   itemCount: number;
+  cartCount: number;
+
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
+
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+
   openCart: () => void;
   closeCart: () => void;
 }
@@ -50,12 +56,28 @@ function getProductUnitPrice(product: Product): number {
   return safeNumber(product.price);
 }
 
+function buildCartItemId(product: Product): string {
+  if (typeof product.custom_price === 'number' && product.custom_price > 0) {
+    return `${product.id}-${Number(product.custom_price).toFixed(2)}`;
+  }
+
+  return String(product.id);
+}
+
 function normalizeProduct(product: Product): Product {
+  const cartItemId = buildCartItemId(product);
+  const unitPrice = getProductUnitPrice(product);
+
   return {
     ...product,
-    id: String(product.id),
+    id: cartItemId,
     name: product.name || 'Producto',
     category: product.category || 'Abarrotes y básicos',
+    price: unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : product.price || 'Consultar precio',
+    custom_price:
+      typeof product.custom_price === 'number' && product.custom_price > 0
+        ? Number(product.custom_price.toFixed(2))
+        : undefined,
     available: product.available !== false,
   };
 }
@@ -79,10 +101,16 @@ function normalizeCartItem(item: unknown): CartItem | null {
   return {
     product: normalizedProduct,
     quantity: Math.max(1, Math.floor(quantity)),
-    id: normalizedProduct.id,
-    name: normalizedProduct.name,
-    price: unitPrice,
-    custom_price: normalizedProduct.custom_price,
+    id: raw.id || normalizedProduct.id,
+    name: raw.name || normalizedProduct.name,
+    price:
+      typeof raw.price === 'number' && raw.price > 0
+        ? Number(raw.price.toFixed(2))
+        : unitPrice,
+    custom_price:
+      typeof raw.custom_price === 'number' && raw.custom_price > 0
+        ? Number(raw.custom_price.toFixed(2))
+        : normalizedProduct.custom_price,
   };
 }
 
@@ -150,7 +178,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ...normalizedProduct,
             },
             quantity: item.quantity + safeQuantity,
-            id: normalizedProduct.id,
+            id: item.id || normalizedProduct.id,
             name: normalizedProduct.name,
             price: unitPrice,
             custom_price: normalizedProduct.custom_price,
@@ -234,12 +262,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => sum + item.quantity, 0);
   }, [items]);
 
+  const cartCount = itemCount;
+
   return (
     <CartContext.Provider
       value={{
         items,
         total,
         itemCount,
+        cartCount,
         isOpen,
         setIsOpen,
         addItem,
