@@ -516,7 +516,7 @@ export default function LoginModal({
         center: [startLat, startLng],
         zoom: 17,
         minZoom: 5,
-        maxZoom: 20,
+        maxZoom: 19,
         zoomControl: false,
         attributionControl: false,
         scrollWheelZoom: true,
@@ -528,7 +528,8 @@ export default function LoginModal({
         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         {
           subdomains: 'abcd',
-          maxZoom: 20,
+          maxZoom: 19,
+          maxNativeZoom: 18,
           detectRetina: true,
         }
       );
@@ -537,6 +538,7 @@ export default function LoginModal({
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
           maxZoom: 19,
+          maxNativeZoom: 19,
           detectRetina: true,
         }
       );
