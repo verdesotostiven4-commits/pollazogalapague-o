@@ -1,6 +1,9 @@
-import type { CartItem, PaymentMethod } from '../types';
+import type { CartItem, OrderStatus, PaymentMethod } from '../types';
 
-export const STORE_WHATSAPP = '593989795628';
+export const WHATSAPP = '593989795628';
+export const STORE_WHATSAPP = WHATSAPP;
+
+const APP_URL = 'https://pollazogalapague-o.vercel.app';
 
 interface WhatsAppOptions {
   paymentMethod?: PaymentMethod;
@@ -89,8 +92,8 @@ export function isStoreOpen(date = new Date()): boolean {
   return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
 }
 
-function cleanPhone(phone: string) {
-  return phone.replace(/\D/g, '');
+function cleanPhoneNumber(phone?: string | null): string {
+  return String(phone || '').replace(/\D/g, '');
 }
 
 function paymentLabel(method?: PaymentMethod) {
@@ -202,5 +205,70 @@ export function buildWhatsAppUrl(
 
   const text = messageSections.join('\n\n');
 
-  return `https://wa.me/${cleanPhone(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${cleanPhoneNumber(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
+}
+
+export function buildStatusWhatsAppUrl(
+  phone: string,
+  code: string,
+  status: OrderStatus
+): string {
+  const clean = cleanPhoneNumber(phone);
+
+  if (!clean) {
+    return '#';
+  }
+
+  const statusConfig: Record<OrderStatus, { emoji: string; msg: string }> = {
+    'Por Confirmar': {
+      emoji: '🕒',
+      msg: 'Recibimos tu pedido y está pendiente de confirmación. Estamos revisando disponibilidad y/o pago.',
+    },
+    Recibido: {
+      emoji: '✅',
+      msg: '¡Confirmado! El negocio aceptó tu pedido. Ahora sí empieza el seguimiento de entrega.',
+    },
+    Preparando: {
+      emoji: '📦',
+      msg: '¡Buenas noticias! Tu pedido ya se está preparando.',
+    },
+    Enviado: {
+      emoji: '🛵',
+      msg: '¡Tu pedido va en camino! Prepárate para recibirlo.',
+    },
+    Entregado: {
+      emoji: '😋',
+      msg: '¡Pedido entregado! Gracias por comprar en La Casa del Pollazo.',
+    },
+    Cancelado: {
+      emoji: '❌',
+      msg: 'Tu pedido ha sido cancelado. Escríbenos si tienes dudas.',
+    },
+  };
+
+  const fallback = statusConfig['Por Confirmar'];
+  const { emoji, msg } = statusConfig[status] || fallback;
+
+  const lines: string[] = [];
+
+  lines.push(`${emoji} *ACTUALIZACIÓN ORDEN ${code || 'POLLazo'}*`);
+  lines.push('');
+  lines.push(msg);
+  lines.push('');
+
+  if (status === 'Por Confirmar') {
+    lines.push('🕒 Apenas confirmemos disponibilidad y/o pago, se activará el tiempo estimado en la app.');
+  }
+
+  if (status === 'Recibido') {
+    lines.push('✅ Ya puedes revisar el tiempo estimado desde la app.');
+  }
+
+  lines.push('');
+  lines.push('📲 *Mira el estado en vivo aquí:*');
+  lines.push(APP_URL);
+  lines.push('');
+  lines.push('_Pollazo El Mirador_');
+
+  return `https://wa.me/${clean}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
