@@ -1,403 +1,199 @@
-import type { CartItem, OrderStatus, PaymentMethod, Product } from '../types';
+import type { CartItem, PaymentMethod } from '../types';
 
-export const WHATSAPP = '+593989795628';
+export const STORE_WHATSAPP = '593989795628';
 
-const APP_URL = 'https://pollazogalapagueno.vercel.app';
-
-interface WhatsAppOrderOptions {
-  paymentMethod?: PaymentMethod | null;
+interface WhatsAppOptions {
+  paymentMethod?: PaymentMethod;
   selectedBank?: string | null;
-  serviceFee?: number;
-  cardFee?: number;
-
-  // Preparado para cuando queramos mandar ubicación exacta también por WhatsApp.
   customerReference?: string | null;
   customerLat?: number | null;
   customerLng?: number | null;
   deliveryType?: 'domicilio' | 'retiro';
 }
 
-const toMoney = (value: number): number => {
-  if (!Number.isFinite(value)) return 0;
-  return Number(value.toFixed(2));
+const BANK_LABELS: Record<string, string> = {
+  pichincha: 'Banco Pichincha',
+  guayaquil: 'Banco Guayaquil',
+  pacifico: 'Banco del Pacífico',
+  austro: 'Banco del Austro',
+  otros: 'Produbanco / Otros Bancos',
+  Ninguno: 'No aplica',
 };
 
-const cleanPhoneNumber = (phone?: string | null): string => {
-  return String(phone || '').replace(/\D/g, '');
-};
-
-const readStoredPaymentMethod = (): PaymentMethod | null => {
-  if (typeof window === 'undefined') return null;
-
-  const value = window.localStorage.getItem('selectedPaymentMethod');
-
-  if (
-    value === 'efectivo' ||
-    value === 'deuna' ||
-    value === 'transferencia' ||
-    value === 'tarjeta'
-  ) {
-    return value;
+export function numericPrice(value?: string | number | null): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? Number(value.toFixed(2)) : 0;
   }
 
-  return null;
-};
-
-const readStoredBank = (): string | null => {
-  if (typeof window === 'undefined') return null;
-
-  const value = window.localStorage.getItem('selectedBank');
-
-  if (!value || value === 'Ninguno') return null;
-
-  return value;
-};
-
-export const numericPrice = (price?: string | number | null) => {
-  if (typeof price === 'number') {
-    return price > 0 ? toMoney(price) : 0;
-  }
-
-  const raw = String(price || '').trim();
-
-  if (!raw) return 0;
-
-  const normalized = raw
+  const clean = String(value || '')
     .replace(',', '.')
     .replace(/[^0-9.]/g, '');
 
-  const numeric = Number.parseFloat(normalized);
+  const parsed = Number.parseFloat(clean);
 
-  return Number.isNaN(numeric) ? 0 : toMoney(numeric);
-};
+  return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
+}
 
-export const isFixedPrice = (price?: string | number | null) => {
-  const numeric = numericPrice(price);
-  return numeric > 0;
-};
+export function isFixedPrice(value?: string | number | null): boolean {
+  return numericPrice(value) > 0;
+}
 
-export const productUnitPrice = (product: Product): number => {
-  if (typeof product.custom_price === 'number' && product.custom_price > 0) {
-    return toMoney(product.custom_price);
-  }
-
-  return toMoney(numericPrice(product.price));
-};
-
-export const itemUnitPrice = (item: CartItem): number => {
-  if (typeof item.product?.custom_price === 'number' && item.product.custom_price > 0) {
-    return toMoney(item.product.custom_price);
+export function itemUnitPrice(item: CartItem): number {
+  if (typeof item.product.custom_price === 'number' && item.product.custom_price > 0) {
+    return Number(item.product.custom_price.toFixed(2));
   }
 
   if (typeof item.custom_price === 'number' && item.custom_price > 0) {
-    return toMoney(item.custom_price);
+    return Number(item.custom_price.toFixed(2));
   }
 
   if (typeof item.price === 'number' && item.price > 0) {
-    return toMoney(item.price);
+    return Number(item.price.toFixed(2));
   }
 
-  return productUnitPrice(item.product);
-};
-
-export const itemHasKnownPrice = (item: CartItem): boolean => {
-  return itemUnitPrice(item) > 0;
-};
-
-export const subtotalOf = (items: CartItem[]) => {
-  return toMoney(
-    items.reduce((sum, item) => {
-      return sum + itemUnitPrice(item) * item.quantity;
-    }, 0)
-  );
-};
-
-export const deliveryFeeOf = (subtotal: number) => {
-  return subtotal > 0 && subtotal < 10 ? 1.5 : 0;
-};
-
-export const orderCode = () => `#PLZ-${Math.floor(1000 + Math.random() * 9000)}`;
-
-export function isStoreOpen(date = new Date()): boolean {
-  const h = date.getHours();
-  return h >= 7 && h < 21;
+  return numericPrice(item.product.price);
 }
 
-const getProductName = (item: CartItem): string => {
-  return item.product?.name || item.name || 'Producto';
-};
+export function subtotalOf(items: CartItem[]): number {
+  const subtotal = items.reduce((sum, item) => {
+    return sum + itemUnitPrice(item) * item.quantity;
+  }, 0);
 
-const getPriceLabel = (item: CartItem): string => {
-  const unitPrice = itemUnitPrice(item);
+  return Number(subtotal.toFixed(2));
+}
 
-  if (typeof item.product?.custom_price === 'number' && item.product.custom_price > 0) {
-    return `$${unitPrice.toFixed(2)} elegido`;
-  }
+export function deliveryFeeOf(subtotal: number): number {
+  if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
 
-  if (typeof item.custom_price === 'number' && item.custom_price > 0) {
-    return `$${unitPrice.toFixed(2)} elegido`;
-  }
+  // Regla actual sencilla:
+  // Desde $10 el domicilio queda gratis.
+  // Menos de $10 cobra $1.
+  return subtotal >= 10 ? 0 : 1;
+}
 
-  if (unitPrice > 0) {
-    return `$${unitPrice.toFixed(2)} c/u`;
-  }
+export function orderCode(): string {
+  const date = new Date();
 
-  return 'Precio a consultar';
-};
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
 
-const getLineSubtotal = (item: CartItem): string => {
-  const unitPrice = itemUnitPrice(item);
+  return `PZ-${day}${month}-${random}`;
+}
 
-  if (unitPrice <= 0) {
-    return '';
-  }
+export function isStoreOpen(date = new Date()): boolean {
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const currentMinutes = hour * 60 + minute;
 
-  return ` = $${toMoney(unitPrice * item.quantity).toFixed(2)}`;
-};
+  const openMinutes = 7 * 60;
+  const closeMinutes = 21 * 60;
 
-const paymentMethodLabel = (method?: PaymentMethod | null) => {
+  return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+}
+
+function cleanPhone(phone: string) {
+  return phone.replace(/\D/g, '');
+}
+
+function paymentLabel(method?: PaymentMethod) {
   if (method === 'efectivo') return 'Efectivo / contra entrega';
   if (method === 'deuna') return 'Deuna';
   if (method === 'transferencia') return 'Transferencia bancaria';
   if (method === 'tarjeta') return 'Tarjeta';
+
   return 'No definido';
-};
+}
 
-const bankLabel = (bank?: string | null) => {
-  if (bank === 'pichincha') return 'Banco Pichincha';
-  if (bank === 'guayaquil') return 'Banco Guayaquil';
-  if (bank === 'pacifico') return 'Banco del Pacífico';
-  if (bank === 'austro') return 'Banco del Austro';
-  if (bank === 'otros') return 'Produbanco / Otros Bancos';
-  return null;
-};
+function formatMoney(value: number) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
 
-const getPaymentInstructions = (
-  method?: PaymentMethod | null,
-  selectedBank?: string | null
-) => {
-  if (method === 'efectivo') {
-    return [
-      '💵 *Pago:* Efectivo / contra entrega',
-      '🕒 *Estado de pago:* Contra entrega',
-      '📌 El negocio revisará disponibilidad antes de preparar el pedido.',
-    ];
-  }
+function orderItemsText(items: CartItem[]) {
+  if (items.length === 0) return 'Sin productos';
 
-  if (method === 'deuna') {
-    return [
-      '📲 *Pago:* Deuna',
-      '🕒 *Estado de pago:* En validación',
-      '📎 Enviaré el comprobante por WhatsApp para validar el pago.',
-    ];
-  }
+  return items
+    .map((item, index) => {
+      const price = itemUnitPrice(item);
+      const subtotal = price * item.quantity;
+      const priceText =
+        price > 0
+          ? `${formatMoney(price)} c/u · ${formatMoney(subtotal)}`
+          : 'Precio por confirmar';
 
-  if (method === 'transferencia') {
-    const bank = bankLabel(selectedBank);
+      return `${index + 1}. ${item.product.name}\n   Cantidad: ${item.quantity}\n   ${priceText}`;
+    })
+    .join('\n\n');
+}
 
-    return [
-      '🏦 *Pago:* Transferencia bancaria',
-      bank ? `🏛️ *Banco de origen:* ${bank}` : '',
-      '🕒 *Estado de pago:* En validación',
-      '📎 Enviaré el comprobante por WhatsApp para validar el pago.',
-    ].filter(Boolean);
-  }
+function buildLocationText(options?: WhatsAppOptions) {
+  if (!options) return '';
 
-  if (method === 'tarjeta') {
-    return [
-      '💳 *Pago:* Tarjeta',
-      '🕒 *Estado de pago:* En validación',
-      '📌 El pedido será confirmado cuando el pago sea aprobado.',
-    ];
-  }
-
-  return [
-    '🕒 *Estado:* Pedido por confirmar',
-    '📌 El negocio revisará disponibilidad y método de pago antes de prepararlo.',
-  ];
-};
-
-const hasValidLocation = (lat?: number | null, lng?: number | null) => {
-  return (
-    typeof lat === 'number' &&
-    Number.isFinite(lat) &&
-    typeof lng === 'number' &&
-    Number.isFinite(lng)
-  );
-};
-
-export function buildWhatsAppUrl(
-  items: CartItem[],
-  phone: string,
-  name: string,
-  code = orderCode(),
-  preorder = !isStoreOpen(),
-  options: WhatsAppOrderOptions = {}
-): string {
-  const paymentMethod = options.paymentMethod ?? readStoredPaymentMethod();
-  const selectedBank = options.selectedBank ?? readStoredBank();
-
-  const subtotal = subtotalOf(items);
-  const delivery = deliveryFeeOf(subtotal);
-  const serviceFee = toMoney(options.serviceFee || 0);
-  const cardFee = toMoney(options.cardFee || 0);
-  const total = toMoney(subtotal + delivery + serviceFee + cardFee);
-  const hasConsultItems = items.some(item => !itemHasKnownPrice(item));
-
-  const lines: string[] = [];
-
-  lines.push(`🛒 *NUEVO PEDIDO ${code}*`);
-  lines.push('📍 *La Casa del Pollazo El Mirador*');
-  lines.push('🕒 *Estado inicial:* POR CONFIRMAR');
-
-  if (preorder) {
-    lines.push('⏰ *Tipo:* Pre-pedido (local cerrado)');
-  }
-
-  lines.push('');
-  lines.push(`👤 *Cliente:* ${name || 'Sin nombre'}`);
-  lines.push(`📱 *Teléfono:* ${phone || 'Sin teléfono'}`);
+  const parts: string[] = [];
 
   if (options.deliveryType) {
-    lines.push(`🚚 *Entrega:* ${options.deliveryType === 'retiro' ? 'Retiro en local' : 'Domicilio'}`);
+    parts.push(`Tipo de entrega: ${options.deliveryType === 'retiro' ? 'Retiro' : 'Domicilio'}`);
   }
 
   if (options.customerReference) {
-    lines.push(`🏠 *Referencia:* ${options.customerReference}`);
+    parts.push(`Referencia: ${options.customerReference}`);
   }
 
-  if (hasValidLocation(options.customerLat, options.customerLng)) {
-    lines.push(
-      `🗺️ *Ubicación:* https://www.google.com/maps?q=${options.customerLat},${options.customerLng}`
+  if (
+    typeof options.customerLat === 'number' &&
+    Number.isFinite(options.customerLat) &&
+    typeof options.customerLng === 'number' &&
+    Number.isFinite(options.customerLng)
+  ) {
+    parts.push(`Ubicación: ${options.customerLat.toFixed(6)}, ${options.customerLng.toFixed(6)}`);
+    parts.push(
+      `Mapa: https://www.google.com/maps?q=${options.customerLat},${options.customerLng}`
     );
   }
 
-  lines.push('');
-  lines.push('📋 *Detalle:*');
-
-  items.forEach(item => {
-    const productName = getProductName(item);
-    const priceLabel = getPriceLabel(item);
-    const lineSubtotal = getLineSubtotal(item);
-
-    lines.push(`• ${item.quantity}x ${productName} (${priceLabel})${lineSubtotal}`);
-  });
-
-  lines.push('');
-
-  if (subtotal > 0) {
-    lines.push(`Subtotal: $${subtotal.toFixed(2)}`);
-    lines.push(delivery > 0 ? `Delivery: $${delivery.toFixed(2)}` : 'Delivery: GRATIS');
-
-    if (serviceFee > 0) {
-      lines.push(`Tarifa de servicio: $${serviceFee.toFixed(2)}`);
-    }
-
-    if (cardFee > 0) {
-      lines.push(`Recargo tarjeta: $${cardFee.toFixed(2)}`);
-    }
-
-    lines.push(`💰 *Total estimado: $${total.toFixed(2)}*`);
-  } else {
-    lines.push('💰 *Total:* A confirmar');
-  }
-
-  if (hasConsultItems) {
-    lines.push('');
-    lines.push('📝 *Nota:* Hay productos con precio a consultar. Confirmar disponibilidad y valor final antes de preparar.');
-  }
-
-  lines.push('');
-  lines.push('💳 *Método de pago:*');
-  lines.push(`• ${paymentMethodLabel(paymentMethod)}`);
-
-  getPaymentInstructions(paymentMethod, selectedBank).forEach(line => {
-    lines.push(line);
-  });
-
-  lines.push('');
-  lines.push('⚠️ *IMPORTANTE:*');
-  lines.push('1. Este pedido queda *por confirmar* hasta validar disponibilidad y/o pago.');
-  lines.push('2. Si pagas por Deuna o transferencia, envía el *comprobante de pago* aquí.');
-  lines.push('3. Si pagas en efectivo, espera confirmación del negocio antes de la preparación.');
-  lines.push('');
-  lines.push('_Enviado desde la App Oficial 📱_');
-
-  return `https://wa.me/${cleanPhoneNumber(WHATSAPP)}?text=${encodeURIComponent(lines.join('\n'))}`;
+  return parts.length > 0 ? parts.join('\n') : '';
 }
 
-export function buildStatusWhatsAppUrl(
-  phone: string,
+export function buildWhatsAppUrl(
+  items: CartItem[],
+  customerPhone: string,
+  customerName: string,
   code: string,
-  status: OrderStatus
+  preorder = false,
+  options?: WhatsAppOptions
 ): string {
-  const clean = cleanPhoneNumber(phone);
+  const subtotal = subtotalOf(items);
+  const deliveryFee = deliveryFeeOf(subtotal);
+  const total = Number((subtotal + deliveryFee).toFixed(2));
 
-  if (!clean) {
-    return '#';
-  }
+  const selectedBank =
+    options?.selectedBank && BANK_LABELS[options.selectedBank]
+      ? BANK_LABELS[options.selectedBank]
+      : options?.selectedBank || 'No aplica';
 
-  const statusConfig: Record<OrderStatus, { emoji: string; msg: string }> = {
-    'Por Confirmar': {
-      emoji: '🕒',
-      msg: 'Recibimos tu pedido y está pendiente de confirmación. Estamos revisando disponibilidad y/o pago.',
-    },
-    Recibido: {
-      emoji: '✅',
-      msg: '¡Confirmado! El negocio aceptó tu pedido. Ahora sí empieza el seguimiento de entrega.',
-    },
-    Preparando: {
-      emoji: '👨‍🍳',
-      msg: '¡Buenas noticias! Tu pedido ya se está preparando.',
-    },
-    Enviado: {
-      emoji: '🛵',
-      msg: '¡Tu pedido va en camino! Prepárate para recibirlo.',
-    },
-    Entregado: {
-      emoji: '😋',
-      msg: '¡Pedido entregado! Gracias por comprar en La Casa del Pollazo.',
-    },
-    Cancelado: {
-      emoji: '❌',
-      msg: 'Tu pedido ha sido cancelado. Escríbenos si tienes dudas.',
-    },
-  };
+  const locationText = buildLocationText(options);
 
-  const { emoji, msg } = statusConfig[status];
+  const messageSections = [
+    `Hola, soy ${customerName || 'cliente'} 👋`,
+    `Necesito ayuda con mi pedido registrado en la app.`,
+    `Código: ${code}`,
+    preorder
+      ? `Estado de horario: Pedido programado / tienda fuera de horario`
+      : `Estado de horario: Tienda abierta`,
+    `WhatsApp del cliente: ${customerPhone}`,
+    `Método de pago: ${paymentLabel(options?.paymentMethod)}`,
+    options?.paymentMethod === 'transferencia' ? `Banco del cliente: ${selectedBank}` : '',
+    locationText ? `Entrega:\n${locationText}` : '',
+    `Productos:\n${orderItemsText(items)}`,
+    `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${
+      deliveryFee > 0 ? formatMoney(deliveryFee) : 'Gratis'
+    }\nTotal: ${formatMoney(total)}`,
+    options?.paymentMethod === 'deuna' || options?.paymentMethod === 'transferencia'
+      ? `Adjunto o enviaré el comprobante de pago para validación.`
+      : `Quedo pendiente de confirmación.`,
+  ].filter(Boolean);
 
-  const lines: string[] = [];
+  const text = messageSections.join('\n\n');
 
-  lines.push(`${emoji} *ACTUALIZACIÓN ORDEN ${code}*`);
-  lines.push('');
-  lines.push(msg);
-  lines.push('');
-
-  if (status === 'Por Confirmar') {
-    lines.push('🕒 Apenas confirmemos disponibilidad y/o pago, se activará el tiempo estimado en la app.');
-  }
-
-  if (status === 'Recibido') {
-    lines.push('✅ Ya puedes revisar el tiempo estimado desde la app.');
-  }
-
-  if (status === 'Preparando') {
-    lines.push('📦 Estamos armando tu pedido con cuidado.');
-  }
-
-  if (status === 'Enviado') {
-    lines.push('🛵 Mantente pendiente del teléfono para recibir tu entrega.');
-  }
-
-  if (status === 'Entregado') {
-    lines.push('⭐ Gracias por tu compra. Tu experiencia y puntos se actualizarán si aplica.');
-  }
-
-  lines.push('');
-  lines.push('📲 *Mira el estado en vivo aquí:*');
-  lines.push(APP_URL);
-  lines.push('');
-  lines.push('_Pollazo El Mirador_');
-
-  return `https://wa.me/${clean}?text=${encodeURIComponent(lines.join('\n'))}`;
+  return `https://wa.me/${cleanPhone(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
 }
