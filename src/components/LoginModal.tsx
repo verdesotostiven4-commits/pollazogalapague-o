@@ -70,10 +70,10 @@ const ADDRESS_LABELS: Array<{
   label: DeliveryAddressLabel;
   icon: React.ReactNode;
 }> = [
-  { label: 'Casa', icon: <Home size={14} /> },
-  { label: 'Trabajo', icon: <Building2 size={14} /> },
-  { label: 'Airbnb', icon: <Umbrella size={14} /> },
-  { label: 'Otro', icon: <MapPinned size={14} /> },
+  { label: 'Casa', icon: <Home size={16} /> },
+  { label: 'Trabajo', icon: <Building2 size={16} /> },
+  { label: 'Airbnb', icon: <Umbrella size={16} /> },
+  { label: 'Otro', icon: <MapPinned size={16} /> },
 ];
 
 const preloadedAvatarCache = new Set<string>();
@@ -410,7 +410,7 @@ export default function LoginModal({
             }
 
             setGpsNotice(
-              'Estás fuera de Puerto Ayora. Marca manualmente tu punto de entrega dentro de la zona.'
+              'Tu GPS está fuera de Puerto Ayora. Dejamos el mapa en zona de entrega para que marques manualmente.'
             );
 
             return;
@@ -1003,26 +1003,34 @@ export default function LoginModal({
           )}
 
           <div className="mb-3">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">
-              Guardar como
-            </h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                Guardar como
+              </h3>
 
-            <div className="grid grid-cols-4 gap-2">
-              {ADDRESS_LABELS.map(item => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => setAddressLabel(item.label)}
-                  className={`rounded-2xl px-2 py-3 border text-[8px] font-black uppercase flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
-                    addressLabel === item.label
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
-                      : 'bg-slate-50 text-slate-500 border-slate-100'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
+              <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+                Desliza
+              </span>
+            </div>
+
+            <div className="-mx-1 overflow-x-auto hide-scrollbar pb-1">
+              <div className="flex gap-2 px-1 min-w-max">
+                {ADDRESS_LABELS.map(item => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => setAddressLabel(item.label)}
+                    className={`min-w-[106px] h-[60px] rounded-[22px] border text-[9px] font-black uppercase flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all ${
+                      addressLabel === item.label
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
+                        : 'bg-slate-50 text-slate-500 border-slate-100'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1035,7 +1043,7 @@ export default function LoginModal({
               value={reference}
               onChange={e => setReference(e.target.value)}
               placeholder="Ej: casa blanca, portón negro, junto a la farmacia..."
-              className="w-full h-[72px] rounded-[22px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
+              className="w-full h-[68px] rounded-[22px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
             />
           </div>
 
@@ -1109,6 +1117,15 @@ export default function LoginModal({
             background: #2563eb;
             border: 2px solid white;
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+          }
+
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+
+          .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
           }
         `}</style>
       </div>
