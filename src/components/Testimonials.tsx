@@ -21,6 +21,16 @@ interface Testimonial {
   created_at: string;
 }
 
+interface CustomerReviewRow {
+  id: string;
+  phone?: string | null;
+  points?: number | null;
+  exp?: number | null;
+  total_spent?: number | null;
+  has_reviewed?: boolean | null;
+  updated_at?: string | null;
+}
+
 const ADMIN_HOLD_MS = 3000;
 const REVIEW_STORAGE_PREFIX = 'pollazo_has_reviewed_';
 
@@ -35,14 +45,16 @@ function Confetti() {
         <div
           key={i}
           className="confetti-piece"
-          style={{
-            left: '50%',
-            top: '40%',
-            backgroundColor: i % 3 === 0 ? '#f97316' : i % 3 === 1 ? '#fbbf24' : '#ffffff',
-            animationDelay: `${Math.random() * 0.5}s`,
-            '--x': `${(Math.random() - 0.5) * 400}px`,
-            '--y': `${(Math.random() - 0.2) * 400}px`,
-          } as any}
+          style={
+            {
+              left: '50%',
+              top: '40%',
+              backgroundColor: i % 3 === 0 ? '#f97316' : i % 3 === 1 ? '#fbbf24' : '#ffffff',
+              animationDelay: `${Math.random() * 0.5}s`,
+              '--x': `${(Math.random() - 0.5) * 400}px`,
+              '--y': `${(Math.random() - 0.2) * 400}px`,
+            } as React.CSSProperties & { '--x': string; '--y': string }
+          }
         />
       ))}
     </div>
@@ -132,7 +144,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const [adminMode, setAdminMode] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
 
-  const holdRafRef = useRef<number>();
+  const holdRafRef = useRef<number | null>(null);
   const holdStartRef = useRef<number>(0);
 
   const getCleanPhone = useCallback((phone?: string | null) => {
@@ -176,22 +188,30 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     try {
       const { data, error } = await supabase
         .from('customers')
-        .select('has_reviewed')
+        .select('id, has_reviewed')
         .ilike('phone', `%${clean}`)
-        .maybeSingle();
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
       if (error) {
+        console.warn('No se pudo verificar estado de opinión:', error);
         return;
       }
 
-      if (data?.has_reviewed) {
+      const customer = data?.[0] as { id: string; has_reviewed?: boolean | null } | undefined;
+
+      if (customer?.has_reviewed) {
         setHasReviewed(true);
         markLocalReviewed();
-      } else if (!readLocalReviewed()) {
+        return;
+      }
+
+      if (!readLocalReviewed()) {
         setHasReviewed(false);
       }
     } catch {
-      // Si la columna has_reviewed no existe o Supabase falla, usamos localStorage como respaldo.
+      // Si Supabase falla temporalmente, usamos localStorage solo para ocultar el banner,
+      // pero el premio real se decide en servidor al publicar.
     }
   }, [customerPhone, getCleanPhone, markLocalReviewed, readLocalReviewed]);
 
@@ -230,95 +250,139 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     }
   }, [showForm, customerName, customerAvatar]);
 
-  const tryMarkReviewedOnServer = useCallback(
-    async (shouldGivePoints: boolean) => {
-      if (!isSupabaseConfigured || !customerPhone) return false;
+  const findCustomerForReview = useCallback(async () => {
+    if (!isSupabaseConfigured || !customerPhone) return null;
 
-      const clean = getCleanPhone(customerPhone);
+    const clean = getCleanPhone(customerPhone);
 
-      if (!clean) return false;
+    if (!clean) return null;
 
-      const { data: users, error: userError } = await supabase
-  .from('customers')
-  .select('id, phone, points, exp, total_spent, updated_at')
-  .ilike('phone', `%${clean}`)
-  .order('points', { ascending: false })
-  .order('exp', { ascending: false })
-  .order('total_spent', { ascending: false })
-  .limit(1);
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, phone, points, exp, total_spent, has_reviewed, updated_at')
+      .ilike('phone', `%${clean}`)
+      .order('updated_at', { ascending: false })
+      .limit(1);
 
-const user = users?.[0] || null;
+    if (error) {
+      console.warn('No se pudo buscar cliente para opinión:', error);
+      return null;
+    }
 
-      if (userError) {
-        console.warn('No se pudo buscar cliente para opinión:', userError);
-        return false;
-      }
+    return (data?.[0] as CustomerReviewRow | undefined) || null;
+  }, [customerPhone, getCleanPhone]);
+
+  const markReviewedOnServerSafely = useCallback(async () => {
+    if (!isSupabaseConfigured || !customerPhone) {
+      return {
+        marked: false,
+        awardedPoints: false,
+      };
+    }
+
+    const clean = getCleanPhone(customerPhone);
+
+    if (!clean) {
+      return {
+        marked: false,
+        awardedPoints: false,
+      };
+    }
+
+    const normalizedPhone = customerPhone.replace(/\D/g, '');
+    const now = new Date().toISOString();
+
+    try {
+      const user = await findCustomerForReview();
 
       if (user?.id) {
-        const nextPoints = shouldGivePoints ? Number(user.points || 0) + 10 : Number(user.points || 0);
+        if (user.has_reviewed === true) {
+          return {
+            marked: true,
+            awardedPoints: false,
+          };
+        }
 
-        const { error: updateError } = await supabase
+        const nextPoints = seasonActive ? Number(user.points || 0) + 10 : Number(user.points || 0);
+
+        const { data: updatedRows, error: updateError } = await supabase
           .from('customers')
           .update({
             points: nextPoints,
             has_reviewed: true,
-            updated_at: new Date().toISOString(),
+            updated_at: now,
           })
-          .eq('id', user.id);
+          .eq('id', user.id)
+          .or('has_reviewed.is.null,has_reviewed.eq.false')
+          .select('id, points, has_reviewed')
+          .limit(1);
 
-        if (!updateError) return true;
-
-        const { error: fallbackError } = await supabase
-          .from('customers')
-          .update({
-            points: nextPoints,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-
-        if (fallbackError) {
-          console.warn('No se pudo actualizar puntos/opinión:', fallbackError);
-          return false;
+        if (updateError) {
+          console.warn('No se pudo actualizar has_reviewed/puntos:', updateError);
+          return {
+            marked: false,
+            awardedPoints: false,
+          };
         }
 
-        return true;
-      }
+        const updated = updatedRows?.[0];
 
-      const normalizedPhone = customerPhone.replace(/\D/g, '');
+        if (!updated) {
+          return {
+            marked: true,
+            awardedPoints: false,
+          };
+        }
+
+        return {
+          marked: true,
+          awardedPoints: seasonActive,
+        };
+      }
 
       const basePayload = {
         phone: normalizedPhone,
         name: customerName || name.trim() || null,
         avatar_url: customerAvatar || photoUrl.trim() || null,
-        points: shouldGivePoints ? 10 : 0,
-        updated_at: new Date().toISOString(),
+        points: seasonActive ? 10 : 0,
+        has_reviewed: true,
+        updated_at: now,
       };
 
       const { error: upsertError } = await supabase
         .from('customers')
-        .upsert(
-          {
-            ...basePayload,
-            has_reviewed: true,
-          },
-          { onConflict: 'phone' }
-        );
-
-      if (!upsertError) return true;
-
-      const { error: fallbackUpsertError } = await supabase
-        .from('customers')
         .upsert(basePayload, { onConflict: 'phone' });
 
-      if (fallbackUpsertError) {
-        console.warn('No se pudo crear cliente para opinión:', fallbackUpsertError);
-        return false;
+      if (upsertError) {
+        console.warn('No se pudo crear cliente para opinión:', upsertError);
+        return {
+          marked: false,
+          awardedPoints: false,
+        };
       }
 
-      return true;
-    },
-    [customerAvatar, customerName, customerPhone, getCleanPhone, name, photoUrl]
-  );
+      return {
+        marked: true,
+        awardedPoints: seasonActive,
+      };
+    } catch (serverError) {
+      console.warn('Error inesperado marcando opinión:', serverError);
+
+      return {
+        marked: false,
+        awardedPoints: false,
+      };
+    }
+  }, [
+    customerAvatar,
+    customerName,
+    customerPhone,
+    findCustomerForReview,
+    getCleanPhone,
+    name,
+    photoUrl,
+    seasonActive,
+  ]);
 
   const playRewardSound = () => {
     try {
@@ -346,28 +410,32 @@ const user = users?.[0] || null;
     setError('');
 
     try {
-      const reviewedBeforeSubmit = hasReviewed || readLocalReviewed();
-      const shouldGivePoints = seasonActive && customerPhone.trim().length > 0 && !reviewedBeforeSubmit;
-
       const { error: testErr } = await supabase.from('testimonials').insert({
-  author_name: name.trim(),
-  stars,
-  comment: comment.trim(),
-  photo_url: photoUrl.trim() || null,
-  customer_phone: customerPhone ? customerPhone.replace(/\D/g, '') : null,
-});
+        author_name: name.trim(),
+        stars,
+        comment: comment.trim(),
+        photo_url: photoUrl.trim() || null,
+        customer_phone: customerPhone ? customerPhone.replace(/\D/g, '') : null,
+      });
 
       if (testErr) {
         throw new Error('Error al publicar opinión.');
       }
 
+      let awardedPoints = false;
+
       if (customerPhone) {
-        await tryMarkReviewedOnServer(shouldGivePoints);
-        markLocalReviewed();
-        setHasReviewed(true);
+        const result = await markReviewedOnServerSafely();
+
+        if (result.marked) {
+          markLocalReviewed();
+          setHasReviewed(true);
+        }
+
+        awardedPoints = result.awardedPoints;
       }
 
-      if (shouldGivePoints) {
+      if (awardedPoints) {
         setPointsGainedNow(true);
         playRewardSound();
       } else {
@@ -383,7 +451,7 @@ const user = users?.[0] || null;
         setSuccess(false);
         setPointsGainedNow(false);
         setShowForm(false);
-      }, shouldGivePoints ? 9000 : 4500);
+      }, awardedPoints ? 9000 : 4500);
     } catch (err: any) {
       setSubmitting(false);
       setError(err?.message || 'No se pudo publicar tu opinión.');
