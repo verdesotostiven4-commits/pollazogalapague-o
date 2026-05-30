@@ -41,6 +41,23 @@ export type CustomerRiskLevel =
   | 'riesgoso'
   | 'bloqueado';
 
+export type DeliveryAddressLabel =
+  | 'Casa'
+  | 'Trabajo'
+  | 'Airbnb'
+  | 'Otro';
+
+export interface DeliveryAddress {
+  id: string;
+  label: DeliveryAddressLabel;
+  reference: string;
+  lat: number;
+  lng: number;
+  is_default?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -91,10 +108,14 @@ export interface Customer {
   risk_level?: CustomerRiskLevel | null;
   blocked?: boolean;
 
-  // Ubicación
+  // Ubicación activa
   lat?: number | null;
   lng?: number | null;
   reference?: string | null;
+
+  // Direcciones favoritas
+  delivery_addresses?: DeliveryAddress[] | null;
+  selected_delivery_address_id?: string | null;
 
   // Historial
   total_spent?: number;
