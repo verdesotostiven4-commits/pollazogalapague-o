@@ -527,6 +527,28 @@ function AppShell() {
     };
   };
 
+  const saveOrderIfNeeded = async () => {
+    if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) {
+      return null;
+    }
+
+    const code = activeOrderCode || orderCode();
+
+    if (!activeOrderCode) {
+      setActiveOrderCode(code);
+
+      try {
+        await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+      } catch (error) {
+        console.error('Error crítico al guardar orden:', error);
+        setActiveOrderCode(null);
+        return null;
+      }
+    }
+
+    return code;
+  };
+
   const handleEarlySave = async () => {
     if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) return;
     if (!getStoredPaymentMethod()) return;
@@ -543,6 +565,39 @@ function AppShell() {
     }
   };
 
+  const finishOrderInsideApp = async () => {
+    if (items.length === 0) {
+      setShowConfirmation(false);
+      setScreen('home');
+      setShowTracking(true);
+      setActiveOrderCode(null);
+      return;
+    }
+
+    if (!hasCustomerIdentity || !hasDeliveryData) {
+      requireCustomerBeforeOrder();
+      return;
+    }
+
+    const savedCode = await saveOrderIfNeeded();
+
+    if (!savedCode) {
+      return;
+    }
+
+    clearCart();
+    clearStoredPaymentMethod();
+
+    setShowConfirmation(false);
+    setScreen('home');
+    setShowTracking(true);
+    setActiveOrderCode(null);
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  };
+
   const handleWhatsApp = async () => {
     if (items.length === 0) {
       setShowConfirmation(false);
@@ -556,7 +611,11 @@ function AppShell() {
       return;
     }
 
-    const code = activeOrderCode || orderCode();
+    const code = await saveOrderIfNeeded();
+
+    if (!code) {
+      return;
+    }
 
     const whatsappUrl = buildWhatsAppUrl(
       items,
@@ -573,14 +632,6 @@ function AppShell() {
         deliveryType: 'domicilio',
       }
     );
-
-    if (!activeOrderCode) {
-      try {
-        await createOrder(buildOrderPayload(code, 'Por Confirmar'));
-      } catch (error) {
-        console.error('Error crítico al guardar orden:', error);
-      }
-    }
 
     window.location.href = whatsappUrl;
 
@@ -696,6 +747,7 @@ function AppShell() {
       <OrderConfirmation
         visible={showConfirmation}
         onWhatsApp={handleWhatsApp}
+        onContinueInApp={finishOrderInsideApp}
       />
 
       <LegalModal
