@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import type { DeliveryAddress, DeliveryAddressLabel } from '../types';
 
 interface SetUserDataInput {
   phone?: string;
@@ -20,6 +21,17 @@ interface SetUserDataInput {
   exp?: number;
   isVip?: boolean;
   phoneVerified?: boolean;
+  deliveryAddresses?: DeliveryAddress[];
+  selectedDeliveryAddressId?: string | null;
+}
+
+interface SaveDeliveryAddressInput {
+  id?: string;
+  label: DeliveryAddressLabel;
+  lat: number;
+  lng: number;
+  reference: string;
+  isDefault?: boolean;
 }
 
 interface UserContextType {
@@ -36,7 +48,15 @@ interface UserContextType {
   isLoggedIn: boolean;
   hasDeliveryLocation: boolean;
   phoneDisplay: string;
+
+  deliveryAddresses: DeliveryAddress[];
+  selectedDeliveryAddressId: string | null;
+  selectedDeliveryAddress: DeliveryAddress | null;
+
   setUserData: (data: SetUserDataInput) => void;
+  saveDeliveryAddress: (data: SaveDeliveryAddressInput) => DeliveryAddress | null;
+  selectDeliveryAddress: (addressId: string) => void;
+  deleteDeliveryAddress: (addressId: string) => void;
   logout: () => void;
 }
 
@@ -51,6 +71,8 @@ interface CustomerSyncRow {
   lat?: number | null;
   lng?: number | null;
   reference?: string | null;
+  delivery_addresses?: DeliveryAddress[] | null;
+  selected_delivery_address_id?: string | null;
 }
 
 const STORAGE_KEYS = {
@@ -64,6 +86,8 @@ const STORAGE_KEYS = {
   exp: 'pollazo_customer_exp',
   isVip: 'pollazo_customer_is_vip',
   phoneVerified: 'pollazo_customer_phone_verified',
+  deliveryAddresses: 'pollazo_customer_delivery_addresses',
+  selectedDeliveryAddressId: 'pollazo_customer_selected_delivery_address_id',
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -139,9 +163,10 @@ const persistNumber = (key: string, value: number | null) => {
 };
 
 const persistInteger = (key: string, value: number | null | undefined) => {
-  const safeValue = typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.floor(value))
-    : 0;
+  const safeValue =
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.max(0, Math.floor(value))
+      : 0;
 
   localStorage.setItem(key, safeValue.toString());
 
@@ -152,8 +177,108 @@ const persistBoolean = (key: string, value: boolean) => {
   localStorage.setItem(key, value.toString());
 };
 
+const persistDeliveryAddresses = (addresses: DeliveryAddress[]) => {
+  if (addresses.length > 0) {
+    localStorage.setItem(STORAGE_KEYS.deliveryAddresses, JSON.stringify(addresses));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.deliveryAddresses);
+  }
+};
+
 const isValidCoordinate = (value: unknown): value is number => {
   return typeof value === 'number' && Number.isFinite(value);
+};
+
+const isDeliveryAddressLabel = (value: unknown): value is DeliveryAddressLabel => {
+  return value === 'Casa' || value === 'Trabajo' || value === 'Airbnb' || value === 'Otro';
+};
+
+const makeAddressId = (label: DeliveryAddressLabel) => {
+  const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
+  const random =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return `addr-${safeLabel}-${random}`;
+};
+
+const normalizeDeliveryAddress = (
+  input: SaveDeliveryAddressInput | DeliveryAddress
+): DeliveryAddress | null => {
+  if (!isDeliveryAddressLabel(input.label)) return null;
+  if (!isValidCoordinate(input.lat) || !isValidCoordinate(input.lng)) return null;
+
+  const reference = String(input.reference || '').trim();
+
+  if (!reference) return null;
+
+  const now = new Date().toISOString();
+
+  return {
+    id: input.id || makeAddressId(input.label),
+    label: input.label,
+    lat: input.lat,
+    lng: input.lng,
+    reference,
+    is_default:
+      'is_default' in input
+        ? Boolean(input.is_default)
+        : 'isDefault' in input
+          ? Boolean(input.isDefault)
+          : false,
+    created_at:
+      'created_at' in input && input.created_at
+        ? input.created_at
+        : now,
+    updated_at: now,
+  };
+};
+
+const parseStoredDeliveryAddresses = (value: string | null): DeliveryAddress[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map(item =>
+        normalizeDeliveryAddress({
+          id: item?.id,
+          label: item?.label,
+          lat: item?.lat,
+          lng: item?.lng,
+          reference: item?.reference,
+          isDefault: item?.is_default,
+          created_at: item?.created_at,
+          updated_at: item?.updated_at,
+        } as DeliveryAddress)
+      )
+      .filter((item): item is DeliveryAddress => Boolean(item));
+  } catch {
+    return [];
+  }
+};
+
+const normalizeDeliveryAddressList = (value: unknown): DeliveryAddress[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(item =>
+      normalizeDeliveryAddress({
+        id: item?.id,
+        label: item?.label,
+        lat: item?.lat,
+        lng: item?.lng,
+        reference: item?.reference,
+        isDefault: item?.is_default,
+        created_at: item?.created_at,
+        updated_at: item?.updated_at,
+      } as DeliveryAddress)
+    )
+    .filter((item): item is DeliveryAddress => Boolean(item));
 };
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -167,67 +292,122 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [customerExp, setCustomerExp] = useState(0);
   const [isVip, setIsVip] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
+  const [selectedDeliveryAddressId, setSelectedDeliveryAddressId] = useState<string | null>(null);
 
-  const applyServerCustomer = useCallback((customer: CustomerSyncRow | null) => {
-    if (!customer) return;
+  const applyDeliveryAddresses = useCallback(
+    (addresses: DeliveryAddress[], selectedId?: string | null) => {
+      const normalized = normalizeDeliveryAddressList(addresses);
+      const validSelectedId =
+        selectedId && normalized.some(address => address.id === selectedId)
+          ? selectedId
+          : null;
 
-    if (typeof customer.phone === 'string' && customer.phone.trim()) {
-      const normalizedPhone = normalizeEcuadorPhone(customer.phone);
-      setCustomerPhone(normalizedPhone);
-      persistText(STORAGE_KEYS.phone, normalizedPhone);
-    }
+      setDeliveryAddresses(normalized);
+      setSelectedDeliveryAddressId(validSelectedId);
 
-    if (typeof customer.name === 'string') {
-      const nextName = customer.name || '';
-      setCustomerName(nextName);
-      persistText(STORAGE_KEYS.name, nextName);
-    }
+      persistDeliveryAddresses(normalized);
+      persistText(STORAGE_KEYS.selectedDeliveryAddressId, validSelectedId || '');
+    },
+    []
+  );
 
-    if (typeof customer.avatar_url === 'string') {
-      const nextAvatar = customer.avatar_url || '';
-      setCustomerAvatar(nextAvatar);
-      persistText(STORAGE_KEYS.avatar, nextAvatar);
-    }
+  const applyServerCustomer = useCallback(
+    (customer: CustomerSyncRow | null) => {
+      if (!customer) return;
 
-    if (typeof customer.points === 'number') {
-      setCustomerPoints(persistInteger(STORAGE_KEYS.points, customer.points));
-    }
+      if (typeof customer.phone === 'string' && customer.phone.trim()) {
+        const normalizedPhone = normalizeEcuadorPhone(customer.phone);
+        setCustomerPhone(normalizedPhone);
+        persistText(STORAGE_KEYS.phone, normalizedPhone);
+      }
 
-    if (typeof customer.exp === 'number') {
-      setCustomerExp(persistInteger(STORAGE_KEYS.exp, customer.exp));
-    }
+      if (typeof customer.name === 'string') {
+        const nextName = customer.name || '';
+        setCustomerName(nextName);
+        persistText(STORAGE_KEYS.name, nextName);
+      }
 
-    if (typeof customer.is_vip === 'boolean') {
-      setIsVip(customer.is_vip);
-      persistBoolean(STORAGE_KEYS.isVip, customer.is_vip);
-    }
+      if (typeof customer.avatar_url === 'string') {
+        const nextAvatar = customer.avatar_url || '';
+        setCustomerAvatar(nextAvatar);
+        persistText(STORAGE_KEYS.avatar, nextAvatar);
+      }
 
-    if (typeof customer.phone_verified === 'boolean') {
-      setPhoneVerified(customer.phone_verified);
-      persistBoolean(STORAGE_KEYS.phoneVerified, customer.phone_verified);
-    }
+      if (typeof customer.points === 'number') {
+        setCustomerPoints(persistInteger(STORAGE_KEYS.points, customer.points));
+      }
 
-    if ('lat' in customer) {
-      const nextLat = isValidCoordinate(customer.lat) ? customer.lat : null;
-      setCustomerLat(nextLat);
-      persistNumber(STORAGE_KEYS.lat, nextLat);
-    }
+      if (typeof customer.exp === 'number') {
+        setCustomerExp(persistInteger(STORAGE_KEYS.exp, customer.exp));
+      }
 
-    if ('lng' in customer) {
-      const nextLng = isValidCoordinate(customer.lng) ? customer.lng : null;
-      setCustomerLng(nextLng);
-      persistNumber(STORAGE_KEYS.lng, nextLng);
-    }
+      if (typeof customer.is_vip === 'boolean') {
+        setIsVip(customer.is_vip);
+        persistBoolean(STORAGE_KEYS.isVip, customer.is_vip);
+      }
 
-    if ('reference' in customer) {
-      const nextReference = typeof customer.reference === 'string'
-        ? customer.reference
-        : '';
+      if (typeof customer.phone_verified === 'boolean') {
+        setPhoneVerified(customer.phone_verified);
+        persistBoolean(STORAGE_KEYS.phoneVerified, customer.phone_verified);
+      }
 
-      setCustomerReference(nextReference);
-      persistText(STORAGE_KEYS.reference, nextReference);
-    }
-  }, []);
+      if ('lat' in customer) {
+        const nextLat = isValidCoordinate(customer.lat) ? customer.lat : null;
+        setCustomerLat(nextLat);
+        persistNumber(STORAGE_KEYS.lat, nextLat);
+      }
+
+      if ('lng' in customer) {
+        const nextLng = isValidCoordinate(customer.lng) ? customer.lng : null;
+        setCustomerLng(nextLng);
+        persistNumber(STORAGE_KEYS.lng, nextLng);
+      }
+
+      if ('reference' in customer) {
+        const nextReference =
+          typeof customer.reference === 'string'
+            ? customer.reference
+            : '';
+
+        setCustomerReference(nextReference);
+        persistText(STORAGE_KEYS.reference, nextReference);
+      }
+
+      if ('delivery_addresses' in customer) {
+        applyDeliveryAddresses(
+          normalizeDeliveryAddressList(customer.delivery_addresses || []),
+          customer.selected_delivery_address_id || null
+        );
+      }
+    },
+    [applyDeliveryAddresses]
+  );
+
+  const fetchDeliveryAddressesFromSupabase = useCallback(
+    async (phone: string) => {
+      const normalizedPhone = normalizeEcuadorPhone(phone);
+
+      if (!isSupabaseConfigured || !normalizedPhone) return;
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('delivery_addresses, selected_delivery_address_id')
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
+
+      if (error) {
+        console.warn(
+          'Direcciones favoritas no disponibles todavía. Falta migración delivery_addresses:',
+          error
+        );
+        return;
+      }
+
+      applyServerCustomer(data as CustomerSyncRow | null);
+    },
+    [applyServerCustomer]
+  );
 
   const fetchCustomerFromSupabase = useCallback(
     async (phone: string) => {
@@ -249,8 +429,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       applyServerCustomer(data as CustomerSyncRow | null);
+      void fetchDeliveryAddressesFromSupabase(normalizedPhone);
     },
-    [applyServerCustomer]
+    [applyServerCustomer, fetchDeliveryAddressesFromSupabase]
   );
 
   const syncCustomerToSupabase = useCallback(
@@ -316,6 +497,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [applyServerCustomer]
   );
 
+  const syncDeliveryAddressesToSupabase = useCallback(
+    async (
+      addresses: DeliveryAddress[],
+      selectedId: string | null,
+      normalizedPhone: string
+    ) => {
+      if (!isSupabaseConfigured || !normalizedPhone) return;
+
+      const { error } = await supabase
+        .from('customers')
+        .upsert(
+          {
+            phone: normalizedPhone,
+            delivery_addresses: addresses,
+            selected_delivery_address_id: selectedId,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'phone' }
+        );
+
+      if (error) {
+        console.warn(
+          'No se pudieron guardar direcciones favoritas en Supabase. Revisa migración delivery_addresses:',
+          error
+        );
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const storedPhone = localStorage.getItem(STORAGE_KEYS.phone);
     const normalizedPhone = normalizeEcuadorPhone(storedPhone || '');
@@ -323,6 +534,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const storedName = localStorage.getItem(STORAGE_KEYS.name) || '';
     const storedAvatar = localStorage.getItem(STORAGE_KEYS.avatar) || '';
     const storedReference = localStorage.getItem(STORAGE_KEYS.reference) || '';
+    const storedAddresses = parseStoredDeliveryAddresses(
+      localStorage.getItem(STORAGE_KEYS.deliveryAddresses)
+    );
+    const storedSelectedAddressId =
+      localStorage.getItem(STORAGE_KEYS.selectedDeliveryAddressId) || null;
 
     const storedLat = parseStoredNumber(localStorage.getItem(STORAGE_KEYS.lat));
     const storedLng = parseStoredNumber(localStorage.getItem(STORAGE_KEYS.lng));
@@ -348,7 +564,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerExp(storedExp);
     setIsVip(storedVip);
     setPhoneVerified(storedPhoneVerified);
-  }, [fetchCustomerFromSupabase]);
+    applyDeliveryAddresses(storedAddresses, storedSelectedAddressId);
+  }, [applyDeliveryAddresses, fetchCustomerFromSupabase]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !customerPhone) {
@@ -426,6 +643,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
         persistBoolean(STORAGE_KEYS.isVip, data.isVip);
       }
 
+      if (data.deliveryAddresses !== undefined) {
+        applyDeliveryAddresses(
+          data.deliveryAddresses,
+          data.selectedDeliveryAddressId ?? selectedDeliveryAddressId
+        );
+      }
+
+      if (data.selectedDeliveryAddressId !== undefined && data.deliveryAddresses === undefined) {
+        const nextSelectedId =
+          data.selectedDeliveryAddressId &&
+          deliveryAddresses.some(address => address.id === data.selectedDeliveryAddressId)
+            ? data.selectedDeliveryAddressId
+            : null;
+
+        setSelectedDeliveryAddressId(nextSelectedId);
+        persistText(STORAGE_KEYS.selectedDeliveryAddressId, nextSelectedId || '');
+      }
+
       if (normalizedPhone) {
         void syncCustomerToSupabase(
           {
@@ -438,15 +673,173 @@ export function UserProvider({ children }: { children: ReactNode }) {
           },
           normalizedPhone
         );
+
+        if (data.deliveryAddresses !== undefined || data.selectedDeliveryAddressId !== undefined) {
+          const nextAddresses = data.deliveryAddresses || deliveryAddresses;
+          const nextSelectedId =
+            data.selectedDeliveryAddressId !== undefined
+              ? data.selectedDeliveryAddressId
+              : selectedDeliveryAddressId;
+
+          void syncDeliveryAddressesToSupabase(
+            nextAddresses,
+            nextSelectedId || null,
+            normalizedPhone
+          );
+        }
       }
     },
     [
+      applyDeliveryAddresses,
       customerAvatar,
       customerName,
       customerPhone,
       customerReference,
+      deliveryAddresses,
       phoneVerified,
+      selectedDeliveryAddressId,
       syncCustomerToSupabase,
+      syncDeliveryAddressesToSupabase,
+    ]
+  );
+
+  const saveDeliveryAddress = useCallback(
+    (data: SaveDeliveryAddressInput): DeliveryAddress | null => {
+      const normalizedPhone = normalizeEcuadorPhone(customerPhone);
+      const address = normalizeDeliveryAddress(data);
+
+      if (!address) return null;
+
+      const nextAddressesBase = deliveryAddresses.some(current => current.id === address.id)
+        ? deliveryAddresses.map(current => (current.id === address.id ? address : current))
+        : [address, ...deliveryAddresses];
+
+      const nextAddresses = nextAddressesBase
+        .map(current => ({
+          ...current,
+          is_default: current.id === address.id,
+          updated_at: current.id === address.id ? new Date().toISOString() : current.updated_at,
+        }))
+        .slice(0, 6);
+
+      setDeliveryAddresses(nextAddresses);
+      setSelectedDeliveryAddressId(address.id);
+      setCustomerLat(address.lat);
+      setCustomerLng(address.lng);
+      setCustomerReference(address.reference);
+
+      persistDeliveryAddresses(nextAddresses);
+      persistText(STORAGE_KEYS.selectedDeliveryAddressId, address.id);
+      persistNumber(STORAGE_KEYS.lat, address.lat);
+      persistNumber(STORAGE_KEYS.lng, address.lng);
+      persistText(STORAGE_KEYS.reference, address.reference);
+
+      if (normalizedPhone) {
+        void syncCustomerToSupabase(
+          {
+            phone: normalizedPhone,
+            lat: address.lat,
+            lng: address.lng,
+            reference: address.reference,
+          },
+          normalizedPhone
+        );
+
+        void syncDeliveryAddressesToSupabase(
+          nextAddresses,
+          address.id,
+          normalizedPhone
+        );
+      }
+
+      return address;
+    },
+    [
+      customerPhone,
+      deliveryAddresses,
+      syncCustomerToSupabase,
+      syncDeliveryAddressesToSupabase,
+    ]
+  );
+
+  const selectDeliveryAddress = useCallback(
+    (addressId: string) => {
+      const address = deliveryAddresses.find(current => current.id === addressId);
+
+      if (!address) return;
+
+      const normalizedPhone = normalizeEcuadorPhone(customerPhone);
+      const nextAddresses = deliveryAddresses.map(current => ({
+        ...current,
+        is_default: current.id === address.id,
+      }));
+
+      setDeliveryAddresses(nextAddresses);
+      setSelectedDeliveryAddressId(address.id);
+      setCustomerLat(address.lat);
+      setCustomerLng(address.lng);
+      setCustomerReference(address.reference);
+
+      persistDeliveryAddresses(nextAddresses);
+      persistText(STORAGE_KEYS.selectedDeliveryAddressId, address.id);
+      persistNumber(STORAGE_KEYS.lat, address.lat);
+      persistNumber(STORAGE_KEYS.lng, address.lng);
+      persistText(STORAGE_KEYS.reference, address.reference);
+
+      if (normalizedPhone) {
+        void syncCustomerToSupabase(
+          {
+            phone: normalizedPhone,
+            lat: address.lat,
+            lng: address.lng,
+            reference: address.reference,
+          },
+          normalizedPhone
+        );
+
+        void syncDeliveryAddressesToSupabase(
+          nextAddresses,
+          address.id,
+          normalizedPhone
+        );
+      }
+    },
+    [
+      customerPhone,
+      deliveryAddresses,
+      syncCustomerToSupabase,
+      syncDeliveryAddressesToSupabase,
+    ]
+  );
+
+  const deleteDeliveryAddress = useCallback(
+    (addressId: string) => {
+      const normalizedPhone = normalizeEcuadorPhone(customerPhone);
+      const nextAddresses = deliveryAddresses.filter(address => address.id !== addressId);
+      const nextSelectedId =
+        selectedDeliveryAddressId === addressId
+          ? null
+          : selectedDeliveryAddressId;
+
+      setDeliveryAddresses(nextAddresses);
+      setSelectedDeliveryAddressId(nextSelectedId);
+
+      persistDeliveryAddresses(nextAddresses);
+      persistText(STORAGE_KEYS.selectedDeliveryAddressId, nextSelectedId || '');
+
+      if (normalizedPhone) {
+        void syncDeliveryAddressesToSupabase(
+          nextAddresses,
+          nextSelectedId,
+          normalizedPhone
+        );
+      }
+    },
+    [
+      customerPhone,
+      deliveryAddresses,
+      selectedDeliveryAddressId,
+      syncDeliveryAddressesToSupabase,
     ]
   );
 
@@ -463,6 +856,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerExp(0);
     setIsVip(false);
     setPhoneVerified(false);
+    setDeliveryAddresses([]);
+    setSelectedDeliveryAddressId(null);
   }, []);
 
   const isLoggedIn = useMemo(() => {
@@ -483,6 +878,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return formatPhoneForUser(customerPhone);
   }, [customerPhone]);
 
+  const selectedDeliveryAddress = useMemo(() => {
+    if (!selectedDeliveryAddressId) return null;
+
+    return (
+      deliveryAddresses.find(address => address.id === selectedDeliveryAddressId) || null
+    );
+  }, [deliveryAddresses, selectedDeliveryAddressId]);
+
   return (
     <UserContext.Provider
       value={{
@@ -499,7 +902,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isLoggedIn,
         hasDeliveryLocation,
         phoneDisplay,
+        deliveryAddresses,
+        selectedDeliveryAddressId,
+        selectedDeliveryAddress,
         setUserData,
+        saveDeliveryAddress,
+        selectDeliveryAddress,
+        deleteDeliveryAddress,
         logout,
       }}
     >
