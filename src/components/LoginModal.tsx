@@ -54,6 +54,7 @@ type LocationRequestOptions = {
 
 const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
+const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
 const MAP_MAX_ZOOM = 18;
 const MAP_DEFAULT_ZOOM = 17;
@@ -153,6 +154,7 @@ export default function LoginModal({
     customerLng,
     customerReference,
     selectedDeliveryAddress,
+    deliveryAddresses,
     saveDeliveryAddress,
   } = useUser();
 
@@ -164,6 +166,7 @@ export default function LoginModal({
   const [lng, setLng] = useState<number | null>(null);
   const [reference, setReference] = useState('');
   const [addressLabel, setAddressLabel] = useState<DeliveryAddressLabel>('Casa');
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
   const [userActualLocation, setUserActualLocation] = useState<LatLng | null>(null);
   const [loadedAvatarUrls, setLoadedAvatarUrls] = useState<Set<string>>(() => {
@@ -195,7 +198,9 @@ export default function LoginModal({
     (step === 1
       ? 'Acumula puntos y gana premios'
       : isChangingLocation
-        ? 'Ajusta tu punto de entrega'
+        ? editingAddressId
+          ? 'Edita tu dirección guardada'
+          : 'Agrega una nueva dirección'
         : 'Marca dónde recibes tu pedido');
 
   const normalizedWhatsapp = useMemo(() => normalizeEcuadorPhone(whatsapp), [whatsapp]);
@@ -224,6 +229,16 @@ export default function LoginModal({
     return `Puerto Ayora · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }, [isInsideGeofence, lat, lng]);
 
+  const clearEditingRequest = useCallback(() => {
+    sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
+    setEditingAddressId(null);
+  }, []);
+
+  const handleSafeClose = useCallback(() => {
+    clearEditingRequest();
+    onClose();
+  }, [clearEditingRequest, onClose]);
+
   const markAvatarLoaded = useCallback((url: string) => {
     if (!url) return;
 
@@ -235,6 +250,12 @@ export default function LoginModal({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      clearEditingRequest();
+    }
+  }, [clearEditingRequest, isOpen]);
 
   useEffect(() => {
     let mounted = true;
@@ -448,44 +469,59 @@ export default function LoginModal({
     setIsSavingLocation(false);
     fallbackTileLoadedRef.current = false;
 
+    const requestedEditId = sessionStorage.getItem(EDIT_ADDRESS_STORAGE_KEY);
+    const addressToEdit =
+      requestedEditId
+        ? deliveryAddresses.find(address => address.id === requestedEditId) || null
+        : null;
+
+    setEditingAddressId(addressToEdit?.id || null);
+
     setName(customerName || '');
     setWhatsapp(formatPhoneForInput(customerPhone || ''));
     setAvatar(customerAvatar || DEFAULT_AVATAR);
-    setReference(customerReference || '');
     setUserActualLocation(null);
     setGpsNotice('');
 
+    if (isChangingLocation && addressToEdit) {
+      setReference(addressToEdit.reference || '');
+      setAddressLabel(addressToEdit.label || 'Casa');
+      setLat(addressToEdit.lat);
+      setLng(addressToEdit.lng);
+      setStep(2);
+      setError('');
+
+      requestLocation({
+        moveMap: false,
+        silent: true,
+        updateSelectedPoint: false,
+      });
+
+      return;
+    }
+
+    if (isChangingLocation && !addressToEdit) {
+      setReference('');
+      setAddressLabel('Casa');
+      setLat(DEFAULT_CENTER.lat);
+      setLng(DEFAULT_CENTER.lng);
+      setStep(2);
+      setError('');
+
+      requestLocation({
+        moveMap: true,
+        silent: true,
+        updateSelectedPoint: true,
+      });
+
+      return;
+    }
+
+    setReference(customerReference || '');
     setAddressLabel(selectedDeliveryAddress?.label || 'Casa');
 
     const savedLat = hasSavedDeliveryPoint ? customerLat : null;
     const savedLng = hasSavedDeliveryPoint ? customerLng : null;
-
-    if (isChangingLocation) {
-      setStep(2);
-      setError('');
-
-      if (savedLat !== null && savedLng !== null) {
-        setLat(savedLat);
-        setLng(savedLng);
-
-        requestLocation({
-          moveMap: false,
-          silent: true,
-          updateSelectedPoint: false,
-        });
-      } else {
-        setLat(DEFAULT_CENTER.lat);
-        setLng(DEFAULT_CENTER.lng);
-
-        requestLocation({
-          moveMap: true,
-          silent: true,
-          updateSelectedPoint: true,
-        });
-      }
-
-      return;
-    }
 
     setLat(savedLat ?? DEFAULT_CENTER.lat);
     setLng(savedLng ?? DEFAULT_CENTER.lng);
@@ -524,6 +560,7 @@ export default function LoginModal({
     customerName,
     customerPhone,
     customerReference,
+    deliveryAddresses,
     hasSavedDeliveryPoint,
     isChangingLocation,
     isMandatory,
@@ -825,12 +862,15 @@ export default function LoginModal({
     setIsSavingLocation(true);
 
     saveDeliveryAddress({
+      id: editingAddressId || undefined,
       label: addressLabel,
       lat,
       lng,
       reference: reference.trim(),
       isDefault: true,
     });
+
+    sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
 
     onLogin({
       name: name.trim(),
@@ -919,7 +959,7 @@ export default function LoginModal({
                 if (isSavingLocation) return;
 
                 if (isChangingLocation) {
-                  if (!isMandatory) onClose();
+                  if (!isMandatory) handleSafeClose();
                   return;
                 }
 
@@ -1006,7 +1046,7 @@ export default function LoginModal({
 
           <div className="mb-3">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">
-              Guardar como
+              {editingAddressId ? 'Editando dirección' : 'Guardar como'}
             </h3>
 
             <div className="grid grid-cols-4 gap-2">
@@ -1058,9 +1098,11 @@ export default function LoginModal({
           >
             {isSavingLocation
               ? 'GUARDANDO...'
-              : isChangingLocation
-                ? `GUARDAR ${addressLabel.toUpperCase()} 📍`
-                : 'CONFIRMAR PUNTO 🚀'}
+              : editingAddressId
+                ? `ACTUALIZAR ${addressLabel.toUpperCase()} ✅`
+                : isChangingLocation
+                  ? `GUARDAR ${addressLabel.toUpperCase()} 📍`
+                  : 'CONFIRMAR PUNTO 🚀'}
           </button>
         </div>
 
@@ -1121,7 +1163,7 @@ export default function LoginModal({
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-white/40 backdrop-blur-3xl animate-in fade-in duration-500"
-        onClick={isMandatory ? undefined : onClose}
+        onClick={isMandatory ? undefined : handleSafeClose}
       />
 
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[50px] shadow-[0_20px_100px_-20px_rgba(0,0,0,0.3)] border border-white flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
@@ -1143,7 +1185,7 @@ export default function LoginModal({
 
           {!isMandatory && (
             <button
-              onClick={onClose}
+              onClick={handleSafeClose}
               className="p-2 bg-slate-100 text-slate-400 rounded-full active:scale-75 transition-all"
               aria-label="Cerrar registro"
             >
