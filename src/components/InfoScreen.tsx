@@ -34,7 +34,8 @@ import LiveMetrics from './LiveMetrics';
 import LegalModal from './LegalModal';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
-import type { Order, Screen } from '../types';
+import { useCart } from '../context/CartContext';
+import type { Order, Product, Screen } from '../types';
 
 const WHATSAPP = '+593989795628';
 const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
@@ -137,6 +138,11 @@ function toMoney(value: unknown) {
   );
 
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatMoneyText(value: unknown) {
+  const money = toMoney(value);
+  return money > 0 ? `$${money.toFixed(2)}` : 'Consultar precio';
 }
 
 function getCustomerLevel(exp: number) {
@@ -266,6 +272,98 @@ function buildOrderWhatsAppUrl(order: Order) {
   ].join('\n');
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
+function findLiveProductForOrderItem(item: any, products: Product[]) {
+  const possibleIds = [
+    item?.product_id,
+    item?.id,
+    item?.cart_item_id,
+    item?.product?.id,
+  ]
+    .filter(Boolean)
+    .map((value: unknown) => String(value));
+
+  for (const id of possibleIds) {
+    const directMatch = products.find(product => String(product.id) === id);
+
+    if (directMatch) return directMatch;
+
+    const byPrefix = products.find(product => id.startsWith(`${product.id}-`));
+
+    if (byPrefix) return byPrefix;
+  }
+
+  const possibleName = String(item?.name || item?.product?.name || '')
+    .trim()
+    .toLowerCase();
+
+  if (!possibleName) return null;
+
+  return (
+    products.find(product => product.name.trim().toLowerCase() === possibleName) || null
+  );
+}
+
+function buildRepeatProduct(order: Order, item: any, index: number, products: Product[]) {
+  const liveProduct = findLiveProductForOrderItem(item, products);
+  const savedProduct = item?.product || {};
+
+  if (liveProduct?.available === false) {
+    return null;
+  }
+
+  const savedUnitPrice =
+    typeof item?.price === 'number' && item.price > 0
+      ? item.price
+      : typeof savedProduct?.custom_price === 'number' && savedProduct.custom_price > 0
+        ? savedProduct.custom_price
+        : typeof item?.custom_price === 'number' && item.custom_price > 0
+          ? item.custom_price
+          : toMoney(item?.price || item?.price_text || savedProduct?.price || liveProduct?.price);
+
+  const baseId =
+    liveProduct?.id ||
+    item?.product_id ||
+    item?.id ||
+    savedProduct?.id ||
+    `${order.order_code || order.id || 'pedido'}-${index}`;
+
+  const name =
+    liveProduct?.name ||
+    savedProduct?.name ||
+    item?.name ||
+    'Producto';
+
+  const product: Product = {
+    ...(liveProduct || {}),
+    ...(savedProduct || {}),
+    id: String(baseId),
+    name,
+    price:
+      savedUnitPrice > 0
+        ? formatMoneyText(savedUnitPrice)
+        : liveProduct?.price || savedProduct?.price || item?.price_text || 'Consultar precio',
+    custom_price:
+      typeof item?.custom_price === 'number' && item.custom_price > 0
+        ? item.custom_price
+        : typeof savedProduct?.custom_price === 'number' && savedProduct.custom_price > 0
+          ? savedProduct.custom_price
+          : undefined,
+    category:
+      liveProduct?.category ||
+      savedProduct?.category ||
+      item?.category ||
+      'Abarrotes y básicos',
+    image:
+      liveProduct?.image ||
+      savedProduct?.image ||
+      item?.image ||
+      LOGO_OFFICIAL,
+    available: true,
+  } as Product;
+
+  return product;
 }
 
 function TeamCarousel() {
@@ -466,8 +564,10 @@ interface CustomerHistoryProps {
 }
 
 function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
-  const { orders, customers, extraSettings } = useAdmin();
+  const { orders, customers, extraSettings, products } = useAdmin();
   const { customerName, customerPhone, customerAvatar } = useUser();
+  const { addItem, setIsOpen } = useCart();
+  const [repeatNotice, setRepeatNotice] = useState('');
 
   const seasonActive = extraSettings?.event_active !== false;
   const cleanUserPhone = cleanPhoneTail(customerPhone);
@@ -504,6 +604,12 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
       order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar'
     );
   }, [myOrders]);
+
+  const repeatableOrders = useMemo(() => {
+    return myOrders.filter(order => (order.items || []).length > 0 && order.status !== 'Cancelado');
+  }, [myOrders]);
+
+  const lastRepeatableOrder = repeatableOrders[0] || null;
 
   const totalSpentFromOrders = useMemo(() => {
     return validOrders.reduce((sum, order) => sum + toMoney(order.total), 0);
@@ -552,6 +658,57 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
     return 'Vas bien: tus pedidos ya tienen historial para mostrarte recomendaciones útiles.';
   }, [activeOrders.length, averageOrder, topProduct, totalOrders]);
+
+  const handleRepeatOrder = (order: Order) => {
+    const items = order.items || [];
+
+    if (items.length === 0) {
+      setRepeatNotice('Este pedido no tiene productos para repetir.');
+      window.setTimeout(() => setRepeatNotice(''), 3000);
+      return;
+    }
+
+    let addedUnits = 0;
+    let skippedUnits = 0;
+
+    items.forEach((item, index) => {
+      const product = buildRepeatProduct(order, item, index, products);
+
+      if (!product) {
+        skippedUnits += Number(item.quantity || 1);
+        return;
+      }
+
+      const quantity = Math.max(1, Math.round(Number(item.quantity || 1)));
+
+      for (let i = 0; i < quantity; i += 1) {
+        addItem(product);
+        addedUnits += 1;
+      }
+    });
+
+    if (addedUnits === 0) {
+      setRepeatNotice('No pudimos repetir este pedido porque sus productos ya no están disponibles.');
+      window.setTimeout(() => setRepeatNotice(''), 3500);
+      return;
+    }
+
+    setRepeatNotice(
+      skippedUnits > 0
+        ? `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
+        : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
+    );
+
+    setIsOpen(true);
+
+    window.setTimeout(() => {
+      onNavigate('cart');
+    }, 350);
+
+    window.setTimeout(() => {
+      setRepeatNotice('');
+    }, 3500);
+  };
 
   if (!customerPhone) {
     return (
@@ -623,6 +780,46 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
           </div>
         </div>
       </div>
+
+      {repeatNotice && (
+        <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4">
+          <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed text-center">
+            {repeatNotice}
+          </p>
+        </div>
+      )}
+
+      {lastRepeatableOrder && (
+        <div className="relative bg-slate-950 text-white rounded-[28px] p-4 mb-4 overflow-hidden shadow-xl">
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/25 rounded-full blur-3xl" />
+          <div className="relative flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <ShoppingBag size={23} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] font-black text-orange-300 uppercase tracking-widest">
+                Compra rápida
+              </p>
+              <p className="text-xs font-black uppercase truncate mt-1">
+                Repetir: {getOrderItemsLabel(lastRepeatableOrder)}
+              </p>
+              <p className="text-[9px] font-bold text-white/45 mt-1">
+                {formatOrderDate(lastRepeatableOrder.created_at)} · $
+                {toMoney(lastRepeatableOrder.total).toFixed(2)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleRepeatOrder(lastRepeatableOrder)}
+              className="bg-white text-slate-950 rounded-2xl px-4 py-3 text-[9px] font-black uppercase active:scale-95 transition-transform flex-shrink-0"
+            >
+              Pedir otra vez
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeOrders.length > 0 && (
         <div className="relative mb-4 space-y-3">
@@ -758,9 +955,21 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
                   </p>
                 </div>
 
-                <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border flex-shrink-0 ${getStatusStyle(order.status)}`}>
-                  {order.status}
-                </span>
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
+                    {order.status}
+                  </span>
+
+                  {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
+                    <button
+                      type="button"
+                      onClick={() => handleRepeatOrder(order)}
+                      className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform"
+                    >
+                      Repetir
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
