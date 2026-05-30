@@ -51,6 +51,8 @@ const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 
 const MAP_MAX_ZOOM = 18;
+const MAP_DEFAULT_ZOOM = 17;
+const MAP_GPS_ZOOM = 17;
 
 const PUERTO_AYORA_BOUNDS = {
   latMin: -0.765,
@@ -312,7 +314,17 @@ export default function LoginModal({
     userMarkerRef.current = null;
   }, []);
 
-  const moveMapTo = useCallback((position: LatLng, zoom = 17) => {
+  const keepZoomSafe = useCallback(() => {
+    if (!mapInstance.current) return;
+
+    const currentZoom = mapInstance.current.getZoom();
+
+    if (currentZoom > MAP_MAX_ZOOM) {
+      mapInstance.current.setZoom(MAP_MAX_ZOOM, { animate: true });
+    }
+  }, []);
+
+  const moveMapTo = useCallback((position: LatLng, zoom = MAP_DEFAULT_ZOOM) => {
     if (!mapInstance.current) return;
 
     const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
@@ -334,7 +346,7 @@ export default function LoginModal({
       }
 
       if (mapInstance.current) {
-        moveMapTo(DEFAULT_CENTER, 17);
+        moveMapTo(DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
       }
     },
     [moveMapTo, removeUserMarker]
@@ -376,7 +388,7 @@ export default function LoginModal({
             }
 
             if (mapInstance.current && options?.moveMap !== false) {
-              moveMapTo(DEFAULT_CENTER, 17);
+              moveMapTo(DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
             }
 
             setGpsNotice(
@@ -395,7 +407,7 @@ export default function LoginModal({
           }
 
           if (mapInstance.current && options?.moveMap !== false) {
-            moveMapTo(nextPosition, 17);
+            moveMapTo(nextPosition, MAP_GPS_ZOOM);
           }
 
           syncUserMarker(nextPosition);
@@ -518,11 +530,9 @@ export default function LoginModal({
 
       mapInstance.current = L.map(mapContainerRef.current, {
         center: [startLat, startLng],
-        zoom: 17,
+        zoom: MAP_DEFAULT_ZOOM,
         minZoom: 5,
         maxZoom: MAP_MAX_ZOOM,
-        zoomSnap: 1,
-        zoomDelta: 1,
         zoomControl: false,
         attributionControl: false,
         scrollWheelZoom: true,
@@ -537,8 +547,6 @@ export default function LoginModal({
           maxZoom: MAP_MAX_ZOOM,
           maxNativeZoom: MAP_MAX_ZOOM,
           detectRetina: false,
-          updateWhenIdle: true,
-          keepBuffer: 4,
         }
       );
 
@@ -548,8 +556,6 @@ export default function LoginModal({
           maxZoom: MAP_MAX_ZOOM,
           maxNativeZoom: MAP_MAX_ZOOM,
           detectRetina: false,
-          updateWhenIdle: true,
-          keepBuffer: 4,
         }
       );
 
@@ -577,7 +583,11 @@ export default function LoginModal({
         setLng(center.lng);
       });
 
+      mapInstance.current.on('zoomend', keepZoomSafe);
+
       mapInstance.current.on('moveend', () => {
+        keepZoomSafe();
+
         const center = mapInstance.current.getCenter();
         setLat(center.lat);
         setLng(center.lng);
@@ -588,7 +598,7 @@ export default function LoginModal({
         mapInstance.current?.invalidateSize();
 
         if (lat !== null && lng !== null) {
-          mapInstance.current?.setView([lat, lng], 17, { animate: false });
+          mapInstance.current?.setView([lat, lng], MAP_DEFAULT_ZOOM, { animate: false });
         }
 
         setMapReady(true);
@@ -602,7 +612,7 @@ export default function LoginModal({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [isOpen, lat, lng, step, syncUserMarker, userActualLocation]);
+  }, [isOpen, keepZoomSafe, lat, lng, step, syncUserMarker, userActualLocation]);
 
   useEffect(() => {
     if (!isOpen || step !== 2) return undefined;
