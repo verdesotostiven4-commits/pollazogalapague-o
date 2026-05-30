@@ -13,9 +13,14 @@ import {
   LocateFixed,
   ShieldCheck,
   WifiOff,
+  Home,
+  Building2,
+  Umbrella,
+  MapPinned,
 } from 'lucide-react';
 import { PRESET_AVATARS } from '../constants/avatars';
 import { useUser } from '../context/UserContext';
+import type { DeliveryAddressLabel } from '../types';
 
 declare const L: any;
 
@@ -60,6 +65,16 @@ const PUERTO_AYORA_BOUNDS = {
   lngMin: -90.345,
   lngMax: -90.295,
 };
+
+const ADDRESS_LABELS: Array<{
+  label: DeliveryAddressLabel;
+  icon: React.ReactNode;
+}> = [
+  { label: 'Casa', icon: <Home size={14} /> },
+  { label: 'Trabajo', icon: <Building2 size={14} /> },
+  { label: 'Airbnb', icon: <Umbrella size={14} /> },
+  { label: 'Otro', icon: <MapPinned size={14} /> },
+];
 
 const preloadedAvatarCache = new Set<string>();
 
@@ -137,6 +152,8 @@ export default function LoginModal({
     customerLat,
     customerLng,
     customerReference,
+    selectedDeliveryAddress,
+    saveDeliveryAddress,
   } = useUser();
 
   const [step, setStep] = useState(1);
@@ -146,6 +163,7 @@ export default function LoginModal({
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [reference, setReference] = useState('');
+  const [addressLabel, setAddressLabel] = useState<DeliveryAddressLabel>('Casa');
 
   const [userActualLocation, setUserActualLocation] = useState<LatLng | null>(null);
   const [loadedAvatarUrls, setLoadedAvatarUrls] = useState<Set<string>>(() => {
@@ -437,6 +455,8 @@ export default function LoginModal({
     setUserActualLocation(null);
     setGpsNotice('');
 
+    setAddressLabel(selectedDeliveryAddress?.label || 'Casa');
+
     const savedLat = hasSavedDeliveryPoint ? customerLat : null;
     const savedLng = hasSavedDeliveryPoint ? customerLng : null;
 
@@ -509,6 +529,7 @@ export default function LoginModal({
     isMandatory,
     isOpen,
     requestLocation,
+    selectedDeliveryAddress,
   ]);
 
   useEffect(() => {
@@ -796,7 +817,20 @@ export default function LoginModal({
       return;
     }
 
+    if (lat === null || lng === null) {
+      setError('No se pudo leer el punto del mapa. Intenta moverlo un poco.');
+      return;
+    }
+
     setIsSavingLocation(true);
+
+    saveDeliveryAddress({
+      label: addressLabel,
+      lat,
+      lng,
+      reference: reference.trim(),
+      isDefault: true,
+    });
 
     onLogin({
       name: name.trim(),
@@ -968,6 +1002,30 @@ export default function LoginModal({
             </p>
           )}
 
+          <div className="mb-3">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">
+              Guardar como
+            </h3>
+
+            <div className="grid grid-cols-4 gap-2">
+              {ADDRESS_LABELS.map(item => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => setAddressLabel(item.label)}
+                  className={`rounded-2xl px-2 py-3 border text-[8px] font-black uppercase flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
+                    addressLabel === item.label
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
+                      : 'bg-slate-50 text-slate-500 border-slate-100'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
               Referencia
@@ -999,7 +1057,7 @@ export default function LoginModal({
             {isSavingLocation
               ? 'GUARDANDO...'
               : isChangingLocation
-                ? 'GUARDAR DIRECCIÓN 📍'
+                ? `GUARDAR ${addressLabel.toUpperCase()} 📍`
                 : 'CONFIRMAR PUNTO 🚀'}
           </button>
         </div>
