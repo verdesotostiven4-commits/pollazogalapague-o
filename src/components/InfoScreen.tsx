@@ -35,6 +35,7 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  ShoppingCart,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
@@ -52,6 +53,7 @@ import type {
 
 const WHATSAPP = '+593989795628';
 const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
+const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 const WA_HELLO = `https://wa.me/${WHATSAPP}?text=Hola%2C%20quisiera%20m%C3%A1s%20informaci%C3%B3n%20sobre%20La%20Casa%20del%20Pollazo%20El%20Mirador%20%F0%9F%8D%97`;
 const LOGO_OFFICIAL =
   'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
@@ -597,8 +599,9 @@ interface CustomerHistoryProps {
 function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const { orders, customers, extraSettings, products } = useAdmin();
   const { customerName, customerPhone, customerAvatar } = useUser();
-  const { addItem, setIsOpen } = useCart();
+  const { addItem, clearCart, items: cartItems, setIsOpen } = useCart();
   const [repeatNotice, setRepeatNotice] = useState('');
+  const [pendingRepeatOrder, setPendingRepeatOrder] = useState<Order | null>(null);
 
   const seasonActive = extraSettings?.event_active !== false;
   const cleanUserPhone = cleanPhoneTail(customerPhone);
@@ -690,19 +693,23 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return 'Vas bien: tus pedidos ya tienen historial para mostrarte recomendaciones útiles.';
   }, [activeOrders.length, averageOrder, topProduct, totalOrders]);
 
-  const handleRepeatOrder = (order: Order) => {
-    const items = order.items || [];
+  const addRepeatOrderToCart = (order: Order, mode: 'replace' | 'merge') => {
+    const orderItems = order.items || [];
 
-    if (items.length === 0) {
+    if (orderItems.length === 0) {
       setRepeatNotice('Este pedido no tiene productos para repetir.');
       window.setTimeout(() => setRepeatNotice(''), 3000);
       return;
     }
 
+    if (mode === 'replace') {
+      clearCart();
+    }
+
     let addedUnits = 0;
     let skippedUnits = 0;
 
-    items.forEach((item, index) => {
+    orderItems.forEach((item, index) => {
       const product = buildRepeatProduct(order, item, index, products);
 
       if (!product) {
@@ -727,9 +734,12 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     setRepeatNotice(
       skippedUnits > 0
         ? `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
-        : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
+        : mode === 'replace'
+          ? `Reemplazamos tu carrito con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}.`
+          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} junto a tu carrito.`
     );
 
+    setPendingRepeatOrder(null);
     setIsOpen(true);
 
     window.setTimeout(() => {
@@ -739,6 +749,15 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     window.setTimeout(() => {
       setRepeatNotice('');
     }, 3500);
+  };
+
+  const handleRepeatOrder = (order: Order) => {
+    if ((cartItems || []).length > 0) {
+      setPendingRepeatOrder(order);
+      return;
+    }
+
+    addRepeatOrderToCart(order, 'replace');
   };
 
   if (!customerPhone) {
@@ -770,258 +789,328 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-5 relative">
-      <div className="absolute -top-16 -right-16 w-40 h-40 bg-orange-300/20 rounded-full blur-3xl" />
-      <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-yellow-300/20 rounded-full blur-3xl" />
+    <>
+      <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-5 relative">
+        <div className="absolute -top-16 -right-16 w-40 h-40 bg-orange-300/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-yellow-300/20 rounded-full blur-3xl" />
 
-      <div className="relative flex items-center gap-4 mb-5">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-[24px] overflow-hidden border-4 border-white shadow-xl bg-white">
-            <img
-              src={customer?.avatar_url || customerAvatar || LOGO_OFFICIAL}
-              alt={customerName || 'Cliente'}
-              className="w-full h-full object-cover"
+        <div className="relative flex items-center gap-4 mb-5">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-[24px] overflow-hidden border-4 border-white shadow-xl bg-white">
+              <img
+                src={customer?.avatar_url || customerAvatar || LOGO_OFFICIAL}
+                alt={customerName || 'Cliente'}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-xl px-1.5 py-1 text-[9px] font-black border-2 border-white">
+              {level.emoji}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+              Mi Historial Pollazo
+            </p>
+
+            <h3 className="font-black text-gray-900 text-lg uppercase italic truncate leading-none mt-1">
+              {customer?.name || customerName || 'Cliente Pollazo'}
+            </h3>
+
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="bg-white/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
+                <Crown size={11} />
+                Nivel {level.level}
+              </span>
+
+              <span className="bg-white/80 border border-green-100 text-green-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
+                <BadgeCheck size={11} />
+                {customer?.phone_verified ? 'Verificado' : 'Sin verificar'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {repeatNotice && (
+          <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4">
+            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed text-center">
+              {repeatNotice}
+            </p>
+          </div>
+        )}
+
+        {lastRepeatableOrder && (
+          <div className="relative bg-slate-950 text-white rounded-[28px] p-4 mb-4 overflow-hidden shadow-xl">
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/25 rounded-full blur-3xl" />
+            <div className="relative flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <ShoppingBag size={23} />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] font-black text-orange-300 uppercase tracking-widest">
+                  Compra rápida
+                </p>
+                <p className="text-xs font-black uppercase truncate mt-1">
+                  Repetir: {getOrderItemsLabel(lastRepeatableOrder)}
+                </p>
+                <p className="text-[9px] font-bold text-white/45 mt-1">
+                  {formatOrderDate(lastRepeatableOrder.created_at)} · $
+                  {toMoney(lastRepeatableOrder.total).toFixed(2)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleRepeatOrder(lastRepeatableOrder)}
+                className="bg-white text-slate-950 rounded-2xl px-4 py-3 text-[9px] font-black uppercase active:scale-95 transition-transform flex-shrink-0"
+              >
+                Pedir otra vez
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeOrders.length > 0 && (
+          <div className="relative mb-4 space-y-3">
+            {activeOrders.slice(0, 2).map(order => (
+              <ActiveOrderCard key={order.id} order={order} onNavigate={onNavigate} />
+            ))}
+          </div>
+        )}
+
+        <div className="relative bg-white/70 backdrop-blur-md rounded-[28px] p-4 border border-white/70 mb-4">
+          <div className="flex justify-between items-end mb-2">
+            <div>
+              <p className="text-xs font-black text-gray-900 uppercase">
+                {level.title}
+              </p>
+
+              <p className="text-[10px] font-bold text-gray-400 mt-0.5">
+                {exp.toLocaleString('es-EC')} EXP permanente
+              </p>
+            </div>
+
+            {nextExp ? (
+              <p className="text-[9px] font-black text-orange-500 uppercase">
+                faltan {Math.max(0, nextExp - exp)} EXP
+              </p>
+            ) : (
+              <p className="text-[9px] font-black text-orange-500 uppercase">
+                nivel máximo
+              </p>
+            )}
+          </div>
+
+          <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
             />
           </div>
 
-          <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-xl px-1.5 py-1 text-[9px] font-black border-2 border-white">
-            {level.emoji}
-          </div>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-            Mi Historial Pollazo
-          </p>
-
-          <h3 className="font-black text-gray-900 text-lg uppercase italic truncate leading-none mt-1">
-            {customer?.name || customerName || 'Cliente Pollazo'}
-          </h3>
-
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className="bg-white/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
-              <Crown size={11} />
-              Nivel {level.level}
-            </span>
-
-            <span className="bg-white/80 border border-green-100 text-green-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
-              <BadgeCheck size={11} />
-              {customer?.phone_verified ? 'Verificado' : 'Sin verificar'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {repeatNotice && (
-        <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4">
-          <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed text-center">
-            {repeatNotice}
+          <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-3">
+            La EXP no se borra. Los puntos de temporada solo cuentan cuando el negocio activa un concurso.
           </p>
         </div>
-      )}
 
-      {lastRepeatableOrder && (
-        <div className="relative bg-slate-950 text-white rounded-[28px] p-4 mb-4 overflow-hidden shadow-xl">
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/25 rounded-full blur-3xl" />
-          <div className="relative flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-              <ShoppingBag size={23} />
-            </div>
+        <div className="relative grid grid-cols-2 gap-3 mb-4">
+          <StatPill
+            icon={<Wallet size={18} />}
+            label="Gastado"
+            value={`$${totalSpent.toFixed(2)}`}
+          />
 
-            <div className="flex-1 min-w-0">
-              <p className="text-[9px] font-black text-orange-300 uppercase tracking-widest">
-                Compra rápida
-              </p>
-              <p className="text-xs font-black uppercase truncate mt-1">
-                Repetir: {getOrderItemsLabel(lastRepeatableOrder)}
-              </p>
-              <p className="text-[9px] font-bold text-white/45 mt-1">
-                {formatOrderDate(lastRepeatableOrder.created_at)} · $
-                {toMoney(lastRepeatableOrder.total).toFixed(2)}
-              </p>
-            </div>
+          <StatPill
+            icon={<PackageCheck size={18} />}
+            label="Pedidos"
+            value={`${totalOrders}`}
+          />
 
-            <button
-              type="button"
-              onClick={() => handleRepeatOrder(lastRepeatableOrder)}
-              className="bg-white text-slate-950 rounded-2xl px-4 py-3 text-[9px] font-black uppercase active:scale-95 transition-transform flex-shrink-0"
-            >
-              Pedir otra vez
-            </button>
-          </div>
-        </div>
-      )}
+          <StatPill
+            icon={<TrendingUp size={18} />}
+            label="Promedio"
+            value={`$${averageOrder.toFixed(2)}`}
+          />
 
-      {activeOrders.length > 0 && (
-        <div className="relative mb-4 space-y-3">
-          {activeOrders.slice(0, 2).map(order => (
-            <ActiveOrderCard key={order.id} order={order} onNavigate={onNavigate} />
-          ))}
-        </div>
-      )}
-
-      <div className="relative bg-white/70 backdrop-blur-md rounded-[28px] p-4 border border-white/70 mb-4">
-        <div className="flex justify-between items-end mb-2">
-          <div>
-            <p className="text-xs font-black text-gray-900 uppercase">
-              {level.title}
-            </p>
-
-            <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-              {exp.toLocaleString('es-EC')} EXP permanente
-            </p>
-          </div>
-
-          {nextExp ? (
-            <p className="text-[9px] font-black text-orange-500 uppercase">
-              faltan {Math.max(0, nextExp - exp)} EXP
-            </p>
-          ) : (
-            <p className="text-[9px] font-black text-orange-500 uppercase">
-              nivel máximo
-            </p>
-          )}
-        </div>
-
-        <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
+          <StatPill
+            icon={<Activity size={18} />}
+            label={seasonActive ? 'Temporada' : 'Pausado'}
+            value={`${points} pts`}
+            muted={!seasonActive}
           />
         </div>
 
-        <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-3">
-          La EXP no se borra. Los puntos de temporada solo cuentan cuando el negocio activa un concurso.
-        </p>
-      </div>
-
-      <div className="relative grid grid-cols-2 gap-3 mb-4">
-        <StatPill
-          icon={<Wallet size={18} />}
-          label="Gastado"
-          value={`$${totalSpent.toFixed(2)}`}
-        />
-
-        <StatPill
-          icon={<PackageCheck size={18} />}
-          label="Pedidos"
-          value={`${totalOrders}`}
-        />
-
-        <StatPill
-          icon={<TrendingUp size={18} />}
-          label="Promedio"
-          value={`$${averageOrder.toFixed(2)}`}
-        />
-
-        <StatPill
-          icon={<Activity size={18} />}
-          label={seasonActive ? 'Temporada' : 'Pausado'}
-          value={`${points} pts`}
-          muted={!seasonActive}
-        />
-      </div>
-
-      {!seasonActive && (
-        <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
-            El ranking de temporada está pausado. Tus compras válidas siguen sumando EXP permanente, pero no puntos de concurso.
-          </p>
-        </div>
-      )}
-
-      <div className="relative bg-white/80 border border-white rounded-[28px] p-4 mb-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={21} />
-          </div>
-
-          <div>
-            <p className="text-[11px] font-black text-gray-900 uppercase">
-              Mi Bolsillo Pollazo
+        {!seasonActive && (
+          <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
+            <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
+              El ranking de temporada está pausado. Tus compras válidas siguen sumando EXP permanente, pero no puntos de concurso.
             </p>
-            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-              {savingTip}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-            Últimos pedidos
-          </p>
-
-          {activeOrders.length > 0 && (
-            <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
-              {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {myOrders.length > 0 ? (
-          <div className="space-y-2">
-            {[...activeOrders, ...pastOrders].slice(0, 4).map(order => (
-              <div
-                key={order.id}
-                className="bg-white/80 border border-white rounded-2xl p-3 flex items-center gap-3"
-              >
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                  {order.status === 'Enviado' ? (
-                    <Truck size={18} />
-                  ) : (
-                    <ReceiptText size={18} />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-gray-900 uppercase truncate">
-                    {order.order_code} · {getOrderItemsLabel(order)}
-                  </p>
-
-                  <p className="text-[9px] font-bold text-gray-400 mt-1">
-                    {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
-                    {toMoney(order.total).toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
-                    {order.status}
-                  </span>
-
-                  {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
-                    <button
-                      type="button"
-                      onClick={() => handleRepeatOrder(order)}
-                      className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform"
-                    >
-                      Repetir
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white/70 border border-white rounded-2xl p-4 text-center">
-            <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
-            <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
-              Aún no tienes pedidos registrados con este número.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('catalog')}
-              className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
-            >
-              Ver catálogo
-            </button>
           </div>
         )}
+
+        <div className="relative bg-white/80 border border-white rounded-[28px] p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <ShieldCheck size={21} />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-black text-gray-900 uppercase">
+                Mi Bolsillo Pollazo
+              </p>
+              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                {savingTip}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Últimos pedidos
+            </p>
+
+            {activeOrders.length > 0 && (
+              <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
+                {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {myOrders.length > 0 ? (
+            <div className="space-y-2">
+              {[...activeOrders, ...pastOrders].slice(0, 4).map(order => (
+                <div
+                  key={order.id}
+                  className="bg-white/80 border border-white rounded-2xl p-3 flex items-center gap-3"
+                >
+                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
+                    {order.status === 'Enviado' ? (
+                      <Truck size={18} />
+                    ) : (
+                      <ReceiptText size={18} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-900 uppercase truncate">
+                      {order.order_code} · {getOrderItemsLabel(order)}
+                    </p>
+
+                    <p className="text-[9px] font-bold text-gray-400 mt-1">
+                      {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
+                      {toMoney(order.total).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
+                      {order.status}
+                    </span>
+
+                    {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRepeatOrder(order)}
+                        className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform"
+                      >
+                        Repetir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/70 border border-white rounded-2xl p-4 text-center">
+              <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
+              <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
+                Aún no tienes pedidos registrados con este número.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('catalog')}
+                className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
+              >
+                Ver catálogo
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {pendingRepeatOrder && (
+        <div className="fixed inset-0 z-[10020] bg-slate-950/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-[34px] shadow-2xl p-5 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+                <ShoppingCart size={24} />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-black text-slate-950 uppercase leading-tight">
+                  Ya tienes productos en el carrito
+                </p>
+                <p className="text-xs font-bold text-slate-500 mt-1 leading-relaxed">
+                  ¿Quieres reemplazar el carrito actual o agregar este pedido junto a lo que ya tienes?
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPendingRepeatOrder(null)}
+                className="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="mt-4 bg-slate-50 border border-slate-100 rounded-[24px] p-3">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Pedido elegido
+              </p>
+              <p className="text-xs font-black text-slate-800 mt-1 truncate">
+                {getOrderItemsLabel(pendingRepeatOrder)}
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                {formatOrderDate(pendingRepeatOrder.created_at)} · $
+                {toMoney(pendingRepeatOrder.total).toFixed(2)}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => addRepeatOrderToCart(pendingRepeatOrder, 'replace')}
+                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-200 active:scale-95 transition-transform"
+              >
+                Reemplazar carrito
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addRepeatOrderToCart(pendingRepeatOrder, 'merge')}
+                className="w-full bg-slate-950 text-white rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+              >
+                Agregar junto
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPendingRepeatOrder(null)}
+                className="w-full bg-slate-100 text-slate-500 rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1052,8 +1141,15 @@ function DeliveryAddressesPanel({
     onChangeLocation?.();
   };
 
+  const handleAddAddress = () => {
+    sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
+    openLocationEditor();
+  };
+
   const handleEditAddress = (address: DeliveryAddress) => {
+    sessionStorage.setItem(EDIT_ADDRESS_STORAGE_KEY, address.id);
     selectDeliveryAddress(address.id);
+
     window.setTimeout(() => {
       openLocationEditor();
     }, 80);
@@ -1191,7 +1287,7 @@ function DeliveryAddressesPanel({
 
           <button
             type="button"
-            onClick={openLocationEditor}
+            onClick={handleAddAddress}
             className="mt-3 w-full bg-slate-950 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
           >
             <Plus size={15} />
