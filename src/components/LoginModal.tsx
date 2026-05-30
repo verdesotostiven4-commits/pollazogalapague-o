@@ -893,27 +893,29 @@ export default function LoginModal({
         </div>
 
         <div
-          className={`absolute top-1/2 left-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out ${
-            isDragging ? 'scale-90' : 'scale-100'
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
+            isDragging ? 'opacity-100' : 'opacity-0'
           }`}
-          style={{
-            transform: `translate(-50%, ${isDragging ? '-112%' : '-100%'})`,
-          }}
         >
-          <div className="relative flex flex-col items-center">
-            <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
-              <MapPin size={28} className="text-white fill-white" />
-            </div>
-          </div>
+          <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
         </div>
 
-        <div className="absolute top-1/2 left-1/2 z-[649] pointer-events-none">
+        <div
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
+            isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
+          }`}
+        >
+          <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
+            <MapPin size={28} className="text-white fill-white" />
+          </div>
+
           <div
-            className={`w-2 h-2 rounded-full border border-white shadow-lg transition-all duration-200 ${
-              isDragging ? 'bg-slate-700 scale-100' : 'bg-orange-600 scale-75'
+            className={`w-[3px] bg-orange-600 transition-all duration-300 ${
+              isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
             }`}
-            style={{ transform: 'translate(-50%, -50%)' }}
           />
+
+          <div className="w-3 h-1.5 bg-black/20 rounded-full blur-[1px]" />
         </div>
 
         <div className="absolute left-0 right-0 bottom-0 z-[730] bg-white rounded-t-[32px] shadow-[0_-18px_60px_rgba(15,23,42,0.18)] border-t border-white px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
@@ -972,7 +974,11 @@ export default function LoginModal({
                 : ''
             }`}
           >
-            {isSavingLocation ? 'GUARDANDO...' : isChangingLocation ? 'GUARDAR DIRECCIÓN 📍' : 'CONFIRMAR PUNTO 🚀'}
+            {isSavingLocation
+              ? 'GUARDANDO...'
+              : isChangingLocation
+                ? 'GUARDAR DIRECCIÓN 📍'
+                : 'CONFIRMAR PUNTO 🚀'}
           </button>
         </div>
 
