@@ -155,6 +155,7 @@ export default function LoginModal({
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -166,14 +167,14 @@ export default function LoginModal({
     return isFiniteNumber(customerLat) && isFiniteNumber(customerLng);
   }, [customerLat, customerLng]);
 
-  const modalTitle = title || (step === 1 ? 'Únete al Club' : 'Punto de entrega');
+  const modalTitle = title || (step === 1 ? 'Únete al Club' : 'Confirmar dirección');
   const modalSubtitle =
     subtitle ||
     (step === 1
       ? 'Acumula puntos y gana premios'
       : isChangingLocation
         ? 'Ajusta tu punto de entrega'
-        : 'Marca el punto exacto de entrega');
+        : 'Marca dónde recibes tu pedido');
 
   const normalizedWhatsapp = useMemo(() => normalizeEcuadorPhone(whatsapp), [whatsapp]);
   const phoneIsValid = useMemo(() => isValidEcuadorMobile(whatsapp), [whatsapp]);
@@ -188,6 +189,30 @@ export default function LoginModal({
     lng <= PUERTO_AYORA_BOUNDS.lngMax;
 
   const selectedAvatarReady = avatar.startsWith('data:') || loadedAvatarUrls.has(avatar);
+
+  const selectedLocationLabel = useMemo(() => {
+    if (lat === null || lng === null) {
+      return 'Mueve el mapa para marcar tu punto de entrega';
+    }
+
+    if (!isInsideGeofence) {
+      return `Fuera de cobertura · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+
+    return `Puerto Ayora · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }, [isInsideGeofence, lat, lng]);
+
+  const markAvatarLoaded = useCallback((url: string) => {
+    if (!url) return;
+
+    preloadedAvatarCache.add(url);
+
+    setLoadedAvatarUrls(prev => {
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -207,9 +232,25 @@ export default function LoginModal({
       const img = new Image();
       img.decoding = 'async';
 
+      try {
+        (img as HTMLImageElement & { fetchPriority?: 'high' }).fetchPriority = 'high';
+      } catch {
+        // El navegador puede no soportar fetchPriority.
+      }
+
       img.onload = () => {
         preloadedAvatarCache.add(item.url);
 
+        if (!mounted) return;
+
+        setLoadedAvatarUrls(prev => {
+          const next = new Set(prev);
+          next.add(item.url);
+          return next;
+        });
+      };
+
+      img.onerror = () => {
         if (!mounted) return;
 
         setLoadedAvatarUrls(prev => {
@@ -226,18 +267,6 @@ export default function LoginModal({
       mounted = false;
     };
   }, []);
-
-  const markAvatarLoaded = (url: string) => {
-    if (!url) return;
-
-    preloadedAvatarCache.add(url);
-
-    setLoadedAvatarUrls(prev => {
-      const next = new Set(prev);
-      next.add(url);
-      return next;
-    });
-  };
 
   const createBlueDotIcon = useCallback(() => {
     return L.divIcon({
@@ -269,6 +298,18 @@ export default function LoginModal({
     [createBlueDotIcon]
   );
 
+  const removeUserMarker = useCallback(() => {
+    if (!mapInstance.current || !userMarkerRef.current) return;
+
+    try {
+      mapInstance.current.removeLayer(userMarkerRef.current);
+    } catch {
+      // Si Leaflet ya removió el marcador, seguimos normal.
+    }
+
+    userMarkerRef.current = null;
+  }, []);
+
   const moveMapTo = useCallback((position: LatLng, zoom = 17) => {
     if (!mapInstance.current) return;
 
@@ -282,26 +323,17 @@ export default function LoginModal({
       setLat(DEFAULT_CENTER.lat);
       setLng(DEFAULT_CENTER.lng);
       setUserActualLocation(null);
-
-      if (userMarkerRef.current && mapInstance.current) {
-        try {
-          mapInstance.current.removeLayer(userMarkerRef.current);
-        } catch {
-          // Continuamos aunque Leaflet ya haya removido el marcador.
-        }
-
-        userMarkerRef.current = null;
-      }
+      removeUserMarker();
 
       if (message) {
         setGpsNotice(message);
       }
 
       if (mapInstance.current) {
-        moveMapTo(DEFAULT_CENTER, 16);
+        moveMapTo(DEFAULT_CENTER, 17);
       }
     },
-    [moveMapTo]
+    [moveMapTo, removeUserMarker]
   );
 
   const requestLocation = useCallback(
@@ -332,6 +364,7 @@ export default function LoginModal({
 
           if (!isPointInsidePuertoAyora(nextPosition)) {
             setUserActualLocation(null);
+            removeUserMarker();
 
             if (shouldUpdateSelectedPoint) {
               setLat(DEFAULT_CENTER.lat);
@@ -339,11 +372,11 @@ export default function LoginModal({
             }
 
             if (mapInstance.current && options?.moveMap !== false) {
-              moveMapTo(DEFAULT_CENTER, 16);
+              moveMapTo(DEFAULT_CENTER, 17);
             }
 
             setGpsNotice(
-              'Tu GPS está fuera de Puerto Ayora. Te dejamos el mapa en la zona de entrega para que marques manualmente.'
+              'Estás fuera de Puerto Ayora. Marca manualmente tu punto de entrega dentro de la zona.'
             );
 
             return;
@@ -370,7 +403,7 @@ export default function LoginModal({
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 20000 }
       );
     },
-    [moveMapTo, syncUserMarker]
+    [moveMapTo, removeUserMarker, syncUserMarker]
   );
 
   useEffect(() => {
@@ -378,6 +411,7 @@ export default function LoginModal({
 
     setMapReady(false);
     setMapFailed(false);
+    setIsSavingLocation(false);
     fallbackTileLoadedRef.current = false;
 
     setName(customerName || '');
@@ -423,13 +457,17 @@ export default function LoginModal({
     if (isMandatory) {
       if (!customerName || !customerPhone) {
         setStep(1);
-        setError('¡Espera! Necesitamos saber quién eres para poder entregarte tu pedido. Completa tus datos aquí.');
+        setError('Completa tus datos para poder coordinar la entrega.');
         return;
       }
 
       if (!hasSavedDeliveryPoint || !customerReference) {
         setStep(2);
-        setError('¡Ojo! Es obligatorio que pongas tu ubicación o punto de entrega en el mapa para llevarte el pedido exacto.');
+        setError('');
+        setGpsNotice('Marca tu ubicación de entrega para finalizar el pedido.');
+
+        setLat(DEFAULT_CENTER.lat);
+        setLng(DEFAULT_CENTER.lng);
 
         requestLocation({
           moveMap: true,
@@ -458,7 +496,9 @@ export default function LoginModal({
   ]);
 
   useEffect(() => {
-    if (!isOpen || step !== 2 || !mapContainerRef.current || mapInstance.current) return undefined;
+    if (!isOpen || step !== 2 || !mapContainerRef.current || mapInstance.current) {
+      return undefined;
+    }
 
     const timer = window.setTimeout(() => {
       if (!mapContainerRef.current) return;
@@ -474,7 +514,7 @@ export default function LoginModal({
 
       mapInstance.current = L.map(mapContainerRef.current, {
         center: [startLat, startLng],
-        zoom: 16,
+        zoom: 17,
         minZoom: 5,
         maxZoom: 20,
         zoomControl: false,
@@ -536,7 +576,7 @@ export default function LoginModal({
         mapInstance.current?.invalidateSize();
 
         if (lat !== null && lng !== null) {
-          mapInstance.current?.setView([lat, lng], 16, { animate: false });
+          mapInstance.current?.setView([lat, lng], 17, { animate: false });
         }
 
         setMapReady(true);
@@ -577,7 +617,7 @@ export default function LoginModal({
     if (step !== 2 || lat === null || lng === null) return;
 
     if (!isInsideGeofence) {
-      setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
+      setError('Fuera de cobertura. Solo entregamos dentro de Puerto Ayora.');
       return;
     }
 
@@ -593,7 +633,7 @@ export default function LoginModal({
 
   const handlePuertoAyoraButton = () => {
     setError('');
-    goToPuertoAyora('Mapa centrado en Puerto Ayora. Ahora mueve el pin hasta tu punto de entrega.');
+    goToPuertoAyora('Mapa centrado en Puerto Ayora. Mueve el pin hasta el punto de entrega.');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -691,8 +731,8 @@ export default function LoginModal({
     if (!name.trim()) {
       setError(
         isMandatory
-          ? '¡Espera! Necesitamos tu nombre para poder entregarte tu pedido.'
-          : 'Escribe tu nombre o alias'
+          ? 'Necesitamos tu nombre para poder entregarte el pedido.'
+          : 'Escribe tu nombre o alias.'
       );
       return;
     }
@@ -700,8 +740,8 @@ export default function LoginModal({
     if (!whatsapp.trim()) {
       setError(
         isMandatory
-          ? '¡Espera! Necesitamos tu WhatsApp para coordinar la entrega.'
-          : 'Escribe tu número de WhatsApp'
+          ? 'Necesitamos tu WhatsApp para coordinar la entrega.'
+          : 'Escribe tu número de WhatsApp.'
       );
       return;
     }
@@ -721,18 +761,20 @@ export default function LoginModal({
     }
 
     if (!isInsideGeofence) {
-      setError('📍 Fuera de zona de cobertura. Solo entregamos dentro de la ciudad de Puerto Ayora.');
+      setError('Fuera de cobertura. Solo entregamos dentro de Puerto Ayora.');
       return;
     }
 
     if (!reference.trim()) {
       setError(
         isMandatory
-          ? '¡Ojo! Es obligatorio poner una referencia para entregarte exacto.'
+          ? 'Es obligatorio poner una referencia para entregarte exacto.'
           : 'Danos una referencia. Ej: casa azul, portón negro.'
       );
       return;
     }
+
+    setIsSavingLocation(true);
 
     onLogin({
       name: name.trim(),
@@ -769,7 +811,18 @@ export default function LoginModal({
               No se pudo cargar el mapa
             </p>
             <p className="text-xs font-bold text-slate-400 leading-relaxed">
-              Revisa tu conexión e intenta nuevamente. También puedes cerrar y volver a abrir.
+              Revisa tu conexión e intenta nuevamente.
+            </p>
+          </div>
+        )}
+
+        {isSavingLocation && (
+          <div className="absolute inset-0 z-[900] bg-white/75 backdrop-blur-md flex flex-col items-center justify-center gap-3">
+            <div className="w-14 h-14 rounded-[28px] bg-orange-500 shadow-xl flex items-center justify-center">
+              <Check size={26} className="text-white" />
+            </div>
+            <p className="text-xs font-black text-slate-700 uppercase tracking-widest">
+              Guardando dirección...
             </p>
           </div>
         )}
@@ -779,6 +832,8 @@ export default function LoginModal({
             <button
               type="button"
               onClick={() => {
+                if (isSavingLocation) return;
+
                 if (isChangingLocation) {
                   if (!isMandatory) onClose();
                   return;
@@ -794,10 +849,10 @@ export default function LoginModal({
 
             <div className="flex-1 min-w-0 bg-white/95 border border-white rounded-[24px] px-4 py-3 shadow-xl">
               <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest leading-none">
-                {isChangingLocation ? 'Cambiar ubicación' : 'Ubicación de entrega'}
+                Confirmar dirección
               </p>
               <p className="text-sm font-black text-slate-900 uppercase truncate mt-1 leading-none">
-                {isChangingLocation ? 'Ajusta tu dirección' : 'Marca tu punto exacto'}
+                Marca tu punto exacto
               </p>
             </div>
 
@@ -830,78 +885,75 @@ export default function LoginModal({
                 isDragging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
             >
-              <p className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-2 whitespace-nowrap">
-                {selectedPointIsReady ? '📍 Punto marcado' : 'Mueve el mapa'}
+              <p className="text-[9px] font-black text-orange-600 uppercase whitespace-nowrap">
+                {isInsideGeofence ? 'Punto dentro de zona' : 'Mueve el mapa'}
               </p>
             </div>
           </div>
         </div>
 
         <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
-            isDragging ? 'opacity-100' : 'opacity-0'
+          className={`absolute top-1/2 left-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out ${
+            isDragging ? 'scale-90' : 'scale-100'
           }`}
+          style={{
+            transform: `translate(-50%, ${isDragging ? '-112%' : '-100%'})`,
+          }}
         >
-          <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
+          <div className="relative flex flex-col items-center">
+            <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
+              <MapPin size={28} className="text-white fill-white" />
+            </div>
+          </div>
         </div>
 
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
-            isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
-          }`}
-        >
-          <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
-            <MapPin size={28} className="text-white fill-white" />
-          </div>
+        <div className="absolute top-1/2 left-1/2 z-[649] pointer-events-none">
+          <div
+            className={`w-2 h-2 rounded-full border border-white shadow-lg transition-all duration-200 ${
+              isDragging ? 'bg-slate-700 scale-100' : 'bg-orange-600 scale-75'
+            }`}
+            style={{ transform: 'translate(-50%, -50%)' }}
+          />
+        </div>
+
+        <div className="absolute left-0 right-0 bottom-0 z-[730] bg-white rounded-t-[32px] shadow-[0_-18px_60px_rgba(15,23,42,0.18)] border-t border-white px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3" />
 
           <div
-            className={`w-[3px] bg-orange-600 transition-all duration-300 ${
-              isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
+            className={`rounded-2xl border px-3 py-2.5 mb-3 ${
+              isInsideGeofence
+                ? 'bg-green-50 border-green-100'
+                : 'bg-orange-50 border-orange-100'
             }`}
-          />
-          <div className="w-3 h-1.5 bg-black/20 rounded-full blur-[1px]" />
-        </div>
-
-        {selectedPointIsReady && (
-          <div className="absolute left-4 bottom-[245px] z-[700] bg-white/95 backdrop-blur-md rounded-2xl px-3 py-2 shadow-lg border border-white max-w-[210px]">
-            <p className="text-[8px] font-black text-slate-400 uppercase">
-              GPS entrega
+          >
+            <p
+              className={`text-[9px] font-black uppercase tracking-widest leading-none ${
+                isInsideGeofence ? 'text-green-600' : 'text-orange-600'
+              }`}
+            >
+              Punto seleccionado
             </p>
-            <p className="text-[9px] font-black text-slate-700 leading-none mt-1">
-              {lat.toFixed(5)}, {lng.toFixed(5)}
+            <p className="text-[11px] font-black text-slate-700 leading-snug mt-1">
+              {selectedLocationLabel}
             </p>
           </div>
-        )}
-
-        <div className="absolute left-0 right-0 bottom-0 z-[730] bg-white rounded-t-[36px] shadow-[0_-18px_60px_rgba(15,23,42,0.18)] border-t border-white px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+18px)]">
-          <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
-
-          {isChangingLocation && hasSavedDeliveryPoint && (
-            <p className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 p-2.5 rounded-2xl text-center uppercase leading-snug mb-3">
-              Abrimos tu punto guardado. Mueve el mapa si quieres cambiar la entrega.
-            </p>
-          )}
 
           {gpsNotice && (
-            <p className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-2xl text-center uppercase leading-snug mb-3">
+            <p className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-2 rounded-2xl text-center leading-snug mb-3">
               {gpsNotice}
             </p>
           )}
 
-          <p className="text-[11px] font-bold text-slate-500 bg-orange-50/70 border border-orange-100/50 p-2.5 rounded-2xl text-center leading-snug mb-3">
-            📍 Marca en Puerto Ayora el punto exacto donde quieres que llegue tu pedido.
-          </p>
-
           <div className="space-y-2">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-              Referencia de entrega
+              Referencia
             </h3>
 
             <textarea
               value={reference}
               onChange={e => setReference(e.target.value)}
-              placeholder="Ej: Casa blanca de dos pisos, portón negro, junto a la farmacia..."
-              className="w-full h-20 rounded-[25px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
+              placeholder="Ej: casa blanca, portón negro, junto a la farmacia..."
+              className="w-full h-[72px] rounded-[22px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
             />
           </div>
 
@@ -913,16 +965,14 @@ export default function LoginModal({
 
           <button
             onClick={handleSave}
-            disabled={!isInsideGeofence}
-            className={`mt-4 w-full rounded-[26px] bg-gradient-to-r from-orange-500 to-orange-600 h-15 min-h-[60px] text-[12px] font-black text-white shadow-xl shadow-orange-500/35 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
-              !isInsideGeofence ? 'opacity-40 cursor-not-allowed select-none' : ''
+            disabled={!isInsideGeofence || isSavingLocation}
+            className={`mt-4 w-full rounded-[24px] bg-gradient-to-r from-orange-500 to-orange-600 min-h-[58px] text-[12px] font-black text-white shadow-xl shadow-orange-500/35 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
+              !isInsideGeofence || isSavingLocation
+                ? 'opacity-45 cursor-not-allowed select-none'
+                : ''
             }`}
           >
-            {isProcessing
-              ? 'PROCESANDO...'
-              : isChangingLocation
-                ? 'GUARDAR NUEVA DIRECCIÓN 📍'
-                : 'CONFIRMAR PUNTO 🚀'}
+            {isSavingLocation ? 'GUARDANDO...' : isChangingLocation ? 'GUARDAR DIRECCIÓN 📍' : 'CONFIRMAR PUNTO 🚀'}
           </button>
         </div>
 
