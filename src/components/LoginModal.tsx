@@ -50,6 +50,8 @@ type LocationRequestOptions = {
 const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 
+const MAP_MAX_ZOOM = 18;
+
 const PUERTO_AYORA_BOUNDS = {
   latMin: -0.765,
   latMax: -0.728,
@@ -313,7 +315,9 @@ export default function LoginModal({
   const moveMapTo = useCallback((position: LatLng, zoom = 17) => {
     if (!mapInstance.current) return;
 
-    mapInstance.current.flyTo([position.lat, position.lng], zoom, {
+    const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
+
+    mapInstance.current.flyTo([position.lat, position.lng], safeZoom, {
       duration: 0.85,
     });
   }, []);
@@ -391,7 +395,7 @@ export default function LoginModal({
           }
 
           if (mapInstance.current && options?.moveMap !== false) {
-            moveMapTo(nextPosition, 18);
+            moveMapTo(nextPosition, 17);
           }
 
           syncUserMarker(nextPosition);
@@ -516,7 +520,9 @@ export default function LoginModal({
         center: [startLat, startLng],
         zoom: 17,
         minZoom: 5,
-        maxZoom: 19,
+        maxZoom: MAP_MAX_ZOOM,
+        zoomSnap: 1,
+        zoomDelta: 1,
         zoomControl: false,
         attributionControl: false,
         scrollWheelZoom: true,
@@ -525,21 +531,25 @@ export default function LoginModal({
       });
 
       const modernTileLayer = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
         {
           subdomains: 'abcd',
-          maxZoom: 19,
-          maxNativeZoom: 18,
-          detectRetina: true,
+          maxZoom: MAP_MAX_ZOOM,
+          maxNativeZoom: MAP_MAX_ZOOM,
+          detectRetina: false,
+          updateWhenIdle: true,
+          keepBuffer: 4,
         }
       );
 
       const fallbackTileLayer = L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
-          maxZoom: 19,
-          maxNativeZoom: 19,
-          detectRetina: true,
+          maxZoom: MAP_MAX_ZOOM,
+          maxNativeZoom: MAP_MAX_ZOOM,
+          detectRetina: false,
+          updateWhenIdle: true,
+          keepBuffer: 4,
         }
       );
 
