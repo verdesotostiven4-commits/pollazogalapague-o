@@ -4,7 +4,6 @@ import {
   Minus,
   Trash2,
   ShoppingBag,
-  MessageCircle,
   ChevronRight,
   ChevronDown,
   Banknote,
@@ -17,6 +16,8 @@ import {
   Info,
   CheckCircle2,
   ShieldCheck,
+  PackageCheck,
+  Sparkles,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
@@ -153,7 +154,7 @@ function spawnConfetti() {
       ctx.restore();
     });
 
-    frame++;
+    frame += 1;
 
     if (frame < max) {
       requestAnimationFrame(animate);
@@ -297,7 +298,9 @@ export default function CartScreen({
     if (!isOrderSaved) return false;
 
     triggerDryTap();
-    showNotice('Este pedido ya fue registrado. Para evitar errores, termina el envío por WhatsApp o crea un pedido nuevo después.');
+    showNotice(
+      'Este pedido ya fue registrado. Para evitar errores, termina la confirmación o crea un pedido nuevo después.'
+    );
     return true;
   };
 
@@ -342,7 +345,7 @@ export default function CartScreen({
   };
 
   useEffect(() => {
-    if (paymentMethod) {
+    if (paymentMethod || isOrderSaved) {
       const timer = window.setTimeout(() => {
         scrollToBottom();
       }, 150);
@@ -353,6 +356,17 @@ export default function CartScreen({
     return undefined;
   }, [paymentMethod, selectedBank, isOrderSaved]);
 
+  useEffect(() => {
+    if (items.length === 0) {
+      setPaymentMethod(null);
+      setSelectedBank(null);
+      setIsOrderSaved(false);
+      setIsSavingOrder(false);
+      setActionNotice(null);
+      clearPaymentStorage();
+    }
+  }, [items.length]);
+
   const handlePaymentMethodClick = (method: SupportedPaymentMethod) => {
     if (!hasProfile || !hasLocation) {
       triggerDryTap();
@@ -362,7 +376,9 @@ export default function CartScreen({
 
     if ((method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment) {
       triggerDryTap();
-      showNotice('Hay productos con precio a consultar. Por ahora este pedido debe quedar por confirmar antes de pagar.');
+      showNotice(
+        'Hay productos con precio a consultar. Por ahora este pedido debe quedar por confirmar antes de pagar.'
+      );
       return;
     }
 
@@ -428,9 +444,9 @@ export default function CartScreen({
       setIsOrderSaved(true);
 
       if (paymentMethod === 'efectivo') {
-        showNotice('Pedido registrado. Quedará en espera hasta que confirmemos disponibilidad.');
+        showNotice('Pedido registrado. Ahora puedes ver la confirmación dentro de la app.');
       } else {
-        showNotice('Pedido registrado. Ahora realiza el pago y envía el comprobante por WhatsApp.');
+        showNotice('Pedido registrado. Revisa los datos de pago y continúa cuando termines.');
       }
     } catch (error) {
       console.error('No se pudo guardar el pedido anticipado:', error);
@@ -487,7 +503,7 @@ export default function CartScreen({
               Pedido aún no registrado
             </p>
             <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed mt-1">
-              Primero presiona “Registrar pedido”. Luego verás los datos de pago o la confirmación para enviarlo.
+              Primero presiona “Registrar pedido”. Luego verás la confirmación dentro de la app.
             </p>
           </div>
         </div>
@@ -524,7 +540,7 @@ export default function CartScreen({
             Pago en validación
           </p>
           <p className="text-[10px] font-bold text-blue-700/80 leading-relaxed mt-1">
-            Realiza el pago y envía el comprobante por WhatsApp. Cuando sea validado, el pedido pasará a confirmado y se activará el tiempo estimado.
+            Realiza el pago y continúa. En la pantalla final podrás escribir por WhatsApp solo si necesitas enviar comprobante o pedir ayuda.
           </p>
         </div>
       </div>
@@ -548,6 +564,7 @@ export default function CartScreen({
 
     return (
       <button
+        type="button"
         onClick={() => {
           if (disabledReason && blockedByConsult) {
             triggerDryTap();
@@ -596,6 +613,7 @@ export default function CartScreen({
         </p>
 
         <button
+          type="button"
           onClick={() => onNavigate('catalog')}
           className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold px-8 py-3.5 rounded-2xl shadow-lg shadow-orange-300/40 active:scale-95 transition-transform"
         >
@@ -622,7 +640,7 @@ export default function CartScreen({
                 Pedido registrado
               </p>
               <p className="text-[10px] font-bold text-white/70 mt-1 leading-relaxed">
-                Para evitar errores, el carrito y método de pago quedan bloqueados hasta finalizar el envío.
+                Para evitar errores, el carrito y método de pago quedan bloqueados hasta finalizar la confirmación.
               </p>
             </div>
           </div>
@@ -668,6 +686,7 @@ export default function CartScreen({
 
                 <div className="flex items-center gap-2 mt-2">
                   <button
+                    type="button"
                     onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
                     disabled={isOrderSaved}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
@@ -685,6 +704,7 @@ export default function CartScreen({
                   </span>
 
                   <button
+                    type="button"
                     onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
                     disabled={isOrderSaved}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
@@ -700,6 +720,7 @@ export default function CartScreen({
               </div>
 
               <button
+                type="button"
                 onClick={() => handleRemoveItem(item.product.id)}
                 disabled={isOrderSaved}
                 className={`self-center p-2 rounded-xl transition-all ${
@@ -716,6 +737,7 @@ export default function CartScreen({
         })}
 
         <button
+          type="button"
           onClick={handleClearRequest}
           disabled={isOrderSaved}
           className={`w-full text-xs font-semibold py-4 transition-all duration-300 ${
@@ -748,6 +770,7 @@ export default function CartScreen({
               </p>
 
               <button
+                type="button"
                 onClick={() => onRequireLogin('block')}
                 className="mt-2 bg-white text-orange-600 border border-orange-200 px-3 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95"
               >
@@ -775,6 +798,7 @@ export default function CartScreen({
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 if (blockIfOrderSaved()) return;
                 onRequireLogin('change_location');
@@ -888,6 +912,7 @@ export default function CartScreen({
                     </span>
 
                     <button
+                      type="button"
                       onClick={() => handleCopyText(BUSINESS_DEUNA_PHONE, 'celular_deuna')}
                       className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all"
                     >
@@ -897,7 +922,7 @@ export default function CartScreen({
                 </div>
 
                 <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">
-                  ⚠️ Envía el comprobante por WhatsApp para validar tu pago.
+                  Luego toca “Ya pagué / continuar”. WhatsApp queda solo como ayuda o comprobante opcional.
                 </p>
               </div>
             )}
@@ -911,6 +936,7 @@ export default function CartScreen({
                 <div className="flex flex-col gap-2">
                   {BANK_OPTIONS.map(bank => (
                     <button
+                      type="button"
                       key={bank.id}
                       onClick={() => handleBankSelect(bank.id)}
                       disabled={isOrderSaved && selectedBank !== bank.id}
@@ -959,6 +985,7 @@ export default function CartScreen({
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleCopyText(BUSINESS_BANK_ACCOUNT, 'cuenta')}
                           className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
                         >
@@ -977,6 +1004,7 @@ export default function CartScreen({
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleCopyText(BUSINESS_BANK_ID, 'cedula')}
                           className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
                         >
@@ -997,7 +1025,7 @@ export default function CartScreen({
                     </div>
 
                     <p className="text-[10px] text-blue-500 font-black uppercase tracking-tight mt-1">
-                      ⚠️ Envía el comprobante por WhatsApp para validar tu pago.
+                      Luego toca “Ya pagué / continuar”. WhatsApp queda solo como ayuda o comprobante opcional.
                     </p>
                   </div>
                 )}
@@ -1008,12 +1036,14 @@ export default function CartScreen({
       </div>
 
       {showArrow && items.length > 5 && (
-        <div
+        <button
+          type="button"
           onClick={scrollToBottom}
           className="absolute bottom-[240px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
+          aria-label="Bajar al resumen"
         >
           <ChevronDown size={28} strokeWidth={3} />
-        </div>
+        </button>
       )}
 
       <div className="px-4 pb-4 pt-3 bg-white border-t border-gray-100 space-y-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -1073,29 +1103,34 @@ export default function CartScreen({
         {isPaymentReady ? (
           isOrderSaved ? (
             <button
+              type="button"
               onClick={handleCheckout}
               className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base animate-in slide-in-from-bottom-4"
             >
-              <MessageCircle size={20} />
+              <PackageCheck size={20} />
               {paymentMethod === 'efectivo'
                 ? hasConsult
-                  ? 'Enviar pedido para confirmar'
-                  : 'Enviar pedido por WhatsApp'
-                : 'ENVIAR COMPROBANTE POR WHATSAPP 💬'}
+                  ? 'Ver confirmación del pedido'
+                  : 'Confirmar pedido en la app'
+                : 'YA PAGUÉ / CONTINUAR ✅'}
             </button>
           ) : (
             <button
+              type="button"
               onClick={handleEarlySaveClick}
               disabled={isSavingOrder}
               className={`w-full flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-orange-500/40 active:scale-[0.98] text-base border-b-4 border-orange-700 animate-in slide-in-from-bottom-4 ${
                 isSavingOrder ? 'opacity-70 cursor-wait' : ''
               }`}
             >
+              <Sparkles size={20} />
               {isSavingOrder
                 ? 'REGISTRANDO PEDIDO...'
-                : hasConsult
-                  ? 'REGISTRAR PARA CONFIRMAR PRECIO 🚀'
-                  : 'REGISTRAR PEDIDO Y VER INSTRUCCIONES 🚀'}
+                : paymentMethod === 'efectivo'
+                  ? hasConsult
+                    ? 'REGISTRAR PARA CONFIRMAR PRECIO 🚀'
+                    : 'CONFIRMAR PEDIDO EN LA APP 🚀'
+                  : 'REGISTRAR PEDIDO Y VER PAGO 🚀'}
             </button>
           )
         ) : (
