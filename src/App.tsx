@@ -550,9 +550,17 @@ function AppShell() {
   };
 
   const handleEarlySave = async () => {
-    if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) return;
-    if (!getStoredPaymentMethod()) return;
-    if (activeOrderCode) return;
+    if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) {
+      throw new Error('Faltan datos del cliente, ubicación o productos para registrar el pedido.');
+    }
+
+    if (!getStoredPaymentMethod()) {
+      throw new Error('Selecciona un método de pago antes de registrar el pedido.');
+    }
+
+    if (activeOrderCode) {
+      return;
+    }
 
     const code = orderCode();
     setActiveOrderCode(code);
@@ -562,6 +570,7 @@ function AppShell() {
     } catch (error) {
       console.error('Error crítico al guardar orden anticipada:', error);
       setActiveOrderCode(null);
+      throw error;
     }
   };
 
