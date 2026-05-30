@@ -28,6 +28,13 @@ import {
   Navigation,
   ShoppingBag,
   Scale,
+  Home,
+  Building2,
+  Umbrella,
+  MapPinned,
+  Plus,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
@@ -35,7 +42,13 @@ import LegalModal from './LegalModal';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { useCart } from '../context/CartContext';
-import type { Order, Product, Screen } from '../types';
+import type {
+  DeliveryAddress,
+  DeliveryAddressLabel,
+  Order,
+  Product,
+  Screen,
+} from '../types';
 
 const WHATSAPP = '+593989795628';
 const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
@@ -364,6 +377,24 @@ function buildRepeatProduct(order: Order, item: any, index: number, products: Pr
   } as Product;
 
   return product;
+}
+
+function AddressIcon({
+  label,
+  size = 17,
+}: {
+  label: DeliveryAddressLabel;
+  size?: number;
+}) {
+  if (label === 'Casa') return <Home size={size} />;
+  if (label === 'Trabajo') return <Building2 size={size} />;
+  if (label === 'Airbnb') return <Umbrella size={size} />;
+
+  return <MapPinned size={size} />;
+}
+
+function formatAddressCoords(address: DeliveryAddress) {
+  return `${address.lat.toFixed(5)}, ${address.lng.toFixed(5)}`;
 }
 
 function TeamCarousel() {
@@ -994,6 +1025,184 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   );
 }
 
+function DeliveryAddressesPanel({
+  onChangeLocation,
+}: {
+  onChangeLocation?: () => void;
+}) {
+  const {
+    customerLat,
+    customerLng,
+    customerReference,
+    deliveryAddresses,
+    selectedDeliveryAddressId,
+    selectedDeliveryAddress,
+    selectDeliveryAddress,
+    deleteDeliveryAddress,
+  } = useUser();
+
+  const hasDeliveryLocation =
+    typeof customerLat === 'number' &&
+    Number.isFinite(customerLat) &&
+    typeof customerLng === 'number' &&
+    Number.isFinite(customerLng) &&
+    customerReference.trim().length > 0;
+
+  const openLocationEditor = () => {
+    onChangeLocation?.();
+  };
+
+  const handleEditAddress = (address: DeliveryAddress) => {
+    selectDeliveryAddress(address.id);
+    window.setTimeout(() => {
+      openLocationEditor();
+    }, 80);
+  };
+
+  return (
+    <div className="px-4 py-4 border-b border-gray-100">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+          <Navigation size={20} className="text-orange-500" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-gray-800 uppercase leading-none">
+                Mi ubicación de entrega
+              </p>
+
+              <p className="text-xs text-gray-500 mt-1 truncate">
+                {selectedDeliveryAddress
+                  ? `${selectedDeliveryAddress.label} · ${selectedDeliveryAddress.reference}`
+                  : hasDeliveryLocation
+                    ? customerReference
+                    : 'Agrega tu punto de entrega'}
+              </p>
+            </div>
+
+            <span
+              className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase flex-shrink-0 ${
+                hasDeliveryLocation
+                  ? 'bg-green-100 text-green-600'
+                  : 'bg-orange-100 text-orange-600'
+              }`}
+            >
+              {hasDeliveryLocation ? 'Activa' : 'Pendiente'}
+            </span>
+          </div>
+
+          {deliveryAddresses.length > 0 ? (
+            <div className="mt-4 space-y-2.5">
+              {deliveryAddresses.map(address => {
+                const active = address.id === selectedDeliveryAddressId;
+
+                return (
+                  <div
+                    key={address.id}
+                    className={`rounded-[24px] border p-3 transition-all ${
+                      active
+                        ? 'bg-orange-50 border-orange-200 shadow-sm'
+                        : 'bg-slate-50 border-slate-100'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => selectDeliveryAddress(address.id)}
+                      className="w-full text-left flex items-start gap-3 active:scale-[0.99] transition-transform"
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                          active
+                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
+                            : 'bg-white text-slate-400 border border-slate-100'
+                        }`}
+                      >
+                        <AddressIcon label={address.label} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-black text-slate-900 uppercase truncate">
+                            {address.label}
+                          </p>
+
+                          {active && (
+                            <span className="bg-green-100 text-green-600 rounded-full px-2 py-0.5 text-[7px] font-black uppercase flex items-center gap-1">
+                              <CheckCircle2 size={9} />
+                              En uso
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] font-bold text-slate-500 mt-1 line-clamp-2 leading-snug">
+                          {address.reference}
+                        </p>
+
+                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-wider mt-1">
+                          {formatAddressCoords(address)}
+                        </p>
+                      </div>
+                    </button>
+
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => selectDeliveryAddress(address.id)}
+                        className={`flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase active:scale-95 transition-all ${
+                          active
+                            ? 'bg-slate-950 text-white'
+                            : 'bg-white text-slate-600 border border-slate-100'
+                        }`}
+                      >
+                        {active ? 'Seleccionada' : 'Usar'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEditAddress(address)}
+                        className="flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase bg-white text-orange-600 border border-orange-100 active:scale-95 transition-all"
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => deleteDeliveryAddress(address.id)}
+                        className="w-11 h-10 rounded-2xl bg-white text-red-400 border border-red-50 flex items-center justify-center active:scale-95 transition-all"
+                        aria-label={`Eliminar ${address.label}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-4 text-center">
+              <MapPinned size={24} className="mx-auto text-orange-500 mb-2" />
+              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+                Guarda Casa, Trabajo, Airbnb u Otro punto para pedir más rápido.
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={openLocationEditor}
+            className="mt-3 w-full bg-slate-950 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Plus size={15} />
+            Agregar nueva dirección
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   onInstall?: () => void;
   canInstall?: boolean;
@@ -1005,14 +1214,6 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const touchStartX = useRef<number | null>(null);
-  const { customerLat, customerLng, customerReference } = useUser();
-
-  const hasDeliveryLocation =
-    typeof customerLat === 'number' &&
-    Number.isFinite(customerLat) &&
-    typeof customerLng === 'number' &&
-    Number.isFinite(customerLng) &&
-    customerReference.trim().length > 0;
 
   const closeLightbox = () => setLightboxIndex(null);
 
@@ -1165,37 +1366,7 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
           <ChevronRight className="text-gray-300" size={18} />
         </a>
 
-        <button
-          type="button"
-          onClick={onChangeLocation}
-          className="w-full flex items-center gap-3 px-4 py-4 border-b border-gray-100 active:bg-orange-50 transition-colors text-left"
-        >
-          <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <Navigation size={20} className="text-orange-500" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Mi ubicación de entrega
-            </p>
-
-            <p className="text-xs text-gray-500 mt-1 truncate">
-              {hasDeliveryLocation
-                ? customerReference
-                : 'Agrega o cambia tu punto de entrega'}
-            </p>
-          </div>
-
-          <span
-            className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase flex-shrink-0 ${
-              hasDeliveryLocation
-                ? 'bg-green-100 text-green-600'
-                : 'bg-orange-100 text-orange-600'
-            }`}
-          >
-            {hasDeliveryLocation ? 'Cambiar' : 'Agregar'}
-          </span>
-        </button>
+        <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
 
         <button
           type="button"
@@ -1384,6 +1555,13 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </div>
