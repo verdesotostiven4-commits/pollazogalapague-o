@@ -70,10 +70,10 @@ const ADDRESS_LABELS: Array<{
   label: DeliveryAddressLabel;
   icon: React.ReactNode;
 }> = [
-  { label: 'Casa', icon: <Home size={16} /> },
-  { label: 'Trabajo', icon: <Building2 size={16} /> },
-  { label: 'Airbnb', icon: <Umbrella size={16} /> },
-  { label: 'Otro', icon: <MapPinned size={16} /> },
+  { label: 'Casa', icon: <Home size={14} /> },
+  { label: 'Trabajo', icon: <Building2 size={14} /> },
+  { label: 'Airbnb', icon: <Umbrella size={14} /> },
+  { label: 'Otro', icon: <MapPinned size={14} /> },
 ];
 
 const preloadedAvatarCache = new Set<string>();
@@ -410,7 +410,7 @@ export default function LoginModal({
             }
 
             setGpsNotice(
-              'Tu GPS está fuera de Puerto Ayora. Dejamos el mapa en zona de entrega para que marques manualmente.'
+              'Tu GPS está fuera de Puerto Ayora. El mapa queda en zona de entrega para que marques manualmente.'
             );
 
             return;
@@ -847,30 +847,58 @@ export default function LoginModal({
   if (step === 2) {
     return (
       <div className="fixed inset-0 z-[10000] bg-slate-100 overflow-hidden">
-        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+        <div className="absolute top-0 left-0 right-0 h-[54dvh] min-h-[350px] max-h-[460px] z-0 overflow-hidden bg-slate-100">
+          <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-        {!mapReady && !mapFailed && (
-          <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
-            <div className="w-14 h-14 rounded-[28px] bg-white shadow-xl flex items-center justify-center">
-              <Navigation size={25} className="text-orange-500 animate-pulse" />
+          {!mapReady && !mapFailed && (
+            <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
+              <div className="w-14 h-14 rounded-[28px] bg-white shadow-xl flex items-center justify-center">
+                <Navigation size={25} className="text-orange-500 animate-pulse" />
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Cargando mapa...
+              </p>
             </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Cargando mapa...
-            </p>
-          </div>
-        )}
+          )}
 
-        {mapFailed && (
-          <div className="absolute inset-0 z-[500] bg-white flex flex-col items-center justify-center gap-3 px-8 text-center">
-            <WifiOff size={36} className="text-orange-500" />
-            <p className="text-sm font-black text-slate-800 uppercase leading-relaxed">
-              No se pudo cargar el mapa
-            </p>
-            <p className="text-xs font-bold text-slate-400 leading-relaxed">
-              Revisa tu conexión e intenta nuevamente.
-            </p>
+          {mapFailed && (
+            <div className="absolute inset-0 z-[500] bg-white flex flex-col items-center justify-center gap-3 px-8 text-center">
+              <WifiOff size={36} className="text-orange-500" />
+              <p className="text-sm font-black text-slate-800 uppercase leading-relaxed">
+                No se pudo cargar el mapa
+              </p>
+              <p className="text-xs font-bold text-slate-400 leading-relaxed">
+                Revisa tu conexión e intenta nuevamente.
+              </p>
+            </div>
+          )}
+
+          <div
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
+              isDragging ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
           </div>
-        )}
+
+          <div
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
+              isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
+            }`}
+          >
+            <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
+              <MapPin size={28} className="text-white fill-white" />
+            </div>
+
+            <div
+              className={`w-[3px] bg-orange-600 transition-all duration-300 ${
+                isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
+              }`}
+            />
+
+            <div className="w-3 h-1.5 bg-black/20 rounded-full blur-[1px]" />
+          </div>
+        </div>
 
         {isSavingLocation && (
           <div className="absolute inset-0 z-[900] bg-white/75 backdrop-blur-md flex flex-col items-center justify-center gap-3">
@@ -948,37 +976,11 @@ export default function LoginModal({
           </div>
         </div>
 
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
-            isDragging ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
-        </div>
-
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
-            isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
-          }`}
-        >
-          <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
-            <MapPin size={28} className="text-white fill-white" />
-          </div>
-
-          <div
-            className={`w-[3px] bg-orange-600 transition-all duration-300 ${
-              isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
-            }`}
-          />
-
-          <div className="w-3 h-1.5 bg-black/20 rounded-full blur-[1px]" />
-        </div>
-
         <div className="absolute left-0 right-0 bottom-0 z-[730] bg-white rounded-t-[32px] shadow-[0_-18px_60px_rgba(15,23,42,0.18)] border-t border-white px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
           <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3" />
 
           <div
-            className={`rounded-2xl border px-3 py-2.5 mb-3 ${
+            className={`rounded-2xl border px-3 py-2 mb-2 ${
               isInsideGeofence
                 ? 'bg-green-50 border-green-100'
                 : 'bg-orange-50 border-orange-100'
@@ -997,40 +999,32 @@ export default function LoginModal({
           </div>
 
           {gpsNotice && (
-            <p className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-2 rounded-2xl text-center leading-snug mb-3">
+            <p className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-2 rounded-2xl text-center leading-snug mb-2">
               {gpsNotice}
             </p>
           )}
 
           <div className="mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                Guardar como
-              </h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">
+              Guardar como
+            </h3>
 
-              <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
-                Desliza
-              </span>
-            </div>
-
-            <div className="-mx-1 overflow-x-auto hide-scrollbar pb-1">
-              <div className="flex gap-2 px-1 min-w-max">
-                {ADDRESS_LABELS.map(item => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => setAddressLabel(item.label)}
-                    className={`min-w-[106px] h-[60px] rounded-[22px] border text-[9px] font-black uppercase flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all ${
-                      addressLabel === item.label
-                        ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
-                        : 'bg-slate-50 text-slate-500 border-slate-100'
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-4 gap-2">
+              {ADDRESS_LABELS.map(item => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => setAddressLabel(item.label)}
+                  className={`rounded-2xl px-2 py-2.5 border text-[8px] font-black uppercase flex flex-col items-center justify-center gap-1 active:scale-95 transition-all ${
+                    addressLabel === item.label
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
+                      : 'bg-slate-50 text-slate-500 border-slate-100'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1043,7 +1037,7 @@ export default function LoginModal({
               value={reference}
               onChange={e => setReference(e.target.value)}
               placeholder="Ej: casa blanca, portón negro, junto a la farmacia..."
-              className="w-full h-[68px] rounded-[22px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
+              className="w-full h-[64px] rounded-[22px] bg-slate-50 border border-slate-100 p-4 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 transition-all resize-none shadow-inner"
             />
           </div>
 
@@ -1056,7 +1050,7 @@ export default function LoginModal({
           <button
             onClick={handleSave}
             disabled={!isInsideGeofence || isSavingLocation}
-            className={`mt-4 w-full rounded-[24px] bg-gradient-to-r from-orange-500 to-orange-600 min-h-[58px] text-[12px] font-black text-white shadow-xl shadow-orange-500/35 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
+            className={`mt-4 w-full rounded-[24px] bg-gradient-to-r from-orange-500 to-orange-600 min-h-[56px] text-[12px] font-black text-white shadow-xl shadow-orange-500/35 active:scale-95 uppercase tracking-widest transition-all border-b-4 border-orange-700 flex items-center justify-center gap-2 ${
               !isInsideGeofence || isSavingLocation
                 ? 'opacity-45 cursor-not-allowed select-none'
                 : ''
@@ -1117,15 +1111,6 @@ export default function LoginModal({
             background: #2563eb;
             border: 2px solid white;
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-          }
-
-          .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-          }
-
-          .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
           }
         `}</style>
       </div>
