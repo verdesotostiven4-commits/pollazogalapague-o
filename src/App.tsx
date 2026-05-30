@@ -445,7 +445,7 @@ function AppShell() {
     setShowLoginModal(true);
   };
 
-  const handleLogin = async (u: {
+  const handleLogin = (u: {
     name: string;
     whatsapp: string;
     avatarUrl: string;
@@ -453,6 +453,8 @@ function AppShell() {
     lng?: number | null;
     reference?: string;
   }) => {
+    const wasPendingOrder = pendingOrder;
+
     setUserData({
       phone: u.whatsapp,
       name: u.name,
@@ -462,23 +464,25 @@ function AppShell() {
       reference: u.reference,
     });
 
-    try {
-      await upsertCustomer(u.whatsapp, u.name, u.avatarUrl, {
-        lat: u.lat,
-        lng: u.lng,
-        reference: u.reference || null,
-      });
-    } catch (error) {
-      console.error('Error perfil:', error);
-    }
-
     setShowLoginModal(false);
     setIsChangingLocation(false);
+    setPendingOrder(false);
 
-    if (pendingOrder) {
-      setPendingOrder(false);
+    if (wasPendingOrder) {
       setShowConfirmation(true);
     }
+
+    void (async () => {
+      try {
+        await upsertCustomer(u.whatsapp, u.name, u.avatarUrl, {
+          lat: u.lat,
+          lng: u.lng,
+          reference: u.reference || null,
+        });
+      } catch (error) {
+        console.error('Error perfil:', error);
+      }
+    })();
   };
 
   const requireCustomerBeforeOrder = () => {
