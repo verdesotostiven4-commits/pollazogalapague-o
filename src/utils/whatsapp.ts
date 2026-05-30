@@ -65,9 +65,6 @@ export function subtotalOf(items: CartItem[]): number {
 export function deliveryFeeOf(subtotal: number): number {
   if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
 
-  // Regla actual sencilla:
-  // Desde $10 el domicilio queda gratis.
-  // Menos de $10 cobra $1.
   return subtotal >= 10 ? 0 : 1;
 }
 
@@ -116,6 +113,7 @@ function orderItemsText(items: CartItem[]) {
     .map((item, index) => {
       const price = itemUnitPrice(item);
       const subtotal = price * item.quantity;
+
       const priceText =
         price > 0
           ? `${formatMoney(price)} c/u · ${formatMoney(subtotal)}`
@@ -132,7 +130,11 @@ function buildLocationText(options?: WhatsAppOptions) {
   const parts: string[] = [];
 
   if (options.deliveryType) {
-    parts.push(`Tipo de entrega: ${options.deliveryType === 'retiro' ? 'Retiro' : 'Domicilio'}`);
+    parts.push(
+      `Tipo de entrega: ${
+        options.deliveryType === 'retiro' ? 'Retiro' : 'Domicilio'
+      }`
+    );
   }
 
   if (options.customerReference) {
@@ -145,7 +147,10 @@ function buildLocationText(options?: WhatsAppOptions) {
     typeof options.customerLng === 'number' &&
     Number.isFinite(options.customerLng)
   ) {
-    parts.push(`Ubicación: ${options.customerLat.toFixed(6)}, ${options.customerLng.toFixed(6)}`);
+    parts.push(
+      `Ubicación: ${options.customerLat.toFixed(6)}, ${options.customerLng.toFixed(6)}`
+    );
+
     parts.push(
       `Mapa: https://www.google.com/maps?q=${options.customerLat},${options.customerLng}`
     );
@@ -182,7 +187,9 @@ export function buildWhatsAppUrl(
       : `Estado de horario: Tienda abierta`,
     `WhatsApp del cliente: ${customerPhone}`,
     `Método de pago: ${paymentLabel(options?.paymentMethod)}`,
-    options?.paymentMethod === 'transferencia' ? `Banco del cliente: ${selectedBank}` : '',
+    options?.paymentMethod === 'transferencia'
+      ? `Banco del cliente: ${selectedBank}`
+      : '',
     locationText ? `Entrega:\n${locationText}` : '',
     `Productos:\n${orderItemsText(items)}`,
     `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${
