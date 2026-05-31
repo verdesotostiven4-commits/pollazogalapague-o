@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { PRESET_AVATARS } from '../constants/avatars';
 import { useUser } from '../context/UserContext';
+import { registerPushNotifications } from '../utils/pushNotifications';
 import type { DeliveryAddressLabel } from '../types';
 
 declare const L: any;
@@ -871,6 +872,16 @@ export default function LoginModal({
     });
 
     sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
+
+    void registerPushNotifications(normalizedWhatsapp)
+      .then(result => {
+        if (!result.ok) {
+          console.warn('No se activaron notificaciones desde confirmar punto:', result.reason);
+        }
+      })
+      .catch(error => {
+        console.warn('Error activando notificaciones desde confirmar punto:', error);
+      });
 
     onLogin({
       name: name.trim(),
