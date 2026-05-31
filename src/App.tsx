@@ -1,5 +1,5 @@
-import { useState, useRef, Component, useEffect, useMemo, type ReactNode } from 'react';
-import { PackageSearch } from 'lucide-react';
+import { useState, useRef, Component, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { PackageSearch, RefreshCw } from 'lucide-react';
 import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
@@ -41,6 +41,15 @@ type AppPaymentStatus =
   | 'confirmado'
   | 'rechazado'
   | 'contra_entrega';
+
+type TrackingLaunchSource = 'notification' | null;
+
+type PollazoServiceWorkerMessage = {
+  type?: string;
+  url?: string;
+  orderCode?: string | null;
+  status?: string | null;
+};
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -85,6 +94,7 @@ class ErrorBoundary extends Component<
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 const FINAL_TRACKING_MINUTES = 20;
 const FINAL_TRACKING_AUTO_CLOSE_MS = 12000;
+const TRACKING_DEEP_LINK_WAIT_MS = 8500;
 
 const ACTIVE_TRACKING_STATUSES: OrderStatus[] = [
   'Por Confirmar',
@@ -327,6 +337,49 @@ const normalizeItemsForOrder = (items: CartItem[], catalogProducts: Product[]) =
   });
 };
 
+function TrackingWakeOverlay({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
+
+      <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300 border border-white/20">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          aria-label="Cerrar búsqueda de rastreo"
+        >
+          ×
+        </button>
+
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-[28px] bg-orange-100 text-orange-500 flex items-center justify-center mx-auto mb-5 shadow-inner">
+            <RefreshCw size={36} className="animate-spin" />
+          </div>
+
+          <h2 className="text-2xl font-black text-gray-900 uppercase italic leading-none">
+            Buscando tu pedido
+          </h2>
+
+          <p className="text-sm font-bold text-gray-400 mt-3 leading-relaxed">
+            Estamos abriendo el rastreo actualizado. Esto puede tardar unos segundos si la app estaba cerrada.
+          </p>
+
+          <div className="mt-6 rounded-[28px] bg-orange-50 border border-orange-100 p-4">
+            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+              No cierres esta pantalla. Apenas encontremos tu pedido, aparecerá el estado real automáticamente.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AppShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
@@ -336,12 +389,13 @@ function AppShell() {
   const [pendingOrder, setPendingOrder] = useState(false);
   const [activeOrderCode, setActiveOrderCode] = useState<string | null>(null);
   const [isChangingLocation, setIsChangingLocation] = useState(false);
+  const [trackingLaunchSource, setTrackingLaunchSource] = useState<TrackingLaunchSource>(null);
   const [showLegalModal, setShowLegalModal] = useState(() => {
     return localStorage.getItem(LEGAL_ACCEPTED_KEY) !== '1';
   });
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, orders, products, loading } = useAdmin();
+  const { createOrder, upsertCustomer, orders, products, loading, refreshData } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -397,12 +451,54 @@ function AppShell() {
   }, [customerPhone, orders]);
 
   const hasTrackableOrder = Boolean(latestTrackableOrder);
+  const shouldShowTrackingWake = showTracking && trackingLaunchSource === 'notification' && !hasTrackableOrder;
+
+  const openTrackingFromNotification = useCallback(() => {
+    setScreen('home');
+    setShowTracking(true);
+    setShowLoginModal(false);
+    setIsChangingLocation(false);
+    setPendingOrder(false);
+    setShowConfirmation(false);
+    setTrackingLaunchSource('notification');
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+
+    void refreshData().catch(error => {
+      console.error('No se pudo refrescar rastreo desde notificación:', error);
+    });
+  }, [refreshData]);
+
+  const closeTracking = useCallback(() => {
+    setShowTracking(false);
+    setTrackingLaunchSource(null);
+  }, []);
 
   useEffect(() => {
-    if (!loading && !hasTrackableOrder && showTracking) {
+    if (!loading && !hasTrackableOrder && showTracking && !trackingLaunchSource) {
       setShowTracking(false);
     }
-  }, [hasTrackableOrder, loading, showTracking]);
+  }, [hasTrackableOrder, loading, showTracking, trackingLaunchSource]);
+
+  useEffect(() => {
+    if (latestTrackableOrder && trackingLaunchSource) {
+      setTrackingLaunchSource(null);
+    }
+  }, [latestTrackableOrder, trackingLaunchSource]);
+
+  useEffect(() => {
+    if (!showTracking || trackingLaunchSource !== 'notification' || hasTrackableOrder) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setTrackingLaunchSource(null);
+    }, TRACKING_DEEP_LINK_WAIT_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [hasTrackableOrder, showTracking, trackingLaunchSource]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -410,11 +506,7 @@ function AppShell() {
 
     if (!shouldOpenTracking) return;
 
-    setScreen('home');
-    setShowTracking(true);
-    setShowLoginModal(false);
-    setIsChangingLocation(false);
-    setPendingOrder(false);
+    openTrackingFromNotification();
 
     params.delete('tracking');
     params.delete('orderCode');
@@ -424,7 +516,27 @@ function AppShell() {
     const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
 
     window.history.replaceState({}, '', nextUrl);
-  }, []);
+  }, [openTrackingFromNotification]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return undefined;
+    }
+
+    const handleServiceWorkerMessage = (event: MessageEvent<PollazoServiceWorkerMessage>) => {
+      const data = event.data;
+
+      if (data?.type === 'POLLAZO_OPEN_TRACKING') {
+        openTrackingFromNotification();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, [openTrackingFromNotification]);
 
   useEffect(() => {
     if (!showTracking || !latestTrackableOrder) return undefined;
@@ -435,6 +547,7 @@ function AppShell() {
 
     const timer = window.setTimeout(() => {
       setShowTracking(false);
+      setTrackingLaunchSource(null);
     }, FINAL_TRACKING_AUTO_CLOSE_MS);
 
     return () => window.clearTimeout(timer);
@@ -463,6 +576,7 @@ function AppShell() {
     setShowLoginModal(false);
     setShowTracking(false);
     setIsChangingLocation(false);
+    setTrackingLaunchSource(null);
 
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
@@ -482,6 +596,7 @@ function AppShell() {
     setShowConfirmation(false);
     setPendingOrder(false);
     setShowTracking(false);
+    setTrackingLaunchSource(null);
 
     if (hasCustomerIdentity) {
       setIsChangingLocation(true);
@@ -626,6 +741,7 @@ function AppShell() {
       setShowConfirmation(false);
       setScreen('home');
       setShowTracking(true);
+      setTrackingLaunchSource(null);
       setActiveOrderCode(null);
       return;
     }
@@ -647,6 +763,7 @@ function AppShell() {
     setShowConfirmation(false);
     setScreen('home');
     setShowTracking(true);
+    setTrackingLaunchSource(null);
     setActiveOrderCode(null);
 
     if (mainRef.current) {
@@ -697,6 +814,7 @@ function AppShell() {
       setShowConfirmation(false);
       setScreen('home');
       setShowTracking(true);
+      setTrackingLaunchSource(null);
       setActiveOrderCode(null);
     }, 100);
   };
@@ -714,10 +832,14 @@ function AppShell() {
         ref={mainRef}
         className="flex-1 overflow-y-auto pb-20 relative scroll-smooth shadow-inner"
       >
-        <OrderTracking
-          isOpen={showTracking}
-          onClose={() => setShowTracking(false)}
-        />
+        {shouldShowTrackingWake ? (
+          <TrackingWakeOverlay onClose={closeTracking} />
+        ) : (
+          <OrderTracking
+            isOpen={showTracking}
+            onClose={closeTracking}
+          />
+        )}
 
         {screen === 'home' && (
           <HomeScreen
@@ -768,7 +890,10 @@ function AppShell() {
       {screen !== 'ranking' && hasTrackableOrder && (
         <button
           type="button"
-          onClick={() => setShowTracking(true)}
+          onClick={() => {
+            setShowTracking(true);
+            setTrackingLaunchSource(null);
+          }}
           className="fixed right-4 bottom-[88px] z-40 flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md border border-orange-100 px-4 py-3 shadow-xl shadow-orange-100 text-orange-600 active:scale-95 transition-all"
           aria-label="Abrir rastreo de pedido"
         >
