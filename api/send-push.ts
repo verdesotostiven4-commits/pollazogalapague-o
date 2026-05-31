@@ -12,11 +12,34 @@ type PushPayload = {
   url?: string;
 };
 
-const NOTIFICATION_ICON = '/logo-final.png';
-const NOTIFICATION_BADGE = '/logo-final.png';
+const DEFAULT_ICON = '/logo-final.png';
+
+const STATUS_ICONS: Record<string, string> = {
+  Recibido: '/notification-confirmed.png',
+  Preparando: '/notification-preparing.png',
+  Enviado: '/notification-sent.png',
+  Entregado: '/notification-delivered.png',
+  Cancelado: '/notification-cancelled.png',
+};
 
 const cleanPhoneTail = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '').slice(-9);
+};
+
+const getNotificationIcon = (payload: PushPayload) => {
+  if (payload.status && STATUS_ICONS[payload.status]) {
+    return STATUS_ICONS[payload.status];
+  }
+
+  if (payload.paymentStatus === 'confirmado') {
+    return '/notification-confirmed.png';
+  }
+
+  if (payload.paymentStatus === 'rechazado') {
+    return '/notification-cancelled.png';
+  }
+
+  return DEFAULT_ICON;
 };
 
 const buildTrackingUrl = (payload: PushPayload) => {
@@ -186,6 +209,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const text = getPushText(payload);
+  const notificationIcon = getNotificationIcon(payload);
+
   const targetUrl =
     payload.url && payload.url !== '/'
       ? payload.url
@@ -195,8 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     title: text.title,
     body: text.body,
     url: targetUrl,
-    icon: NOTIFICATION_ICON,
-    badge: NOTIFICATION_BADGE,
+    icon: notificationIcon,
+    badge: notificationIcon,
     tag: `pollazo-${payload.orderCode || cleanCustomerTail}`,
     orderCode: payload.orderCode || null,
     status: payload.status || null,
@@ -245,5 +270,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sent,
     failed,
     expiredDeleted: expiredSubscriptionIds.length,
+    icon: notificationIcon,
   });
 }
