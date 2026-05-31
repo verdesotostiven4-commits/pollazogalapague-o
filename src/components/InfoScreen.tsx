@@ -20,7 +20,6 @@ import {
   ReceiptText,
   Wallet,
   TrendingUp,
-  Crown,
   ShieldCheck,
   PackageCheck,
   BadgeCheck,
@@ -36,14 +35,13 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  Gift,
   ChevronDown,
   ChevronUp,
   Repeat2,
-  HelpCircle,
   Route,
   Store,
   Info,
+  AlertCircle,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
@@ -645,10 +643,16 @@ interface CustomerHistoryProps {
 function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const { orders, customers, extraSettings, products } = useAdmin();
   const { customerName, customerPhone, customerAvatar } = useUser();
-  const { addItem, setIsOpen } = useCart();
+  const {
+    addItem,
+    clearCart,
+    setIsOpen,
+    items: cartItems,
+  } = useCart();
 
   const [repeatNotice, setRepeatNotice] = useState('');
   const [showAllOrders, setShowAllOrders] = useState(false);
+  const [repeatOrderToConfirm, setRepeatOrderToConfirm] = useState<Order | null>(null);
 
   const seasonActive = extraSettings?.event_active !== false;
   const cleanUserPhone = cleanPhoneTail(customerPhone);
@@ -698,10 +702,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return myOrders.filter(
       order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar'
     );
-  }, [myOrders]);
-
-  const repeatableOrders = useMemo(() => {
-    return myOrders.filter(order => (order.items || []).length > 0 && order.status !== 'Cancelado');
   }, [myOrders]);
 
   const totalSpentFromOrders = useMemo(() => {
@@ -758,13 +758,17 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
   const visibleOrders = showAllOrders ? orderedHistory.slice(0, 12) : orderedHistory.slice(0, 3);
 
-  const handleRepeatOrder = (order: Order) => {
+  const addRepeatedOrderToCart = (order: Order, mode: 'replace' | 'add') => {
     const items = order.items || [];
 
     if (items.length === 0) {
       setRepeatNotice('Este pedido no tiene productos para repetir.');
       window.setTimeout(() => setRepeatNotice(''), 3000);
       return;
+    }
+
+    if (mode === 'replace') {
+      clearCart();
     }
 
     let addedUnits = 0;
@@ -786,6 +790,8 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
       }
     });
 
+    setRepeatOrderToConfirm(null);
+
     if (addedUnits === 0) {
       setRepeatNotice('No pudimos repetir este pedido porque sus productos ya no están disponibles.');
       window.setTimeout(() => setRepeatNotice(''), 3500);
@@ -794,8 +800,12 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
     setRepeatNotice(
       skippedUnits > 0
-        ? `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
-        : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
+        ? mode === 'replace'
+          ? `Reemplazamos el carrito con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}. Algunos ya no estaban disponibles.`
+          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
+        : mode === 'replace'
+          ? `Carrito reemplazado con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}.`
+          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
     );
 
     setIsOpen(true);
@@ -807,6 +817,23 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     window.setTimeout(() => {
       setRepeatNotice('');
     }, 3500);
+  };
+
+  const handleRepeatOrder = (order: Order) => {
+    const orderItems = order.items || [];
+
+    if (orderItems.length === 0) {
+      setRepeatNotice('Este pedido no tiene productos para repetir.');
+      window.setTimeout(() => setRepeatNotice(''), 3000);
+      return;
+    }
+
+    if (cartItems.length > 0) {
+      setRepeatOrderToConfirm(order);
+      return;
+    }
+
+    addRepeatedOrderToCart(order, 'add');
   };
 
   if (!customerPhone) {
@@ -846,232 +873,310 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 via-white to-yellow-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-4 relative">
-      <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-300/20 rounded-full blur-3xl" />
-      <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-yellow-300/20 rounded-full blur-3xl" />
+    <>
+      <div className="bg-gradient-to-br from-orange-50 via-white to-yellow-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-4 relative">
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-300/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-yellow-300/20 rounded-full blur-3xl" />
 
-      <div className="relative flex items-center gap-3 mb-4">
-        <div className="relative">
-          <img
-            src={
-              customerAvatar ||
-              customer?.avatar_url ||
-              `https://api.dicebear.com/8.x/adventurer/svg?seed=${customerName || customerPhone}`
-            }
-            className="w-14 h-14 rounded-[22px] object-cover border-4 border-white shadow-md"
-            alt={customerName || 'Cliente'}
-          />
+        <div className="relative flex items-center gap-3 mb-4">
+          <div className="relative">
+            <img
+              src={
+                customerAvatar ||
+                customer?.avatar_url ||
+                `https://api.dicebear.com/8.x/adventurer/svg?seed=${customerName || customerPhone}`
+              }
+              className="w-14 h-14 rounded-[22px] object-cover border-4 border-white shadow-md"
+              alt={customerName || 'Cliente'}
+            />
 
-          <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg border-2 border-white shadow-sm">
-            {level.emoji}
-          </div>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
-            Mi cuenta Pollazo
-          </p>
-
-          <h3 className="text-lg font-black text-gray-900 uppercase italic truncate leading-none mt-1">
-            {customerName || customer?.name || 'Cliente Pollazo'}
-          </h3>
-
-          <p className="text-[10px] font-bold text-gray-400 mt-1">
-            Nivel {level.level} · {level.title}
-          </p>
-        </div>
-      </div>
-
-      {activeOrders.length > 0 && (
-        <div className="relative mb-4 space-y-3">
-          {activeOrders.slice(0, 2).map(order => (
-            <ActiveOrderCard key={order.id} order={order} />
-          ))}
-        </div>
-      )}
-
-      <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
-        <div className="flex justify-between items-end mb-2">
-          <div>
-            <p className="text-[10px] font-black text-gray-900 uppercase">
-              Progreso de nivel
-            </p>
-            <p className="text-[10px] font-bold text-gray-500 mt-1">
-              {level.benefit}
-            </p>
+            <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg border-2 border-white shadow-sm">
+              {level.emoji}
+            </div>
           </div>
 
-          <p className="text-[9px] font-black text-orange-500 uppercase">
-            {progress}%
-          </p>
-        </div>
-
-        <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <p className="text-[9px] font-black text-gray-400 uppercase leading-relaxed mt-2">
-          {nextLevelText}
-        </p>
-      </div>
-
-      <div className="relative grid grid-cols-2 gap-3 mb-4">
-        <StatPill
-          icon={<Wallet size={18} />}
-          label="Comprado"
-          value={`$${totalSpent.toFixed(2)}`}
-        />
-        <StatPill
-          icon={<PackageCheck size={18} />}
-          label="Pedidos"
-          value={`${totalOrders}`}
-        />
-        <StatPill
-          icon={<TrendingUp size={18} />}
-          label="Promedio"
-          value={`$${averageOrder.toFixed(2)}`}
-        />
-        <StatPill
-          icon={<Activity size={18} />}
-          label={seasonActive ? 'Temporada' : 'Pausado'}
-          value={`${points.toLocaleString('es-EC')} pts`}
-          muted={!seasonActive}
-        />
-      </div>
-
-      {!seasonActive && (
-        <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
-            El ranking de temporada está pausado. Tus compras válidas siguen subiendo tu nivel.
-          </p>
-        </div>
-      )}
-
-      <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={21} />
-          </div>
-
-          <div>
-            <p className="text-[11px] font-black text-gray-900 uppercase">
-              Resumen útil para ti
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
+              Mi cuenta Pollazo
             </p>
-            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-              {smartSummary}
+
+            <h3 className="text-lg font-black text-gray-900 uppercase italic truncate leading-none mt-1">
+              {customerName || customer?.name || 'Cliente Pollazo'}
+            </h3>
+
+            <p className="text-[10px] font-bold text-gray-400 mt-1">
+              Nivel {level.level} · {level.title}
             </p>
           </div>
         </div>
-      </div>
 
-      {repeatNotice && (
-        <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4 flex items-center gap-2">
-          <CheckCircle2 size={17} className="text-green-600 flex-shrink-0" />
-          <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
-            {repeatNotice}
-          </p>
-        </div>
-      )}
-
-      <div className="relative">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-            Últimos pedidos
-          </p>
-
-          {activeOrders.length > 0 && (
-            <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
-              {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {myOrders.length > 0 ? (
-          <div className="space-y-2">
-            {visibleOrders.map(order => (
-              <div
-                key={order.id}
-                className="bg-white/90 border border-white rounded-2xl p-3 flex items-center gap-3 shadow-sm"
-              >
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                  {order.status === 'Enviado' ? (
-                    <Truck size={18} />
-                  ) : (
-                    <ReceiptText size={18} />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-gray-900 uppercase truncate">
-                    {order.order_code || 'Pedido'} · {getOrderItemsLabel(order)}
-                  </p>
-
-                  <p className="text-[9px] font-bold text-gray-400 mt-1">
-                    {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
-                    {toMoney(order.total).toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
-                    {order.status}
-                  </span>
-
-                  {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
-                    <button
-                      type="button"
-                      onClick={() => handleRepeatOrder(order)}
-                      className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform flex items-center gap-1"
-                    >
-                      <Repeat2 size={10} />
-                      Repetir
-                    </button>
-                  )}
-                </div>
-              </div>
+        {activeOrders.length > 0 && (
+          <div className="relative mb-4 space-y-3">
+            {activeOrders.slice(0, 2).map(order => (
+              <ActiveOrderCard key={order.id} order={order} />
             ))}
-
-            {orderedHistory.length > 3 && (
-              <button
-                type="button"
-                onClick={() => setShowAllOrders(current => !current)}
-                className="w-full bg-white/90 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-              >
-                {showAllOrders ? (
-                  <>
-                    <ChevronUp size={14} />
-                    Mostrar menos
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown size={14} />
-                    Ver más pedidos
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="bg-white/80 border border-white rounded-2xl p-4 text-center">
-            <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
-            <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
-              Aún no tienes pedidos registrados con este número.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('catalog')}
-              className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
-            >
-              Ver catálogo
-            </button>
           </div>
         )}
+
+        <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
+          <div className="flex justify-between items-end mb-2">
+            <div>
+              <p className="text-[10px] font-black text-gray-900 uppercase">
+                Progreso de nivel
+              </p>
+              <p className="text-[10px] font-bold text-gray-500 mt-1">
+                {level.benefit}
+              </p>
+            </div>
+
+            <p className="text-[9px] font-black text-orange-500 uppercase">
+              {progress}%
+            </p>
+          </div>
+
+          <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <p className="text-[9px] font-black text-gray-400 uppercase leading-relaxed mt-2">
+            {nextLevelText}
+          </p>
+        </div>
+
+        <div className="relative grid grid-cols-2 gap-3 mb-4">
+          <StatPill
+            icon={<Wallet size={18} />}
+            label="Comprado"
+            value={`$${totalSpent.toFixed(2)}`}
+          />
+          <StatPill
+            icon={<PackageCheck size={18} />}
+            label="Pedidos"
+            value={`${totalOrders}`}
+          />
+          <StatPill
+            icon={<TrendingUp size={18} />}
+            label="Promedio"
+            value={`$${averageOrder.toFixed(2)}`}
+          />
+          <StatPill
+            icon={<Activity size={18} />}
+            label={seasonActive ? 'Temporada' : 'Pausado'}
+            value={`${points.toLocaleString('es-EC')} pts`}
+            muted={!seasonActive}
+          />
+        </div>
+
+        {!seasonActive && (
+          <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
+            <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
+              El ranking de temporada está pausado. Tus compras válidas siguen subiendo tu nivel.
+            </p>
+          </div>
+        )}
+
+        <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <ShieldCheck size={21} />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-black text-gray-900 uppercase">
+                Resumen útil para ti
+              </p>
+              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                {smartSummary}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {repeatNotice && (
+          <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4 flex items-center gap-2">
+            <CheckCircle2 size={17} className="text-green-600 flex-shrink-0" />
+            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
+              {repeatNotice}
+            </p>
+          </div>
+        )}
+
+        <div className="relative">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Últimos pedidos
+            </p>
+
+            {activeOrders.length > 0 && (
+              <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
+                {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {myOrders.length > 0 ? (
+            <div className="space-y-2">
+              {visibleOrders.map(order => (
+                <div
+                  key={order.id}
+                  className="bg-white/90 border border-white rounded-2xl p-3 flex items-center gap-3 shadow-sm"
+                >
+                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
+                    {order.status === 'Enviado' ? (
+                      <Truck size={18} />
+                    ) : (
+                      <ReceiptText size={18} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-900 uppercase truncate">
+                      {order.order_code || 'Pedido'} · {getOrderItemsLabel(order)}
+                    </p>
+
+                    <p className="text-[9px] font-bold text-gray-400 mt-1">
+                      {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
+                      {toMoney(order.total).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
+                      {order.status}
+                    </span>
+
+                    {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRepeatOrder(order)}
+                        className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform flex items-center gap-1"
+                      >
+                        <Repeat2 size={10} />
+                        Repetir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {orderedHistory.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllOrders(current => !current)}
+                  className="w-full bg-white/90 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+                >
+                  {showAllOrders ? (
+                    <>
+                      <ChevronUp size={14} />
+                      Mostrar menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={14} />
+                      Ver más pedidos
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white/80 border border-white rounded-2xl p-4 text-center">
+              <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
+              <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
+                Aún no tienes pedidos registrados con este número.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('catalog')}
+                className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
+              >
+                Ver catálogo
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {repeatOrderToConfirm && (
+        <div className="fixed inset-0 z-[12050] flex items-end sm:items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Cancelar repetir pedido"
+            onClick={() => setRepeatOrderToConfirm(null)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+          />
+
+          <div className="relative w-full max-w-sm bg-white rounded-[34px] shadow-2xl border border-white overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                    <Repeat2 size={24} />
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/70">
+                      Repetir pedido
+                    </p>
+                    <h3 className="text-lg font-black uppercase italic leading-tight mt-1">
+                      ¿Qué hacemos con tu carrito?
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setRepeatOrderToConfirm(null)}
+                  className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Cerrar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
+                <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
+                  Ya tienes productos en el carrito. Puedes reemplazarlos por este pedido anterior o sumar este pedido a lo que ya tienes.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'replace')}
+                className="w-full bg-slate-950 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <ShoppingBag size={16} />
+                Reemplazar carrito
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'add')}
+                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
+              >
+                <Plus size={16} />
+                Agregar al carrito
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRepeatOrderToConfirm(null)}
+                className="w-full bg-gray-100 text-gray-500 rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
