@@ -923,7 +923,7 @@ export default function LoginModal({
 
           <div
             className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
-              isDragging ? '-translate-y-[120%] scale-75' : '-translate-y-full scale-100'
+              isDragging ? '-translate-y-[108%] scale-90' : '-translate-y-full scale-100'
             }`}
           >
             <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
@@ -932,7 +932,7 @@ export default function LoginModal({
 
             <div
               className={`w-[3px] bg-orange-600 transition-all duration-300 ${
-                isDragging ? 'h-12 opacity-40' : 'h-5 opacity-100'
+                isDragging ? 'h-8 opacity-45' : 'h-5 opacity-100'
               }`}
             />
 
