@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   X,
   Scale,
@@ -12,6 +13,10 @@ import {
   BadgeCheck,
   UserCheck,
   RefreshCw,
+  ChevronDown,
+  CheckCircle2,
+  FileText,
+  Lock,
 } from 'lucide-react';
 
 interface Props {
@@ -30,14 +35,16 @@ function Section({
 }) {
   return (
     <section className="bg-white border border-orange-50 rounded-[28px] p-4 shadow-sm">
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
           {icon}
         </div>
 
-        <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest leading-tight">
-          {title}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-widest leading-tight">
+            {title}
+          </h3>
+        </div>
       </div>
 
       <div className="text-[11px] font-bold text-gray-500 leading-relaxed space-y-2">
@@ -48,61 +55,125 @@ function Section({
 }
 
 export default function LegalModal({ isOpen, onClose }: Props) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
   if (!isOpen) return null;
 
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end',
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center p-3">
+    <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <button
         type="button"
         aria-label="Cerrar términos"
         onClick={onClose}
-        className="absolute inset-0 bg-black/45 backdrop-blur-md"
+        className="absolute inset-0 bg-slate-950/65 backdrop-blur-xl"
       />
 
-      <div className="relative w-full max-w-lg max-h-[92vh] bg-gray-50 rounded-t-[36px] sm:rounded-[36px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
-        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl border-b border-orange-50 px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200">
-              <Scale size={22} />
+      <div className="relative w-full sm:max-w-lg h-[92dvh] sm:h-[90vh] bg-gray-50 rounded-t-[38px] sm:rounded-[38px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-white/70">
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-orange-50 px-5 pt-[calc(env(safe-area-inset-top)+16px)] sm:pt-5 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
+                <Scale size={23} />
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-sm font-black text-gray-900 uppercase italic leading-tight truncate">
+                  Términos y Privacidad
+                </h2>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1 truncate">
+                  La Casa del Pollazo
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="text-sm font-black text-gray-900 uppercase italic leading-none">
-                Términos y Privacidad
-              </h2>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">
-                La Casa del Pollazo
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+              aria-label="Cerrar"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center active:scale-90 transition-transform"
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              className="bg-orange-50 text-orange-600 border border-orange-100 rounded-2xl py-3 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+            >
+              <ChevronDown size={14} />
+              Bajar al final
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-slate-950 text-white rounded-2xl py-3 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+            >
+              <CheckCircle2 size={14} />
+              Aceptar
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(92vh-76px)] p-4 space-y-4">
-          <div className="bg-gradient-to-br from-orange-500 to-yellow-400 rounded-[32px] p-5 text-white shadow-xl shadow-orange-100">
-            <div className="flex items-center gap-3 mb-3">
-              <ShieldCheck size={26} />
+        <div
+          ref={contentRef}
+          className="overflow-y-auto h-[calc(92dvh-137px)] sm:h-[calc(90vh-137px)] p-4 space-y-4 hide-scrollbar"
+        >
+          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 rounded-[34px] p-5 text-white shadow-xl overflow-hidden relative">
+            <div className="absolute -top-14 -right-12 w-36 h-36 bg-orange-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-14 -left-12 w-36 h-36 bg-yellow-400/10 rounded-full blur-3xl" />
+
+            <div className="relative flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
+                <ShieldCheck size={25} />
+              </div>
+
               <div>
-                <p className="text-sm font-black uppercase italic leading-none">
+                <p className="text-sm font-black uppercase italic leading-tight">
                   Reglas claras para comprar mejor
                 </p>
-                <p className="text-[10px] font-bold text-white/80 mt-1">
+                <p className="text-[10px] font-bold text-white/60 mt-1">
                   Última actualización: 2026
                 </p>
               </div>
             </div>
 
-            <p className="text-xs font-bold text-white/90 leading-relaxed">
+            <p className="relative text-xs font-bold text-white/85 leading-relaxed">
               Al usar la app, hacer un pedido o contactarnos por WhatsApp, aceptas estas reglas básicas de compra, entrega, pagos y tratamiento de datos.
             </p>
+
+            <div className="relative mt-4 grid grid-cols-3 gap-2">
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+                <FileText size={18} className="mx-auto text-orange-300 mb-1" />
+                <p className="text-[7px] font-black uppercase text-white/55">
+                  Pedidos
+                </p>
+              </div>
+
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+                <CreditCard size={18} className="mx-auto text-orange-300 mb-1" />
+                <p className="text-[7px] font-black uppercase text-white/55">
+                  Pagos
+                </p>
+              </div>
+
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+                <Lock size={18} className="mx-auto text-orange-300 mb-1" />
+                <p className="text-[7px] font-black uppercase text-white/55">
+                  Datos
+                </p>
+              </div>
+            </div>
           </div>
 
           <Section icon={<ClipboardList size={20} />} title="1. Uso de la app">
@@ -165,12 +236,12 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </Section>
 
-          <Section icon={<Gift size={20} />} title="6. Puntos, EXP y temporadas">
+          <Section icon={<Gift size={20} />} title="6. Niveles, puntos y temporadas">
             <p>
-              La app puede mostrar EXP, niveles, puntos de temporada, rankings, premios o dinámicas promocionales.
+              La app puede mostrar niveles, progreso del cliente, puntos de temporada, rankings, premios o dinámicas promocionales.
             </p>
             <p>
-              La <b>EXP</b> es histórica y sirve para mostrar progreso del cliente. Los <b>puntos de temporada</b> solo aplican cuando el negocio active una temporada o concurso.
+              El <b>nivel del cliente</b> refleja su historial de compras válidas. Los <b>puntos de temporada</b> solo aplican cuando el negocio active una temporada o concurso.
             </p>
             <p>
               Los puntos no son dinero, no son transferibles y no garantizan premio salvo que una temporada activa lo indique claramente.
@@ -229,6 +300,7 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             <p>
               Para soporte, reclamos, correcciones de pedido, privacidad o dudas sobre estos términos, el canal principal de contacto es WhatsApp oficial del negocio.
             </p>
+
             <a
               href="https://wa.me/593989795628?text=Hola%2C%20tengo%20una%20consulta%20sobre%20t%C3%A9rminos%2C%20privacidad%20o%20un%20pedido."
               target="_blank"
@@ -246,13 +318,18 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </div>
 
+          <div ref={bottomRef} />
+
           <button
             type="button"
             onClick={onClose}
-            className="w-full bg-gray-900 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl"
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-700 flex items-center justify-center gap-2"
           >
+            <CheckCircle2 size={17} />
             Aceptar y cerrar
           </button>
+
+          <div className="h-3" />
         </div>
       </div>
     </div>
