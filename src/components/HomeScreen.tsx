@@ -83,8 +83,6 @@ function getGreeting() {
     return {
       title: '¡Buenos días!',
       phrase: '¿Qué compraremos para el desayuno? ☕',
-      emoji: '☀️',
-      label: 'Mañana Pollazo',
     };
   }
 
@@ -92,16 +90,12 @@ function getGreeting() {
     return {
       title: '¡Buenas tardes!',
       phrase: '¿Un pollito para el asado hoy? 🍗',
-      emoji: '🔥',
-      label: 'Tarde de compras',
     };
   }
 
   return {
     title: '¡Buenas noches!',
     phrase: '¿Cenamos algo rico del Pollazo? 🌙',
-    emoji: '🌙',
-    label: 'Noche tranquila',
   };
 }
 
@@ -216,13 +210,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     );
   };
 
-  const openOffersWhatsApp = () => {
-    window.open(
-      `https://wa.me/${WHATSAPP.replace(/\D/g, '')}?text=Hola%2C%20quiero%20consultar%20las%20ofertas%20del%20d%C3%ADa%20en%20La%20Casa%20del%20Pollazo.`,
-      '_blank'
-    );
-  };
-
   return (
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
@@ -232,39 +219,21 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         <div className="absolute -top-20 -right-16 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute bottom-12 -left-20 w-56 h-56 rounded-full bg-yellow-200/20 blur-3xl" />
 
-        <div className="px-5 pt-8 pb-11 relative z-10 text-center flex flex-col items-center">
-          <div className="w-full max-w-sm mb-5">
-            <div className="relative rounded-[30px] bg-white/16 backdrop-blur-xl border border-white/25 shadow-xl p-4 overflow-hidden">
-              <div className="absolute -top-12 -right-10 w-28 h-28 bg-white/15 rounded-full blur-2xl" />
+        <div className="px-5 pt-7 pb-11 relative z-10 text-center flex flex-col items-center">
+          <div className="mb-4 text-center">
+            {customerName && (
+              <p className="text-yellow-100/95 text-[13px] font-black leading-none mb-2 drop-shadow-sm">
+                Hola, <span className="text-white">{customerName}</span> 👋
+              </p>
+            )}
 
-              <div className="relative flex items-center gap-3 text-left">
-                <div className="w-12 h-12 rounded-2xl bg-white/95 text-orange-500 flex items-center justify-center text-2xl shadow-lg flex-shrink-0">
-                  {greeting.emoji}
-                </div>
+            <p className="text-white font-black text-[28px] leading-none tracking-tight drop-shadow-md">
+              {greeting.title}
+            </p>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black text-yellow-100 uppercase tracking-[0.22em] leading-none">
-                    {greeting.label}
-                  </p>
-
-                  <p className="text-white font-black text-xl leading-none mt-1 tracking-tight">
-                    {greeting.title}
-                  </p>
-
-                  <p className="text-white/85 text-[11px] font-bold leading-snug mt-1.5">
-                    {greeting.phrase}
-                  </p>
-                </div>
-              </div>
-
-              {customerName && (
-                <div className="relative mt-3 bg-black/10 border border-white/10 rounded-2xl px-3 py-2">
-                  <p className="text-[10px] font-bold text-white/85 leading-snug">
-                    Hola, <span className="font-black text-white">{customerName}</span>. Elige tus productos y registra tu pedido fácil.
-                  </p>
-                </div>
-              )}
-            </div>
+            <p className="text-yellow-100/95 text-[14px] font-semibold leading-snug mt-2 drop-shadow-sm">
+              {greeting.phrase}
+            </p>
           </div>
 
           <div
@@ -347,35 +316,10 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
               </h3>
 
               <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                Consulta pollos, cortes y básicos antes de pedir.
+                Consulta pollos y básicos antes de pedir.
               </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            {['Pollos', 'Cortes', 'Básicos'].map(item => (
-              <div
-                key={item}
-                className="bg-orange-50 border border-orange-100 rounded-2xl px-2 py-3 text-center"
-              >
-                <p className="text-[9px] font-black text-orange-600 uppercase">
-                  {item}
-                </p>
-                <p className="text-[8px] font-bold text-orange-400 mt-1">
-                  Precio del día
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={openOffersWhatsApp}
-            className="mt-3 w-full bg-slate-950 text-white rounded-2xl py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <MessageCircle size={14} />
-            Consultar ofertas
-          </button>
         </div>
       </div>
 
