@@ -120,6 +120,8 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = getGreeting();
 
+  const displayName = customerName?.trim() || 'Pollazo Lover';
+
   const bestsellers = useMemo(() => {
     const selected = products.filter(product => BESTSELLER_IDS.includes(product.id));
 
@@ -221,12 +223,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
 
         <div className="px-5 pt-7 pb-11 relative z-10 text-center flex flex-col items-center">
           <div className="mb-4 text-center">
-            {customerName && (
-              <p className="text-yellow-100/95 text-[13px] font-black leading-none mb-2 drop-shadow-sm">
-                Hola, <span className="text-white">{customerName}</span> 👋
-              </p>
-            )}
-
             <p className="text-white font-black text-[28px] leading-none tracking-tight drop-shadow-md">
               {greeting.title}
             </p>
@@ -299,31 +295,19 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      <div className="px-5 -mt-5 relative z-10">
-        <div className="bg-white rounded-[30px] border border-orange-100 shadow-xl shadow-orange-100/40 p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
-              <Tag size={22} />
-            </div>
+      <div className="px-6 pt-8 pb-1 bg-gray-50 relative z-10">
+        <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.28em] leading-none">
+          Bienvenido de nuevo,
+        </p>
 
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.2em]">
-                Ofertas del día
-              </p>
-
-              <h3 className="text-sm font-black text-gray-900 uppercase italic leading-tight mt-1">
-                Precios frescos y disponibilidad diaria
-              </h3>
-
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                Consulta pollos y básicos antes de pedir.
-              </p>
-            </div>
-          </div>
-        </div>
+        <h2 className="text-[38px] leading-none font-black italic tracking-tight mt-2">
+          <span className="text-slate-950">Hola, </span>
+          <span className="text-orange-500">{displayName}</span>
+          <span className="not-italic text-[32px] ml-1">👋</span>
+        </h2>
       </div>
 
-      <div className="px-6 pt-8 pb-2">
+      <div className="px-6 pt-7 pb-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">
           Compra rápido
         </p>
@@ -361,6 +345,30 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
               </span>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="px-6 py-4">
+        <div className="bg-white rounded-[30px] border border-orange-100 shadow-sm p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+              <Tag size={22} />
+            </div>
+
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.2em]">
+                Ofertas del día
+              </p>
+
+              <h3 className="text-sm font-black text-gray-900 uppercase italic leading-tight mt-1">
+                Precios frescos y disponibilidad diaria
+              </h3>
+
+              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                Consulta pollos y básicos antes de pedir.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
