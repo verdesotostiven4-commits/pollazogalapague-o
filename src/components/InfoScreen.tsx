@@ -42,6 +42,11 @@ import {
   Store,
   Info,
   AlertCircle,
+  Crown,
+  Gift,
+  Banknote,
+  QrCode,
+  Building,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
@@ -53,6 +58,7 @@ import type {
   DeliveryAddress,
   DeliveryAddressLabel,
   Order,
+  PaymentMethod,
   Product,
   Screen,
 } from '../types';
@@ -62,6 +68,8 @@ const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
 const WA_HELLO = `https://wa.me/${WHATSAPP}?text=Hola%2C%20quisiera%20m%C3%A1s%20informaci%C3%B3n%20sobre%20La%20Casa%20del%20Pollazo%20El%20Mirador%20%F0%9F%8D%97`;
 const LOGO_OFFICIAL =
   'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
+
+type MembershipPaymentChoice = Extract<PaymentMethod, 'efectivo' | 'deuna' | 'transferencia'>;
 
 const teamMembers = [
   {
@@ -541,6 +549,346 @@ function StatPill({
   );
 }
 
+function PollazoPlusCard({
+  onNavigate,
+}: {
+  onNavigate: (screen: Screen) => void;
+}) {
+  const { requestMembership } = useAdmin();
+
+  const {
+    customerPhone,
+    customerName,
+    hasPollazoPlus,
+    membershipStatus,
+    pollazoPlusExpiresAt,
+    activeMembership,
+    refreshMembership,
+  } = useUser();
+
+  const [selectedMethod, setSelectedMethod] =
+    useState<MembershipPaymentChoice>('deuna');
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const expiresLabel = formatOrderDate(activeMembership?.expires_at || pollazoPlusExpiresAt);
+
+  const paymentOptions: Array<{
+    id: MembershipPaymentChoice;
+    label: string;
+    desc: string;
+    icon: ReactNode;
+    activeClass: string;
+    iconClass: string;
+  }> = [
+    {
+      id: 'deuna',
+      label: 'Deuna',
+      desc: 'Pago rápido',
+      icon: <QrCode size={17} />,
+      activeClass: 'bg-purple-50 border-purple-300 text-purple-700',
+      iconClass: 'bg-purple-100 text-purple-600',
+    },
+    {
+      id: 'transferencia',
+      label: 'Transferencia',
+      desc: 'Banco',
+      icon: <Building size={17} />,
+      activeClass: 'bg-blue-50 border-blue-300 text-blue-700',
+      iconClass: 'bg-blue-100 text-blue-600',
+    },
+    {
+      id: 'efectivo',
+      label: 'Efectivo',
+      desc: 'Local / entrega',
+      icon: <Banknote size={17} />,
+      activeClass: 'bg-green-50 border-green-300 text-green-700',
+      iconClass: 'bg-green-100 text-green-600',
+    },
+  ];
+
+  const handleRequestMembership = async () => {
+    if (!customerPhone) {
+      onNavigate('cart');
+      return;
+    }
+
+    setLoading(true);
+    setNotice('');
+
+    try {
+      await requestMembership({
+        customerPhone,
+        customerName,
+        paymentMethod: selectedMethod,
+        notes: `Solicitud Pollazo Plus desde app. Método elegido: ${selectedMethod}.`,
+      });
+
+      await refreshMembership();
+
+      setNotice(
+        selectedMethod === 'efectivo'
+          ? 'Solicitud enviada. El negocio activará tu membresía cuando confirme el pago.'
+          : 'Solicitud enviada. Realiza el pago y el negocio activará tu membresía al confirmarlo.'
+      );
+    } catch (error) {
+      console.error('No se pudo solicitar Pollazo Plus:', error);
+      setNotice('No se pudo enviar la solicitud. Intenta otra vez.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!customerPhone) {
+    return (
+      <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 text-white rounded-[34px] p-5 shadow-xl overflow-hidden relative">
+        <div className="absolute -top-16 -right-12 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-16 -left-12 w-40 h-40 bg-yellow-400/10 rounded-full blur-3xl" />
+
+        <div className="relative flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-900/30">
+            <Crown size={24} />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[9px] font-black uppercase tracking-widest text-yellow-300">
+              Pollazo Plus
+            </p>
+            <h3 className="text-lg font-black uppercase italic leading-tight mt-1">
+              Delivery gratis por $6.99/mes
+            </h3>
+            <p className="text-[11px] font-bold text-white/60 leading-relaxed mt-2">
+              Registra tus datos para activar beneficios, regalos sorpresa y prioridad.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('cart')}
+              className="mt-4 bg-white text-slate-950 rounded-2xl px-5 py-3 text-[10px] font-black uppercase active:scale-95 transition-transform"
+            >
+              Registrar mis datos
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasPollazoPlus) {
+    return (
+      <div className="bg-gradient-to-br from-yellow-50 via-orange-50 to-white rounded-[34px] border border-yellow-200 p-5 shadow-sm overflow-hidden relative">
+        <div className="absolute -top-14 -right-10 w-36 h-36 bg-yellow-300/20 rounded-full blur-3xl" />
+
+        <div className="relative flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200">
+            <Crown size={24} />
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">
+                Pollazo Plus activo
+              </p>
+              <span className="bg-green-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase">
+                VIP
+              </span>
+            </div>
+
+            <h3 className="text-lg font-black text-gray-900 uppercase italic leading-tight mt-1">
+              Delivery gratis aplicado
+            </h3>
+
+            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
+              Tienes beneficios activos: entregas gratis, prioridad y regalos sorpresa según disponibilidad.
+            </p>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="bg-white/90 border border-yellow-100 rounded-2xl p-3 text-center">
+                <Truck size={18} className="mx-auto text-green-500 mb-1" />
+                <p className="text-[8px] font-black text-gray-500 uppercase">
+                  Delivery gratis
+                </p>
+              </div>
+
+              <div className="bg-white/90 border border-yellow-100 rounded-2xl p-3 text-center">
+                <Gift size={18} className="mx-auto text-orange-500 mb-1" />
+                <p className="text-[8px] font-black text-gray-500 uppercase">
+                  Sorpresas
+                </p>
+              </div>
+
+              <div className="bg-white/90 border border-yellow-100 rounded-2xl p-3 text-center">
+                <Sparkles size={18} className="mx-auto text-yellow-500 mb-1" />
+                <p className="text-[8px] font-black text-gray-500 uppercase">
+                  Prioridad
+                </p>
+              </div>
+            </div>
+
+            {expiresLabel !== '--' && (
+              <p className="text-[10px] font-black text-orange-600 uppercase mt-4">
+                Activa hasta: {expiresLabel}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (membershipStatus === 'pending') {
+    return (
+      <div className="bg-white rounded-[34px] border border-orange-100 p-5 shadow-sm overflow-hidden">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center">
+            <Clock size={23} />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">
+              Pollazo Plus
+            </p>
+            <h3 className="text-lg font-black text-gray-900 uppercase italic leading-tight mt-1">
+              Solicitud pendiente
+            </h3>
+
+            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
+              Tu solicitud ya fue enviada. El negocio activará tu membresía cuando confirme el pago.
+            </p>
+
+            <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
+              <AlertCircle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+                Una vez aprobada, tendrás delivery gratis por 30 días.
+              </p>
+            </div>
+
+            {notice && (
+              <p className="text-[10px] font-black text-green-600 uppercase leading-relaxed mt-3">
+                {notice}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 text-white rounded-[34px] p-5 shadow-xl overflow-hidden relative">
+      <div className="absolute -top-16 -right-12 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-16 -left-12 w-40 h-40 bg-yellow-400/10 rounded-full blur-3xl" />
+
+      <div className="relative">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-900/30">
+            <Crown size={24} />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[9px] font-black uppercase tracking-widest text-yellow-300">
+              Pollazo Plus
+            </p>
+            <h3 className="text-xl font-black uppercase italic leading-tight mt-1">
+              Delivery gratis por $6.99/mes
+            </h3>
+            <p className="text-[11px] font-bold text-white/60 leading-relaxed mt-2">
+              Ahorra en entregas, recibe prioridad y participa en regalos sorpresa para miembros.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+            <Truck size={18} className="mx-auto text-green-300 mb-1" />
+            <p className="text-[8px] font-black text-white/70 uppercase">
+              Delivery gratis
+            </p>
+          </div>
+
+          <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+            <Gift size={18} className="mx-auto text-yellow-300 mb-1" />
+            <p className="text-[8px] font-black text-white/70 uppercase">
+              Regalos VIP
+            </p>
+          </div>
+
+          <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
+            <Sparkles size={18} className="mx-auto text-orange-300 mb-1" />
+            <p className="text-[8px] font-black text-white/70 uppercase">
+              Prioridad
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">
+            Elige cómo pagar
+          </p>
+
+          <div className="grid grid-cols-3 gap-2">
+            {paymentOptions.map(option => {
+              const active = selectedMethod === option.id;
+
+              return (
+                <button
+                  type="button"
+                  key={option.id}
+                  onClick={() => setSelectedMethod(option.id)}
+                  className={`rounded-2xl border p-2.5 text-left active:scale-95 transition-all ${
+                    active
+                      ? option.activeClass
+                      : 'bg-white/8 border-white/10 text-white/70'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${
+                      active
+                        ? option.iconClass
+                        : 'bg-white/10 text-white/50'
+                    }`}
+                  >
+                    {option.icon}
+                  </div>
+
+                  <p className="text-[8px] font-black uppercase leading-none">
+                    {option.label}
+                  </p>
+                  <p className="text-[7px] font-bold opacity-70 mt-1">
+                    {option.desc}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleRequestMembership}
+          disabled={loading}
+          className={`mt-4 w-full bg-white text-slate-950 rounded-[24px] py-4 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform ${
+            loading ? 'opacity-70 cursor-wait' : ''
+          }`}
+        >
+          <Crown size={17} />
+          {loading ? 'Enviando solicitud...' : 'Activar Pollazo Plus'}
+        </button>
+
+        <p className="text-[9px] font-bold text-white/35 leading-relaxed mt-3 text-center">
+          La membresía queda activa cuando el negocio confirme el pago. Beneficios sujetos a disponibilidad.
+        </p>
+
+        {notice && (
+          <p className="text-[10px] font-black text-yellow-200 uppercase leading-relaxed mt-3 text-center">
+            {notice}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ActiveOrderCard({
   order,
 }: {
@@ -577,6 +925,29 @@ function ActiveOrderCard({
           <p className="text-[10px] font-bold text-white/60 mt-2 leading-relaxed">
             {getStatusMessage(order.status)}
           </p>
+
+          {order.membership_applied && (
+            <div className="mt-3 bg-yellow-400/10 border border-yellow-300/10 rounded-2xl p-2.5 flex items-center gap-2">
+              <Crown size={14} className="text-yellow-300 flex-shrink-0" />
+              <p className="text-[8px] font-black text-yellow-100 uppercase">
+                Pollazo Plus aplicado
+              </p>
+            </div>
+          )}
+
+          {Array.isArray(order.bonus_items) && order.bonus_items.length > 0 && (
+            <div className="mt-3 bg-white/8 border border-white/10 rounded-2xl p-2.5 flex items-start gap-2">
+              <Gift size={14} className="text-yellow-300 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[8px] font-black text-yellow-100 uppercase">
+                  Regalo agregado
+                </p>
+                <p className="text-[9px] font-bold text-white/60 mt-0.5">
+                  {order.bonus_items[order.bonus_items.length - 1]?.item_name || 'Sorpresa Pollazo Plus'}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mt-3">
             <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
@@ -642,7 +1013,12 @@ interface CustomerHistoryProps {
 
 function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const { orders, customers, extraSettings, products } = useAdmin();
-  const { customerName, customerPhone, customerAvatar } = useUser();
+  const {
+    customerName,
+    customerPhone,
+    customerAvatar,
+    hasPollazoPlus,
+  } = useUser();
   const {
     addItem,
     clearCart,
@@ -733,6 +1109,10 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   }, [validOrders]);
 
   const smartSummary = useMemo(() => {
+    if (hasPollazoPlus) {
+      return 'Tu Pollazo Plus está activo. Tus pedidos pueden tener delivery gratis y regalos sorpresa según disponibilidad.';
+    }
+
     if (totalOrders === 0) {
       return 'Cuando hagas compras, aquí verás tu historial, nivel y pedidos para repetir fácilmente.';
     }
@@ -750,7 +1130,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     }
 
     return 'Tu historial ya permite mostrarte un resumen útil de tus compras y progreso.';
-  }, [activeOrders.length, averageOrder, topProduct, totalOrders]);
+  }, [activeOrders.length, averageOrder, hasPollazoPlus, topProduct, totalOrders]);
 
   const orderedHistory = useMemo(() => {
     return [...activeOrders, ...pastOrders];
@@ -891,7 +1271,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
             />
 
             <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg border-2 border-white shadow-sm">
-              {level.emoji}
+              {hasPollazoPlus ? '👑' : level.emoji}
             </div>
           </div>
 
@@ -905,6 +1285,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
             </h3>
 
             <p className="text-[10px] font-bold text-gray-400 mt-1">
+              {hasPollazoPlus ? 'Pollazo Plus activo · ' : ''}
               Nivel {level.level} · {level.title}
             </p>
           </div>
@@ -1438,6 +1819,8 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
       <LiveMetrics />
 
       <CustomerHistoryCard onNavigate={onNavigate} />
+
+      <PollazoPlusCard onNavigate={onNavigate} />
 
       <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
 
