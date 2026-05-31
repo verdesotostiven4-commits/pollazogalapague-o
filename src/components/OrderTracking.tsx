@@ -26,11 +26,6 @@ import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '../types';
-import {
-  getPushPermission,
-  isPushSupported,
-  registerPushNotifications,
-} from '../utils/pushNotifications';
 
 interface Props {
   isOpen?: boolean;
@@ -589,21 +584,11 @@ export default function OrderTracking({
   const [now, setNow] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [trackingNotice, setTrackingNotice] = useState<TrackingNotice | null>(null);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
-    return getPushPermission();
-  });
-  const [isPushEnabled, setIsPushEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('pollazo_push_enabled') === '1';
-  });
-  const [isRegisteringPush, setIsRegisteringPush] = useState(false);
-  const [pushStatusMessage, setPushStatusMessage] = useState<string | null>(null);
 
   const previousOrderSnapshotRef = useRef<OrderSnapshot | null>(null);
   const initializedNoticeWatcherRef = useRef(false);
   const alertAudioRef = useRef<AudioContext | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
-  const pushMessageTimerRef = useRef<number | null>(null);
 
   const cleanUserPhone = cleanPhoneTail(customerPhone);
 
@@ -744,48 +729,6 @@ export default function OrderTracking({
     }
   }, [refreshData]);
 
-  const showPushMessage = useCallback((message: string) => {
-    setPushStatusMessage(message);
-
-    if (pushMessageTimerRef.current) {
-      window.clearTimeout(pushMessageTimerRef.current);
-      pushMessageTimerRef.current = null;
-    }
-
-    pushMessageTimerRef.current = window.setTimeout(() => {
-      setPushStatusMessage(null);
-      pushMessageTimerRef.current = null;
-    }, 5000);
-  }, []);
-
-  const handleEnablePushNotifications = useCallback(async () => {
-    if (isRegisteringPush) return;
-
-    if (!customerPhone) {
-      showPushMessage('Primero completa tu perfil con WhatsApp para activar avisos.');
-      return;
-    }
-
-    setIsRegisteringPush(true);
-
-    try {
-      const result = await registerPushNotifications(customerPhone);
-
-      setNotificationPermission(getPushPermission());
-
-      if (result.ok) {
-        setIsPushEnabled(true);
-        showPushMessage('Listo. Este dispositivo recibirá avisos reales del pedido.');
-        return;
-      }
-
-      setIsPushEnabled(false);
-      showPushMessage(result.reason || 'No se pudieron activar las notificaciones.');
-    } finally {
-      setIsRegisteringPush(false);
-    }
-  }, [customerPhone, isRegisteringPush, showPushMessage]);
-
   useEffect(() => {
     return () => {
       if (alertAudioRef.current) {
@@ -796,11 +739,6 @@ export default function OrderTracking({
       if (autoCloseTimerRef.current) {
         window.clearTimeout(autoCloseTimerRef.current);
         autoCloseTimerRef.current = null;
-      }
-
-      if (pushMessageTimerRef.current) {
-        window.clearTimeout(pushMessageTimerRef.current);
-        pushMessageTimerRef.current = null;
       }
 
       try {
@@ -911,8 +849,6 @@ export default function OrderTracking({
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         refreshTracking();
-        setNotificationPermission(getPushPermission());
-        setIsPushEnabled(localStorage.getItem('pollazo_push_enabled') === '1');
       }
     };
 
@@ -970,99 +906,6 @@ export default function OrderTracking({
     raiseTrackingNotice,
   ]);
 
-  const renderPushRegistrationBox = () => {
-    const supported = isPushSupported();
-
-    if (!supported) {
-      return null;
-    }
-
-    const blocked = notificationPermission === 'denied';
-    const active = notificationPermission === 'granted' && isPushEnabled;
-    const waiting = notificationPermission === 'default' || !isPushEnabled;
-
-    return (
-      <div
-        className={`mb-5 rounded-[28px] border p-4 ${
-          active
-            ? 'bg-green-50 border-green-100'
-            : blocked
-              ? 'bg-red-50 border-red-100'
-              : 'bg-orange-50 border-orange-100'
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className={`w-11 h-11 rounded-2xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 ${
-              active
-                ? 'text-green-600'
-                : blocked
-                  ? 'text-red-500'
-                  : 'text-orange-600'
-            }`}
-          >
-            <BellRing size={22} />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p
-              className={`text-[10px] font-black uppercase leading-tight ${
-                active
-                  ? 'text-green-700'
-                  : blocked
-                    ? 'text-red-600'
-                    : 'text-orange-700'
-              }`}
-            >
-              {active
-                ? 'Notificaciones reales activadas'
-                : blocked
-                  ? 'Notificaciones bloqueadas'
-                  : 'Recibe avisos aunque cierres la app'}
-            </p>
-
-            <p
-              className={`text-[11px] font-bold leading-relaxed mt-1 ${
-                active
-                  ? 'text-green-700/75'
-                  : blocked
-                    ? 'text-red-600/75'
-                    : 'text-orange-700/75'
-              }`}
-            >
-              {active
-                ? 'Este dispositivo ya quedó registrado para recibir cambios importantes del pedido.'
-                : blocked
-                  ? 'Debes permitir las notificaciones desde los ajustes del navegador o reinstalar la app.'
-                  : 'Activa los avisos para recibir confirmación, preparación, envío y entrega.'}
-            </p>
-
-            {pushStatusMessage && (
-              <p className="text-[10px] font-black uppercase mt-2 text-gray-600 leading-relaxed">
-                {pushStatusMessage}
-              </p>
-            )}
-
-            {!blocked && waiting && (
-              <button
-                type="button"
-                onClick={handleEnablePushNotifications}
-                disabled={isRegisteringPush}
-                className={`mt-3 px-4 py-3 rounded-2xl text-[10px] font-black uppercase active:scale-95 transition-all shadow-md ${
-                  isRegisteringPush
-                    ? 'bg-gray-300 text-white cursor-wait'
-                    : 'bg-orange-500 text-white shadow-orange-100'
-                }`}
-              >
-                {isRegisteringPush ? 'Activando...' : 'Activar notificaciones'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const renderTrackingNotice = (compact = false) => {
     if (!trackingNotice) return null;
 
@@ -1095,17 +938,6 @@ export default function OrderTracking({
               >
                 Entendido
               </button>
-
-              {!isPushEnabled && notificationPermission !== 'denied' && isPushSupported() && (
-                <button
-                  type="button"
-                  onClick={handleEnablePushNotifications}
-                  disabled={isRegisteringPush}
-                  className="px-3 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all bg-white/80 border border-white/80"
-                >
-                  {isRegisteringPush ? 'Activando...' : 'Activar avisos'}
-                </button>
-              )}
 
               <div className="flex items-center gap-1 text-[9px] font-black uppercase opacity-60">
                 <Volume2 size={12} />
@@ -1232,8 +1064,6 @@ export default function OrderTracking({
             </div>
           )}
         </div>
-
-        {renderPushRegistrationBox()}
 
         {renderTrackingNotice(false)}
 
@@ -1427,7 +1257,7 @@ export default function OrderTracking({
               </div>
 
               <p className="text-[10px] font-black text-blue-700 uppercase leading-tight text-left">
-                Te notificaremos cuando el pedido cambie de estado mientras la app esté abierta.
+                Te avisaremos cuando el pedido cambie de estado mientras estás usando la app. Si aceptaste permisos, también recibirás notificaciones reales del pedido.
               </p>
             </div>
 
