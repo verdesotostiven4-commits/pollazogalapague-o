@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v36';
+const CACHE_VERSION = 'pollazo-cache-clean-v37';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
@@ -34,6 +34,22 @@ const normalizeTrackingUrl = rawUrl => {
     return url.href;
   } catch {
     return `${self.location.origin}/?tracking=1`;
+  }
+};
+
+const sendTrackingMessageToClient = (client, payload = {}) => {
+  try {
+    if (!client || !('postMessage' in client)) return;
+
+    client.postMessage({
+      type: 'POLLAZO_OPEN_TRACKING',
+      url: payload.url || '/?tracking=1',
+      orderCode: payload.orderCode || null,
+      status: payload.status || null,
+      paymentStatus: payload.paymentStatus || null,
+    });
+  } catch {
+    // Mensaje opcional.
   }
 };
 
@@ -134,7 +150,15 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  const targetUrl = normalizeTrackingUrl(event.notification?.data?.url);
+  const notificationData = event.notification?.data || {};
+  const targetUrl = normalizeTrackingUrl(notificationData.url);
+
+  const messagePayload = {
+    url: targetUrl,
+    orderCode: notificationData.orderCode || null,
+    status: notificationData.status || null,
+    paymentStatus: notificationData.paymentStatus || null,
+  };
 
   event.waitUntil(
     self.clients
@@ -143,7 +167,7 @@ self.addEventListener('notificationclick', event => {
         includeUncontrolled: true,
       })
       .then(clientList => {
-        const sameOriginClient = clientList.find(client => {
+        const sameOriginClients = clientList.filter(client => {
           try {
             return new URL(client.url).origin === self.location.origin;
           } catch {
@@ -151,22 +175,21 @@ self.addEventListener('notificationclick', event => {
           }
         });
 
-        if (sameOriginClient) {
-          if ('navigate' in sameOriginClient) {
-            return sameOriginClient
-              .navigate(targetUrl)
-              .then(client => {
-                if (client && 'focus' in client) {
-                  return client.focus();
-                }
+        const focusedClient =
+          sameOriginClients.find(client => client.focused) ||
+          sameOriginClients[0];
 
-                return client;
-              });
+        if (focusedClient) {
+          sendTrackingMessageToClient(focusedClient, messagePayload);
+
+          if ('focus' in focusedClient) {
+            return focusedClient.focus().then(client => {
+              sendTrackingMessageToClient(client || focusedClient, messagePayload);
+              return client || focusedClient;
+            });
           }
 
-          if ('focus' in sameOriginClient) {
-            return sameOriginClient.focus();
-          }
+          return focusedClient;
         }
 
         if (self.clients.openWindow) {
