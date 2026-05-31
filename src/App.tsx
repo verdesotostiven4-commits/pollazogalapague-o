@@ -49,6 +49,9 @@ type PollazoServiceWorkerMessage = {
   url?: string;
   orderCode?: string | null;
   status?: string | null;
+  paymentStatus?: string | null;
+  membershipId?: string | null;
+  membershipReminder?: string | null;
 };
 
 class ErrorBoundary extends Component<
@@ -92,6 +95,7 @@ class ErrorBoundary extends Component<
 }
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
+const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 const FINAL_TRACKING_MINUTES = 20;
 const FINAL_TRACKING_AUTO_CLOSE_MS = 12000;
 const TRACKING_DEEP_LINK_WAIT_MS = 8500;
@@ -403,6 +407,9 @@ function AppShell() {
     customerLat,
     customerLng,
     customerReference,
+    hasPollazoPlus,
+    activeMembership,
+    membershipPlan,
     setUserData,
   } = useUser();
 
@@ -471,6 +478,30 @@ function AppShell() {
     });
   }, [refreshData]);
 
+  const openPlusFromNotification = useCallback(() => {
+    sessionStorage.setItem(PLUS_OPEN_SIGNAL_KEY, '1');
+
+    setScreen('info');
+    setShowTracking(false);
+    setShowLoginModal(false);
+    setIsChangingLocation(false);
+    setPendingOrder(false);
+    setShowConfirmation(false);
+    setTrackingLaunchSource(null);
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('pollazo:open-plus'));
+    }, 180);
+
+    void refreshData().catch(error => {
+      console.error('No se pudo refrescar Pollazo Plus desde notificación:', error);
+    });
+  }, [refreshData]);
+
   const closeTracking = useCallback(() => {
     setShowTracking(false);
     setTrackingLaunchSource(null);
@@ -519,6 +550,27 @@ function AppShell() {
   }, [openTrackingFromNotification]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpenPlus =
+      params.get('plus') === '1' ||
+      params.has('membershipReminder') ||
+      params.has('membershipId');
+
+    if (!shouldOpenPlus) return;
+
+    openPlusFromNotification();
+
+    params.delete('plus');
+    params.delete('membershipReminder');
+    params.delete('membershipId');
+
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+
+    window.history.replaceState({}, '', nextUrl);
+  }, [openPlusFromNotification]);
+
+  useEffect(() => {
     if (!('serviceWorker' in navigator)) {
       return undefined;
     }
@@ -529,6 +581,10 @@ function AppShell() {
       if (data?.type === 'POLLAZO_OPEN_TRACKING') {
         openTrackingFromNotification();
       }
+
+      if (data?.type === 'POLLAZO_OPEN_PLUS') {
+        openPlusFromNotification();
+      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
@@ -536,7 +592,7 @@ function AppShell() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
     };
-  }, [openTrackingFromNotification]);
+  }, [openPlusFromNotification, openTrackingFromNotification]);
 
   useEffect(() => {
     if (!showTracking || !latestTrackableOrder) return undefined;
@@ -659,19 +715,27 @@ function AppShell() {
     const subtotal = toMoney(
       detailedItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
     );
-    const deliveryFee = deliveryFeeOf(subtotal);
+
+    const deliveryFeeOriginal = toMoney(deliveryFeeOf(subtotal));
+    const deliveryFeeFinal = hasPollazoPlus ? 0 : deliveryFeeOriginal;
     const serviceFee = 0;
     const cardFee = 0;
-    const total = toMoney(subtotal + deliveryFee + serviceFee + cardFee);
+    const total = toMoney(subtotal + deliveryFeeFinal + serviceFee + cardFee);
     const paymentMethod = getStoredPaymentMethod();
     const paymentStatus = getInitialPaymentStatus(paymentMethod);
+    const membershipId =
+      typeof activeMembership?.id === 'string'
+        ? activeMembership.id
+        : null;
 
     return {
       order_code: code,
       customer_phone: customerPhone,
       items: detailedItems,
       subtotal,
-      delivery_fee: toMoney(deliveryFee),
+      delivery_fee: toMoney(deliveryFeeFinal),
+      delivery_fee_original: deliveryFeeOriginal,
+      delivery_fee_final: toMoney(deliveryFeeFinal),
       service_fee: toMoney(serviceFee),
       card_fee: toMoney(cardFee),
       total,
@@ -683,6 +747,11 @@ function AppShell() {
       lat: customerLat,
       lng: customerLng,
       reference: customerReference.trim(),
+      membership_applied: hasPollazoPlus,
+      membership_id: hasPollazoPlus ? membershipId : null,
+      membership_plan: hasPollazoPlus
+        ? membershipPlan || activeMembership?.plan_name || 'Pollazo Plus'
+        : null,
       counted_in_metrics: false,
       is_test_order: false,
       created_at: new Date().toISOString(),
@@ -947,10 +1016,14 @@ export default function App() {
 
     const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
 
-    const shouldOpenTracking =
-      new URLSearchParams(window.location.search).get('tracking') === '1';
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpenTracking = params.get('tracking') === '1';
+    const shouldOpenPlus =
+      params.get('plus') === '1' ||
+      params.has('membershipReminder') ||
+      params.has('membershipId');
 
-    return isPWA || isDismissed || shouldOpenTracking;
+    return isPWA || isDismissed || shouldOpenTracking || shouldOpenPlus;
   });
 
   useEffect(() => {
