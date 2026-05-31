@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v35';
+const CACHE_VERSION = 'pollazo-cache-clean-v36';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
@@ -17,6 +17,24 @@ const getIconByStatus = status => {
   }
 
   return DEFAULT_ICON;
+};
+
+const normalizeTrackingUrl = rawUrl => {
+  try {
+    const url = new URL(rawUrl || '/?tracking=1', self.location.origin);
+
+    if (url.origin !== self.location.origin) {
+      return `${self.location.origin}/?tracking=1`;
+    }
+
+    if (!url.searchParams.has('tracking')) {
+      url.searchParams.set('tracking', '1');
+    }
+
+    return url.href;
+  } catch {
+    return `${self.location.origin}/?tracking=1`;
+  }
 };
 
 self.addEventListener('install', event => {
@@ -90,6 +108,7 @@ self.addEventListener('push', event => {
   const statusIcon = getIconByStatus(payload.status);
   const finalIcon = payload.icon || statusIcon;
   const finalBadge = payload.badge || statusIcon;
+  const targetUrl = normalizeTrackingUrl(payload.url);
 
   const title = payload.title || 'La Casa del Pollazo';
 
@@ -99,7 +118,7 @@ self.addEventListener('push', event => {
     badge: finalBadge,
     tag: payload.tag || 'pollazo-order-update',
     data: {
-      url: payload.url || '/?tracking=1',
+      url: targetUrl,
       orderCode: payload.orderCode || null,
       status: payload.status || null,
       paymentStatus: payload.paymentStatus || null,
@@ -115,8 +134,7 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  const rawTargetUrl = event.notification?.data?.url || '/?tracking=1';
-  const targetUrl = new URL(rawTargetUrl, self.location.origin).href;
+  const targetUrl = normalizeTrackingUrl(event.notification?.data?.url);
 
   event.waitUntil(
     self.clients
@@ -125,15 +143,29 @@ self.addEventListener('notificationclick', event => {
         includeUncontrolled: true,
       })
       .then(clientList => {
-        for (const client of clientList) {
-          const clientUrl = new URL(client.url);
+        const sameOriginClient = clientList.find(client => {
+          try {
+            return new URL(client.url).origin === self.location.origin;
+          } catch {
+            return false;
+          }
+        });
 
-          if (clientUrl.origin === self.location.origin && 'focus' in client) {
-            if ('navigate' in client) {
-              return client.navigate(targetUrl).then(() => client.focus());
-            }
+        if (sameOriginClient) {
+          if ('navigate' in sameOriginClient) {
+            return sameOriginClient
+              .navigate(targetUrl)
+              .then(client => {
+                if (client && 'focus' in client) {
+                  return client.focus();
+                }
 
-            return client.focus();
+                return client;
+              });
+          }
+
+          if ('focus' in sameOriginClient) {
+            return sameOriginClient.focus();
           }
         }
 
