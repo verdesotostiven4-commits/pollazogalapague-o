@@ -47,6 +47,15 @@ export type DeliveryAddressLabel =
   | 'Airbnb'
   | 'Otro';
 
+export type MembershipStatus =
+  | 'none'
+  | 'pending'
+  | 'active'
+  | 'expired'
+  | 'cancelled';
+
+export type MembershipPlanKey = 'pollazo_plus';
+
 export interface DeliveryAddress {
   id: string;
   label: DeliveryAddressLabel;
@@ -103,6 +112,13 @@ export interface Customer {
   exp: number; // Experiencia histórica permanente
   is_vip: boolean;
 
+  // Membresía Pollazo Plus
+  membership_status?: MembershipStatus | null;
+  membership_plan?: string | null;
+  membership_started_at?: string | null;
+  membership_expires_at?: string | null;
+  membership_updated_at?: string | null;
+
   // Seguridad / confianza
   phone_verified?: boolean;
   risk_level?: CustomerRiskLevel | null;
@@ -144,6 +160,24 @@ export interface OrderItem {
   product?: Product;
 }
 
+export interface OrderBonusItem {
+  id?: string;
+  order_id?: string | null;
+  order_code?: string | null;
+  customer_phone: string;
+
+  item_name: string;
+  quantity: number;
+
+  reason?: string | null;
+  message?: string | null;
+
+  added_by_admin?: string | null;
+  notified_at?: string | null;
+
+  created_at?: string;
+}
+
 export interface Order {
   id: string;
   order_code: string;
@@ -169,6 +203,15 @@ export interface Order {
 
   preorder: boolean;
 
+  // Membresía Pollazo Plus aplicada al momento de crear el pedido.
+  membership_applied?: boolean;
+  membership_id?: string | null;
+  membership_plan?: string | null;
+  delivery_fee_original?: number;
+  delivery_fee_final?: number;
+  bonus_items?: OrderBonusItem[];
+  vip_gift_message?: string | null;
+
   // Ubicación exacta del pedido
   lat?: number | null;
   lng?: number | null;
@@ -184,6 +227,58 @@ export interface Order {
   // Métricas / pruebas
   counted_in_metrics?: boolean;
   is_test_order?: boolean;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CustomerMembership {
+  id: string;
+
+  customer_phone: string;
+  customer_name?: string | null;
+
+  plan_key: MembershipPlanKey | string;
+  plan_name: string;
+
+  status: Exclude<MembershipStatus, 'none'>;
+
+  price: number;
+
+  started_at?: string | null;
+  expires_at?: string | null;
+
+  payment_method?: PaymentMethod | null;
+  payment_status?: PaymentStatus | null;
+
+  auto_renew?: boolean;
+  notes?: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MembershipPayment {
+  id: string;
+
+  membership_id?: string | null;
+
+  customer_phone: string;
+  customer_name?: string | null;
+
+  amount: number;
+
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+
+  period_start?: string | null;
+  period_end?: string | null;
+
+  proof_url?: string | null;
+  notes?: string | null;
+
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
 
   created_at?: string;
   updated_at?: string;
