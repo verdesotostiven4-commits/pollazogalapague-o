@@ -1270,20 +1270,19 @@ export default function CartScreen({
       </div>
 
       {showScrollHint && (
-        <button
-          type="button"
-          onClick={handleSmartScroll}
-          aria-label="Ver más información del pedido"
-          className="absolute -right-1 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-40 h-12 w-8 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
-        >
-          <span className="absolute right-0 top-1/2 h-10 w-7 -translate-y-1/2 rounded-l-full bg-orange-400/10 blur-md" />
-          <ChevronDown
-            size={26}
-            strokeWidth={3.2}
-            className="relative text-orange-500 drop-shadow-[0_2px_5px_rgba(249,115,22,0.45)]"
-          />
-        </button>
-      )}
+  <button
+    type="button"
+    onClick={handleSmartScroll}
+    aria-label="Ver más información del pedido"
+    className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-40 h-12 w-8 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
+  >
+    <ChevronDown
+      size={26}
+      strokeWidth={3.2}
+      className="text-orange-500"
+    />
+  </button>
+)}
 
       <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
