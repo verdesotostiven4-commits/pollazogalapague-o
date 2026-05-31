@@ -1,7 +1,6 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import {
   Download,
-  Globe,
   Share,
   PlusSquare,
   X,
@@ -15,7 +14,7 @@ import LegalModal from './LegalModal';
 interface Props {
   onInstall: () => void;
   canInstall: boolean;
-  onContinueWeb: () => void;
+  onContinueWeb?: () => void;
 }
 
 interface BeforeInstallPromptEvent extends Event {
@@ -26,11 +25,9 @@ interface BeforeInstallPromptEvent extends Event {
 const LOGO_OFFICIAL =
   'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
 
-const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
-
 type InstallStatus = 'idle' | 'installing' | 'installed';
 
-export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Props) {
+export default function LandingPage({ onInstall, canInstall }: Props) {
   const admin = useAdmin() as any;
   const settings = admin?.settings;
   const extraSettings = admin?.extraSettings;
@@ -48,9 +45,9 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
   useEffect(() => {
     const timer = window.setTimeout(() => setVisible(true), 100);
 
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    const handleBeforeInstall = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
 
       if (installStatus !== 'installed') {
         setInstallStatus('idle');
@@ -138,12 +135,6 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
     }, 900);
   };
 
-  const handleContinueWeb = () => {
-    localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
-    localStorage.setItem('pollazo_landing_dismissed', '1');
-    onContinueWeb();
-  };
-
   const installButtonContent = () => {
     if (installStatus === 'installing') {
       return (
@@ -201,7 +192,7 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
             <img
               src={logoUrl}
               className="relative w-52 h-52 object-contain drop-shadow-2xl pollazo-logo-float"
-              alt="Logo"
+              alt="Logo La Casa del Pollazo"
             />
           </div>
 
@@ -246,18 +237,10 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleContinueWeb}
-              className="w-full py-4 bg-black/15 text-white rounded-3xl font-black shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/15"
-            >
-              <Globe size={16} /> Continuar en la web
-            </button>
-
             <div className="bg-white/12 border border-white/15 rounded-3xl p-4 backdrop-blur-md">
               <p className="text-white/80 text-[10px] font-bold leading-relaxed">
-                Al continuar, aceptas nuestras reglas de pedidos, pagos, entregas,
-                puntos y privacidad.
+                Al instalar y usar la app, aceptas nuestras reglas de pedidos,
+                pagos, entregas, puntos y privacidad.
               </p>
 
               <button
@@ -299,7 +282,11 @@ export default function LandingPage({ onInstall, canInstall, onContinueWeb }: Pr
 
             <div className="text-center mb-8">
               <div className="w-24 h-24 bg-orange-50 rounded-[30px] flex items-center justify-center mx-auto mb-4 border-2 border-orange-100 shadow-inner">
-                <img src={LOGO_OFFICIAL} className="w-16 h-16 object-contain" alt="Logo" />
+                <img
+                  src={LOGO_OFFICIAL}
+                  className="w-16 h-16 object-contain"
+                  alt="Logo La Casa del Pollazo"
+                />
               </div>
 
               <h2 className="text-2xl font-black text-gray-950 leading-tight uppercase tracking-tighter">
