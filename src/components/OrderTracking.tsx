@@ -55,6 +55,8 @@ const STORE_LOCATION = {
   lng: -90.321829,
 };
 
+const NOTICE_AUTO_CLOSE_MS = 6500;
+
 const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon }> = [
   { status: 'Por Confirmar', label: 'Por confirmar', icon: Clock3 },
   { status: 'Recibido', label: 'Confirmado', icon: ClipboardList },
@@ -471,12 +473,7 @@ const buildTrackingNotice = (
   previous: OrderSnapshot | null
 ): Omit<TrackingNotice, 'id' | 'createdAt'> | null => {
   if (!previous || previous.id !== order.id) {
-    return {
-      orderId: order.id,
-      tone: 'orange',
-      title: 'Pedido registrado',
-      message: `Tu pedido ${order.order_code || ''} ya está en rastreo dentro de la app.`,
-    };
+    return null;
   }
 
   if (previous.status !== order.status) {
@@ -485,7 +482,7 @@ const buildTrackingNotice = (
         orderId: order.id,
         tone: 'green',
         title: 'Pedido confirmado',
-        message: 'El negocio aceptó tu pedido. Ahora se activa el seguimiento de preparación.',
+        message: 'El negocio aceptó tu pedido. Ahora empieza el seguimiento.',
       };
     }
 
@@ -503,7 +500,7 @@ const buildTrackingNotice = (
         orderId: order.id,
         tone: 'orange',
         title: 'Tu pedido va en camino',
-        message: 'Prepárate para recibirlo. Revisa la referencia y mantente atento.',
+        message: 'Prepárate para recibirlo. Revisa tu referencia y mantente atento.',
       };
     }
 
@@ -587,10 +584,18 @@ export default function OrderTracking({
   const [now, setNow] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [trackingNotice, setTrackingNotice] = useState<TrackingNotice | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return 'denied';
+    }
+
+    return Notification.permission;
+  });
 
   const previousOrderSnapshotRef = useRef<OrderSnapshot | null>(null);
   const initializedNoticeWatcherRef = useRef(false);
   const alertAudioRef = useRef<AudioContext | null>(null);
+  const autoCloseTimerRef = useRef<number | null>(null);
 
   const cleanUserPhone = cleanPhoneTail(customerPhone);
 
@@ -670,6 +675,27 @@ export default function OrderTracking({
     }
   }, []);
 
+  const showBrowserNotification = useCallback((notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const notification = new Notification(notice.title, {
+        body: notice.message,
+        icon: '/logo-final.png',
+        badge: '/logo-final.png',
+        tag: `pollazo-${notice.orderId || 'tracking'}`,
+        requireInteraction: false,
+      });
+
+      window.setTimeout(() => {
+        notification.close();
+      }, 6500);
+    } catch {
+      // Notificación del sistema opcional.
+    }
+  }, []);
+
   const raiseTrackingNotice = useCallback(
     (notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
       const nextNotice: TrackingNotice = {
@@ -681,6 +707,7 @@ export default function OrderTracking({
       setTrackingNotice(nextNotice);
       triggerTrackingVibration();
       playTrackingSound(notice.tone);
+      showBrowserNotification(notice);
 
       try {
         if (notice.tone === 'red') {
@@ -694,7 +721,7 @@ export default function OrderTracking({
         // Título opcional.
       }
     },
-    [playTrackingSound]
+    [playTrackingSound, showBrowserNotification]
   );
 
   const refreshTracking = useCallback(async () => {
@@ -709,11 +736,27 @@ export default function OrderTracking({
     }
   }, [refreshData]);
 
+  const requestBrowserNotifications = useCallback(async () => {
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+      const result = await Notification.requestPermission();
+      setNotificationPermission(result);
+    } catch {
+      setNotificationPermission('denied');
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (alertAudioRef.current) {
         alertAudioRef.current.close().catch(() => undefined);
         alertAudioRef.current = null;
+      }
+
+      if (autoCloseTimerRef.current) {
+        window.clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
       }
 
       try {
@@ -731,7 +774,35 @@ export default function OrderTracking({
       } catch {
         // Ignorar.
       }
+
+      return undefined;
     }
+
+    if (autoCloseTimerRef.current) {
+      window.clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+
+    const noticeId = trackingNotice.id;
+
+    autoCloseTimerRef.current = window.setTimeout(() => {
+      setTrackingNotice(current => {
+        if (current?.id === noticeId) {
+          return null;
+        }
+
+        return current;
+      });
+
+      autoCloseTimerRef.current = null;
+    }, NOTICE_AUTO_CLOSE_MS);
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        window.clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
   }, [trackingNotice]);
 
   useEffect(() => {
@@ -857,6 +928,10 @@ export default function OrderTracking({
     if (!trackingNotice) return null;
 
     const classes = getNoticeClasses(trackingNotice.tone);
+    const canAskNotification =
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      notificationPermission === 'default';
 
     return (
       <div
@@ -877,7 +952,7 @@ export default function OrderTracking({
               {trackingNotice.message}
             </p>
 
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               <button
                 type="button"
                 onClick={() => setTrackingNotice(null)}
@@ -886,9 +961,19 @@ export default function OrderTracking({
                 Entendido
               </button>
 
+              {canAskNotification && (
+                <button
+                  type="button"
+                  onClick={requestBrowserNotifications}
+                  className="px-3 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all bg-white/80 border border-white/80"
+                >
+                  Activar avisos
+                </button>
+              )}
+
               <div className="flex items-center gap-1 text-[9px] font-black uppercase opacity-60">
                 <Volume2 size={12} />
-                Aviso en vivo
+                Se cierra solo
               </div>
             </div>
           </div>
@@ -1204,7 +1289,7 @@ export default function OrderTracking({
               </div>
 
               <p className="text-[10px] font-black text-blue-700 uppercase leading-tight text-left">
-                Te notificaremos cuando el pedido salga de "La Casa del Pollazo".
+                Te notificaremos cuando el pedido cambie de estado mientras la app esté abierta.
               </p>
             </div>
 
