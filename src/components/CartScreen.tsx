@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Plus,
   Minus,
@@ -18,6 +18,9 @@ import {
   ShieldCheck,
   PackageCheck,
   Sparkles,
+  Wallet,
+  Home,
+  ReceiptText,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
@@ -170,7 +173,7 @@ const triggerDryTap = () => {
   try {
     if ('vibrate' in navigator) navigator.vibrate(15);
   } catch {
-    // Algunos navegadores no permiten vibración.
+    // Vibración opcional.
   }
 };
 
@@ -178,7 +181,7 @@ const triggerDoubleTap = () => {
   try {
     if ('vibrate' in navigator) navigator.vibrate([25, 35, 25]);
   } catch {
-    // Algunos navegadores no permiten vibración.
+    // Vibración opcional.
   }
 };
 
@@ -244,6 +247,46 @@ const clearPaymentStorage = () => {
   localStorage.removeItem('selectedBank');
 };
 
+function StepTitle({
+  step,
+  title,
+  subtitle,
+  icon,
+  done = false,
+}: {
+  step: number;
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+  done?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+          done
+            ? 'bg-green-500 text-white'
+            : 'bg-gradient-to-br from-orange-500 to-yellow-400 text-white'
+        }`}
+      >
+        {done ? <CheckCircle2 size={20} /> : icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em] leading-none">
+          Paso {step}
+        </p>
+        <h3 className="text-sm font-black text-slate-900 uppercase italic leading-tight mt-1">
+          {title}
+        </h3>
+        <p className="text-[11px] font-bold text-slate-400 leading-relaxed mt-1">
+          {subtitle}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function CartScreen({
   onCheckout,
   onNavigate,
@@ -261,7 +304,7 @@ export default function CartScreen({
   } = useUser();
 
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showArrow, setShowArrow] = useState(true);
+  const [showPaymentHint, setShowPaymentHint] = useState(true);
 
   const [paymentMethod, setPaymentMethod] = useState<SupportedPaymentMethod | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
@@ -271,6 +314,7 @@ export default function CartScreen({
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   const subtotal = toMoney(total);
   const deliveryFee = deliveryFeeOf(subtotal);
@@ -289,6 +333,18 @@ export default function CartScreen({
     (canUseDigitalPayment && paymentMethod === 'deuna') ||
     (canUseDigitalPayment && paymentMethod === 'transferencia' && selectedBank !== null);
 
+  const checkoutLabel = paymentMethod === 'efectivo'
+    ? hasConsult
+      ? 'Ver confirmación'
+      : 'Confirmar pedido'
+    : 'Ya pagué / continuar';
+
+  const registerLabel = paymentMethod === 'efectivo'
+    ? hasConsult
+      ? 'Registrar para confirmar precio'
+      : 'Registrar pedido'
+    : 'Registrar y ver pago';
+
   const showNotice = (message: string) => {
     setActionNotice(message);
     window.setTimeout(() => setActionNotice(null), 2800);
@@ -302,6 +358,13 @@ export default function CartScreen({
       'Este pedido ya fue registrado. Para evitar errores, termina la confirmación o crea un pedido nuevo después.'
     );
     return true;
+  };
+
+  const scrollToPayment = () => {
+    paymentSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   };
 
   const handleClearRequest = () => {
@@ -323,31 +386,21 @@ export default function CartScreen({
 
   const handleRemoveItem = (productId: string) => {
     if (blockIfOrderSaved()) return;
-
     removeItem(productId);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
     if (blockIfOrderSaved()) return;
-
     updateQuantity(productId, quantity);
-  };
-
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    setShowArrow(e.currentTarget.scrollTop <= 10);
-  };
-
-  const scrollToBottom = () => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
   };
 
   useEffect(() => {
     if (paymentMethod || isOrderSaved) {
       const timer = window.setTimeout(() => {
-        scrollToBottom();
+        paymentSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
       }, 150);
 
       return () => window.clearTimeout(timer);
@@ -389,6 +442,7 @@ export default function CartScreen({
     }
 
     setPaymentMethod(method);
+    setShowPaymentHint(false);
 
     if (method === 'transferencia') {
       if (paymentMethod !== 'transferencia') {
@@ -414,6 +468,7 @@ export default function CartScreen({
     if (!paymentMethod) {
       triggerDryTap();
       showNotice('Selecciona primero un método de pago.');
+      scrollToPayment();
       return;
     }
 
@@ -426,6 +481,7 @@ export default function CartScreen({
     if (paymentMethod === 'transferencia' && !selectedBank) {
       triggerDryTap();
       showNotice('Selecciona tu banco antes de registrar el pedido.');
+      scrollToPayment();
       return;
     }
 
@@ -500,10 +556,10 @@ export default function CartScreen({
 
           <div>
             <p className="text-[10px] font-black text-amber-700 uppercase">
-              Pedido aún no registrado
+              Falta registrar el pedido
             </p>
             <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed mt-1">
-              Primero presiona “Registrar pedido”. Luego verás la confirmación dentro de la app.
+              Primero toca “Registrar pedido”. Luego verás la confirmación o datos de pago.
             </p>
           </div>
         </div>
@@ -522,7 +578,7 @@ export default function CartScreen({
               Pago contra entrega
             </p>
             <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
-              Tu pedido queda por confirmar. Revisaremos disponibilidad antes de prepararlo. El tiempo estimado aparecerá cuando sea aceptado.
+              Revisaremos tu pedido antes de prepararlo. Pagarás cuando recibas.
             </p>
           </div>
         </div>
@@ -540,7 +596,7 @@ export default function CartScreen({
             Pago en validación
           </p>
           <p className="text-[10px] font-bold text-blue-700/80 leading-relaxed mt-1">
-            Realiza el pago y continúa. En la pantalla final podrás escribir por WhatsApp solo si necesitas enviar comprobante o pedir ayuda.
+            Realiza el pago y continúa. Si necesitas enviar comprobante o ayuda, puedes usar WhatsApp al final.
           </p>
         </div>
       </div>
@@ -550,6 +606,7 @@ export default function CartScreen({
   const renderPaymentButton = (
     method: SupportedPaymentMethod,
     label: string,
+    description: string,
     icon: ReactNode,
     activeClass: string,
     defaultClass: string,
@@ -575,7 +632,7 @@ export default function CartScreen({
           handlePaymentMethodClick(method);
         }}
         disabled={lockedOther}
-        className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${
+        className={`relative flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left active:scale-[0.98] ${
           active ? activeClass : defaultClass
         } ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}
       >
@@ -591,8 +648,18 @@ export default function CartScreen({
           </span>
         )}
 
-        {icon}
-        <span className="text-[11px] mt-1">{label}</span>
+        <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center shadow-sm flex-shrink-0">
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase leading-none">
+            {label}
+          </p>
+          <p className="text-[10px] font-bold opacity-70 leading-relaxed mt-1">
+            {description}
+          </p>
+        </div>
       </button>
     );
   };
@@ -605,7 +672,7 @@ export default function CartScreen({
         </div>
 
         <h2 className="font-black text-gray-900 text-xl mb-2">
-          Tu pedido está vacío
+          Tu carrito está vacío
         </h2>
 
         <p className="text-gray-400 text-sm mb-8 leading-relaxed">
@@ -624,196 +691,217 @@ export default function CartScreen({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white overflow-hidden relative">
+    <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       <div
         ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex-1 px-4 pt-4 pb-2 space-y-3 overflow-y-auto scrollbar-hide"
+        className="flex-1 px-4 pt-4 pb-32 space-y-4 overflow-y-auto scrollbar-hide"
       >
         {isOrderSaved && (
-          <div className="bg-slate-900 text-white rounded-2xl p-3 flex items-center gap-3 shadow-lg animate-in fade-in duration-300">
-            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Lock size={17} />
+          <div className="bg-slate-900 text-white rounded-[26px] p-4 flex items-center gap-3 shadow-lg animate-in fade-in duration-300">
+            <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Lock size={18} />
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest">
                 Pedido registrado
               </p>
               <p className="text-[10px] font-bold text-white/70 mt-1 leading-relaxed">
-                Para evitar errores, el carrito y método de pago quedan bloqueados hasta finalizar la confirmación.
+                Para evitar errores, el carrito y método de pago quedan bloqueados.
               </p>
             </div>
           </div>
         )}
 
-        {items.map(item => {
-          const unitPrice = itemUnitPrice(item);
-          const itemSubtotal = unitPrice > 0 ? (unitPrice * item.quantity).toFixed(2) : null;
-          const customPrice = item.product.custom_price;
-          const fixed = isFixedPrice(item.product.price);
+        <section className="bg-white rounded-[30px] border border-orange-100 p-4 shadow-sm space-y-3">
+          <StepTitle
+            step={1}
+            title="Tus productos"
+            subtitle={`${totalUnits} unidad${totalUnits !== 1 ? 'es' : ''} en el carrito`}
+            icon={<ShoppingBag size={20} />}
+            done={items.length > 0}
+          />
 
-          return (
-            <div
-              key={item.product.id}
-              className={`flex gap-3 bg-white rounded-2xl p-3 shadow-sm border transition-all ${
-                isOrderSaved ? 'border-slate-200 bg-slate-50/50' : 'border-gray-100'
-              }`}
-            >
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
-                <img
-                  src={item.product.image || '/logo-final.png'}
-                  alt={item.product.name}
-                  className="w-full h-full object-contain p-1"
-                />
-              </div>
+          <div className="space-y-2.5 pt-1">
+            {items.map(item => {
+              const unitPrice = itemUnitPrice(item);
+              const itemSubtotal = unitPrice > 0 ? (unitPrice * item.quantity).toFixed(2) : null;
+              const customPrice = item.product.custom_price;
+              const fixed = isFixedPrice(item.product.price);
 
-              <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-bold text-sm leading-snug truncate">
-                  {item.product.name}
-                </p>
-
-                <p
-                  className={`text-xs mt-0.5 font-semibold ${
-                    itemSubtotal ? 'text-orange-500' : 'text-gray-400'
+              return (
+                <div
+                  key={item.product.id}
+                  className={`flex gap-3 rounded-2xl p-3 border transition-all ${
+                    isOrderSaved
+                      ? 'border-slate-200 bg-slate-50/70'
+                      : 'border-gray-100 bg-white shadow-sm'
                   }`}
                 >
-                  {itemSubtotal
-                    ? `$${itemSubtotal}`
-                    : customPrice || fixed
-                      ? `$${unitPrice.toFixed(2)}`
-                      : 'Consultar precio'}
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
+                    <img
+                      src={item.product.image || '/logo-final.png'}
+                      alt={item.product.name}
+                      className="w-full h-full object-contain p-1"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 font-black text-sm leading-snug line-clamp-2">
+                      {item.product.name}
+                    </p>
+
+                    <p
+                      className={`text-xs mt-1 font-black ${
+                        itemSubtotal ? 'text-orange-500' : 'text-gray-400'
+                      }`}
+                    >
+                      {itemSubtotal
+                        ? `$${itemSubtotal}`
+                        : customPrice || fixed
+                          ? `$${unitPrice.toFixed(2)}`
+                          : 'Consultar precio'}
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                        disabled={isOrderSaved}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                          isOrderSaved
+                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'bg-gray-100 text-gray-600 active:scale-90 active:bg-orange-100'
+                        }`}
+                        aria-label="Restar producto"
+                      >
+                        <Minus size={13} />
+                      </button>
+
+                      <span className="text-gray-900 font-black text-sm w-6 text-center">
+                        {item.quantity}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                        disabled={isOrderSaved}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                          isOrderSaved
+                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'bg-orange-100 text-orange-600 active:scale-90 active:bg-orange-200'
+                        }`}
+                        aria-label="Sumar producto"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(item.product.id)}
+                    disabled={isOrderSaved}
+                    className={`self-center p-2 rounded-xl transition-all ${
+                      isOrderSaved
+                        ? 'text-gray-200 cursor-not-allowed'
+                        : 'text-gray-300 hover:text-red-400 active:text-red-500 hover:bg-red-50'
+                    }`}
+                    aria-label="Eliminar producto"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClearRequest}
+            disabled={isOrderSaved}
+            className={`w-full text-[11px] font-black py-3 rounded-2xl border transition-all duration-300 ${
+              isOrderSaved
+                ? 'text-gray-300 bg-gray-50 border-gray-100 cursor-not-allowed'
+                : confirmClear
+                  ? 'text-red-600 bg-red-50 border-red-100 scale-[1.01]'
+                  : 'text-gray-400 bg-gray-50 border-gray-100 active:text-red-400'
+            }`}
+          >
+            {isOrderSaved
+              ? 'Pedido registrado: carrito bloqueado'
+              : confirmClear
+                ? '¿Seguro? toca otra vez para vaciar'
+                : 'Vaciar carrito'}
+          </button>
+        </section>
+
+        <section className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3">
+          <StepTitle
+            step={2}
+            title="Entrega"
+            subtitle={hasLocation ? 'Dirección lista para entregar' : 'Completa tus datos y ubicación'}
+            icon={<Home size={20} />}
+            done={hasProfile && hasLocation}
+          />
+
+          {!hasProfile || !hasLocation ? (
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-600 flex-shrink-0 shadow-sm">
+                <ShieldCheck size={18} />
+              </div>
+
+              <div className="flex-1">
+                <p className="text-[10px] font-black text-orange-700 uppercase">
+                  Necesitamos saber dónde entregar
+                </p>
+                <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
+                  Completa tu nombre, WhatsApp y punto exacto para continuar.
                 </p>
 
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
-                    disabled={isOrderSaved}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                      isOrderSaved
-                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                        : 'bg-gray-100 text-gray-600 active:scale-90 active:bg-orange-100'
-                    }`}
-                    aria-label="Restar producto"
-                  >
-                    <Minus size={13} />
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => onRequireLogin('block')}
+                  className="mt-3 bg-white text-orange-600 border border-orange-200 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase active:scale-95"
+                >
+                  Completar datos
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <MapPin size={17} />
+                </div>
 
-                  <span className="text-gray-900 font-black text-sm w-6 text-center">
-                    {item.quantity}
+                <div className="min-w-0">
+                  <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
+                    Dirección de entrega
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
-                    disabled={isOrderSaved}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                      isOrderSaved
-                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                        : 'bg-orange-100 text-orange-600 active:scale-90 active:bg-orange-200'
-                    }`}
-                    aria-label="Sumar producto"
-                  >
-                    <Plus size={13} />
-                  </button>
+                  <p className="text-xs font-bold text-gray-700 line-clamp-2">
+                    {customerReference || 'Ubicación en Puerto Ayora'}
+                  </p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => handleRemoveItem(item.product.id)}
+                onClick={() => {
+                  if (blockIfOrderSaved()) return;
+                  onRequireLogin('change_location');
+                }}
                 disabled={isOrderSaved}
-                className={`self-center p-2 rounded-xl transition-all ${
+                className={`text-[11px] font-black px-3 py-2 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
                   isOrderSaved
-                    ? 'text-gray-200 cursor-not-allowed'
-                    : 'text-gray-300 hover:text-red-400 active:text-red-500 hover:bg-red-50'
+                    ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                    : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
                 }`}
-                aria-label="Eliminar producto"
               >
-                <Trash2 size={16} />
+                Cambiar
               </button>
             </div>
-          );
-        })}
-
-        <button
-          type="button"
-          onClick={handleClearRequest}
-          disabled={isOrderSaved}
-          className={`w-full text-xs font-semibold py-4 transition-all duration-300 ${
-            isOrderSaved
-              ? 'text-gray-200 cursor-not-allowed'
-              : confirmClear
-                ? 'text-red-600 font-black scale-105'
-                : 'text-gray-400 active:text-red-400'
-          }`}
-        >
-          {isOrderSaved
-            ? 'Pedido registrado: carrito bloqueado'
-            : confirmClear
-              ? '¿ESTÁS SEGURO? PULSA OTRA VEZ ❌'
-              : 'Vaciar carrito'}
-        </button>
-
-        {(!hasProfile || !hasLocation) && (
-          <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-600 flex-shrink-0 shadow-sm">
-              <ShieldCheck size={18} />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[10px] font-black text-orange-700 uppercase">
-                Datos necesarios para entregar
-              </p>
-              <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
-                Completa tu perfil, WhatsApp y punto exacto de entrega antes de elegir el pago.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onRequireLogin('block')}
-                className="mt-2 bg-white text-orange-600 border border-orange-200 px-3 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95"
-              >
-                Completar datos
-              </button>
-            </div>
-          </div>
-        )}
-
-        {hasLocation && (
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <MapPin size={16} />
-              </div>
-
-              <div className="min-w-0">
-                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
-                  Dirección de Entrega
-                </span>
-                <p className="text-xs font-bold text-gray-700 truncate">
-                  {customerReference || 'Ubicación en Puerto Ayora'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (blockIfOrderSaved()) return;
-                onRequireLogin('change_location');
-              }}
-              disabled={isOrderSaved}
-              className={`text-[11px] font-black px-3 py-1.5 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
-                isOrderSaved
-                  ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
-                  : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
-              }`}
-            >
-              Cambiar
-            </button>
-          </div>
-        )}
+          )}
+        </section>
 
         {actionNotice && (
           <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
@@ -826,10 +914,23 @@ export default function CartScreen({
           </div>
         )}
 
-        <div className="pt-4 border-t border-gray-100 space-y-3">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">
-            Método de Pago
-          </h3>
+        <section
+          ref={paymentSectionRef}
+          className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3"
+        >
+          <StepTitle
+            step={3}
+            title="Forma de pago"
+            subtitle={
+              paymentMethod
+                ? paymentMethod === 'efectivo'
+                  ? 'Pagarás al recibir'
+                  : 'Pedido con pago digital'
+                : 'Elige cómo quieres pagar'
+            }
+            icon={<Wallet size={20} />}
+            done={Boolean(paymentMethod)}
+          />
 
           {hasConsult && (
             <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-3 flex gap-3">
@@ -841,263 +942,306 @@ export default function CartScreen({
                   Hay precios por confirmar
                 </p>
                 <p className="text-[10px] font-bold text-yellow-700/80 leading-relaxed mt-1">
-                  Deuna y transferencia se activan solo cuando todos los productos tienen precio exacto. Puedes registrar el pedido en efectivo/por confirmar.
+                  Para productos con precio a consultar, el negocio confirma el total antes de preparar.
                 </p>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {renderPaymentButton(
               'efectivo',
-              hasConsult ? 'Confirmar' : 'Efectivo',
+              hasConsult ? 'Confirmar precio' : 'Efectivo',
+              hasConsult ? 'El negocio revisa el total' : 'Pagas al recibir',
               <Banknote
-                size={20}
+                size={21}
                 className={paymentMethod === 'efectivo' ? 'text-orange-500' : 'text-gray-400'}
               />,
-              'bg-orange-50 border-orange-400 text-orange-600 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-400 font-bold'
+              'bg-orange-50 border-orange-400 text-orange-700 font-black shadow-sm',
+              'bg-gray-50 border-gray-100 text-gray-500 font-bold'
             )}
 
             {renderPaymentButton(
               'deuna',
-              'Deuna!',
+              'Deuna',
+              'Pago rápido por QR o número',
               <QrCode
-                size={20}
+                size={21}
                 className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-gray-400'}
               />,
               'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-400 font-bold',
+              'bg-gray-50 border-gray-100 text-gray-500 font-bold',
               'No se puede pagar por Deuna hasta confirmar todos los precios.'
             )}
 
             {renderPaymentButton(
               'transferencia',
               'Transferencia',
+              'Elige tu banco y copia datos',
               <Building
-                size={20}
+                size={21}
                 className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-gray-400'}
               />,
               'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-400 font-bold',
+              'bg-gray-50 border-gray-100 text-gray-500 font-bold',
               'No se puede pagar por transferencia hasta confirmar todos los precios.'
             )}
           </div>
 
           {renderPaymentStatusBox()}
 
-          <div className="transition-all duration-300">
-            {isOrderSaved && paymentMethod === 'deuna' && (
-              <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in duration-300">
-                <p className="text-xs text-purple-900 font-black uppercase tracking-tight">
-                  Escanea el código desde tu App Deuna! o Pichincha
-                </p>
+          {isOrderSaved && paymentMethod === 'deuna' && (
+            <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in duration-300">
+              <p className="text-xs text-purple-900 font-black uppercase tracking-tight">
+                Escanea el código desde Deuna o Pichincha
+              </p>
 
-                <div className="w-32 h-32 bg-white rounded-xl p-2 border border-purple-200/60 shadow-inner flex items-center justify-center">
-                  <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR"
-                    alt="QR Deuna"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                <div className="flex flex-col items-center gap-1 w-full pt-1">
-                  <p className="text-[10px] text-purple-700 font-bold uppercase">
-                    ¿En el mismo celular? Paga directo al número:
-                  </p>
-
-                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[200px]">
-                    <span className="font-mono font-black text-purple-950 text-xs">
-                      {BUSINESS_DEUNA_PHONE}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText(BUSINESS_DEUNA_PHONE, 'celular_deuna')}
-                      className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all"
-                    >
-                      {copiedLabel === 'celular_deuna' ? '¡Copiado!' : 'Copiar'}
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">
-                  Luego toca “Ya pagué / continuar”. WhatsApp queda solo como ayuda o comprobante opcional.
-                </p>
+              <div className="w-32 h-32 bg-white rounded-xl p-2 border border-purple-200/60 shadow-inner flex items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR"
+                  alt="QR Deuna"
+                  className="w-full h-full object-contain"
+                />
               </div>
-            )}
 
-            {paymentMethod === 'transferencia' && (
-              <div className="space-y-3 animate-in fade-in duration-300">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
-                  Selecciona tu Banco de Origen:
+              <div className="flex flex-col items-center gap-1 w-full pt-1">
+                <p className="text-[10px] text-purple-700 font-bold uppercase">
+                  ¿En el mismo celular? Paga directo al número:
                 </p>
 
-                <div className="flex flex-col gap-2">
-                  {BANK_OPTIONS.map(bank => (
-                    <button
-                      type="button"
-                      key={bank.id}
-                      onClick={() => handleBankSelect(bank.id)}
-                      disabled={isOrderSaved && selectedBank !== bank.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                        selectedBank === bank.id
-                          ? bank.activeClass
-                          : 'bg-white border-gray-100 text-gray-600 font-bold'
-                      } ${isOrderSaved && selectedBank !== bank.id ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${bank.badgeClass}`}
-                      >
-                        {bank.badge}
-                      </span>
-                      <span className="text-xs">{bank.label}</span>
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[220px]">
+                  <span className="font-mono font-black text-purple-950 text-xs">
+                    {BUSINESS_DEUNA_PHONE}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(BUSINESS_DEUNA_PHONE, 'celular_deuna')}
+                    className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all"
+                  >
+                    {copiedLabel === 'celular_deuna' ? 'Copiado' : 'Copiar'}
+                  </button>
                 </div>
-
-                {isOrderSaved && selectedBank && (
-                  <div className="bg-blue-50/40 rounded-2xl p-3 border border-blue-100 space-y-2 mt-2 animate-in fade-in duration-300">
-                    <p className="text-xs text-blue-900 font-black uppercase tracking-tight">
-                      Datos de nuestra cuenta central Pichincha:
-                    </p>
-
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
-                        <div>
-                          <span className="text-[9px] text-gray-400 block font-bold uppercase">
-                            Banco
-                          </span>
-                          <span className="font-bold text-gray-700">
-                            Banco Pichincha (Ahorros)
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
-                        <div>
-                          <span className="text-[9px] text-gray-400 block font-bold uppercase">
-                            Número de Cuenta
-                          </span>
-                          <span className="font-mono font-black text-gray-800">
-                            {BUSINESS_BANK_ACCOUNT}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(BUSINESS_BANK_ACCOUNT, 'cuenta')}
-                          className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
-                        >
-                          {copiedLabel === 'cuenta' ? '¡Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-
-                      <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
-                        <div>
-                          <span className="text-[9px] text-gray-400 block font-bold uppercase">
-                            Cédula del Titular
-                          </span>
-                          <span className="font-mono font-black text-gray-800">
-                            {BUSINESS_BANK_ID}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(BUSINESS_BANK_ID, 'cedula')}
-                          className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
-                        >
-                          {copiedLabel === 'cedula' ? '¡Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-
-                      <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
-                        <div>
-                          <span className="text-[9px] text-gray-400 block font-bold uppercase">
-                            Beneficiario
-                          </span>
-                          <span className="font-bold text-gray-700">
-                            {BUSINESS_BENEFICIARY}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-blue-500 font-black uppercase tracking-tight mt-1">
-                      Luego toca “Ya pagué / continuar”. WhatsApp queda solo como ayuda o comprobante opcional.
-                    </p>
-                  </div>
-                )}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {showArrow && items.length > 5 && (
-        <button
-          type="button"
-          onClick={scrollToBottom}
-          className="absolute bottom-[240px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform"
-          aria-label="Bajar al resumen"
-        >
-          <ChevronDown size={28} strokeWidth={3} />
-        </button>
-      )}
-
-      <div className="px-4 pb-4 pt-3 bg-white border-t border-gray-100 space-y-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Productos</span>
-            <span className="text-gray-800 font-bold">
-              {totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}
-            </span>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">
-              {hasConsult ? 'Subtotal parcial' : 'Subtotal'}
-            </span>
-            <span className="text-orange-600 font-black">
-              ${subtotal.toFixed(2)}
-            </span>
-          </div>
-
-          {subtotal > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Delivery</span>
-              <span className="text-gray-800 font-bold">
-                {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : 'GRATIS'}
-              </span>
-            </div>
-          )}
-
-          {subtotal > 0 && (
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-              <span className="text-gray-700 font-black">
-                {hasConsult ? 'Total parcial' : 'Total final'}
-              </span>
-              <span className="text-orange-600 font-black">
-                ${finalTotal.toFixed(2)}
-              </span>
-            </div>
-          )}
-
-          {hasConsult && (
-            <p className="text-xs text-gray-400 pt-1 border-t border-gray-200 uppercase font-bold text-[9px]">
-              Algunos productos requieren confirmación de precio. El negocio confirmará el total antes de preparar.
-            </p>
-          )}
-
-          {isPaymentReady && (
-            <div className="bg-white border border-gray-100 rounded-xl p-2 flex items-start gap-2">
-              <AlertCircle size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
-              <p className="text-[9px] text-gray-500 font-black uppercase leading-relaxed">
-                Todo pedido queda por confirmar hasta que el negocio valide disponibilidad y/o pago.
+              <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">
+                Luego toca “Ya pagué / continuar”.
               </p>
             </div>
           )}
+
+          {paymentMethod === 'transferencia' && (
+            <div className="space-y-3 animate-in fade-in duration-300">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+                Selecciona tu banco:
+              </p>
+
+              <div className="flex flex-col gap-2">
+                {BANK_OPTIONS.map(bank => (
+                  <button
+                    type="button"
+                    key={bank.id}
+                    onClick={() => handleBankSelect(bank.id)}
+                    disabled={isOrderSaved && selectedBank !== bank.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                      selectedBank === bank.id
+                        ? bank.activeClass
+                        : 'bg-white border-gray-100 text-gray-600 font-bold'
+                    } ${isOrderSaved && selectedBank !== bank.id ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${bank.badgeClass}`}
+                    >
+                      {bank.badge}
+                    </span>
+                    <span className="text-xs">{bank.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {isOrderSaved && selectedBank && (
+                <div className="bg-blue-50/40 rounded-2xl p-3 border border-blue-100 space-y-2 mt-2 animate-in fade-in duration-300">
+                  <p className="text-xs text-blue-900 font-black uppercase tracking-tight">
+                    Datos de nuestra cuenta:
+                  </p>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">
+                          Banco
+                        </span>
+                        <span className="font-bold text-gray-700">
+                          Banco Pichincha · Ahorros
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">
+                          Número de cuenta
+                        </span>
+                        <span className="font-mono font-black text-gray-800">
+                          {BUSINESS_BANK_ACCOUNT}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(BUSINESS_BANK_ACCOUNT, 'cuenta')}
+                        className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
+                      >
+                        {copiedLabel === 'cuenta' ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">
+                          Cédula
+                        </span>
+                        <span className="font-mono font-black text-gray-800">
+                          {BUSINESS_BANK_ID}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(BUSINESS_BANK_ID, 'cedula')}
+                        className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-lg active:scale-90 transition-all"
+                      >
+                        {copiedLabel === 'cedula' ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-white p-2 rounded-xl border border-blue-50">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">
+                          Beneficiario
+                        </span>
+                        <span className="font-bold text-gray-700">
+                          {BUSINESS_BENEFICIARY}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-blue-500 font-black uppercase tracking-tight mt-1">
+                    Luego toca “Ya pagué / continuar”.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3">
+          <StepTitle
+            step={4}
+            title="Confirmar"
+            subtitle="Revisa el total antes de registrar"
+            icon={<ReceiptText size={20} />}
+            done={isPaymentReady && isOrderSaved}
+          />
+
+          <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Productos</span>
+              <span className="text-gray-800 font-bold">
+                {totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">
+                {hasConsult ? 'Subtotal parcial' : 'Subtotal'}
+              </span>
+              <span className="text-orange-600 font-black">
+                ${subtotal.toFixed(2)}
+              </span>
+            </div>
+
+            {subtotal > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Delivery</span>
+                <span className="text-gray-800 font-bold">
+                  {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : 'GRATIS'}
+                </span>
+              </div>
+            )}
+
+            {subtotal > 0 && (
+              <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                <span className="text-gray-700 font-black">
+                  {hasConsult ? 'Total parcial' : 'Total final'}
+                </span>
+                <span className="text-orange-600 font-black">
+                  ${finalTotal.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {hasConsult && (
+              <p className="text-[9px] text-gray-400 pt-1 border-t border-gray-200 uppercase font-bold leading-relaxed">
+                Algunos productos requieren confirmación de precio. El negocio confirmará el total antes de preparar.
+              </p>
+            )}
+
+            {isPaymentReady && (
+              <div className="bg-white border border-gray-100 rounded-xl p-2 flex items-start gap-2">
+                <AlertCircle size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[9px] text-gray-500 font-black uppercase leading-relaxed">
+                  Todo pedido queda por confirmar hasta que el negocio valide disponibilidad y/o pago.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {showPaymentHint && !paymentMethod && items.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setShowPaymentHint(false);
+            scrollToPayment();
+          }}
+          className="absolute bottom-[102px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform bg-white border border-orange-100 shadow-lg rounded-full px-4 py-2 flex items-center gap-1.5"
+          aria-label="Bajar a método de pago"
+        >
+          <span className="text-[9px] font-black uppercase">Elegir pago</span>
+          <ChevronDown size={18} strokeWidth={3} />
+        </button>
+      )}
+
+      <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+              {hasConsult ? 'Total parcial' : 'Total final'}
+            </p>
+            <p className="text-2xl font-black text-orange-600 leading-none mt-1">
+              ${finalTotal.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+              Pago
+            </p>
+            <p className="text-[11px] font-black text-gray-700 uppercase mt-1">
+              {paymentMethod
+                ? paymentMethod === 'efectivo'
+                  ? 'Efectivo'
+                  : paymentMethod === 'deuna'
+                    ? 'Deuna'
+                    : selectedBank
+                      ? 'Transferencia'
+                      : 'Elige banco'
+                : 'Pendiente'}
+            </p>
+          </div>
         </div>
 
         {isPaymentReady ? (
@@ -1105,41 +1249,42 @@ export default function CartScreen({
             <button
               type="button"
               onClick={handleCheckout}
-              className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-base animate-in slide-in-from-bottom-4"
+              className="w-full flex items-center justify-center gap-3 bg-green-500 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-green-500/30 active:scale-[0.98] text-[13px] uppercase tracking-widest animate-in slide-in-from-bottom-4"
             >
               <PackageCheck size={20} />
-              {paymentMethod === 'efectivo'
-                ? hasConsult
-                  ? 'Ver confirmación del pedido'
-                  : 'Confirmar pedido en la app'
-                : 'YA PAGUÉ / CONTINUAR ✅'}
+              {checkoutLabel}
             </button>
           ) : (
             <button
               type="button"
               onClick={handleEarlySaveClick}
               disabled={isSavingOrder}
-              className={`w-full flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-orange-500/40 active:scale-[0.98] text-base border-b-4 border-orange-700 animate-in slide-in-from-bottom-4 ${
+              className={`w-full flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl shadow-orange-500/40 active:scale-[0.98] text-[13px] uppercase tracking-widest border-b-4 border-orange-700 animate-in slide-in-from-bottom-4 ${
                 isSavingOrder ? 'opacity-70 cursor-wait' : ''
               }`}
             >
               <Sparkles size={20} />
-              {isSavingOrder
-                ? 'REGISTRANDO PEDIDO...'
-                : paymentMethod === 'efectivo'
-                  ? hasConsult
-                    ? 'REGISTRAR PARA CONFIRMAR PRECIO 🚀'
-                    : 'CONFIRMAR PEDIDO EN LA APP 🚀'
-                  : 'REGISTRAR PEDIDO Y VER PAGO 🚀'}
+              {isSavingOrder ? 'Registrando...' : registerLabel}
             </button>
           )
         ) : (
-          <div className="w-full flex items-center justify-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-black p-4 rounded-2xl text-center uppercase tracking-tight animate-pulse">
+          <button
+            type="button"
+            onClick={() => {
+              if (!hasProfile || !hasLocation) {
+                onRequireLogin('block');
+                return;
+              }
+
+              scrollToPayment();
+            }}
+            className="w-full flex items-center justify-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-black p-4 rounded-2xl text-center uppercase tracking-tight active:scale-[0.98] transition-all"
+          >
             <AlertCircle size={16} />
             {hasConsult
-              ? 'Selecciona confirmar/efectivo para productos con precio a consultar'
-              : 'Selecciona tu método de pago para completar el pedido'}
-          </div>
+              ? 'Elige confirmar precio / efectivo'
+              : 'Elige tu forma de pago'}
+          </button>
         )}
       </div>
     </div>
