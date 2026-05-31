@@ -22,6 +22,8 @@ import {
   Home,
   ReceiptText,
   Circle,
+  Crown,
+  Gift,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
@@ -248,6 +250,19 @@ const clearPaymentStorage = () => {
   localStorage.removeItem('selectedBank');
 };
 
+const formatShortDate = (value?: string | null) => {
+  if (!value) return '';
+
+  try {
+    return new Intl.DateTimeFormat('es-EC', {
+      day: '2-digit',
+      month: 'short',
+    }).format(new Date(value));
+  } catch {
+    return '';
+  }
+};
+
 function StepTitle({
   step,
   title,
@@ -302,6 +317,9 @@ export default function CartScreen({
     customerLat,
     customerLng,
     customerReference,
+    hasPollazoPlus,
+    activeMembership,
+    pollazoPlusExpiresAt,
   } = useUser();
 
   const [confirmClear, setConfirmClear] = useState(false);
@@ -319,8 +337,14 @@ export default function CartScreen({
   const confirmSectionRef = useRef<HTMLDivElement>(null);
 
   const subtotal = toMoney(total);
-  const deliveryFee = deliveryFeeOf(subtotal);
+  const deliveryFeeOriginal = deliveryFeeOf(subtotal);
+  const deliveryFee = hasPollazoPlus ? 0 : deliveryFeeOriginal;
+  const deliverySavings = Math.max(0, deliveryFeeOriginal - deliveryFee);
   const finalTotal = toMoney(subtotal + deliveryFee);
+
+  const plusExpiresLabel = formatShortDate(
+    activeMembership?.expires_at || pollazoPlusExpiresAt
+  );
 
   const hasConsult = items.some(item => !itemHasKnownPrice(item));
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -453,6 +477,7 @@ export default function CartScreen({
     isOrderSaved,
     actionNotice,
     subtotal,
+    hasPollazoPlus,
   ]);
 
   useEffect(() => {
@@ -785,6 +810,36 @@ export default function CartScreen({
               </p>
             </div>
           </div>
+        )}
+
+        {hasPollazoPlus && (
+          <section className="relative overflow-hidden rounded-[30px] border border-yellow-200 bg-gradient-to-br from-yellow-50 via-orange-50 to-white p-4 shadow-sm">
+            <div className="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-yellow-300/20 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200/60 flex-shrink-0">
+                <Crown size={22} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">
+                  Pollazo Plus activo
+                </p>
+                <h3 className="text-sm font-black text-slate-900 uppercase italic leading-tight">
+                  Delivery gratis aplicado
+                </h3>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 leading-relaxed">
+                  {deliverySavings > 0
+                    ? `Ahorras $${deliverySavings.toFixed(2)} en este pedido.`
+                    : 'Tu membresía está lista para aplicar beneficios.'}
+                  {plusExpiresLabel ? ` Vence el ${plusExpiresLabel}.` : ''}
+                </p>
+              </div>
+
+              <div className="w-9 h-9 rounded-2xl bg-white/80 text-orange-500 flex items-center justify-center border border-yellow-100">
+                <Gift size={18} />
+              </div>
+            </div>
+          </section>
         )}
 
         <section className="bg-white rounded-[30px] border border-orange-100 p-4 shadow-sm space-y-3">
@@ -1243,9 +1298,32 @@ export default function CartScreen({
             {subtotal > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Delivery</span>
-                <span className="text-gray-800 font-bold">
-                  {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : 'GRATIS'}
-                </span>
+
+                {hasPollazoPlus ? (
+                  <span className="text-right">
+                    {deliveryFeeOriginal > 0 && (
+                      <span className="block text-[10px] text-gray-400 line-through font-bold">
+                        ${deliveryFeeOriginal.toFixed(2)}
+                      </span>
+                    )}
+                    <span className="text-green-600 font-black">
+                      GRATIS PLUS
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-gray-800 font-bold">
+                    {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : 'GRATIS'}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {hasPollazoPlus && (
+              <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-100 rounded-xl p-2">
+                <Crown size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[9px] font-black text-orange-700 uppercase leading-relaxed">
+                  Pollazo Plus aplicado: delivery gratis en este pedido.
+                </p>
               </div>
             )}
 
@@ -1270,19 +1348,19 @@ export default function CartScreen({
       </div>
 
       {showScrollHint && (
-  <button
-    type="button"
-    onClick={handleSmartScroll}
-    aria-label="Ver más información del pedido"
-    className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-40 h-12 w-8 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
-  >
-    <ChevronDown
-      size={26}
-      strokeWidth={3.2}
-      className="text-orange-500"
-    />
-  </button>
-)}
+        <button
+          type="button"
+          onClick={handleSmartScroll}
+          aria-label="Ver más información del pedido"
+          className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-40 h-12 w-8 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
+        >
+          <ChevronDown
+            size={26}
+            strokeWidth={3.2}
+            className="text-orange-500"
+          />
+        </button>
+      )}
 
       <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -1290,9 +1368,17 @@ export default function CartScreen({
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
               {hasConsult ? 'Total parcial' : 'Total final'}
             </p>
-            <p className="text-2xl font-black text-orange-600 leading-none mt-1">
-              ${finalTotal.toFixed(2)}
-            </p>
+            <div className="flex items-end gap-2">
+              <p className="text-2xl font-black text-orange-600 leading-none mt-1">
+                ${finalTotal.toFixed(2)}
+              </p>
+
+              {hasPollazoPlus && deliverySavings > 0 && (
+                <span className="mb-0.5 text-[9px] font-black text-green-600 uppercase bg-green-50 border border-green-100 px-2 py-1 rounded-full">
+                  -${deliverySavings.toFixed(2)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="text-right">
@@ -1310,6 +1396,12 @@ export default function CartScreen({
                       : 'Elige banco'
                 : 'Pendiente'}
             </p>
+
+            {hasPollazoPlus && (
+              <p className="text-[9px] font-black text-orange-500 uppercase mt-1">
+                Plus activo
+              </p>
+            )}
           </div>
         </div>
 
