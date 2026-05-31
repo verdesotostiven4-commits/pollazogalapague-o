@@ -27,6 +27,20 @@ interface RevealOnScrollProps {
   delay?: number;
 }
 
+type CustomerRecord = {
+  id?: string;
+  name?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
+  points?: number | null;
+  exp?: number | null;
+  total_orders?: number | null;
+  total_spent?: number | null;
+  phone_verified?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 function RevealOnScroll({ children, delay = 0 }: RevealOnScrollProps) {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -73,8 +87,17 @@ const DEFAULT_PRIZES = {
   prize_3: 'Bono Descuento $5',
 };
 
+function cleanPhone(phone?: string | null) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
 function cleanPhoneTail(phone?: string | null) {
-  return (phone || '').replace(/\D/g, '').slice(-8);
+  return cleanPhone(phone).slice(-9);
+}
+
+function safeNumber(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function getCustomerLevel(exp: number) {
@@ -122,6 +145,88 @@ function formatCountdownValue(value: number) {
 
 function money(value?: number | null) {
   return Number(value || 0).toFixed(2);
+}
+
+function customerFreshness(customer: CustomerRecord) {
+  const updated = customer.updated_at ? new Date(customer.updated_at).getTime() : 0;
+  const created = customer.created_at ? new Date(customer.created_at).getTime() : 0;
+
+  return Math.max(
+    Number.isFinite(updated) ? updated : 0,
+    Number.isFinite(created) ? created : 0
+  );
+}
+
+function mergeCustomerRecord(base: CustomerRecord, candidate: CustomerRecord): CustomerRecord {
+  const basePoints = safeNumber(base.points);
+  const candidatePoints = safeNumber(candidate.points);
+  const baseExp = safeNumber(base.exp);
+  const candidateExp = safeNumber(candidate.exp);
+  const baseSpent = safeNumber(base.total_spent);
+  const candidateSpent = safeNumber(candidate.total_spent);
+  const baseOrders = safeNumber(base.total_orders);
+  const candidateOrders = safeNumber(candidate.total_orders);
+
+  const candidateLooksBetter =
+    candidatePoints > basePoints ||
+    candidateExp > baseExp ||
+    candidateSpent > baseSpent ||
+    candidateOrders > baseOrders ||
+    customerFreshness(candidate) > customerFreshness(base);
+
+  return {
+    ...base,
+    ...candidate,
+    id: candidateLooksBetter ? candidate.id || base.id : base.id || candidate.id,
+    name: candidateLooksBetter
+      ? candidate.name || base.name
+      : base.name || candidate.name,
+    phone: candidate.phone || base.phone,
+    avatar_url: candidateLooksBetter
+      ? candidate.avatar_url || base.avatar_url
+      : base.avatar_url || candidate.avatar_url,
+    points: Math.max(basePoints, candidatePoints),
+    exp: Math.max(baseExp, candidateExp),
+    total_orders: Math.max(baseOrders, candidateOrders),
+    total_spent: Math.max(baseSpent, candidateSpent),
+    phone_verified: Boolean(base.phone_verified || candidate.phone_verified),
+    created_at: base.created_at || candidate.created_at,
+    updated_at:
+      customerFreshness(candidate) > customerFreshness(base)
+        ? candidate.updated_at || base.updated_at
+        : base.updated_at || candidate.updated_at,
+  };
+}
+
+function normalizeRankingCustomers(customers: CustomerRecord[]) {
+  const map = new Map<string, CustomerRecord>();
+
+  customers.forEach(customer => {
+    const phoneKey = cleanPhoneTail(customer.phone);
+    const fallbackKey = `id:${customer.id || customer.name || Math.random()}`;
+    const key = phoneKey || fallbackKey;
+
+    const current = map.get(key);
+
+    if (!current) {
+      map.set(key, customer);
+      return;
+    }
+
+    map.set(key, mergeCustomerRecord(current, customer));
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const pointsDiff = safeNumber(b.points) - safeNumber(a.points);
+
+    if (pointsDiff !== 0) return pointsDiff;
+
+    const spentDiff = safeNumber(b.total_spent) - safeNumber(a.total_spent);
+
+    if (spentDiff !== 0) return spentDiff;
+
+    return safeNumber(b.exp) - safeNumber(a.exp);
+  });
 }
 
 export default function Ranking() {
@@ -199,10 +304,13 @@ export default function Ranking() {
   }, [eventActive, extraSettings?.ranking_end_date]);
 
   const ranking = useMemo(() => {
-    return [...customers].sort((a, b) => (b.points || 0) - (a.points || 0));
+    return normalizeRankingCustomers(customers as CustomerRecord[]);
   }, [customers]);
 
-  const myRankIndex = ranking.findIndex(c => cleanPhoneTail(c.phone) === cleanUserPhone);
+  const myRankIndex = ranking.findIndex(customer => {
+    return cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
+  });
+
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
 
   const publishedSeasons = useMemo(() => {
@@ -212,20 +320,36 @@ export default function Ranking() {
   }, [seasons]);
 
   const nextUp = myRankIndex > 0 ? ranking[myRankIndex - 1] : null;
-  const pointsToLeap = nextUp ? (nextUp.points - (myData?.points || 0)) + 1 : 0;
+  const pointsToLeap = nextUp ? Math.max(0, safeNumber(nextUp.points) - safeNumber(myData?.points) + 1) : 0;
   const nextUpName = nextUp?.name?.split(' ')[0] || 'Líder';
 
-  const myExp = myData?.exp || 0;
+  const myExp = safeNumber(myData?.exp);
   const myLevel = getCustomerLevel(myExp);
   const myLevelProgress = getLevelProgress(myExp);
   const myNextLevelText = getNextLevelText(myExp);
 
   useEffect(() => {
+    if (!eventActive || !myData || myRankIndex === -1) {
+      setShowRadar(false);
+      return undefined;
+    }
+
+    const row = myRowRef.current;
+    const hall = hallOfFameRef.current;
+
+    if (!row) {
+      setShowRadar(false);
+      return undefined;
+    }
+
     const rowObserver = new IntersectionObserver(
       ([entry]) => {
-        setShowRadar(!entry.isIntersecting && myRankIndex !== -1 && eventActive);
+        setShowRadar(!entry.isIntersecting);
       },
-      { threshold: 0.1 }
+      {
+        threshold: 0.25,
+        rootMargin: '-80px 0px -120px 0px',
+      }
     );
 
     const hallObserver = new IntersectionObserver(
@@ -235,21 +359,31 @@ export default function Ranking() {
       { threshold: 0.05 }
     );
 
-    if (myRowRef.current) rowObserver.observe(myRowRef.current);
-    if (hallOfFameRef.current) hallObserver.observe(hallOfFameRef.current);
+    rowObserver.observe(row);
+
+    if (hall) hallObserver.observe(hall);
 
     return () => {
       rowObserver.disconnect();
       hallObserver.disconnect();
     };
-  }, [eventActive, myRankIndex, ranking]);
+  }, [eventActive, myData, myRankIndex, ranking.length]);
+
+  const scrollToMyRank = () => {
+    if (myRowRef.current) {
+      myRowRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  };
 
   const shareMyRank = (e: MouseEvent) => {
     e.stopPropagation();
 
     const appUrl = window.location.origin;
     const text = eventActive
-      ? `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\nTengo ${(myData?.points || 0).toLocaleString('es-EC')} puntos de temporada y ${myExp.toLocaleString('es-EC')} EXP permanente.\n¡Atrévete a superarme! 😎\n\n${appUrl}`
+      ? `¡Mira! Soy el Guerrero #${myRankIndex + 1} en el Ranking VIP de Pollazo El Mirador 🍗🔥.\nTengo ${(safeNumber(myData?.points)).toLocaleString('es-EC')} puntos de temporada y ${myExp.toLocaleString('es-EC')} EXP permanente.\n¡Atrévete a superarme! 😎\n\n${appUrl}`
       : `Estoy en La Casa del Pollazo 🍗🔥. Pronto vuelve una nueva temporada del Ranking VIP. Mi EXP permanente sigue creciendo.\n\n${appUrl}`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -304,6 +438,7 @@ export default function Ranking() {
         </p>
 
         <button
+          type="button"
           onClick={() => setShowPrizeDetails(true)}
           className={`inline-flex flex-col items-center gap-1 bg-black/20 px-6 py-2.5 rounded-3xl mb-8 border border-white/10 transition-all shadow-inner hover:bg-black/30 ${
             alertButton ? 'animate-alert-glow' : 'active:scale-95'
@@ -382,7 +517,7 @@ export default function Ranking() {
                       Temporada
                     </p>
                     <p className="font-black text-slate-900 text-sm">
-                      {(myData.points || 0).toLocaleString('es-EC')}
+                      {safeNumber(myData.points).toLocaleString('es-EC')}
                     </p>
                   </div>
 
@@ -398,6 +533,7 @@ export default function Ranking() {
               </div>
 
               <button
+                type="button"
                 onClick={shareMyRank}
                 className="p-3 bg-orange-500 text-white rounded-2xl active:scale-90 transition-all shadow-lg shadow-orange-200"
                 aria-label="Compartir ranking"
@@ -439,7 +575,7 @@ export default function Ranking() {
                   </p>
                 </div>
                 <p className="font-black text-slate-900 text-sm">
-                  {(myData.total_orders || 0).toLocaleString('es-EC')}
+                  {safeNumber(myData.total_orders).toLocaleString('es-EC')}
                 </p>
               </div>
 
@@ -511,25 +647,25 @@ export default function Ranking() {
           </div>
         )}
 
-        {ranking.slice(0, 3).map((c, i) => {
-          const isMe = cleanPhoneTail(c.phone) === cleanUserPhone;
+        {ranking.slice(0, 3).map((customer, index) => {
+          const isMe = cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
 
           return (
-            <RevealOnScroll key={c.id} delay={i * 100}>
+            <RevealOnScroll key={customer.id || `${customer.phone}-${index}`} delay={index * 100}>
               <div
                 ref={isMe ? myRowRef : null}
-                className={`relative flex items-center gap-3 p-5 rounded-[40px] border-4 transition-all overflow-hidden ${
-                  i === 0
+                className={`relative flex items-center gap-3 p-5 rounded-[40px] border-4 transition-all overflow-hidden scroll-mt-28 ${
+                  index === 0
                     ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-400 shadow-xl scale-[1.03] z-20 animate-vip-shine'
-                    : i === 1
+                    : index === 1
                       ? 'bg-white border-slate-200 shadow-lg'
                       : 'bg-white border-orange-100 shadow-md'
                 } ${isMe ? 'ring-4 ring-orange-500 ring-offset-4' : ''}`}
               >
                 <div className="shrink-0 w-10 flex justify-center">
-                  {i === 0 ? (
+                  {index === 0 ? (
                     <Crown className="text-yellow-500 animate-king-bounce drop-shadow-md" size={40} />
-                  ) : i === 1 ? (
+                  ) : index === 1 ? (
                     <Medal className="text-slate-400" size={32} />
                   ) : (
                     <Medal className="text-orange-400" size={32} />
@@ -538,33 +674,33 @@ export default function Ranking() {
 
                 <div className="relative shrink-0">
                   <img
-                    src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`}
+                    src={customer.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${customer.name}`}
                     className="w-16 h-16 aspect-square rounded-[24px] object-cover border-2 border-white shadow-sm"
-                    alt={c.name || 'Guerrero'}
+                    alt={customer.name || 'Guerrero'}
                   />
                   <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-white italic shadow-md">
-                    #{i + 1}
+                    #{index + 1}
                   </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <p className="font-black italic text-base text-slate-900 leading-tight break-words">
-                    {c.name || 'Guerrero'}
+                    {customer.name || 'Guerrero'}
                   </p>
                   <div className="flex items-center gap-1 mt-1">
                     <Star size={10} className="text-orange-500 fill-orange-500" />
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      {getGuerreroTitle(i)}
+                      {getGuerreroTitle(index)}
                     </p>
                   </div>
                   <p className="text-[8px] font-black text-slate-300 uppercase mt-1">
-                    {(c.exp || 0).toLocaleString('es-EC')} EXP permanente
+                    {safeNumber(customer.exp).toLocaleString('es-EC')} EXP permanente
                   </p>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <p className={`text-xl font-black leading-none ${i === 0 ? 'text-orange-600' : 'text-slate-900'}`}>
-                    {(c.points || 0).toLocaleString('es-EC')}
+                  <p className={`text-xl font-black leading-none ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>
+                    {safeNumber(customer.points).toLocaleString('es-EC')}
                   </p>
                   <p className="text-[7px] font-black text-slate-400 uppercase mt-1">
                     PTS temporada
@@ -577,15 +713,15 @@ export default function Ranking() {
       </div>
 
       <div className="px-4 mt-8 space-y-3">
-        {ranking.slice(3).map((c, i) => {
-          const actualIndex = i + 3;
-          const isMe = cleanPhoneTail(c.phone) === cleanUserPhone;
+        {ranking.slice(3).map((customer, index) => {
+          const actualIndex = index + 3;
+          const isMe = cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
 
           return (
-            <RevealOnScroll key={c.id} delay={i * 50}>
+            <RevealOnScroll key={customer.id || `${customer.phone}-${actualIndex}`} delay={index * 50}>
               <div
                 ref={isMe ? myRowRef : null}
-                className={`flex items-center gap-3 p-4 rounded-3xl bg-white border border-slate-100 shadow-sm transition-all ${
+                className={`flex items-center gap-3 p-4 rounded-3xl bg-white border border-slate-100 shadow-sm transition-all scroll-mt-28 ${
                   isMe ? 'ring-2 ring-orange-500 bg-orange-50' : ''
                 }`}
               >
@@ -594,27 +730,27 @@ export default function Ranking() {
                 </span>
 
                 <img
-                  src={c.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${c.name}`}
+                  src={customer.avatar_url || `https://api.dicebear.com/8.x/adventurer/svg?seed=${customer.name}`}
                   className="w-12 h-12 aspect-square rounded-2xl object-cover border border-slate-100"
-                  alt={c.name || 'Guerrero'}
+                  alt={customer.name || 'Guerrero'}
                 />
 
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-800 text-sm break-words">
-                    {c.name}
+                    {customer.name}
                   </p>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">
                     {getGuerreroTitle(actualIndex)}
                   </p>
                   <p className="text-[8px] font-black text-slate-300 uppercase mt-0.5">
-                    {(c.exp || 0).toLocaleString('es-EC')} EXP
+                    {safeNumber(customer.exp).toLocaleString('es-EC')} EXP
                   </p>
                 </div>
 
                 <div className="text-right flex items-center gap-3">
                   <div className="text-right">
                     <p className="font-black text-slate-900 text-lg leading-none">
-                      {(c.points || 0).toLocaleString('es-EC')}
+                      {safeNumber(customer.points).toLocaleString('es-EC')}
                     </p>
                     <p className="text-[7px] font-black text-slate-400 uppercase mt-0.5">
                       PTS temporada
@@ -622,7 +758,7 @@ export default function Ranking() {
                   </div>
 
                   {isMe && (
-                    <button onClick={shareMyRank} className="p-2 bg-orange-500 text-white rounded-xl active:scale-75 transition-all shadow-sm">
+                    <button type="button" onClick={shareMyRank} className="p-2 bg-orange-500 text-white rounded-xl active:scale-75 transition-all shadow-sm">
                       <Share2 size={14} />
                     </button>
                   )}
@@ -656,14 +792,14 @@ export default function Ranking() {
           </div>
         ) : (
           <div className="space-y-24">
-            {publishedSeasons.map((season, sIdx) => (
+            {publishedSeasons.map((season, seasonIndex) => (
               <div key={season.id} className="relative bg-slate-950 rounded-[60px] p-8 shadow-2xl border-2 border-orange-500/20">
                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-3 rounded-3xl font-black shadow-2xl z-30 border-2 border-slate-950 text-center flex flex-col items-center min-w-[140px]">
                   <span className="text-[8px] uppercase tracking-widest opacity-80 leading-none mb-1">
                     Temporada
                   </span>
                   <span className="text-lg italic tracking-widest leading-none">
-                    #{publishedSeasons.length - sIdx}
+                    #{publishedSeasons.length - seasonIndex}
                   </span>
                 </div>
 
@@ -750,7 +886,7 @@ export default function Ranking() {
         <div className="fixed inset-0 z-[10002] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[50px] overflow-hidden shadow-2xl border-4 border-orange-500 animate-in zoom-in-95 relative">
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 text-center text-white relative">
-              <button onClick={handleClosePrizes} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full active:scale-75">
+              <button type="button" onClick={handleClosePrizes} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full active:scale-75">
                 <X size={20} />
               </button>
               <PartyPopper size={48} className="mx-auto mb-4 text-yellow-300 animate-bounce" />
@@ -814,6 +950,7 @@ export default function Ranking() {
               </div>
 
               <button
+                type="button"
                 onClick={handleClosePrizes}
                 className="w-full bg-slate-950 text-white py-5 rounded-full font-black uppercase text-xs active:scale-95 border-b-4 border-slate-700 shadow-xl"
               >
@@ -848,14 +985,13 @@ export default function Ranking() {
           )}
 
           <div className="flex gap-2 items-center">
-            <button onClick={shareMyRank} className="bg-white text-orange-500 p-2.5 rounded-full shadow-2xl border border-orange-100 active:scale-75 transition-all">
+            <button type="button" onClick={shareMyRank} className="bg-white text-orange-500 p-2.5 rounded-full shadow-2xl border border-orange-100 active:scale-75 transition-all">
               <Share2 size={16} />
             </button>
 
             <button
-              onClick={() => {
-                myRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
+              type="button"
+              onClick={scrollToMyRank}
               className="flex items-center bg-orange-400 backdrop-blur-md text-white rounded-full p-1.5 pr-5 shadow-2xl border-2 border-white active:scale-90 transition-transform"
             >
               <div className="relative shrink-0">
@@ -878,7 +1014,7 @@ export default function Ranking() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-white font-black text-xs italic">
-                    {(myData.points || 0).toLocaleString('es-EC')}
+                    {safeNumber(myData.points).toLocaleString('es-EC')}
                   </p>
                   <p className="text-[7px] font-black text-white/80 uppercase">
                     PTS
