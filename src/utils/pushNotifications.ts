@@ -50,12 +50,61 @@ export const getPushPermission = (): NotificationPermission => {
   return Notification.permission;
 };
 
+const saveSubscriptionToSupabase = async (
+  customerPhone: string,
+  subscription: PushSubscription
+) => {
+  const subscriptionJson = subscriptionToJson(subscription);
+
+  return supabase
+    .from('push_subscriptions')
+    .upsert(
+      {
+        customer_phone: customerPhone,
+        endpoint: subscription.endpoint,
+        subscription: subscriptionJson,
+        user_agent: navigator.userAgent,
+        last_seen_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'endpoint',
+      }
+    );
+};
+
+const deleteSubscriptionFromSupabase = async (endpoint: string) => {
+  try {
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint);
+  } catch (error) {
+    console.warn('No se pudo borrar suscripción vieja:', error);
+  }
+};
+
+const createFreshSubscription = async (
+  registration: ServiceWorkerRegistration
+) => {
+  if (!VAPID_PUBLIC_KEY) {
+    throw new Error('Missing VAPID public key');
+  }
+
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+};
+
 export const registerPushNotifications = async (
   customerPhone: string
 ): Promise<PushRegisterResult> => {
   const phone = cleanPhone(customerPhone);
 
   if (!phone) {
+    localStorage.removeItem('pollazo_push_enabled');
+
     return {
       ok: false,
       reason: 'Primero necesitamos tu número de WhatsApp para activar avisos.',
@@ -63,6 +112,8 @@ export const registerPushNotifications = async (
   }
 
   if (!isPushSupported()) {
+    localStorage.removeItem('pollazo_push_enabled');
+
     return {
       ok: false,
       reason: 'Este navegador no soporta notificaciones push web.',
@@ -70,6 +121,8 @@ export const registerPushNotifications = async (
   }
 
   if (!VAPID_PUBLIC_KEY) {
+    localStorage.removeItem('pollazo_push_enabled');
+
     return {
       ok: false,
       reason: 'Falta configurar VITE_VAPID_PUBLIC_KEY en Vercel.',
@@ -83,6 +136,8 @@ export const registerPushNotifications = async (
   }
 
   if (permission !== 'granted') {
+    localStorage.removeItem('pollazo_push_enabled');
+
     return {
       ok: false,
       permission,
@@ -91,37 +146,39 @@ export const registerPushNotifications = async (
   }
 
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js');
+    const registration = await navigator.serviceWorker.register('/sw.js', {
+      updateViaCache: 'none',
+    });
+
+    await registration.update().catch(() => undefined);
     await navigator.serviceWorker.ready;
 
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
+      subscription = await createFreshSubscription(registration);
     }
 
-    const subscriptionJson = subscriptionToJson(subscription);
+    let saveResult = await saveSubscriptionToSupabase(phone, subscription);
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert(
-        {
-          customer_phone: phone,
-          endpoint: subscription.endpoint,
-          subscription: subscriptionJson,
-          user_agent: navigator.userAgent,
-          last_seen_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'endpoint',
-        }
-      );
+    if (saveResult.error) {
+      console.warn('Primer intento guardando push falló:', saveResult.error);
 
-    if (error) {
-      console.error('Error guardando push subscription:', error);
+      try {
+        await deleteSubscriptionFromSupabase(subscription.endpoint);
+        await subscription.unsubscribe();
+      } catch (unsubscribeError) {
+        console.warn('No se pudo limpiar suscripción vieja:', unsubscribeError);
+      }
+
+      subscription = await createFreshSubscription(registration);
+      saveResult = await saveSubscriptionToSupabase(phone, subscription);
+    }
+
+    if (saveResult.error) {
+      console.error('Error guardando push subscription:', saveResult.error);
+
+      localStorage.removeItem('pollazo_push_enabled');
 
       return {
         ok: false,
@@ -138,6 +195,20 @@ export const registerPushNotifications = async (
     };
   } catch (error) {
     console.error('Error activando push notifications:', error);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const oldSubscription = await registration.pushManager.getSubscription();
+
+      if (oldSubscription) {
+        await deleteSubscriptionFromSupabase(oldSubscription.endpoint);
+        await oldSubscription.unsubscribe();
+      }
+    } catch {
+      // Limpieza opcional.
+    }
+
+    localStorage.removeItem('pollazo_push_enabled');
 
     return {
       ok: false,
@@ -159,11 +230,7 @@ export const unregisterPushNotifications = async () => {
 
     if (subscription) {
       await subscription.unsubscribe();
-
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('endpoint', subscription.endpoint);
+      await deleteSubscriptionFromSupabase(subscription.endpoint);
     }
   } catch (error) {
     console.error('Error desactivando push notifications:', error);
