@@ -6,7 +6,6 @@ import {
   ShoppingBag,
   ChevronRight,
   ChevronDown,
-  ChevronUp,
   Banknote,
   QrCode,
   Building,
@@ -305,7 +304,6 @@ export default function CartScreen({
   } = useUser();
 
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showAllItems, setShowAllItems] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<SupportedPaymentMethod | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
@@ -347,13 +345,6 @@ export default function CartScreen({
       : 'Registrar pedido'
     : 'Registrar y ver pago';
 
-  const visibleItems =
-    showAllItems || items.length <= 3
-      ? items
-      : items.slice(0, 3);
-
-  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
-
   const pendingActionText = !hasProfile || !hasLocation
     ? 'Completa tus datos de entrega'
     : paymentMethod === 'transferencia' && !selectedBank
@@ -361,6 +352,12 @@ export default function CartScreen({
       : hasConsult
         ? 'Elige confirmar precio / efectivo'
         : 'Elige tu forma de pago';
+
+  const quickButtonText = !hasProfile || !hasLocation
+    ? 'Entrega'
+    : !paymentMethod
+      ? 'Pago'
+      : 'Resumen';
 
   const showNotice = (message: string) => {
     setActionNotice(message);
@@ -389,6 +386,20 @@ export default function CartScreen({
       behavior: 'smooth',
       block: 'start',
     });
+  };
+
+  const handleQuickNext = () => {
+    if (!hasProfile || !hasLocation) {
+      onRequireLogin('block');
+      return;
+    }
+
+    if (!paymentMethod) {
+      scrollToPayment();
+      return;
+    }
+
+    scrollToConfirm();
   };
 
   const handleClearRequest = () => {
@@ -441,10 +452,6 @@ export default function CartScreen({
       setIsSavingOrder(false);
       setActionNotice(null);
       clearPaymentStorage();
-    }
-
-    if (items.length <= 3) {
-      setShowAllItems(false);
     }
   }, [items.length]);
 
@@ -599,16 +606,16 @@ export default function CartScreen({
 
     if (paymentMethod === 'efectivo') {
       return (
-        <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
-          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-600 flex-shrink-0 shadow-sm">
+        <div className="bg-green-50 border border-green-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-green-600 flex-shrink-0 shadow-sm">
             <Banknote size={18} />
           </div>
 
           <div>
-            <p className="text-[10px] font-black text-orange-700 uppercase">
+            <p className="text-[10px] font-black text-green-700 uppercase">
               Pago contra entrega
             </p>
-            <p className="text-[10px] font-bold text-orange-700/80 leading-relaxed mt-1">
+            <p className="text-[10px] font-bold text-green-700/80 leading-relaxed mt-1">
               Revisaremos tu pedido antes de prepararlo. Pagarás cuando recibas.
             </p>
           </div>
@@ -725,25 +732,8 @@ export default function CartScreen({
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       <div
         ref={scrollRef}
-        className="flex-1 px-4 pt-4 pb-52 space-y-4 overflow-y-auto overscroll-contain scrollbar-hide scroll-pb-52"
+        className="flex-1 px-4 pt-4 pb-36 space-y-4 overflow-y-auto overscroll-contain scrollbar-hide scroll-pb-36"
       >
-        <div className="bg-white border border-orange-100 rounded-[28px] p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
-              <Sparkles size={19} />
-            </div>
-
-            <div>
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] leading-none">
-                Pedido en 4 pasos
-              </p>
-              <p className="text-[11px] font-bold text-slate-500 leading-relaxed mt-1.5">
-                Revisa productos, confirma entrega, elige pago y registra tu pedido.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {isOrderSaved && (
           <div className="bg-slate-900 text-white rounded-[26px] p-4 flex items-center gap-3 shadow-lg animate-in fade-in duration-300">
             <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -770,7 +760,7 @@ export default function CartScreen({
           />
 
           <div className="space-y-2.5 pt-1">
-            {visibleItems.map(item => {
+            {items.map(item => {
               const unitPrice = itemUnitPrice(item);
               const itemSubtotal = unitPrice > 0 ? (unitPrice * item.quantity).toFixed(2) : null;
               const customPrice = item.product.custom_price;
@@ -862,28 +852,6 @@ export default function CartScreen({
               );
             })}
           </div>
-
-          {hiddenItemsCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAllItems(true)}
-              className="w-full bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-            >
-              Ver {hiddenItemsCount} producto{hiddenItemsCount !== 1 ? 's' : ''} más
-              <ChevronDown size={14} />
-            </button>
-          )}
-
-          {showAllItems && items.length > 3 && (
-            <button
-              type="button"
-              onClick={() => setShowAllItems(false)}
-              className="w-full bg-gray-50 border border-gray-100 text-gray-400 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-            >
-              Mostrar menos
-              <ChevronUp size={14} />
-            </button>
-          )}
 
           <button
             type="button"
@@ -1038,10 +1006,10 @@ export default function CartScreen({
               hasConsult ? 'El negocio revisa el total' : 'Pagas al recibir',
               <Banknote
                 size={21}
-                className={paymentMethod === 'efectivo' ? 'text-orange-500' : 'text-gray-400'}
+                className={paymentMethod === 'efectivo' ? 'text-green-600' : 'text-green-500'}
               />,
-              'bg-orange-50 border-orange-400 text-orange-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-500 font-bold'
+              'bg-green-50 border-green-400 text-green-700 font-black shadow-sm',
+              'bg-green-50/70 border-green-100 text-green-700 font-bold'
             )}
 
             {renderPaymentButton(
@@ -1050,10 +1018,10 @@ export default function CartScreen({
               'Pago rápido por QR o número',
               <QrCode
                 size={21}
-                className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-gray-400'}
+                className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-purple-500'}
               />,
               'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-500 font-bold',
+              'bg-purple-50/70 border-purple-100 text-purple-700 font-bold',
               'No se puede pagar por Deuna hasta confirmar todos los precios.'
             )}
 
@@ -1063,10 +1031,10 @@ export default function CartScreen({
               'Elige tu banco y copia datos',
               <Building
                 size={21}
-                className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-gray-400'}
+                className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-blue-500'}
               />,
               'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm',
-              'bg-gray-50 border-gray-100 text-gray-500 font-bold',
+              'bg-blue-50/70 border-blue-100 text-blue-700 font-bold',
               'No se puede pagar por transferencia hasta confirmar todos los precios.'
             )}
           </div>
@@ -1217,17 +1185,6 @@ export default function CartScreen({
               )}
             </div>
           )}
-
-          {paymentMethod && (
-            <button
-              type="button"
-              onClick={scrollToConfirm}
-              className="w-full bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-            >
-              Ir al resumen final
-              <ChevronDown size={14} />
-            </button>
-          )}
         </section>
 
         <section
@@ -1296,6 +1253,15 @@ export default function CartScreen({
           </div>
         </section>
       </div>
+
+      <button
+        type="button"
+        onClick={handleQuickNext}
+        className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+124px)] z-40 flex items-center gap-2 bg-slate-950 text-white rounded-full px-4 py-3 text-[9px] font-black uppercase tracking-widest shadow-2xl border border-white/20 active:scale-95 transition-transform"
+      >
+        {quickButtonText}
+        <ChevronDown size={14} className="animate-bounce" />
+      </button>
 
       <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
