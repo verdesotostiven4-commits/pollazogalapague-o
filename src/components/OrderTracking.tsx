@@ -17,9 +17,11 @@ import {
   Building,
   AlertCircle,
   XCircle,
+  BellRing,
+  Volume2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -28,6 +30,24 @@ import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '../types'
 interface Props {
   isOpen?: boolean;
   onClose?: () => void;
+}
+
+type TrackingNoticeTone = 'green' | 'orange' | 'blue' | 'red';
+
+interface TrackingNotice {
+  id: string;
+  orderId?: string;
+  title: string;
+  message: string;
+  tone: TrackingNoticeTone;
+  createdAt: number;
+}
+
+interface OrderSnapshot {
+  id: string;
+  status?: OrderStatus;
+  paymentStatus?: PaymentStatus | null;
+  updatedAt?: string | null;
 }
 
 const STORE_LOCATION = {
@@ -414,15 +434,268 @@ const getHeaderIcon = (status?: OrderStatus) => {
   return PackageSearch;
 };
 
+const getNoticeClasses = (tone: TrackingNoticeTone) => {
+  if (tone === 'green') {
+    return {
+      wrapper: 'bg-green-50 border-green-100 text-green-700',
+      icon: 'bg-white text-green-600',
+      button: 'bg-green-500 text-white',
+    };
+  }
+
+  if (tone === 'blue') {
+    return {
+      wrapper: 'bg-blue-50 border-blue-100 text-blue-700',
+      icon: 'bg-white text-blue-600',
+      button: 'bg-blue-500 text-white',
+    };
+  }
+
+  if (tone === 'red') {
+    return {
+      wrapper: 'bg-red-50 border-red-100 text-red-600',
+      icon: 'bg-white text-red-500',
+      button: 'bg-red-500 text-white',
+    };
+  }
+
+  return {
+    wrapper: 'bg-orange-50 border-orange-100 text-orange-700',
+    icon: 'bg-white text-orange-600',
+    button: 'bg-orange-500 text-white',
+  };
+};
+
+const buildTrackingNotice = (
+  order: Order,
+  previous: OrderSnapshot | null
+): Omit<TrackingNotice, 'id' | 'createdAt'> | null => {
+  if (!previous || previous.id !== order.id) {
+    return {
+      orderId: order.id,
+      tone: 'orange',
+      title: 'Pedido registrado',
+      message: `Tu pedido ${order.order_code || ''} ya está en rastreo dentro de la app.`,
+    };
+  }
+
+  if (previous.status !== order.status) {
+    if (order.status === 'Recibido') {
+      return {
+        orderId: order.id,
+        tone: 'green',
+        title: 'Pedido confirmado',
+        message: 'El negocio aceptó tu pedido. Ahora se activa el seguimiento de preparación.',
+      };
+    }
+
+    if (order.status === 'Preparando') {
+      return {
+        orderId: order.id,
+        tone: 'blue',
+        title: 'Ya estamos empacando',
+        message: 'Tu pedido está en preparación. Te avisaremos cuando salga a ruta.',
+      };
+    }
+
+    if (order.status === 'Enviado') {
+      return {
+        orderId: order.id,
+        tone: 'orange',
+        title: 'Tu pedido va en camino',
+        message: 'Prepárate para recibirlo. Revisa la referencia y mantente atento.',
+      };
+    }
+
+    if (order.status === 'Entregado') {
+      return {
+        orderId: order.id,
+        tone: 'green',
+        title: 'Pedido entregado',
+        message: '¡Gracias por comprar en La Casa del Pollazo!',
+      };
+    }
+
+    if (order.status === 'Cancelado') {
+      return {
+        orderId: order.id,
+        tone: 'red',
+        title: 'Pedido cancelado',
+        message: 'Tu pedido fue cancelado. Escríbenos si necesitas ayuda.',
+      };
+    }
+
+    if (order.status === 'Por Confirmar') {
+      return {
+        orderId: order.id,
+        tone: 'orange',
+        title: 'Pedido recibido',
+        message: 'Estamos revisando disponibilidad y método de pago.',
+      };
+    }
+  }
+
+  if (previous.paymentStatus !== order.payment_status) {
+    if (order.payment_status === 'confirmado') {
+      return {
+        orderId: order.id,
+        tone: 'green',
+        title: 'Pago confirmado',
+        message: 'Tu pago fue validado. El pedido puede avanzar normalmente.',
+      };
+    }
+
+    if (order.payment_status === 'rechazado') {
+      return {
+        orderId: order.id,
+        tone: 'red',
+        title: 'Pago rechazado',
+        message: 'No se pudo validar el pago. Comunícate con el negocio para resolverlo.',
+      };
+    }
+
+    if (order.payment_status === 'validando') {
+      return {
+        orderId: order.id,
+        tone: 'blue',
+        title: 'Pago en validación',
+        message: 'Estamos revisando tu pago. Te avisaremos cuando sea confirmado.',
+      };
+    }
+  }
+
+  return null;
+};
+
+const triggerTrackingVibration = () => {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([80, 45, 80, 45, 130]);
+    }
+  } catch {
+    // Vibración opcional.
+  }
+};
+
 export default function OrderTracking({
   isOpen = false,
   onClose = () => {},
 }: Props) {
   const { orders, refreshData } = useAdmin();
   const { customerPhone } = useUser();
+
   const [now, setNow] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [trackingNotice, setTrackingNotice] = useState<TrackingNotice | null>(null);
+
+  const previousOrderSnapshotRef = useRef<OrderSnapshot | null>(null);
+  const initializedNoticeWatcherRef = useRef(false);
+  const alertAudioRef = useRef<AudioContext | null>(null);
+
   const cleanUserPhone = cleanPhoneTail(customerPhone);
+
+  const activeOrder = useMemo(() => {
+    if (!cleanUserPhone) {
+      return null;
+    }
+
+    return (
+      orders
+        ?.filter(order => {
+          const cleanOrder = cleanPhoneTail(order.customer_phone);
+
+          return cleanOrder === cleanUserPhone && isRecentOrder(order);
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || '').getTime();
+          const dateB = new Date(b.updated_at || b.created_at || '').getTime();
+
+          return dateB - dateA;
+        })[0] || null
+    );
+  }, [cleanUserPhone, orders]);
+
+  const playTrackingSound = useCallback((tone: TrackingNoticeTone) => {
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+      if (!AudioContextClass) return;
+
+      if (alertAudioRef.current) {
+        alertAudioRef.current.close().catch(() => undefined);
+        alertAudioRef.current = null;
+      }
+
+      const ctx = new AudioContextClass();
+      alertAudioRef.current = ctx;
+
+      const notes =
+        tone === 'red'
+          ? [392, 349.23]
+          : tone === 'green'
+            ? [523.25, 659.25, 783.99]
+            : tone === 'blue'
+              ? [440, 587.33, 659.25]
+              : [493.88, 659.25, 880];
+
+      notes.forEach((frequency, index) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const start = ctx.currentTime + index * 0.12;
+        const duration = 0.18;
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.linearRampToValueAtTime(0.08, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+        oscillator.start(start);
+        oscillator.stop(start + duration);
+      });
+
+      window.setTimeout(() => {
+        if (alertAudioRef.current) {
+          alertAudioRef.current.close().catch(() => undefined);
+          alertAudioRef.current = null;
+        }
+      }, 900);
+    } catch {
+      // Algunos navegadores bloquean audio sin interacción previa.
+    }
+  }, []);
+
+  const raiseTrackingNotice = useCallback(
+    (notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
+      const nextNotice: TrackingNotice = {
+        ...notice,
+        id: `${notice.orderId || 'tracking'}-${Date.now()}`,
+        createdAt: Date.now(),
+      };
+
+      setTrackingNotice(nextNotice);
+      triggerTrackingVibration();
+      playTrackingSound(notice.tone);
+
+      try {
+        if (notice.tone === 'red') {
+          document.title = '⚠️ Pedido - Pollazo';
+        } else if (notice.title.toLowerCase().includes('camino')) {
+          document.title = '🛵 En camino - Pollazo';
+        } else {
+          document.title = '🔔 Pedido actualizado';
+        }
+      } catch {
+        // Título opcional.
+      }
+    },
+    [playTrackingSound]
+  );
 
   const refreshTracking = useCallback(async () => {
     try {
@@ -437,6 +710,31 @@ export default function OrderTracking({
   }, [refreshData]);
 
   useEffect(() => {
+    return () => {
+      if (alertAudioRef.current) {
+        alertAudioRef.current.close().catch(() => undefined);
+        alertAudioRef.current = null;
+      }
+
+      try {
+        document.title = 'La Casa del Pollazo';
+      } catch {
+        // Ignorar.
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!trackingNotice) {
+      try {
+        document.title = 'La Casa del Pollazo';
+      } catch {
+        // Ignorar.
+      }
+    }
+  }, [trackingNotice]);
+
+  useEffect(() => {
     if (!isOpen) return undefined;
 
     setNow(new Date());
@@ -449,19 +747,21 @@ export default function OrderTracking({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!cleanUserPhone) return undefined;
 
-    refreshTracking();
+    if (isOpen) {
+      refreshTracking();
+    }
 
-    const interval = window.setInterval(refreshTracking, 6000);
+    const interval = window.setInterval(refreshTracking, isOpen ? 6000 : 15000);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [isOpen, refreshTracking]);
+  }, [cleanUserPhone, isOpen, refreshTracking]);
 
   useEffect(() => {
-    if (!isOpen || !isSupabaseConfigured || !cleanUserPhone) {
+    if (!isSupabaseConfigured || !cleanUserPhone) {
       return undefined;
     }
 
@@ -488,10 +788,10 @@ export default function OrderTracking({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [cleanUserPhone, isOpen, refreshTracking]);
+  }, [cleanUserPhone, refreshTracking]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!cleanUserPhone) return undefined;
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -506,30 +806,117 @@ export default function OrderTracking({
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', refreshTracking);
     };
-  }, [isOpen, refreshTracking]);
+  }, [cleanUserPhone, refreshTracking]);
 
-  const activeOrder = useMemo(() => {
+  useEffect(() => {
     if (!cleanUserPhone) {
-      return null;
+      previousOrderSnapshotRef.current = null;
+      initializedNoticeWatcherRef.current = false;
+      return;
     }
 
+    const nextSnapshot: OrderSnapshot | null = activeOrder
+      ? {
+          id: activeOrder.id,
+          status: activeOrder.status,
+          paymentStatus: activeOrder.payment_status || null,
+          updatedAt: activeOrder.updated_at || activeOrder.created_at || null,
+        }
+      : null;
+
+    if (!initializedNoticeWatcherRef.current) {
+      previousOrderSnapshotRef.current = nextSnapshot;
+      initializedNoticeWatcherRef.current = true;
+      return;
+    }
+
+    if (!nextSnapshot || !activeOrder) {
+      previousOrderSnapshotRef.current = null;
+      return;
+    }
+
+    const previousSnapshot = previousOrderSnapshotRef.current;
+    const notice = buildTrackingNotice(activeOrder, previousSnapshot);
+
+    previousOrderSnapshotRef.current = nextSnapshot;
+
+    if (notice) {
+      raiseTrackingNotice(notice);
+    }
+  }, [
+    activeOrder,
+    activeOrder?.id,
+    activeOrder?.payment_status,
+    activeOrder?.status,
+    activeOrder?.updated_at,
+    cleanUserPhone,
+    raiseTrackingNotice,
+  ]);
+
+  const renderTrackingNotice = (compact = false) => {
+    if (!trackingNotice) return null;
+
+    const classes = getNoticeClasses(trackingNotice.tone);
+
     return (
-      orders
-        ?.filter(order => {
-          const cleanOrder = cleanPhoneTail(order.customer_phone);
+      <div
+        className={`rounded-[28px] border p-4 shadow-xl animate-in slide-in-from-top-4 duration-300 ${classes.wrapper} ${
+          compact ? 'w-[calc(100vw-24px)] max-w-md' : 'mb-5'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${classes.icon}`}>
+            <BellRing size={22} />
+          </div>
 
-          return cleanOrder === cleanUserPhone && isRecentOrder(order);
-        })
-        .sort((a, b) => {
-          const dateA = new Date(a.updated_at || a.created_at || '').getTime();
-          const dateB = new Date(b.updated_at || b.created_at || '').getTime();
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black uppercase italic leading-tight">
+              {trackingNotice.title}
+            </p>
+            <p className="text-[11px] font-bold leading-relaxed mt-1 opacity-80">
+              {trackingNotice.message}
+            </p>
 
-          return dateB - dateA;
-        })[0] || null
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setTrackingNotice(null)}
+                className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all ${classes.button}`}
+              >
+                Entendido
+              </button>
+
+              <div className="flex items-center gap-1 text-[9px] font-black uppercase opacity-60">
+                <Volume2 size={12} />
+                Aviso en vivo
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setTrackingNotice(null)}
+            className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Cerrar aviso"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
     );
-  }, [cleanUserPhone, orders]);
+  };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    if (!trackingNotice) return null;
+
+    return (
+      <div className="fixed left-0 right-0 top-4 z-[10001] flex justify-center px-3 pointer-events-none">
+        <div className="pointer-events-auto">
+          {renderTrackingNotice(true)}
+        </div>
+      </div>
+    );
+  }
 
   const hasActiveOrder = Boolean(activeOrder);
   const currentStatus = activeOrder?.status;
@@ -624,6 +1011,8 @@ export default function OrderTracking({
             </div>
           )}
         </div>
+
+        {renderTrackingNotice(false)}
 
         {hasActiveOrder && currentStatus && activeOrder ? (
           <div className="py-2">
