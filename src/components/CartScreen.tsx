@@ -21,6 +21,7 @@ import {
   Wallet,
   Home,
   ReceiptText,
+  Circle,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
@@ -311,6 +312,7 @@ export default function CartScreen({
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
@@ -341,9 +343,9 @@ export default function CartScreen({
 
   const registerLabel = paymentMethod === 'efectivo'
     ? hasConsult
-      ? 'Registrar para confirmar precio'
-      : 'Registrar pedido'
-    : 'Registrar y ver pago';
+      ? 'Enviar a revisión'
+      : 'Confirmar pedido'
+    : 'Continuar a pago';
 
   const pendingActionText = !hasProfile || !hasLocation
     ? 'Completa tus datos de entrega'
@@ -353,11 +355,19 @@ export default function CartScreen({
         ? 'Elige confirmar precio / efectivo'
         : 'Elige tu forma de pago';
 
-  const quickButtonText = !hasProfile || !hasLocation
-    ? 'Entrega'
-    : !paymentMethod
-      ? 'Pago'
-      : 'Resumen';
+  const updateScrollHint = () => {
+    const container = scrollRef.current;
+
+    if (!container) {
+      setShowScrollHint(false);
+      return;
+    }
+
+    const hasMore =
+      container.scrollTop + container.clientHeight < container.scrollHeight - 36;
+
+    setShowScrollHint(hasMore);
+  };
 
   const showNotice = (message: string) => {
     setActionNotice(message);
@@ -388,9 +398,12 @@ export default function CartScreen({
     });
   };
 
-  const handleQuickNext = () => {
+  const handleSmartScroll = () => {
     if (!hasProfile || !hasLocation) {
-      onRequireLogin('block');
+      scrollRef.current?.scrollBy({
+        top: 360,
+        behavior: 'smooth',
+      });
       return;
     }
 
@@ -428,6 +441,19 @@ export default function CartScreen({
     if (blockIfOrderSaved()) return;
     updateQuantity(productId, quantity);
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(updateScrollHint, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    items.length,
+    paymentMethod,
+    selectedBank,
+    isOrderSaved,
+    actionNotice,
+    subtotal,
+  ]);
 
   useEffect(() => {
     if (paymentMethod || isOrderSaved) {
@@ -514,7 +540,7 @@ export default function CartScreen({
 
     if (paymentMethod === 'transferencia' && !selectedBank) {
       triggerDryTap();
-      showNotice('Selecciona tu banco antes de registrar el pedido.');
+      showNotice('Selecciona tu banco antes de continuar.');
       scrollToPayment();
       return;
     }
@@ -572,7 +598,7 @@ export default function CartScreen({
   const handleCheckout = () => {
     if (!isPaymentReady || !isOrderSaved) {
       triggerDryTap();
-      showNotice('Primero registra el pedido para continuar.');
+      showNotice('Primero continúa con el pedido.');
       return;
     }
 
@@ -594,10 +620,10 @@ export default function CartScreen({
 
           <div>
             <p className="text-[10px] font-black text-amber-700 uppercase">
-              Falta registrar el pedido
+              Falta continuar
             </p>
             <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed mt-1">
-              Primero toca “Registrar pedido”. Luego verás la confirmación o datos de pago.
+              Toca el botón de abajo para continuar con tu pedido.
             </p>
           </div>
         </div>
@@ -616,7 +642,7 @@ export default function CartScreen({
               Pago contra entrega
             </p>
             <p className="text-[10px] font-bold text-green-700/80 leading-relaxed mt-1">
-              Revisaremos tu pedido antes de prepararlo. Pagarás cuando recibas.
+              Pagarás cuando recibas tu pedido.
             </p>
           </div>
         </div>
@@ -631,10 +657,10 @@ export default function CartScreen({
 
         <div>
           <p className="text-[10px] font-black text-blue-700 uppercase">
-            Pago en validación
+            Datos de pago listos
           </p>
           <p className="text-[10px] font-bold text-blue-700/80 leading-relaxed mt-1">
-            Realiza el pago y continúa. Si necesitas enviar comprobante o ayuda, puedes usar WhatsApp al final.
+            Realiza el pago y luego toca “Ya pagué / continuar”.
           </p>
         </div>
       </div>
@@ -672,8 +698,31 @@ export default function CartScreen({
         disabled={lockedOther}
         className={`relative flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left active:scale-[0.98] ${
           active ? activeClass : defaultClass
-        } ${visuallyDisabled ? 'opacity-45 cursor-not-allowed' : ''}`}
+        } ${visuallyDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
       >
+        <div className="w-10 h-10 rounded-2xl bg-white/85 flex items-center justify-center shadow-sm flex-shrink-0">
+          {icon}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black uppercase leading-none">
+            {label}
+          </p>
+          <p className="text-[10px] font-bold opacity-70 leading-relaxed mt-1">
+            {description}
+          </p>
+        </div>
+
+        <div
+          className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-all ${
+            active
+              ? 'bg-white text-green-500 border-white shadow-md scale-110'
+              : 'bg-white/60 text-gray-300 border-white/80'
+          }`}
+        >
+          {active ? <CheckCircle2 size={18} /> : <Circle size={15} />}
+        </div>
+
         {isOrderSaved && active && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center border-2 border-white shadow-sm">
             <Lock size={10} />
@@ -685,19 +734,6 @@ export default function CartScreen({
             <Lock size={10} />
           </span>
         )}
-
-        <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center shadow-sm flex-shrink-0">
-          {icon}
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase leading-none">
-            {label}
-          </p>
-          <p className="text-[10px] font-bold opacity-70 leading-relaxed mt-1">
-            {description}
-          </p>
-        </div>
       </button>
     );
   };
@@ -732,6 +768,7 @@ export default function CartScreen({
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       <div
         ref={scrollRef}
+        onScroll={updateScrollHint}
         className="flex-1 px-4 pt-4 pb-36 space-y-4 overflow-y-auto overscroll-contain scrollbar-hide scroll-pb-36"
       >
         {isOrderSaved && (
@@ -906,51 +943,38 @@ export default function CartScreen({
               </div>
             </div>
           ) : (
-            <>
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MapPin size={17} />
-                  </div>
-
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
-                      Dirección de entrega
-                    </span>
-                    <p className="text-xs font-bold text-gray-700 line-clamp-2">
-                      {customerReference || 'Ubicación en Puerto Ayora'}
-                    </p>
-                  </div>
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <MapPin size={17} />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (blockIfOrderSaved()) return;
-                    onRequireLogin('change_location');
-                  }}
-                  disabled={isOrderSaved}
-                  className={`text-[11px] font-black px-3 py-2 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
-                    isOrderSaved
-                      ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
-                      : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
-                  }`}
-                >
-                  Cambiar
-                </button>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
+                    Dirección de entrega
+                  </span>
+                  <p className="text-xs font-bold text-gray-700 line-clamp-2">
+                    {customerReference || 'Ubicación en Puerto Ayora'}
+                  </p>
+                </div>
               </div>
 
-              {!paymentMethod && !isOrderSaved && (
-                <button
-                  type="button"
-                  onClick={scrollToPayment}
-                  className="w-full bg-slate-950 text-white rounded-2xl py-3.5 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
-                >
-                  Siguiente: elegir pago
-                  <ChevronDown size={15} className="animate-bounce" />
-                </button>
-              )}
-            </>
+              <button
+                type="button"
+                onClick={() => {
+                  if (blockIfOrderSaved()) return;
+                  onRequireLogin('change_location');
+                }}
+                disabled={isOrderSaved}
+                className={`text-[11px] font-black px-3 py-2 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
+                  isOrderSaved
+                    ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                    : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
+                }`}
+              >
+                Cambiar
+              </button>
+            </div>
           )}
         </section>
 
@@ -1008,7 +1032,7 @@ export default function CartScreen({
                 size={21}
                 className={paymentMethod === 'efectivo' ? 'text-green-600' : 'text-green-500'}
               />,
-              'bg-green-50 border-green-400 text-green-700 font-black shadow-sm',
+              'bg-green-50 border-green-400 text-green-700 font-black shadow-sm ring-2 ring-green-100',
               'bg-green-50/70 border-green-100 text-green-700 font-bold'
             )}
 
@@ -1020,7 +1044,7 @@ export default function CartScreen({
                 size={21}
                 className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-purple-500'}
               />,
-              'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm',
+              'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm ring-2 ring-purple-100',
               'bg-purple-50/70 border-purple-100 text-purple-700 font-bold',
               'No se puede pagar por Deuna hasta confirmar todos los precios.'
             )}
@@ -1033,7 +1057,7 @@ export default function CartScreen({
                 size={21}
                 className={paymentMethod === 'transferencia' ? 'text-blue-600' : 'text-blue-500'}
               />,
-              'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm',
+              'bg-blue-50 border-blue-400 text-blue-700 font-black shadow-sm ring-2 ring-blue-100',
               'bg-blue-50/70 border-blue-100 text-blue-700 font-bold',
               'No se puede pagar por transferencia hasta confirmar todos los precios.'
             )}
@@ -1194,7 +1218,7 @@ export default function CartScreen({
           <StepTitle
             step={4}
             title="Confirmar"
-            subtitle="Revisa el total antes de registrar"
+            subtitle="Revisa el total antes de continuar"
             icon={<ReceiptText size={20} />}
             done={isPaymentReady && isOrderSaved}
           />
@@ -1238,30 +1262,23 @@ export default function CartScreen({
 
             {hasConsult && (
               <p className="text-[9px] text-gray-400 pt-1 border-t border-gray-200 uppercase font-bold leading-relaxed">
-                Algunos productos requieren confirmación de precio. El negocio confirmará el total antes de preparar.
+                Algunos productos requieren confirmación de precio.
               </p>
-            )}
-
-            {isPaymentReady && (
-              <div className="bg-white border border-gray-100 rounded-xl p-2 flex items-start gap-2">
-                <AlertCircle size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[9px] text-gray-500 font-black uppercase leading-relaxed">
-                  Todo pedido queda por confirmar hasta que el negocio valide disponibilidad y/o pago.
-                </p>
-              </div>
             )}
           </div>
         </section>
       </div>
 
-      <button
-        type="button"
-        onClick={handleQuickNext}
-        className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+124px)] z-40 flex items-center gap-2 bg-slate-950 text-white rounded-full px-4 py-3 text-[9px] font-black uppercase tracking-widest shadow-2xl border border-white/20 active:scale-95 transition-transform"
-      >
-        {quickButtonText}
-        <ChevronDown size={14} className="animate-bounce" />
-      </button>
+      {showScrollHint && (
+        <button
+          type="button"
+          onClick={handleSmartScroll}
+          aria-label="Ver más información del pedido"
+          className="absolute right-5 bottom-[calc(env(safe-area-inset-bottom)+126px)] z-40 w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-yellow-400 text-white shadow-2xl shadow-orange-500/35 border-2 border-white flex items-center justify-center active:scale-90 transition-transform animate-bounce"
+        >
+          <ChevronDown size={24} strokeWidth={3} />
+        </button>
+      )}
 
       <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -1312,7 +1329,7 @@ export default function CartScreen({
               }`}
             >
               <Sparkles size={20} />
-              {isSavingOrder ? 'Registrando...' : registerLabel}
+              {isSavingOrder ? 'Continuando...' : registerLabel}
             </button>
           )
         ) : (
