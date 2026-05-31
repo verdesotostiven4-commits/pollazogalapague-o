@@ -19,12 +19,19 @@ import {
   XCircle,
   BellRing,
   Volume2,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+  getPushPermission,
+  isPushSupported,
+  registerPushNotifications,
+} from '../utils/pushNotifications';
 import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '../types';
 
 interface Props {
@@ -50,12 +57,18 @@ interface OrderSnapshot {
   updatedAt?: string | null;
 }
 
+type PushCardFeedback = {
+  tone: 'green' | 'orange' | 'red' | 'blue';
+  message: string;
+};
+
 const STORE_LOCATION = {
   lat: -0.736323,
   lng: -90.321829,
 };
 
 const NOTICE_AUTO_CLOSE_MS = 6500;
+const PUSH_CARD_HIDE_KEY = 'pollazo_hide_push_card_until';
 
 const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon }> = [
   { status: 'Por Confirmar', label: 'Por confirmar', icon: Clock3 },
@@ -468,6 +481,22 @@ const getNoticeClasses = (tone: TrackingNoticeTone) => {
   };
 };
 
+const getPushFeedbackClasses = (tone: PushCardFeedback['tone']) => {
+  if (tone === 'green') {
+    return 'bg-green-50 border-green-100 text-green-700';
+  }
+
+  if (tone === 'red') {
+    return 'bg-red-50 border-red-100 text-red-600';
+  }
+
+  if (tone === 'blue') {
+    return 'bg-blue-50 border-blue-100 text-blue-700';
+  }
+
+  return 'bg-orange-50 border-orange-100 text-orange-700';
+};
+
 const buildTrackingNotice = (
   order: Order,
   previous: OrderSnapshot | null
@@ -574,6 +603,33 @@ const triggerTrackingVibration = () => {
   }
 };
 
+const getInitialPushPermission = () => {
+  try {
+    return getPushPermission();
+  } catch {
+    return 'default' as NotificationPermission;
+  }
+};
+
+const getPushCardHidden = () => {
+  try {
+    const value = Number(localStorage.getItem(PUSH_CARD_HIDE_KEY) || '0');
+
+    return value > Date.now();
+  } catch {
+    return false;
+  }
+};
+
+const hidePushCardForNow = () => {
+  try {
+    const hideUntil = Date.now() + 12 * 60 * 60 * 1000;
+    localStorage.setItem(PUSH_CARD_HIDE_KEY, String(hideUntil));
+  } catch {
+    // localStorage opcional.
+  }
+};
+
 export default function OrderTracking({
   isOpen = false,
   onClose = () => {},
@@ -584,6 +640,12 @@ export default function OrderTracking({
   const [now, setNow] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [trackingNotice, setTrackingNotice] = useState<TrackingNotice | null>(null);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(
+    getInitialPushPermission
+  );
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [pushFeedback, setPushFeedback] = useState<PushCardFeedback | null>(null);
+  const [pushCardHidden, setPushCardHidden] = useState(getPushCardHidden);
 
   const previousOrderSnapshotRef = useRef<OrderSnapshot | null>(null);
   const initializedNoticeWatcherRef = useRef(false);
@@ -612,6 +674,14 @@ export default function OrderTracking({
         })[0] || null
     );
   }, [cleanUserPhone, orders]);
+
+  const pushSupported = useMemo(() => isPushSupported(), []);
+  const shouldShowPushCard =
+    Boolean(activeOrder) &&
+    Boolean(customerPhone) &&
+    pushSupported &&
+    pushPermission !== 'granted' &&
+    !pushCardHidden;
 
   const playTrackingSound = useCallback((tone: TrackingNoticeTone) => {
     try {
@@ -729,6 +799,79 @@ export default function OrderTracking({
     }
   }, [refreshData]);
 
+  const handleEnablePush = useCallback(async () => {
+    if (!customerPhone) {
+      setPushFeedback({
+        tone: 'orange',
+        message: 'Primero necesitamos tu WhatsApp para activar avisos del pedido.',
+      });
+      return;
+    }
+
+    if (!pushSupported) {
+      setPushFeedback({
+        tone: 'red',
+        message: 'Este navegador no permite notificaciones push web.',
+      });
+      return;
+    }
+
+    try {
+      setIsEnablingPush(true);
+      setPushFeedback({
+        tone: 'blue',
+        message: 'Activando avisos del pedido...',
+      });
+
+      const result = await registerPushNotifications(customerPhone);
+      const nextPermission = getInitialPushPermission();
+
+      setPushPermission(nextPermission);
+
+      if (result.ok) {
+        setPushFeedback({
+          tone: 'green',
+          message: 'Listo. Te avisaremos cuando tu pedido cambie de estado.',
+        });
+
+        try {
+          localStorage.removeItem(PUSH_CARD_HIDE_KEY);
+        } catch {
+          // localStorage opcional.
+        }
+
+        window.setTimeout(() => {
+          setPushFeedback(null);
+        }, 4500);
+
+        return;
+      }
+
+      setPushFeedback({
+        tone: result.permission === 'denied' ? 'red' : 'orange',
+        message:
+          result.reason ||
+          'No se pudieron activar los avisos. Puedes intentarlo otra vez desde el rastreo.',
+      });
+    } catch (error) {
+      console.error('No se pudieron activar avisos del pedido:', error);
+
+      setPushPermission(getInitialPushPermission());
+      setPushFeedback({
+        tone: 'red',
+        message: 'No se pudieron activar los avisos en este dispositivo.',
+      });
+    } finally {
+      setIsEnablingPush(false);
+    }
+  }, [customerPhone, pushSupported]);
+
+  const handleHidePushCard = useCallback(() => {
+    hidePushCardForNow();
+    setPushCardHidden(true);
+    setPushFeedback(null);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (alertAudioRef.current) {
@@ -791,6 +934,8 @@ export default function OrderTracking({
     if (!isOpen) return undefined;
 
     setNow(new Date());
+    setPushPermission(getInitialPushPermission());
+    setPushCardHidden(getPushCardHidden());
 
     const clock = window.setInterval(() => {
       setNow(new Date());
@@ -848,6 +993,7 @@ export default function OrderTracking({
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
+        setPushPermission(getInitialPushPermission());
         refreshTracking();
       }
     };
@@ -954,6 +1100,63 @@ export default function OrderTracking({
           >
             <X size={15} />
           </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPushCard = () => {
+    if (!shouldShowPushCard) return null;
+
+    return (
+      <div className="mt-4 rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-200 flex items-center justify-center flex-shrink-0">
+            {pushPermission === 'denied' ? <BellOff size={22} /> : <Bell size={22} />}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black text-slate-900 uppercase italic leading-tight">
+              Activa avisos del pedido
+            </p>
+
+            <p className="text-[11px] font-bold text-slate-500 leading-relaxed mt-1">
+              Te avisaremos cuando tu pedido sea confirmado, esté en preparación, salga a ruta o sea entregado.
+            </p>
+
+            {pushFeedback && (
+              <p className={`mt-3 rounded-2xl border px-3 py-2 text-[10px] font-black uppercase leading-relaxed ${getPushFeedbackClasses(pushFeedback.tone)}`}>
+                {pushFeedback.message}
+              </p>
+            )}
+
+            {pushPermission === 'denied' && (
+              <p className="mt-3 rounded-2xl bg-red-50 border border-red-100 px-3 py-2 text-[10px] font-black uppercase leading-relaxed text-red-600">
+                Las notificaciones están bloqueadas. Puedes permitirlas desde ajustes del navegador o de la app.
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {pushPermission !== 'denied' && (
+                <button
+                  type="button"
+                  onClick={handleEnablePush}
+                  disabled={isEnablingPush}
+                  className="flex-1 min-w-[150px] rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                >
+                  {isEnablingPush ? 'Activando...' : 'Activar avisos 🔔'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleHidePushCard}
+                className="rounded-2xl bg-slate-100 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 active:scale-95 transition-all"
+              >
+                Después
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1125,6 +1328,8 @@ export default function OrderTracking({
               </p>
             </div>
 
+            {renderPushCard()}
+
             {paymentTone && (
               <div className={`mt-4 rounded-[28px] border p-4 ${paymentTone.wrapper}`}>
                 <div className="flex items-start gap-3">
@@ -1257,7 +1462,7 @@ export default function OrderTracking({
               </div>
 
               <p className="text-[10px] font-black text-blue-700 uppercase leading-tight text-left">
-                Te avisaremos cuando el pedido cambie de estado mientras estás usando la app. Si aceptaste permisos, también recibirás notificaciones reales del pedido.
+                Te avisaremos dentro de la app cuando el pedido cambie de estado. Si activas avisos del pedido, también recibirás notificaciones aunque cierres la app.
               </p>
             </div>
 
