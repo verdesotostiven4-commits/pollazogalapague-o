@@ -23,7 +23,7 @@ const tabs: Array<{
 }> = [
   { id: 'home', icon: Home, label: 'Inicio' },
   { id: 'catalog', icon: Grid3X3, label: 'Catálogo' },
-  { id: 'cart', icon: ShoppingCart, label: 'Pedido' },
+  { id: 'cart', icon: ShoppingCart, label: 'Carrito' },
   { id: 'info', icon: Info, label: 'Info' },
 ];
 
@@ -32,11 +32,13 @@ export default function BottomNav({ current, onNavigate }: Props) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 safe-area-bottom z-50"
+      className="fixed bottom-0 left-0 right-0 safe-area-bottom z-50 pointer-events-none"
       aria-label="Navegación principal"
     >
-      <div className="mx-3 mb-2 rounded-[28px] bg-white/90 backdrop-blur-xl border border-orange-100 shadow-[0_-8px_30px_rgba(249,115,22,0.12)] overflow-hidden">
-        <div className="flex h-16">
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-none" />
+
+      <div className="relative mx-3 mb-2 rounded-[30px] bg-white/94 backdrop-blur-xl border border-orange-100 shadow-[0_-10px_35px_rgba(249,115,22,0.14)] overflow-visible pointer-events-auto">
+        <div className="flex h-[68px] overflow-visible">
           {tabs.map(({ id, icon: Icon, label }) => {
             const isActive = current === id;
             const isCart = id === 'cart';
@@ -47,12 +49,12 @@ export default function BottomNav({ current, onNavigate }: Props) {
                 key={id}
                 type="button"
                 onClick={() => onNavigate(id)}
-                className="flex-1 flex flex-col items-center justify-center gap-1 relative transition-all duration-200 active:scale-95"
+                className="flex-1 flex flex-col items-center justify-center gap-1 relative transition-all duration-200 active:scale-95 overflow-visible"
                 aria-label={`Ir a ${label}`}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <div
-                  className={`relative w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                  className={`relative w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 overflow-visible ${
                     isActive
                       ? 'bg-gradient-to-br from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-400/35 -translate-y-1'
                       : isCart && hasItems
@@ -74,9 +76,9 @@ export default function BottomNav({ current, onNavigate }: Props) {
                   )}
 
                   {hasItems && (
-                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center">
-                      <span className="absolute w-5 h-5 rounded-full bg-red-500 opacity-60 animate-ping" />
-                      <span className="relative min-w-[19px] h-[19px] px-1 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none border-2 border-white shadow-sm">
+                    <span className="absolute -top-2 -right-2 flex items-center justify-center z-20">
+                      <span className="absolute w-7 h-7 rounded-full bg-red-500 opacity-30 animate-ping" />
+                      <span className="relative min-w-[21px] h-[21px] px-1 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none border-2 border-white shadow-md">
                         {cartCount > 99 ? '99+' : cartCount > 9 ? '9+' : cartCount}
                       </span>
                     </span>
