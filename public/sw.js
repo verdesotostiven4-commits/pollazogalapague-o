@@ -1,4 +1,7 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v33';
+const CACHE_VERSION = 'pollazo-cache-clean-v34';
+
+const DEFAULT_ICON = '/logo-final.png';
+const DEFAULT_BADGE = '/logo-final.png';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -42,10 +45,13 @@ self.addEventListener('push', event => {
   let payload = {
     title: 'La Casa del Pollazo',
     body: 'Tu pedido fue actualizado.',
-    url: '/',
-    icon: '/logo-final.png',
-    badge: '/logo-final.png',
+    url: '/?tracking=1',
+    icon: DEFAULT_ICON,
+    badge: DEFAULT_BADGE,
     tag: 'pollazo-order-update',
+    orderCode: null,
+    status: null,
+    paymentStatus: null,
   };
 
   try {
@@ -69,28 +75,28 @@ self.addEventListener('push', event => {
 
   const options = {
     body: payload.body || 'Tu pedido fue actualizado.',
-    icon: payload.icon || '/logo-final.png',
-    badge: payload.badge || '/logo-final.png',
+    icon: payload.icon || DEFAULT_ICON,
+    badge: payload.badge || DEFAULT_BADGE,
     tag: payload.tag || 'pollazo-order-update',
     data: {
-      url: payload.url || '/',
+      url: payload.url || '/?tracking=1',
       orderCode: payload.orderCode || null,
       status: payload.status || null,
+      paymentStatus: payload.paymentStatus || null,
     },
     vibrate: [120, 60, 120, 60, 180],
     requireInteraction: false,
     renotify: true,
   };
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  const targetUrl = event.notification?.data?.url || '/';
+  const rawTargetUrl = event.notification?.data?.url || '/?tracking=1';
+  const targetUrl = new URL(rawTargetUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients
@@ -100,14 +106,14 @@ self.addEventListener('notificationclick', event => {
       })
       .then(clientList => {
         for (const client of clientList) {
-          if ('focus' in client) {
-            client.focus();
+          const clientUrl = new URL(client.url);
 
+          if (clientUrl.origin === self.location.origin && 'focus' in client) {
             if ('navigate' in client) {
-              return client.navigate(targetUrl);
+              return client.navigate(targetUrl).then(() => client.focus());
             }
 
-            return client;
+            return client.focus();
           }
         }
 
