@@ -50,6 +50,7 @@ import { useAdmin } from '../context/AdminContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Category, OrderStatus, PaymentStatus } from '../types';
 import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
+import AdminPlusPanel from './AdminPlusPanel';
 
 const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
@@ -58,6 +59,7 @@ const TABS = [
   { id: 'overview', label: 'Inicio', Icon: Home },
   { id: 'orders', label: 'Pedidos', Icon: Send },
   { id: 'cash', label: 'Caja', Icon: ReceiptText },
+  { id: 'plus', label: 'Plus', Icon: Crown },
   { id: 'products', label: 'Menú', Icon: Package },
   { id: 'customers', label: 'Clientes', Icon: Users },
   { id: 'ranking_config', label: 'Concurso', Icon: Trophy },
@@ -1786,6 +1788,8 @@ function AdminDashboardContent() {
           </div>
         )}
 
+        {tab === 'plus' && <AdminPlusPanel />}
+
         {tab === 'orders' && (
           <div className="space-y-4 pb-10 animate-in fade-in duration-500">
             <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1934,10 +1938,16 @@ function AdminDashboardContent() {
                       />
 
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-black text-xs uppercase leading-none truncate">
                             {customer?.name || order.customer_phone || 'Cliente'}
                           </p>
+
+                          {order.membership_applied && (
+                            <span className="bg-yellow-400 text-yellow-950 text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
+                              Plus
+                            </span>
+                          )}
 
                           {isPending && (
                             <span className="bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
@@ -1997,6 +2007,39 @@ function AdminDashboardContent() {
                       </p>
                     </div>
                   </div>
+
+                  {order.membership_applied && (
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-3 flex items-center gap-2">
+                      <Crown size={16} className="text-yellow-600 flex-shrink-0" />
+                      <p className="text-[9px] font-black text-yellow-700 uppercase leading-relaxed">
+                        Pollazo Plus aplicado: delivery gratis en este pedido.
+                      </p>
+                    </div>
+                  )}
+
+                  {Array.isArray(order.bonus_items) && order.bonus_items.length > 0 && (
+                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 space-y-2">
+                      <p className="text-[9px] font-black text-orange-700 uppercase flex items-center gap-2">
+                        <Crown size={13} />
+                        Regalos VIP agregados
+                      </p>
+
+                      {order.bonus_items.map((gift: any, index: number) => (
+                        <div
+                          key={`${gift.id || gift.item_name}-${index}`}
+                          className="bg-white rounded-xl px-3 py-2 flex justify-between gap-3 border border-orange-100"
+                        >
+                          <span className="text-[10px] font-black uppercase truncate">
+                            {money(gift.quantity || 1).replace('.00', '')}x {gift.item_name}
+                          </span>
+
+                          <span className="text-[8px] font-black text-orange-500 uppercase">
+                            Plus
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
@@ -2466,6 +2509,12 @@ function AdminDashboardContent() {
                         <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-green-100">
                           ${money(customer.total_spent || 0)}
                         </span>
+
+                        {customer.membership_status === 'active' && (
+                          <span className="bg-yellow-400 text-yellow-950 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-yellow-300">
+                            Plus
+                          </span>
+                        )}
                       </div>
                     </div>
 
