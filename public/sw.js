@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v37';
+const CACHE_VERSION = 'pollazo-cache-clean-v38';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
@@ -19,7 +19,21 @@ const getIconByStatus = status => {
   return DEFAULT_ICON;
 };
 
-const normalizeTrackingUrl = rawUrl => {
+const isPlusUrl = rawUrl => {
+  try {
+    const url = new URL(rawUrl || '', self.location.origin);
+
+    return (
+      url.searchParams.get('plus') === '1' ||
+      url.searchParams.has('membershipReminder') ||
+      url.searchParams.has('membershipId')
+    );
+  } catch {
+    return false;
+  }
+};
+
+const ensureTrackingUrl = rawUrl => {
   try {
     const url = new URL(rawUrl || '/?tracking=1', self.location.origin);
 
@@ -37,17 +51,59 @@ const normalizeTrackingUrl = rawUrl => {
   }
 };
 
-const sendTrackingMessageToClient = (client, payload = {}) => {
+const ensurePlusUrl = rawUrl => {
+  try {
+    const url = new URL(rawUrl || '/?plus=1', self.location.origin);
+
+    if (url.origin !== self.location.origin) {
+      return `${self.location.origin}/?plus=1`;
+    }
+
+    url.searchParams.set('plus', '1');
+
+    return url.href;
+  } catch {
+    return `${self.location.origin}/?plus=1`;
+  }
+};
+
+const getNotificationKind = payload => {
+  if (
+    payload?.notificationType === 'plus' ||
+    payload?.membershipReminder ||
+    payload?.membershipId ||
+    isPlusUrl(payload?.url)
+  ) {
+    return 'plus';
+  }
+
+  return 'tracking';
+};
+
+const buildClientMessage = (kind, payload = {}) => {
+  if (kind === 'plus') {
+    return {
+      type: 'POLLAZO_OPEN_PLUS',
+      url: payload.url || '/?plus=1',
+      membershipId: payload.membershipId || null,
+      membershipReminder: payload.membershipReminder || null,
+    };
+  }
+
+  return {
+    type: 'POLLAZO_OPEN_TRACKING',
+    url: payload.url || '/?tracking=1',
+    orderCode: payload.orderCode || null,
+    status: payload.status || null,
+    paymentStatus: payload.paymentStatus || null,
+  };
+};
+
+const sendMessageToClient = (client, kind, payload = {}) => {
   try {
     if (!client || !('postMessage' in client)) return;
 
-    client.postMessage({
-      type: 'POLLAZO_OPEN_TRACKING',
-      url: payload.url || '/?tracking=1',
-      orderCode: payload.orderCode || null,
-      status: payload.status || null,
-      paymentStatus: payload.paymentStatus || null,
-    });
+    client.postMessage(buildClientMessage(kind, payload));
   } catch {
     // Mensaje opcional.
   }
@@ -102,6 +158,9 @@ self.addEventListener('push', event => {
     orderCode: null,
     status: null,
     paymentStatus: null,
+    notificationType: null,
+    membershipId: null,
+    membershipReminder: null,
   };
 
   try {
@@ -121,10 +180,15 @@ self.addEventListener('push', event => {
     }
   }
 
+  const kind = getNotificationKind(payload);
   const statusIcon = getIconByStatus(payload.status);
-  const finalIcon = payload.icon || statusIcon;
-  const finalBadge = payload.badge || statusIcon;
-  const targetUrl = normalizeTrackingUrl(payload.url);
+  const finalIcon = payload.icon || (kind === 'plus' ? DEFAULT_ICON : statusIcon);
+  const finalBadge = payload.badge || (kind === 'plus' ? DEFAULT_BADGE : statusIcon);
+
+  const targetUrl =
+    kind === 'plus'
+      ? ensurePlusUrl(payload.url)
+      : ensureTrackingUrl(payload.url);
 
   const title = payload.title || 'La Casa del Pollazo';
 
@@ -132,14 +196,21 @@ self.addEventListener('push', event => {
     body: payload.body || 'Tu pedido fue actualizado.',
     icon: finalIcon,
     badge: finalBadge,
-    tag: payload.tag || 'pollazo-order-update',
+    tag:
+      payload.tag ||
+      (kind === 'plus'
+        ? `pollazo-plus-${payload.membershipReminder || payload.membershipId || 'update'}`
+        : 'pollazo-order-update'),
     data: {
       url: targetUrl,
+      kind,
       orderCode: payload.orderCode || null,
       status: payload.status || null,
       paymentStatus: payload.paymentStatus || null,
+      membershipId: payload.membershipId || null,
+      membershipReminder: payload.membershipReminder || null,
     },
-    vibrate: [120, 60, 120, 60, 180],
+    vibrate: kind === 'plus' ? [90, 45, 90, 45, 160] : [120, 60, 120, 60, 180],
     requireInteraction: false,
     renotify: true,
   };
@@ -151,13 +222,20 @@ self.addEventListener('notificationclick', event => {
   event.notification.close();
 
   const notificationData = event.notification?.data || {};
-  const targetUrl = normalizeTrackingUrl(notificationData.url);
+  const kind = notificationData.kind === 'plus' ? 'plus' : 'tracking';
+
+  const targetUrl =
+    kind === 'plus'
+      ? ensurePlusUrl(notificationData.url)
+      : ensureTrackingUrl(notificationData.url);
 
   const messagePayload = {
     url: targetUrl,
     orderCode: notificationData.orderCode || null,
     status: notificationData.status || null,
     paymentStatus: notificationData.paymentStatus || null,
+    membershipId: notificationData.membershipId || null,
+    membershipReminder: notificationData.membershipReminder || null,
   };
 
   event.waitUntil(
@@ -180,11 +258,11 @@ self.addEventListener('notificationclick', event => {
           sameOriginClients[0];
 
         if (focusedClient) {
-          sendTrackingMessageToClient(focusedClient, messagePayload);
+          sendMessageToClient(focusedClient, kind, messagePayload);
 
           if ('focus' in focusedClient) {
             return focusedClient.focus().then(client => {
-              sendTrackingMessageToClient(client || focusedClient, messagePayload);
+              sendMessageToClient(client || focusedClient, kind, messagePayload);
               return client || focusedClient;
             });
           }
