@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike,
   Lock,
@@ -10,16 +10,22 @@ import {
   Package,
   RefreshCw,
   LogOut,
-  Clock,
   Navigation,
   AlertTriangle,
   ClipboardList,
+  BellRing,
+  Volume2,
+  X,
+  Zap,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import type { Order, OrderStatus } from '../types';
 
 const DELIVERY_PIN = '2580';
 const DELIVERY_PIN_KEY = 'pollazo_delivery_auth';
+const DELIVERY_SEEN_READY_KEY = 'pollazo_delivery_seen_ready_ids';
+
+const DELIVERY_ACTIVE_STATUSES: OrderStatus[] = ['Preparando', 'Enviado'];
 
 const cleanPhone = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '');
@@ -86,10 +92,14 @@ const orderItemsPreview = (order: Order) => {
 
   if (items.length === 0) return 'Sin productos registrados';
 
-  return items
+  const firstItems = items
     .slice(0, 3)
     .map(item => `${Number(item.quantity || 1)}x ${item.name || item.product?.name || 'Producto'}`)
     .join(' · ');
+
+  if (items.length <= 3) return firstItems;
+
+  return `${firstItems} · +${items.length - 3} más`;
 };
 
 const getStatusStyle = (status: OrderStatus) => {
@@ -98,6 +108,79 @@ const getStatusStyle = (status: OrderStatus) => {
   if (status === 'Entregado') return 'bg-green-50 text-green-600 border-green-100';
 
   return 'bg-gray-50 text-gray-500 border-gray-100';
+};
+
+const readSeenReadyIds = () => {
+  try {
+    const raw = localStorage.getItem(DELIVERY_SEEN_READY_KEY);
+
+    if (!raw) return new Set<string>();
+
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed)) return new Set<string>();
+
+    return new Set(parsed.map(String));
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const saveSeenReadyIds = (ids: Set<string>) => {
+  try {
+    localStorage.setItem(DELIVERY_SEEN_READY_KEY, JSON.stringify(Array.from(ids).slice(-80)));
+  } catch {
+    // localStorage opcional.
+  }
+};
+
+const vibrateDeliveryAlert = () => {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([140, 70, 140, 70, 220]);
+    }
+  } catch {
+    // Vibración opcional.
+  }
+};
+
+const playDeliveryAlertSound = () => {
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+
+    notes.forEach((frequency, index) => {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + index * 0.11;
+      const duration = 0.18;
+
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, start);
+
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(0.09, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      oscillator.start(start);
+      oscillator.stop(start + duration);
+    });
+
+    window.setTimeout(() => {
+      ctx.close().catch(() => undefined);
+    }, 900);
+  } catch {
+    // Algunos navegadores bloquean audio sin interacción previa.
+  }
 };
 
 function DeliveryPinScreen({ onAuth }: { onAuth: () => void }) {
@@ -193,11 +276,33 @@ function DeliveryPinScreen({ onAuth }: { onAuth: () => void }) {
 export default function DeliveryDashboard() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(DELIVERY_PIN_KEY) === '1');
   const [filter, setFilter] = useState<'ready' | 'sent' | 'all'>('ready');
+  const [urgentReadyIds, setUrgentReadyIds] = useState<Set<string>>(() => new Set());
+  const [deliveryNotice, setDeliveryNotice] = useState<{
+    title: string;
+    message: string;
+    orderCode?: string | null;
+  } | null>(null);
+
   const { orders, customers, updateOrderStatus, refreshData, loading } = useAdmin();
+
+  const initializedRef = useRef(false);
+  const previousReadyIdsRef = useRef<Set<string>>(new Set());
+
+  const readyOrders = useMemo(() => {
+    return [...orders]
+      .filter(order => order.status === 'Preparando')
+      .sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
+  }, [orders]);
+
+  const sentOrders = useMemo(() => {
+    return [...orders]
+      .filter(order => order.status === 'Enviado')
+      .sort((a, b) => new Date(a.updated_at || a.created_at || '').getTime() - new Date(b.updated_at || b.created_at || '').getTime());
+  }, [orders]);
 
   const deliveryOrders = useMemo(() => {
     return [...orders]
-      .filter(order => order.status === 'Preparando' || order.status === 'Enviado')
+      .filter(order => DELIVERY_ACTIVE_STATUSES.includes(order.status))
       .filter(order => {
         if (filter === 'ready') return order.status === 'Preparando';
         if (filter === 'sent') return order.status === 'Enviado';
@@ -205,8 +310,8 @@ export default function DeliveryDashboard() {
       })
       .sort((a, b) => {
         const statusScore = (status: OrderStatus) => {
-          if (status === 'Enviado') return 0;
-          if (status === 'Preparando') return 1;
+          if (status === 'Preparando') return 0;
+          if (status === 'Enviado') return 1;
           return 2;
         };
 
@@ -218,8 +323,110 @@ export default function DeliveryDashboard() {
       });
   }, [filter, orders]);
 
-  const readyCount = orders.filter(order => order.status === 'Preparando').length;
-  const sentCount = orders.filter(order => order.status === 'Enviado').length;
+  const readyCount = readyOrders.length;
+  const sentCount = sentOrders.length;
+  const urgentCount = urgentReadyIds.size;
+
+  const dismissDeliveryNotice = () => {
+    setDeliveryNotice(null);
+
+    const seen = readSeenReadyIds();
+    urgentReadyIds.forEach(id => seen.add(id));
+    saveSeenReadyIds(seen);
+
+    setUrgentReadyIds(new Set());
+  };
+
+  useEffect(() => {
+    if (!authed) return undefined;
+
+    void refreshData();
+
+    const interval = window.setInterval(() => {
+      void refreshData();
+    }, 9000);
+
+    const handleFocus = () => {
+      void refreshData();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [authed, refreshData]);
+
+  useEffect(() => {
+    if (!authed) return;
+
+    const currentReadyIds = new Set(readyOrders.map(order => order.id));
+    const seenReadyIds = readSeenReadyIds();
+
+    if (!initializedRef.current) {
+      previousReadyIdsRef.current = currentReadyIds;
+      initializedRef.current = true;
+      return;
+    }
+
+    const newReadyOrders = readyOrders.filter(order => {
+      return !previousReadyIdsRef.current.has(order.id) && !seenReadyIds.has(order.id);
+    });
+
+    previousReadyIdsRef.current = currentReadyIds;
+
+    if (newReadyOrders.length === 0) return;
+
+    const newIds = new Set(newReadyOrders.map(order => order.id));
+
+    setUrgentReadyIds(prev => {
+      const next = new Set(prev);
+
+      newIds.forEach(id => next.add(id));
+
+      return next;
+    });
+
+    const firstOrder = newReadyOrders[0];
+
+    setDeliveryNotice({
+      title: newReadyOrders.length === 1 ? 'Pedido listo para ruta' : 'Nuevos pedidos listos',
+      message:
+        newReadyOrders.length === 1
+          ? 'Hay un pedido preparado esperando que lo tomes para entrega.'
+          : `Hay ${newReadyOrders.length} pedidos preparados esperando salida.`,
+      orderCode: firstOrder.order_code,
+    });
+
+    setFilter('ready');
+    vibrateDeliveryAlert();
+    playDeliveryAlertSound();
+
+    try {
+      document.title = `🛵 ${newReadyOrders.length} entrega${newReadyOrders.length > 1 ? 's' : ''} lista${newReadyOrders.length > 1 ? 's' : ''}`;
+    } catch {
+      // Título opcional.
+    }
+  }, [authed, readyOrders]);
+
+  useEffect(() => {
+    if (!deliveryNotice) {
+      try {
+        document.title = 'La Casa del Pollazo';
+      } catch {
+        // Ignorar.
+      }
+    }
+  }, [deliveryNotice]);
 
   if (!authed) {
     return <DeliveryPinScreen onAuth={() => setAuthed(true)} />;
@@ -228,6 +435,19 @@ export default function DeliveryDashboard() {
   const handleStatus = async (orderId: string, status: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, status);
+
+      if (status === 'Enviado') {
+        const seen = readSeenReadyIds();
+        seen.add(orderId);
+        saveSeenReadyIds(seen);
+
+        setUrgentReadyIds(prev => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+      }
+
       await refreshData();
     } catch (error) {
       console.error('No se pudo actualizar pedido:', error);
@@ -236,12 +456,16 @@ export default function DeliveryDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
+    <div className={`min-h-screen bg-gray-50 pb-10 ${urgentCount > 0 ? 'animate-[pulse_1.8s_ease-in-out_infinite]' : ''}`}>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-orange-100 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
-              <Bike size={24} />
+            <div className={`w-11 h-11 text-white rounded-2xl flex items-center justify-center shadow-lg ${
+              urgentCount > 0
+                ? 'bg-red-500 shadow-red-200 animate-bounce'
+                : 'bg-orange-500 shadow-orange-200'
+            }`}>
+              {urgentCount > 0 ? <BellRing size={24} /> : <Bike size={24} />}
             </div>
 
             <div>
@@ -255,6 +479,19 @@ export default function DeliveryDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {urgentCount > 0 && (
+              <button
+                type="button"
+                onClick={dismissDeliveryNotice}
+                className="h-10 px-3 bg-red-50 text-red-600 rounded-xl flex items-center gap-1.5 active:scale-90 transition-transform"
+              >
+                <BellRing size={16} />
+                <span className="text-[9px] font-black uppercase">
+                  Visto
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={refreshData}
@@ -279,7 +516,70 @@ export default function DeliveryDashboard() {
         </div>
       </header>
 
+      {deliveryNotice && (
+        <div className="fixed inset-x-0 top-[74px] z-50 px-4">
+          <div className="max-w-3xl mx-auto bg-red-500 text-white rounded-[28px] shadow-2xl shadow-red-200 p-4 border border-red-400 animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                <BellRing size={25} />
+              </div>
+
+              <div className="flex-1">
+                <p className="text-xs font-black uppercase italic leading-tight">
+                  {deliveryNotice.title}
+                </p>
+                <p className="text-[11px] font-bold text-white/85 leading-relaxed mt-1">
+                  {deliveryNotice.orderCode ? `${deliveryNotice.orderCode} · ` : ''}
+                  {deliveryNotice.message}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={dismissDeliveryNotice}
+                    className="bg-white text-red-600 rounded-xl px-3 py-2 text-[9px] font-black uppercase active:scale-95 transition-all"
+                  >
+                    Entendido
+                  </button>
+
+                  <div className="flex items-center gap-1 text-[9px] font-black uppercase text-white/70">
+                    <Volume2 size={12} />
+                    Sonido y vibración
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={dismissDeliveryNotice}
+                className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="Cerrar aviso"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {urgentCount > 0 && (
+          <section className="bg-red-50 border border-red-100 rounded-[28px] p-4 flex items-start gap-3 shadow-sm">
+            <div className="w-11 h-11 rounded-2xl bg-red-500 text-white flex items-center justify-center flex-shrink-0">
+              <Zap size={22} />
+            </div>
+
+            <div>
+              <p className="text-xs font-black text-red-600 uppercase italic">
+                Atención repartidor
+              </p>
+              <p className="text-[11px] font-bold text-red-600/80 leading-relaxed mt-1">
+                Hay {urgentCount} pedido{urgentCount !== 1 ? 's' : ''} preparado{urgentCount !== 1 ? 's' : ''} esperando salida. Toca “En ruta” cuando lo tomes.
+              </p>
+            </div>
+          </section>
+        )}
+
         <section className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -340,7 +640,7 @@ export default function DeliveryDashboard() {
               No hay entregas ahora
             </h2>
             <p className="text-xs font-bold text-gray-400 leading-relaxed mt-2">
-              Cuando el admin marque pedidos como “Preparando” o “Enviado”, aparecerán aquí.
+              Cuando el admin marque pedidos como “Preparando”, aparecerán aquí como listos para ruta.
             </p>
           </section>
         ) : (
@@ -357,18 +657,29 @@ export default function DeliveryDashboard() {
             const hasGps = isValidCoordinate(deliveryLat) && isValidCoordinate(deliveryLng);
             const reference = order.reference || customer?.reference || '';
             const phone = order.customer_phone || customer?.phone || '';
+            const isUrgentReady = urgentReadyIds.has(order.id);
 
             return (
               <article
                 key={order.id}
-                className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden"
+                className={`bg-white rounded-[32px] border shadow-sm overflow-hidden transition-all ${
+                  isUrgentReady
+                    ? 'border-red-200 ring-4 ring-red-100 shadow-red-100 animate-pulse'
+                    : 'border-gray-100'
+                }`}
               >
                 <div className="p-5 border-b border-gray-50 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
                         {order.status === 'Preparando' ? 'Listo para ruta' : 'En camino'}
                       </span>
+
+                      {isUrgentReady && (
+                        <span className="text-[8px] font-black uppercase px-2 py-1 rounded-full border bg-red-50 text-red-600 border-red-100">
+                          Nuevo
+                        </span>
+                      )}
 
                       <span className="text-[8px] font-black uppercase text-gray-300">
                         {formatTime(order.created_at)}
@@ -384,8 +695,12 @@ export default function DeliveryDashboard() {
                     </p>
                   </div>
 
-                  <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
-                    {order.status === 'Enviado' ? <Truck size={24} /> : <Package size={24} />}
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                    isUrgentReady
+                      ? 'bg-red-50 text-red-500'
+                      : 'bg-orange-50 text-orange-500'
+                  }`}>
+                    {isUrgentReady ? <BellRing size={24} /> : order.status === 'Enviado' ? <Truck size={24} /> : <Package size={24} />}
                   </div>
                 </div>
 
