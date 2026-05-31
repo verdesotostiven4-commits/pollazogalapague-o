@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  ShoppingCart,
   Check,
   MessageCircle,
   DollarSign,
@@ -32,13 +31,11 @@ interface Props {
 
 const isConsultPrice = (price?: string | null) => {
   const clean = String(price || '').trim().toLowerCase();
-
   return !clean || clean.includes('consultar');
 };
 
 const toMoney = (value: number) => {
   if (!Number.isFinite(value)) return 0;
-
   return Number(value.toFixed(2));
 };
 
@@ -58,12 +55,13 @@ const parseMoneyInput = (value: string) => {
 
 const moneyFromInput = (value: string) => {
   const parsed = Number.parseFloat(parseMoneyInput(value));
-
   return Number.isFinite(parsed) ? toMoney(parsed) : 0;
 };
 
 const getBaseProductId = (id: string) => {
-  const match = Object.keys(BUDGET_LIMITS).find(limitId => id === limitId || id.startsWith(`${limitId}-`));
+  const match = Object.keys(BUDGET_LIMITS).find(
+    limitId => id === limitId || id.startsWith(`${limitId}-`)
+  );
 
   return match || 'default';
 };
@@ -74,7 +72,7 @@ function triggerHaptic() {
       navigator.vibrate(25);
     }
   } catch {
-    // La vibración es opcional.
+    // Vibración opcional.
   }
 }
 
@@ -112,9 +110,7 @@ export default function ProductCard({
 
   const consult = isConsultPrice(displayPrice);
   const currentNum = moneyFromInput(customValue);
-  const isValidCustomValue =
-    currentNum >= config.min &&
-    currentNum <= config.max;
+  const isValidCustomValue = currentNum >= config.min && currentNum <= config.max;
 
   const minText = `$${config.min.toFixed(2)}`;
   const maxText = `$${config.max.toFixed(2)}`;
@@ -144,9 +140,8 @@ export default function ProductCard({
   const executeAddVariable = (priceOverride?: number) => {
     if (added || !available) return;
 
-    const valueToUse = typeof priceOverride === 'number'
-      ? toMoney(priceOverride)
-      : currentNum;
+    const valueToUse =
+      typeof priceOverride === 'number' ? toMoney(priceOverride) : currentNum;
 
     if (valueToUse < config.min || valueToUse > config.max) {
       return;
@@ -194,11 +189,11 @@ export default function ProductCard({
     <>
       <div
         style={style}
-        className={`group relative flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm ${
+        className={`group relative flex flex-col h-full min-h-[310px] bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-all duration-300 ${
           compact
-            ? 'active:shadow-md h-full'
+            ? 'active:shadow-md min-h-[285px]'
             : 'hover:shadow-lg hover:shadow-orange-100/60 hover:-translate-y-1'
-        } transition-all duration-300 ${className} ${!available ? 'opacity-60 grayscale-[20%]' : ''}`}
+        } ${className} ${!available ? 'opacity-60 grayscale-[20%]' : ''}`}
       >
         <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-orange-50/30">
           <img
@@ -225,13 +220,13 @@ export default function ProductCard({
           )}
 
           {available && product.is_variable && (
-            <span className="absolute top-2 right-2 bg-white/90 border border-orange-200 text-orange-500 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm uppercase">
+            <span className="absolute top-2 right-2 bg-white/95 border border-orange-200 text-orange-500 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm uppercase">
               Por valor
             </span>
           )}
 
           {available && consult && !product.is_variable && !compact && (
-            <span className="absolute top-2.5 right-2.5 bg-white/90 border border-orange-200 text-orange-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="absolute top-2.5 right-2.5 bg-white/95 border border-orange-200 text-orange-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
               A consultar
             </span>
           )}
@@ -239,88 +234,89 @@ export default function ProductCard({
 
         <div className={`flex flex-col flex-1 ${compact ? 'p-3 gap-1.5' : 'p-3.5'}`}>
           {!compact && (
-            <p className="text-[10px] text-orange-500 font-semibold uppercase tracking-widest mb-1 truncate">
+            <p className="text-[9px] text-orange-500 font-black uppercase tracking-widest mb-1 truncate">
               {product.subcategory || product.category}
             </p>
           )}
 
           <h3
-            className={`text-gray-900 font-bold leading-snug line-clamp-2 ${
-              compact ? 'text-[13px] flex-1' : 'text-[15px] mb-1'
+            className={`text-gray-900 font-black leading-snug line-clamp-2 ${
+              compact ? 'text-[13px] min-h-[34px]' : 'text-[14px] min-h-[39px]'
             }`}
           >
             {product.name}
           </h3>
 
-          {!compact && product.description && (
-            <p className="text-gray-400 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">
-              {product.description}
+          {!compact && (
+            <p className="text-gray-400 text-[11px] leading-relaxed mt-1 line-clamp-2 min-h-[32px]">
+              {product.description || 'Producto disponible para agregar al carrito.'}
             </p>
           )}
 
-          <div
-            className={`flex items-center ${compact ? '' : 'mb-3 mt-auto'}`}
-            style={{ minHeight: compact ? 28 : 32 }}
-          >
-            {product.is_variable ? (
-              <div className="flex flex-col">
-                <span className={`text-orange-600 font-black ${compact ? 'text-base' : 'text-lg leading-none'}`}>
-                  Desde {minText}
-                </span>
-                {!compact && (
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">
-                    Tú eliges el valor
+          <div className="mt-auto pt-3">
+            <div className="flex items-center mb-3 min-h-[34px]">
+              {product.is_variable ? (
+                <div className="flex flex-col">
+                  <span className={`text-orange-600 font-black ${compact ? 'text-[15px]' : 'text-[16px] leading-none'}`}>
+                    Elige el valor
                   </span>
-                )}
-              </div>
-            ) : consult ? (
-              <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 font-medium flex items-center gap-1`}>
-                {!compact && <MessageCircle size={12} className="text-orange-400" />}
-                A consultar
-              </span>
-            ) : (
-              <div className="flex items-baseline gap-1">
-                <span className={`text-orange-600 font-black ${compact ? 'text-base' : 'text-lg leading-none'}`}>
-                  {displayPrice}
-                </span>
-                {product.unit && !compact && (
-                  <span className="text-gray-400 text-[11px]">
-                    / {product.unit}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
 
-          <button
-            ref={btnRef}
-            type="button"
-            onClick={handleAdd}
-            disabled={!available}
-            className={`w-full flex items-center justify-center gap-1.5 font-bold rounded-xl transition-all duration-300 ${
-              compact ? 'text-[13px] py-2.5' : 'text-sm py-2.5'
-            } ${
-              !available
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : added
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
-            }`}
-          >
-            {!available ? (
-              <>{compact ? 'Agotado' : 'Sin stock'}</>
-            ) : added ? (
-              <>
-                <Check size={compact ? 13 : 14} strokeWidth={3} />
-                Agregado
-              </>
-            ) : (
-              <>
-                <Plus size={compact ? 13 : 14} />
-                {product.is_variable ? 'Elegir valor' : 'Agregar'}
-              </>
-            )}
-          </button>
+                  {!compact && (
+                    <span className="text-[9px] font-bold text-gray-400 uppercase mt-1">
+                      Mínimo {minText}
+                    </span>
+                  )}
+                </div>
+              ) : consult ? (
+                <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 font-bold flex items-center gap-1`}>
+                  {!compact && <MessageCircle size={12} className="text-orange-400" />}
+                  A consultar
+                </span>
+              ) : (
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-orange-600 font-black ${compact ? 'text-[15px]' : 'text-[18px] leading-none'}`}>
+                    {displayPrice}
+                  </span>
+
+                  {product.unit && !compact && (
+                    <span className="text-gray-400 text-[11px]">
+                      / {product.unit}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              ref={btnRef}
+              type="button"
+              onClick={handleAdd}
+              disabled={!available}
+              className={`w-full min-h-[44px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
+                compact ? 'text-[12px] py-2.5' : 'text-[13px] py-3'
+              } ${
+                !available
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : added
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
+              }`}
+            >
+              {!available ? (
+                <>{compact ? 'Agotado' : 'Sin stock'}</>
+              ) : added ? (
+                <>
+                  <Check size={compact ? 13 : 14} strokeWidth={3} />
+                  Agregado
+                </>
+              ) : (
+                <>
+                  <Plus size={compact ? 13 : 14} />
+                  {product.is_variable ? 'Elegir' : 'Agregar'}
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -368,6 +364,7 @@ export default function ProductCard({
                   className="w-12 h-12 object-contain rounded-lg bg-white border border-orange-100 p-1"
                   alt={product.name}
                 />
+
                 <div className="min-w-0">
                   <p className="text-xs font-black text-slate-800 truncate">
                     {product.name}
@@ -434,12 +431,8 @@ export default function ProductCard({
                 disabled={!isValidCustomValue || added}
                 className="w-full h-14 bg-orange-500 rounded-2xl font-black text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-widest"
               >
-                Confirmar valor 🚀
+                Agregar al carrito 🚀
               </button>
-
-              <p className="text-[9px] font-bold text-slate-400 text-center mt-3 leading-relaxed">
-                Este valor queda como precio del producto en tu carrito. Si el negocio necesita ajustar disponibilidad, te confirmará antes de preparar.
-              </p>
             </div>
           </div>
         </div>
