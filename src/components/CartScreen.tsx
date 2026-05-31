@@ -1274,9 +1274,9 @@ export default function CartScreen({
           type="button"
           onClick={handleSmartScroll}
           aria-label="Ver más información del pedido"
-          className="absolute right-5 bottom-[calc(env(safe-area-inset-bottom)+126px)] z-40 w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-yellow-400 text-white shadow-2xl shadow-orange-500/35 border-2 border-white flex items-center justify-center active:scale-90 transition-transform animate-bounce"
+          className="absolute right-0 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-40 h-11 w-9 rounded-l-full bg-white/85 backdrop-blur-xl text-orange-500 border border-r-0 border-orange-100 shadow-lg shadow-orange-100/60 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
         >
-          <ChevronDown size={24} strokeWidth={3} />
+          <ChevronDown size={21} strokeWidth={3} />
         </button>
       )}
 
