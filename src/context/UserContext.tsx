@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { DeliveryAddress, DeliveryAddressLabel } from '../types';
+import type {
+  CustomerMembership,
+  DeliveryAddress,
+  DeliveryAddressLabel,
+  MembershipStatus,
+} from '../types';
 
 interface SetUserDataInput {
   phone?: string;
@@ -23,6 +28,12 @@ interface SetUserDataInput {
   phoneVerified?: boolean;
   deliveryAddresses?: DeliveryAddress[];
   selectedDeliveryAddressId?: string | null;
+
+  membershipStatus?: MembershipStatus | null;
+  membershipPlan?: string | null;
+  membershipStartedAt?: string | null;
+  membershipExpiresAt?: string | null;
+  membershipUpdatedAt?: string | null;
 }
 
 interface SaveDeliveryAddressInput {
@@ -49,6 +60,16 @@ interface UserContextType {
   hasDeliveryLocation: boolean;
   phoneDisplay: string;
 
+  membershipStatus: MembershipStatus;
+  membershipPlan: string;
+  membershipStartedAt: string | null;
+  membershipExpiresAt: string | null;
+  membershipUpdatedAt: string | null;
+  activeMembership: CustomerMembership | null;
+  hasPollazoPlus: boolean;
+  pollazoPlusExpiresAt: string | null;
+  refreshMembership: () => Promise<void>;
+
   deliveryAddresses: DeliveryAddress[];
   selectedDeliveryAddressId: string | null;
   selectedDeliveryAddress: DeliveryAddress | null;
@@ -73,6 +94,12 @@ interface CustomerSyncRow {
   reference?: string | null;
   delivery_addresses?: DeliveryAddress[] | null;
   selected_delivery_address_id?: string | null;
+
+  membership_status?: MembershipStatus | null;
+  membership_plan?: string | null;
+  membership_started_at?: string | null;
+  membership_expires_at?: string | null;
+  membership_updated_at?: string | null;
 }
 
 const STORAGE_KEYS = {
@@ -88,6 +115,12 @@ const STORAGE_KEYS = {
   phoneVerified: 'pollazo_customer_phone_verified',
   deliveryAddresses: 'pollazo_customer_delivery_addresses',
   selectedDeliveryAddressId: 'pollazo_customer_selected_delivery_address_id',
+
+  membershipStatus: 'pollazo_customer_membership_status',
+  membershipPlan: 'pollazo_customer_membership_plan',
+  membershipStartedAt: 'pollazo_customer_membership_started_at',
+  membershipExpiresAt: 'pollazo_customer_membership_expires_at',
+  membershipUpdatedAt: 'pollazo_customer_membership_updated_at',
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -144,11 +177,32 @@ const parseStoredBoolean = (value: string | null): boolean => {
   return value === 'true';
 };
 
+const parseStoredMembershipStatus = (value: string | null): MembershipStatus => {
+  if (
+    value === 'pending' ||
+    value === 'active' ||
+    value === 'expired' ||
+    value === 'cancelled'
+  ) {
+    return value;
+  }
+
+  return 'none';
+};
+
 const persistText = (key: string, value: string) => {
   const cleanValue = value.trim();
 
   if (cleanValue) {
     localStorage.setItem(key, cleanValue);
+  } else {
+    localStorage.removeItem(key);
+  }
+};
+
+const persistNullableText = (key: string, value?: string | null) => {
+  if (value && value.trim()) {
+    localStorage.setItem(key, value.trim());
   } else {
     localStorage.removeItem(key);
   }
@@ -177,6 +231,14 @@ const persistBoolean = (key: string, value: boolean) => {
   localStorage.setItem(key, value.toString());
 };
 
+const persistMembershipStatus = (status: MembershipStatus) => {
+  if (status && status !== 'none') {
+    localStorage.setItem(STORAGE_KEYS.membershipStatus, status);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.membershipStatus);
+  }
+};
+
 const persistDeliveryAddresses = (addresses: DeliveryAddress[]) => {
   if (addresses.length > 0) {
     localStorage.setItem(STORAGE_KEYS.deliveryAddresses, JSON.stringify(addresses));
@@ -191,6 +253,14 @@ const isValidCoordinate = (value: unknown): value is number => {
 
 const isDeliveryAddressLabel = (value: unknown): value is DeliveryAddressLabel => {
   return value === 'Casa' || value === 'Trabajo' || value === 'Airbnb' || value === 'Otro';
+};
+
+const isMembershipActive = (membership?: CustomerMembership | null) => {
+  if (!membership || membership.status !== 'active') return false;
+
+  if (!membership.expires_at) return true;
+
+  return new Date(membership.expires_at).getTime() > Date.now();
 };
 
 const makeAddressId = (label: DeliveryAddressLabel) => {
@@ -341,6 +411,95 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
   const [selectedDeliveryAddressId, setSelectedDeliveryAddressId] = useState<string | null>(null);
 
+  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>('none');
+  const [membershipPlan, setMembershipPlan] = useState('');
+  const [membershipStartedAt, setMembershipStartedAt] = useState<string | null>(null);
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(null);
+  const [membershipUpdatedAt, setMembershipUpdatedAt] = useState<string | null>(null);
+  const [activeMembership, setActiveMembership] = useState<CustomerMembership | null>(null);
+
+  const applyMembershipState = useCallback(
+    (input: {
+      status?: MembershipStatus | null;
+      plan?: string | null;
+      startedAt?: string | null;
+      expiresAt?: string | null;
+      updatedAt?: string | null;
+      active?: CustomerMembership | null;
+    }) => {
+      const nextStatus = input.status || 'none';
+      const nextPlan = input.plan || '';
+      const nextStartedAt = input.startedAt || null;
+      const nextExpiresAt = input.expiresAt || null;
+      const nextUpdatedAt = input.updatedAt || null;
+
+      setMembershipStatus(nextStatus);
+      setMembershipPlan(nextPlan);
+      setMembershipStartedAt(nextStartedAt);
+      setMembershipExpiresAt(nextExpiresAt);
+      setMembershipUpdatedAt(nextUpdatedAt);
+      setActiveMembership(input.active || null);
+
+      persistMembershipStatus(nextStatus);
+      persistText(STORAGE_KEYS.membershipPlan, nextPlan);
+      persistNullableText(STORAGE_KEYS.membershipStartedAt, nextStartedAt);
+      persistNullableText(STORAGE_KEYS.membershipExpiresAt, nextExpiresAt);
+      persistNullableText(STORAGE_KEYS.membershipUpdatedAt, nextUpdatedAt);
+
+      const active = nextStatus === 'active' && (!nextExpiresAt || new Date(nextExpiresAt).getTime() > Date.now());
+
+      if (active) {
+        setIsVip(true);
+        persistBoolean(STORAGE_KEYS.isVip, true);
+      }
+    },
+    []
+  );
+
+  const refreshMembership = useCallback(async () => {
+    const normalizedPhone = normalizeEcuadorPhone(customerPhone);
+
+    if (!isSupabaseConfigured || !normalizedPhone) return;
+
+    const { data, error } = await supabase
+      .from('customer_memberships')
+      .select('*')
+      .eq('customer_phone', normalizedPhone)
+      .in('status', ['active', 'pending', 'expired', 'cancelled'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('No se pudo cargar membresía Pollazo Plus:', error);
+      return;
+    }
+
+    const memberships = (data || []) as CustomerMembership[];
+    const active = memberships.find(item => isMembershipActive(item)) || null;
+    const pending = memberships.find(item => item.status === 'pending') || null;
+    const latest = active || pending || memberships[0] || null;
+
+    if (!latest) {
+      applyMembershipState({
+        status: 'none',
+        plan: '',
+        startedAt: null,
+        expiresAt: null,
+        updatedAt: null,
+        active: null,
+      });
+      return;
+    }
+
+    applyMembershipState({
+      status: active ? 'active' : latest.status,
+      plan: latest.plan_name || 'Pollazo Plus',
+      startedAt: latest.started_at || null,
+      expiresAt: latest.expires_at || null,
+      updatedAt: latest.updated_at || latest.created_at || null,
+      active,
+    });
+  }, [applyMembershipState, customerPhone]);
+
   const applyDeliveryAddresses = useCallback(
     (addresses: DeliveryAddress[], selectedId?: string | null) => {
       const normalized = normalizeDeliveryAddressList(addresses);
@@ -412,6 +571,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
         persistBoolean(STORAGE_KEYS.phoneVerified, customer.phone_verified);
       }
 
+      if ('membership_status' in customer) {
+        applyMembershipState({
+          status: customer.membership_status || 'none',
+          plan: customer.membership_plan || '',
+          startedAt: customer.membership_started_at || null,
+          expiresAt: customer.membership_expires_at || null,
+          updatedAt: customer.membership_updated_at || null,
+          active: null,
+        });
+      }
+
       if ('lat' in customer) {
         const nextLat = isValidCoordinate(customer.lat) ? customer.lat : null;
         setCustomerLat(nextLat);
@@ -456,7 +626,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [applyDeliveryAddresses]
+    [applyDeliveryAddresses, applyMembershipState]
   );
 
   const fetchDeliveryAddressesFromSupabase = useCallback(
@@ -493,7 +663,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from('customers')
         .select(
-          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference'
+          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference, membership_status, membership_plan, membership_started_at, membership_expires_at, membership_updated_at'
         )
         .eq('phone', normalizedPhone)
         .maybeSingle();
@@ -505,8 +675,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       applyServerCustomer(data as CustomerSyncRow | null);
       void fetchDeliveryAddressesFromSupabase(normalizedPhone);
+      void refreshMembership();
     },
-    [applyServerCustomer, fetchDeliveryAddressesFromSupabase]
+    [applyServerCustomer, fetchDeliveryAddressesFromSupabase, refreshMembership]
   );
 
   const syncCustomerToSupabase = useCallback(
@@ -554,11 +725,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
         payload.phone_verified = data.phoneVerified;
       }
 
+      if (data.membershipStatus !== undefined) {
+        payload.membership_status = data.membershipStatus || 'none';
+      }
+
+      if (data.membershipPlan !== undefined) {
+        payload.membership_plan = data.membershipPlan || null;
+      }
+
+      if (data.membershipStartedAt !== undefined) {
+        payload.membership_started_at = data.membershipStartedAt || null;
+      }
+
+      if (data.membershipExpiresAt !== undefined) {
+        payload.membership_expires_at = data.membershipExpiresAt || null;
+      }
+
+      if (data.membershipUpdatedAt !== undefined) {
+        payload.membership_updated_at = data.membershipUpdatedAt || null;
+      }
+
       const { data: savedCustomer, error } = await supabase
         .from('customers')
         .upsert(payload, { onConflict: 'phone' })
         .select(
-          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference'
+          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference, membership_status, membership_plan, membership_started_at, membership_expires_at, membership_updated_at'
         )
         .maybeSingle();
 
@@ -624,6 +815,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       localStorage.getItem(STORAGE_KEYS.phoneVerified)
     );
 
+    const storedMembershipStatus = parseStoredMembershipStatus(
+      localStorage.getItem(STORAGE_KEYS.membershipStatus)
+    );
+    const storedMembershipPlan = localStorage.getItem(STORAGE_KEYS.membershipPlan) || '';
+    const storedMembershipStartedAt =
+      localStorage.getItem(STORAGE_KEYS.membershipStartedAt) || null;
+    const storedMembershipExpiresAt =
+      localStorage.getItem(STORAGE_KEYS.membershipExpiresAt) || null;
+    const storedMembershipUpdatedAt =
+      localStorage.getItem(STORAGE_KEYS.membershipUpdatedAt) || null;
+
     if (normalizedPhone) {
       setCustomerPhone(normalizedPhone);
       localStorage.setItem(STORAGE_KEYS.phone, normalizedPhone);
@@ -639,8 +841,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerExp(storedExp);
     setIsVip(storedVip);
     setPhoneVerified(storedPhoneVerified);
+
+    applyMembershipState({
+      status: storedMembershipStatus,
+      plan: storedMembershipPlan,
+      startedAt: storedMembershipStartedAt,
+      expiresAt: storedMembershipExpiresAt,
+      updatedAt: storedMembershipUpdatedAt,
+      active: null,
+    });
+
     applyDeliveryAddresses(storedAddresses, storedSelectedAddressId);
-  }, [applyDeliveryAddresses, fetchCustomerFromSupabase]);
+  }, [applyDeliveryAddresses, applyMembershipState, fetchCustomerFromSupabase]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !customerPhone) {
@@ -658,6 +870,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
           if (nextPhone === customerPhone) {
             applyServerCustomer(nextCustomer);
+            void refreshMembership();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customer_memberships' },
+        payload => {
+          const nextMembership = payload.new as CustomerMembership | null;
+          const nextPhone = normalizeEcuadorPhone(nextMembership?.customer_phone || '');
+
+          if (nextPhone === customerPhone) {
+            void refreshMembership();
           }
         }
       )
@@ -666,7 +891,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [applyServerCustomer, customerPhone]);
+  }, [applyServerCustomer, customerPhone, refreshMembership]);
 
   const setUserData = useCallback(
     (data: SetUserDataInput) => {
@@ -718,6 +943,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
         persistBoolean(STORAGE_KEYS.isVip, data.isVip);
       }
 
+      if (
+        data.membershipStatus !== undefined ||
+        data.membershipPlan !== undefined ||
+        data.membershipStartedAt !== undefined ||
+        data.membershipExpiresAt !== undefined ||
+        data.membershipUpdatedAt !== undefined
+      ) {
+        applyMembershipState({
+          status: data.membershipStatus ?? membershipStatus,
+          plan: data.membershipPlan ?? membershipPlan,
+          startedAt: data.membershipStartedAt ?? membershipStartedAt,
+          expiresAt: data.membershipExpiresAt ?? membershipExpiresAt,
+          updatedAt: data.membershipUpdatedAt ?? membershipUpdatedAt,
+          active: activeMembership,
+        });
+      }
+
       if (data.deliveryAddresses !== undefined) {
         const nextSelectedId =
           data.selectedDeliveryAddressId ?? selectedDeliveryAddressId;
@@ -765,12 +1007,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     },
     [
+      activeMembership,
       applyDeliveryAddresses,
+      applyMembershipState,
       customerAvatar,
       customerName,
       customerPhone,
       customerReference,
       deliveryAddresses,
+      membershipExpiresAt,
+      membershipPlan,
+      membershipStartedAt,
+      membershipStatus,
+      membershipUpdatedAt,
       phoneVerified,
       selectedDeliveryAddressId,
       syncCustomerToSupabase,
@@ -991,6 +1240,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setPhoneVerified(false);
     setDeliveryAddresses([]);
     setSelectedDeliveryAddressId(null);
+
+    setMembershipStatus('none');
+    setMembershipPlan('');
+    setMembershipStartedAt(null);
+    setMembershipExpiresAt(null);
+    setMembershipUpdatedAt(null);
+    setActiveMembership(null);
   }, []);
 
   const isLoggedIn = useMemo(() => {
@@ -1019,6 +1275,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     );
   }, [deliveryAddresses, selectedDeliveryAddressId]);
 
+  const hasPollazoPlus = useMemo(() => {
+    if (isMembershipActive(activeMembership)) return true;
+
+    if (membershipStatus !== 'active') return false;
+
+    if (!membershipExpiresAt) return true;
+
+    return new Date(membershipExpiresAt).getTime() > Date.now();
+  }, [activeMembership, membershipExpiresAt, membershipStatus]);
+
+  const pollazoPlusExpiresAt = useMemo(() => {
+    return activeMembership?.expires_at || membershipExpiresAt || null;
+  }, [activeMembership, membershipExpiresAt]);
+
   return (
     <UserContext.Provider
       value={{
@@ -1035,6 +1305,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isLoggedIn,
         hasDeliveryLocation,
         phoneDisplay,
+
+        membershipStatus,
+        membershipPlan,
+        membershipStartedAt,
+        membershipExpiresAt,
+        membershipUpdatedAt,
+        activeMembership,
+        hasPollazoPlus,
+        pollazoPlusExpiresAt,
+        refreshMembership,
+
         deliveryAddresses,
         selectedDeliveryAddressId,
         selectedDeliveryAddress,
