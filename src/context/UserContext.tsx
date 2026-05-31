@@ -231,7 +231,10 @@ const normalizeDeliveryAddress = (
       'created_at' in input && input.created_at
         ? input.created_at
         : now,
-    updated_at: now,
+    updated_at:
+      'updated_at' in input && input.updated_at
+        ? input.updated_at
+        : now,
   };
 };
 
@@ -281,6 +284,49 @@ const normalizeDeliveryAddressList = (value: unknown): DeliveryAddress[] => {
     .filter((item): item is DeliveryAddress => Boolean(item));
 };
 
+const mergeDeliveryAddressLists = (
+  currentAddresses: DeliveryAddress[],
+  incomingAddresses: DeliveryAddress[]
+): DeliveryAddress[] => {
+  const map = new Map<string, DeliveryAddress>();
+
+  currentAddresses.forEach(address => {
+    map.set(address.id, address);
+  });
+
+  incomingAddresses.forEach(address => {
+    map.set(address.id, {
+      ...map.get(address.id),
+      ...address,
+    });
+  });
+
+  return Array.from(map.values())
+    .filter(address => address.reference.trim().length > 0)
+    .slice(0, 6);
+};
+
+const getStoredSelectedAddressId = () => {
+  return localStorage.getItem(STORAGE_KEYS.selectedDeliveryAddressId) || null;
+};
+
+const getSelectedAddressId = (
+  addresses: DeliveryAddress[],
+  requestedId?: string | null
+): string | null => {
+  if (requestedId && addresses.some(address => address.id === requestedId)) {
+    return requestedId;
+  }
+
+  const defaultAddress = addresses.find(address => address.is_default);
+
+  if (defaultAddress) {
+    return defaultAddress.id;
+  }
+
+  return addresses[0]?.id || null;
+};
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -298,16 +344,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const applyDeliveryAddresses = useCallback(
     (addresses: DeliveryAddress[], selectedId?: string | null) => {
       const normalized = normalizeDeliveryAddressList(addresses);
-      const validSelectedId =
-        selectedId && normalized.some(address => address.id === selectedId)
-          ? selectedId
-          : null;
+      const nextSelectedId = getSelectedAddressId(normalized, selectedId);
+      const selectedAddress =
+        normalized.find(address => address.id === nextSelectedId) || null;
 
-      setDeliveryAddresses(normalized);
-      setSelectedDeliveryAddressId(validSelectedId);
+      const nextAddresses = normalized.map(address => ({
+        ...address,
+        is_default: address.id === nextSelectedId,
+      }));
 
-      persistDeliveryAddresses(normalized);
-      persistText(STORAGE_KEYS.selectedDeliveryAddressId, validSelectedId || '');
+      setDeliveryAddresses(nextAddresses);
+      setSelectedDeliveryAddressId(nextSelectedId);
+
+      persistDeliveryAddresses(nextAddresses);
+      persistText(STORAGE_KEYS.selectedDeliveryAddressId, nextSelectedId || '');
+
+      if (selectedAddress) {
+        setCustomerLat(selectedAddress.lat);
+        setCustomerLng(selectedAddress.lng);
+        setCustomerReference(selectedAddress.reference);
+
+        persistNumber(STORAGE_KEYS.lat, selectedAddress.lat);
+        persistNumber(STORAGE_KEYS.lng, selectedAddress.lng);
+        persistText(STORAGE_KEYS.reference, selectedAddress.reference);
+      }
     },
     []
   );
@@ -375,10 +435,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if ('delivery_addresses' in customer) {
-        applyDeliveryAddresses(
-          normalizeDeliveryAddressList(customer.delivery_addresses || []),
-          customer.selected_delivery_address_id || null
+        const serverAddresses = normalizeDeliveryAddressList(customer.delivery_addresses || []);
+        const localAddresses = parseStoredDeliveryAddresses(
+          localStorage.getItem(STORAGE_KEYS.deliveryAddresses)
         );
+
+        if (serverAddresses.length > 0) {
+          const mergedAddresses = mergeDeliveryAddressLists(localAddresses, serverAddresses);
+
+          applyDeliveryAddresses(
+            mergedAddresses,
+            customer.selected_delivery_address_id || getStoredSelectedAddressId()
+          );
+
+          return;
+        }
+
+        if (localAddresses.length > 0) {
+          applyDeliveryAddresses(localAddresses, getStoredSelectedAddressId());
+        }
       }
     },
     [applyDeliveryAddresses]
@@ -644,10 +719,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.deliveryAddresses !== undefined) {
-        applyDeliveryAddresses(
-          data.deliveryAddresses,
-          data.selectedDeliveryAddressId ?? selectedDeliveryAddressId
-        );
+        const nextSelectedId =
+          data.selectedDeliveryAddressId ?? selectedDeliveryAddressId;
+
+        applyDeliveryAddresses(data.deliveryAddresses, nextSelectedId);
       }
 
       if (data.selectedDeliveryAddressId !== undefined && data.deliveryAddresses === undefined) {
@@ -710,9 +785,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (!address) return null;
 
-      const nextAddressesBase = deliveryAddresses.some(current => current.id === address.id)
-        ? deliveryAddresses.map(current => (current.id === address.id ? address : current))
-        : [address, ...deliveryAddresses];
+      const storedAddresses = parseStoredDeliveryAddresses(
+        localStorage.getItem(STORAGE_KEYS.deliveryAddresses)
+      );
+
+      const sourceAddresses = mergeDeliveryAddressLists(storedAddresses, deliveryAddresses);
+
+      const nextAddressesBase = sourceAddresses.some(current => current.id === address.id)
+        ? sourceAddresses.map(current => (current.id === address.id ? address : current))
+        : [address, ...sourceAddresses];
 
       const nextAddresses = nextAddressesBase
         .map(current => ({
@@ -764,12 +845,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const selectDeliveryAddress = useCallback(
     (addressId: string) => {
-      const address = deliveryAddresses.find(current => current.id === addressId);
+      const storedAddresses = parseStoredDeliveryAddresses(
+        localStorage.getItem(STORAGE_KEYS.deliveryAddresses)
+      );
+
+      const sourceAddresses = mergeDeliveryAddressLists(storedAddresses, deliveryAddresses);
+      const address = sourceAddresses.find(current => current.id === addressId);
 
       if (!address) return;
 
       const normalizedPhone = normalizeEcuadorPhone(customerPhone);
-      const nextAddresses = deliveryAddresses.map(current => ({
+      const nextAddresses = sourceAddresses.map(current => ({
         ...current,
         is_default: current.id === address.id,
       }));
@@ -815,11 +901,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const deleteDeliveryAddress = useCallback(
     (addressId: string) => {
       const normalizedPhone = normalizeEcuadorPhone(customerPhone);
-      const nextAddresses = deliveryAddresses.filter(address => address.id !== addressId);
-      const nextSelectedId =
+
+      const storedAddresses = parseStoredDeliveryAddresses(
+        localStorage.getItem(STORAGE_KEYS.deliveryAddresses)
+      );
+
+      const sourceAddresses = mergeDeliveryAddressLists(storedAddresses, deliveryAddresses);
+      const nextAddressesRaw = sourceAddresses.filter(address => address.id !== addressId);
+
+      const nextSelectedAddress =
         selectedDeliveryAddressId === addressId
-          ? null
-          : selectedDeliveryAddressId;
+          ? nextAddressesRaw[0] || null
+          : nextAddressesRaw.find(address => address.id === selectedDeliveryAddressId) ||
+            nextAddressesRaw[0] ||
+            null;
+
+      const nextSelectedId = nextSelectedAddress?.id || null;
+
+      const nextAddresses = nextAddressesRaw.map(address => ({
+        ...address,
+        is_default: address.id === nextSelectedId,
+      }));
 
       setDeliveryAddresses(nextAddresses);
       setSelectedDeliveryAddressId(nextSelectedId);
@@ -827,7 +929,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
       persistDeliveryAddresses(nextAddresses);
       persistText(STORAGE_KEYS.selectedDeliveryAddressId, nextSelectedId || '');
 
+      if (nextSelectedAddress) {
+        setCustomerLat(nextSelectedAddress.lat);
+        setCustomerLng(nextSelectedAddress.lng);
+        setCustomerReference(nextSelectedAddress.reference);
+
+        persistNumber(STORAGE_KEYS.lat, nextSelectedAddress.lat);
+        persistNumber(STORAGE_KEYS.lng, nextSelectedAddress.lng);
+        persistText(STORAGE_KEYS.reference, nextSelectedAddress.reference);
+      } else {
+        setCustomerLat(null);
+        setCustomerLng(null);
+        setCustomerReference('');
+
+        persistNumber(STORAGE_KEYS.lat, null);
+        persistNumber(STORAGE_KEYS.lng, null);
+        persistText(STORAGE_KEYS.reference, '');
+      }
+
       if (normalizedPhone) {
+        if (nextSelectedAddress) {
+          void syncCustomerToSupabase(
+            {
+              phone: normalizedPhone,
+              lat: nextSelectedAddress.lat,
+              lng: nextSelectedAddress.lng,
+              reference: nextSelectedAddress.reference,
+            },
+            normalizedPhone
+          );
+        }
+
         void syncDeliveryAddressesToSupabase(
           nextAddresses,
           nextSelectedId,
@@ -839,6 +971,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       customerPhone,
       deliveryAddresses,
       selectedDeliveryAddressId,
+      syncCustomerToSupabase,
       syncDeliveryAddressesToSupabase,
     ]
   );
