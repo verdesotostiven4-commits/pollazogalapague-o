@@ -6,6 +6,7 @@ import {
   ShoppingBag,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Banknote,
   QrCode,
   Building,
@@ -304,7 +305,7 @@ export default function CartScreen({
   } = useUser();
 
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showPaymentHint, setShowPaymentHint] = useState(true);
+  const [showAllItems, setShowAllItems] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<SupportedPaymentMethod | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
@@ -315,6 +316,7 @@ export default function CartScreen({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+  const confirmSectionRef = useRef<HTMLDivElement>(null);
 
   const subtotal = toMoney(total);
   const deliveryFee = deliveryFeeOf(subtotal);
@@ -345,6 +347,21 @@ export default function CartScreen({
       : 'Registrar pedido'
     : 'Registrar y ver pago';
 
+  const visibleItems =
+    showAllItems || items.length <= 3
+      ? items
+      : items.slice(0, 3);
+
+  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
+
+  const pendingActionText = !hasProfile || !hasLocation
+    ? 'Completa tus datos de entrega'
+    : paymentMethod === 'transferencia' && !selectedBank
+      ? 'Elige tu banco'
+      : hasConsult
+        ? 'Elige confirmar precio / efectivo'
+        : 'Elige tu forma de pago';
+
   const showNotice = (message: string) => {
     setActionNotice(message);
     window.setTimeout(() => setActionNotice(null), 2800);
@@ -362,6 +379,13 @@ export default function CartScreen({
 
   const scrollToPayment = () => {
     paymentSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
+  const scrollToConfirm = () => {
+    confirmSectionRef.current?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     });
@@ -418,6 +442,10 @@ export default function CartScreen({
       setActionNotice(null);
       clearPaymentStorage();
     }
+
+    if (items.length <= 3) {
+      setShowAllItems(false);
+    }
   }, [items.length]);
 
   const handlePaymentMethodClick = (method: SupportedPaymentMethod) => {
@@ -442,7 +470,6 @@ export default function CartScreen({
     }
 
     setPaymentMethod(method);
-    setShowPaymentHint(false);
 
     if (method === 'transferencia') {
       if (paymentMethod !== 'transferencia') {
@@ -529,6 +556,10 @@ export default function CartScreen({
 
     setSelectedBank(bank);
     triggerDoubleTap();
+
+    window.setTimeout(() => {
+      scrollToConfirm();
+    }, 180);
   };
 
   const handleCheckout = () => {
@@ -617,7 +648,7 @@ export default function CartScreen({
     const blockedByConsult =
       (method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment;
 
-    const disabled = lockedOther || blockedByConsult;
+    const visuallyDisabled = lockedOther || blockedByConsult;
 
     return (
       <button
@@ -634,7 +665,7 @@ export default function CartScreen({
         disabled={lockedOther}
         className={`relative flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left active:scale-[0.98] ${
           active ? activeClass : defaultClass
-        } ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}
+        } ${visuallyDisabled ? 'opacity-45 cursor-not-allowed' : ''}`}
       >
         {isOrderSaved && active && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center border-2 border-white shadow-sm">
@@ -694,8 +725,25 @@ export default function CartScreen({
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       <div
         ref={scrollRef}
-        className="flex-1 px-4 pt-4 pb-32 space-y-4 overflow-y-auto scrollbar-hide"
+        className="flex-1 px-4 pt-4 pb-52 space-y-4 overflow-y-auto overscroll-contain scrollbar-hide scroll-pb-52"
       >
+        <div className="bg-white border border-orange-100 rounded-[28px] p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+              <Sparkles size={19} />
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] leading-none">
+                Pedido en 4 pasos
+              </p>
+              <p className="text-[11px] font-bold text-slate-500 leading-relaxed mt-1.5">
+                Revisa productos, confirma entrega, elige pago y registra tu pedido.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {isOrderSaved && (
           <div className="bg-slate-900 text-white rounded-[26px] p-4 flex items-center gap-3 shadow-lg animate-in fade-in duration-300">
             <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -722,7 +770,7 @@ export default function CartScreen({
           />
 
           <div className="space-y-2.5 pt-1">
-            {items.map(item => {
+            {visibleItems.map(item => {
               const unitPrice = itemUnitPrice(item);
               const itemSubtotal = unitPrice > 0 ? (unitPrice * item.quantity).toFixed(2) : null;
               const customPrice = item.product.custom_price;
@@ -815,6 +863,28 @@ export default function CartScreen({
             })}
           </div>
 
+          {hiddenItemsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllItems(true)}
+              className="w-full bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+            >
+              Ver {hiddenItemsCount} producto{hiddenItemsCount !== 1 ? 's' : ''} más
+              <ChevronDown size={14} />
+            </button>
+          )}
+
+          {showAllItems && items.length > 3 && (
+            <button
+              type="button"
+              onClick={() => setShowAllItems(false)}
+              className="w-full bg-gray-50 border border-gray-100 text-gray-400 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+            >
+              Mostrar menos
+              <ChevronUp size={14} />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleClearRequest}
@@ -868,38 +938,51 @@ export default function CartScreen({
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <MapPin size={17} />
+            <>
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <MapPin size={17} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
+                      Dirección de entrega
+                    </span>
+                    <p className="text-xs font-bold text-gray-700 line-clamp-2">
+                      {customerReference || 'Ubicación en Puerto Ayora'}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="min-w-0">
-                  <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">
-                    Dirección de entrega
-                  </span>
-                  <p className="text-xs font-bold text-gray-700 line-clamp-2">
-                    {customerReference || 'Ubicación en Puerto Ayora'}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (blockIfOrderSaved()) return;
+                    onRequireLogin('change_location');
+                  }}
+                  disabled={isOrderSaved}
+                  className={`text-[11px] font-black px-3 py-2 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
+                    isOrderSaved
+                      ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                      : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
+                  }`}
+                >
+                  Cambiar
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (blockIfOrderSaved()) return;
-                  onRequireLogin('change_location');
-                }}
-                disabled={isOrderSaved}
-                className={`text-[11px] font-black px-3 py-2 rounded-xl border transition-all flex-shrink-0 shadow-sm ${
-                  isOrderSaved
-                    ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
-                    : 'bg-white text-orange-600 border-gray-200/80 active:scale-95'
-                }`}
-              >
-                Cambiar
-              </button>
-            </div>
+              {!paymentMethod && !isOrderSaved && (
+                <button
+                  type="button"
+                  onClick={scrollToPayment}
+                  className="w-full bg-slate-950 text-white rounded-2xl py-3.5 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
+                >
+                  Siguiente: elegir pago
+                  <ChevronDown size={15} className="animate-bounce" />
+                </button>
+              )}
+            </>
           )}
         </section>
 
@@ -916,7 +999,7 @@ export default function CartScreen({
 
         <section
           ref={paymentSectionRef}
-          className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3"
+          className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3 scroll-mt-4"
         >
           <StepTitle
             step={3}
@@ -929,7 +1012,7 @@ export default function CartScreen({
                 : 'Elige cómo quieres pagar'
             }
             icon={<Wallet size={20} />}
-            done={Boolean(paymentMethod)}
+            done={isPaymentReady}
           />
 
           {hasConsult && (
@@ -1134,9 +1217,23 @@ export default function CartScreen({
               )}
             </div>
           )}
+
+          {paymentMethod && (
+            <button
+              type="button"
+              onClick={scrollToConfirm}
+              className="w-full bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+            >
+              Ir al resumen final
+              <ChevronDown size={14} />
+            </button>
+          )}
         </section>
 
-        <section className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3">
+        <section
+          ref={confirmSectionRef}
+          className="bg-white rounded-[30px] border border-gray-100 p-4 shadow-sm space-y-3 scroll-mt-4"
+        >
           <StepTitle
             step={4}
             title="Confirmar"
@@ -1199,21 +1296,6 @@ export default function CartScreen({
           </div>
         </section>
       </div>
-
-      {showPaymentHint && !paymentMethod && items.length > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            setShowPaymentHint(false);
-            scrollToPayment();
-          }}
-          className="absolute bottom-[102px] left-1/2 -translate-x-1/2 animate-bounce text-orange-500 z-20 cursor-pointer active:scale-90 transition-transform bg-white border border-orange-100 shadow-lg rounded-full px-4 py-2 flex items-center gap-1.5"
-          aria-label="Bajar a método de pago"
-        >
-          <span className="text-[9px] font-black uppercase">Elegir pago</span>
-          <ChevronDown size={18} strokeWidth={3} />
-        </button>
-      )}
 
       <div className="absolute left-0 right-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-white/95 backdrop-blur-xl border-t border-orange-100 shadow-[0_-10px_35px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -1281,9 +1363,7 @@ export default function CartScreen({
             className="w-full flex items-center justify-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-black p-4 rounded-2xl text-center uppercase tracking-tight active:scale-[0.98] transition-all"
           >
             <AlertCircle size={16} />
-            {hasConsult
-              ? 'Elige confirmar precio / efectivo'
-              : 'Elige tu forma de pago'}
+            {pendingActionText}
           </button>
         )}
       </div>
