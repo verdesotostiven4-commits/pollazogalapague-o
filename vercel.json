@@ -4,5 +4,11 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/check-memberships",
+      "schedule": "0 13 * * *"
+    }
   ]
 }
