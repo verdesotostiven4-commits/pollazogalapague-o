@@ -84,6 +84,7 @@ class ErrorBoundary extends Component<
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 const FINAL_TRACKING_MINUTES = 20;
+const FINAL_TRACKING_AUTO_CLOSE_MS = 12000;
 
 const ACTIVE_TRACKING_STATUSES: OrderStatus[] = [
   'Por Confirmar',
@@ -366,7 +367,36 @@ function AppShell() {
     return hasValidDeliveryLocation(customerLat, customerLng, customerReference);
   }, [customerLat, customerLng, customerReference]);
 
-  const hasTrackableOrder = useMemo(() => {
+    const latestTrackableOrder = useMemo(() => {
+    const cleanUserPhone = cleanPhoneTail(customerPhone);
+
+    if (!cleanUserPhone) return null;
+
+    const matches =
+      orders
+        ?.filter(order => {
+          const cleanOrderPhone = cleanPhoneTail(order.customer_phone);
+          const isSameCustomer = cleanOrderPhone === cleanUserPhone;
+          const isRecent = isRecentTrackableOrder(order.created_at);
+          const isActiveStatus = ACTIVE_TRACKING_STATUSES.includes(order.status);
+          const isFinalStatus = FINAL_TRACKING_STATUSES.includes(order.status);
+          const isFreshFinalStatus = isFinalStatus
+            ? isRecentlyFinalizedOrder(order.updated_at, order.created_at)
+            : false;
+
+          return isSameCustomer && isRecent && (isActiveStatus || isFreshFinalStatus);
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || '').getTime();
+          const dateB = new Date(b.updated_at || b.created_at || '').getTime();
+
+          return dateB - dateA;
+        }) || [];
+
+    return matches[0] || null;
+  }, [customerPhone, orders]);
+
+  const hasTrackableOrder = Boolean(latestTrackableOrder);
     const cleanUserPhone = cleanPhoneTail(customerPhone);
 
     if (!cleanUserPhone) return false;
@@ -392,6 +422,41 @@ function AppShell() {
       setShowTracking(false);
     }
   }, [hasTrackableOrder, showTracking]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpenTracking = params.get('tracking') === '1';
+
+    if (!shouldOpenTracking) return;
+
+    setScreen('home');
+    setShowTracking(true);
+    setShowLoginModal(false);
+    setIsChangingLocation(false);
+    setPendingOrder(false);
+
+    params.delete('tracking');
+    params.delete('orderCode');
+    params.delete('status');
+
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+
+    window.history.replaceState({}, '', nextUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!showTracking || !latestTrackableOrder) return undefined;
+
+    const isFinalStatus = FINAL_TRACKING_STATUSES.includes(latestTrackableOrder.status);
+
+    if (!isFinalStatus) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setShowTracking(false);
+    }, FINAL_TRACKING_AUTO_CLOSE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [latestTrackableOrder, showTracking]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -775,7 +840,9 @@ export default function App() {
 
     const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
 
-    return isPWA || isDismissed;
+    const shouldOpenTracking = new URLSearchParams(window.location.search).get('tracking') === '1';
+
+return isPWA || isDismissed || shouldOpenTracking;
   });
 
   useEffect(() => {
