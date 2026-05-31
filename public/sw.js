@@ -1,7 +1,23 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v34';
+const CACHE_VERSION = 'pollazo-cache-clean-v35';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
+
+const STATUS_ICONS = {
+  Recibido: '/notification-confirmed.png',
+  Preparando: '/notification-preparing.png',
+  Enviado: '/notification-sent.png',
+  Entregado: '/notification-delivered.png',
+  Cancelado: '/notification-cancelled.png',
+};
+
+const getIconByStatus = status => {
+  if (status && STATUS_ICONS[status]) {
+    return STATUS_ICONS[status];
+  }
+
+  return DEFAULT_ICON;
+};
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -71,12 +87,16 @@ self.addEventListener('push', event => {
     }
   }
 
+  const statusIcon = getIconByStatus(payload.status);
+  const finalIcon = payload.icon || statusIcon;
+  const finalBadge = payload.badge || statusIcon;
+
   const title = payload.title || 'La Casa del Pollazo';
 
   const options = {
     body: payload.body || 'Tu pedido fue actualizado.',
-    icon: payload.icon || DEFAULT_ICON,
-    badge: payload.badge || DEFAULT_BADGE,
+    icon: finalIcon,
+    badge: finalBadge,
     tag: payload.tag || 'pollazo-order-update',
     data: {
       url: payload.url || '/?tracking=1',
