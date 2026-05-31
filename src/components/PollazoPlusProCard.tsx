@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertCircle,
   Bell,
@@ -30,6 +30,7 @@ const STORAGE_KEYS = {
   lastCelebrated: 'pollazo_plus_last_celebrated_key',
   infoVisits: 'pollazo_plus_info_visits',
   lastPromoShown: 'pollazo_plus_last_promo_shown',
+  openPlusSignal: 'pollazo_open_plus',
 };
 
 const formatDate = (value?: string | null) => {
@@ -216,11 +217,52 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
   const expiresAt = activeMembership?.expires_at || pollazoPlusExpiresAt;
   const expiresLabel = formatDate(expiresAt);
   const daysLeft = getDaysLeft(expiresAt);
+  const isExpiredOrCancelled =
+    membershipStatus === 'expired' || membershipStatus === 'cancelled';
+  const isExpiringSoon =
+    hasPollazoPlus && typeof daysLeft === 'number' && daysLeft <= 3;
 
   const celebrationKey = useMemo(() => {
     if (!hasPollazoPlus) return '';
     return `${activeMembership?.id || 'plus'}-${expiresAt || 'sin-fecha'}`;
   }, [activeMembership?.id, expiresAt, hasPollazoPlus]);
+
+  const openDetailsFromExternalSignal = useCallback(() => {
+    sessionStorage.removeItem(STORAGE_KEYS.openPlusSignal);
+    setNotice('');
+    setShowEntryPromo(false);
+    setShowDetails(true);
+
+    window.setTimeout(() => {
+      refreshMembership().catch(() => undefined);
+    }, 150);
+  }, [refreshMembership]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpenFromUrl =
+      params.get('plus') === '1' ||
+      params.has('membershipReminder') ||
+      params.has('membershipId');
+    const shouldOpenFromSession =
+      sessionStorage.getItem(STORAGE_KEYS.openPlusSignal) === '1';
+
+    if (shouldOpenFromUrl || shouldOpenFromSession) {
+      openDetailsFromExternalSignal();
+    }
+  }, [openDetailsFromExternalSignal]);
+
+  useEffect(() => {
+    const handleOpenPlus = () => {
+      openDetailsFromExternalSignal();
+    };
+
+    window.addEventListener('pollazo:open-plus', handleOpenPlus);
+
+    return () => {
+      window.removeEventListener('pollazo:open-plus', handleOpenPlus);
+    };
+  }, [openDetailsFromExternalSignal]);
 
   useEffect(() => {
     if (!hasPollazoPlus || !celebrationKey) return;
@@ -239,6 +281,12 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
   useEffect(() => {
     if (hasPollazoPlus || membershipStatus === 'pending') return;
+
+    const hasExternalSignal =
+      sessionStorage.getItem(STORAGE_KEYS.openPlusSignal) === '1' ||
+      new URLSearchParams(window.location.search).get('plus') === '1';
+
+    if (hasExternalSignal) return;
 
     const visits = Number(localStorage.getItem(STORAGE_KEYS.infoVisits) || '0') + 1;
     const lastShown = Number(localStorage.getItem(STORAGE_KEYS.lastPromoShown) || '0');
@@ -274,14 +322,17 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
         customerPhone,
         customerName,
         paymentMethod: 'tarjeta',
-        notes:
-          'Solicitud Pollazo Plus desde modal profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.',
+        notes: isExpiredOrCancelled
+          ? 'Solicitud de renovación Pollazo Plus desde modal profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.'
+          : 'Solicitud Pollazo Plus desde modal profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.',
       });
 
       await refreshMembership();
 
       setNotice(
-        'Solicitud enviada. Por ahora el negocio podrá activar tu Plus manualmente mientras se integra pago con tarjeta.'
+        isExpiredOrCancelled
+          ? 'Solicitud de renovación enviada. Por ahora el negocio podrá reactivar tu Plus manualmente mientras se integra pago con tarjeta.'
+          : 'Solicitud enviada. Por ahora el negocio podrá activar tu Plus manualmente mientras se integra pago con tarjeta.'
       );
     } catch (error) {
       console.error('No se pudo solicitar Pollazo Plus:', error);
@@ -296,6 +347,11 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
     setShowEntryPromo(false);
     setShowDetails(true);
   };
+
+  const subscribeVerb = isExpiredOrCancelled ? 'Renovar' : 'Suscríbete';
+  const subscribeButtonLabel = isExpiredOrCancelled
+    ? 'Renovar Plus'
+    : 'Suscribirme a Plus';
 
   return (
     <>
@@ -361,6 +417,12 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 <span className="bg-green-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase">
                   Activo
                 </span>
+
+                {isExpiringSoon && (
+                  <span className="bg-orange-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase animate-pulse">
+                    Vence pronto
+                  </span>
+                )}
               </div>
 
               <h3 className="text-xl font-black text-gray-950 uppercase italic leading-none mt-2">
@@ -371,22 +433,19 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 Tu membresía está lista para aplicar delivery gratis, prioridad y sorpresas en pedidos seleccionados.
               </p>
 
+              {isExpiringSoon && (
+                <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3 flex gap-2">
+                  <AlertCircle size={17} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+                    Tu Plus vence {daysLeft === 0 ? 'hoy' : `en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}. Renueva para mantener delivery gratis.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <LightBenefit
-                  icon={<Truck size={17} />}
-                  title="Delivery"
-                  desc="Gratis"
-                />
-                <LightBenefit
-                  icon={<Gift size={17} />}
-                  title="Regalos"
-                  desc="Sorpresa"
-                />
-                <LightBenefit
-                  icon={<Sparkles size={17} />}
-                  title="Prioridad"
-                  desc="VIP"
-                />
+                <LightBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
+                <LightBenefit icon={<Gift size={17} />} title="Regalos" desc="Sorpresa" />
+                <LightBenefit icon={<Sparkles size={17} />} title="Prioridad" desc="VIP" />
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-3">
@@ -462,35 +521,25 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
               <div className="flex-1">
                 <p className="text-[9px] font-black text-yellow-300 uppercase tracking-[0.28em]">
-                  Hazte Plus
+                  {isExpiredOrCancelled ? 'Vuelve a ser Plus' : 'Hazte Plus'}
                 </p>
 
                 <h3 className="text-2xl font-black uppercase italic leading-none mt-2">
-                  Te conviene ser Pollazo Plus
+                  {isExpiredOrCancelled ? 'Renueva tus beneficios' : 'Te conviene ser Pollazo Plus'}
                 </h3>
 
                 <p className="text-[11px] font-bold text-white/55 leading-relaxed mt-2">
-                  Disfruta envíos gratis ilimitados, prioridad y sorpresas exclusivas en tus pedidos.
+                  {isExpiredOrCancelled
+                    ? 'Recupera envíos gratis ilimitados, prioridad y sorpresas exclusivas en tus pedidos.'
+                    : 'Disfruta envíos gratis ilimitados, prioridad y sorpresas exclusivas en tus pedidos.'}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-              <BenefitPill
-                icon={<Truck size={17} />}
-                title="Envíos gratis"
-                desc="Durante el mes"
-              />
-              <BenefitPill
-                icon={<Gift size={17} />}
-                title="Regalos VIP"
-                desc="Según stock"
-              />
-              <BenefitPill
-                icon={<Star size={17} />}
-                title="Exclusivos"
-                desc="Promos Plus"
-              />
+              <BenefitPill icon={<Truck size={17} />} title="Envíos gratis" desc="Durante el mes" />
+              <BenefitPill icon={<Gift size={17} />} title="Regalos VIP" desc="Según stock" />
+              <BenefitPill icon={<Star size={17} />} title="Exclusivos" desc="Promos Plus" />
             </div>
 
             <div className="mt-5 flex items-center justify-between gap-3">
@@ -512,7 +561,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 }}
                 className="bg-white text-slate-950 rounded-[22px] px-5 py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center gap-2"
               >
-                Suscríbete
+                {subscribeVerb}
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -553,7 +602,11 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 </p>
 
                 <h2 className="text-3xl font-black uppercase italic leading-none mt-2">
-                  Suscríbete a Pollazo Plus
+                  {hasPollazoPlus
+                    ? 'Tus beneficios Pollazo Plus'
+                    : isExpiredOrCancelled
+                      ? 'Renueva Pollazo Plus'
+                      : 'Suscríbete a Pollazo Plus'}
                 </h2>
 
                 <p className="text-[12px] font-bold text-white/55 leading-relaxed mt-3">
@@ -564,26 +617,10 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
             <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(92vh-218px)]">
               <div className="grid grid-cols-2 gap-3">
-                <LightBenefit
-                  icon={<Truck size={18} />}
-                  title="Envíos gratis"
-                  desc="A toda la ciudad dentro de zona."
-                />
-                <LightBenefit
-                  icon={<Gift size={18} />}
-                  title="Regalos sorpresa"
-                  desc="Extras VIP según disponibilidad."
-                />
-                <LightBenefit
-                  icon={<Sparkles size={18} />}
-                  title="Prioridad"
-                  desc="Atención preferente en pedidos."
-                />
-                <LightBenefit
-                  icon={<Bell size={18} />}
-                  title="Avisos Plus"
-                  desc="Promos y vencimiento de membresía."
-                />
+                <LightBenefit icon={<Truck size={18} />} title="Envíos gratis" desc="A toda la ciudad dentro de zona." />
+                <LightBenefit icon={<Gift size={18} />} title="Regalos sorpresa" desc="Extras VIP según disponibilidad." />
+                <LightBenefit icon={<Sparkles size={18} />} title="Prioridad" desc="Atención preferente en pedidos." />
+                <LightBenefit icon={<Bell size={18} />} title="Avisos Plus" desc="Promos y vencimiento de membresía." />
               </div>
 
               <div className="bg-slate-950 text-white rounded-[30px] p-4 overflow-hidden relative">
@@ -611,19 +648,35 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
               </div>
 
               {hasPollazoPlus ? (
-                <div className="bg-green-50 border border-green-100 rounded-[28px] p-4 flex gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-black text-green-700 uppercase">
-                      Tu Plus está activo
-                    </p>
-                    <p className="text-[11px] font-bold text-green-700/70 leading-relaxed mt-1">
-                      {expiresLabel
-                        ? `Beneficios activos hasta ${expiresLabel}.`
-                        : 'Tus beneficios están activos.'}
-                    </p>
+                <>
+                  <div className="bg-green-50 border border-green-100 rounded-[28px] p-4 flex gap-3">
+                    <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black text-green-700 uppercase">
+                        Tu Plus está activo
+                      </p>
+                      <p className="text-[11px] font-bold text-green-700/70 leading-relaxed mt-1">
+                        {expiresLabel
+                          ? `Beneficios activos hasta ${expiresLabel}.`
+                          : 'Tus beneficios están activos.'}
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  {isExpiringSoon && (
+                    <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
+                      <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-black text-orange-700 uppercase">
+                          Renovación recomendada
+                        </p>
+                        <p className="text-[11px] font-bold text-orange-700/70 leading-relaxed mt-1">
+                          Tu membresía vence {daysLeft === 0 ? 'hoy' : `en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}. Cuando activemos tarjeta podrás renovar desde aquí.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
@@ -680,7 +733,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                     ? 'Solicitud pendiente'
                     : loading
                       ? 'Procesando...'
-                      : 'Suscribirme a Plus'}
+                      : subscribeButtonLabel}
                 </button>
               )}
 
