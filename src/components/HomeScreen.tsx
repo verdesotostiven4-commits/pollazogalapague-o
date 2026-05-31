@@ -389,44 +389,6 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      <div className="px-6 py-4">
-        <div className="bg-white rounded-[30px] border border-orange-100 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.2em]">
-                Confianza Pollazo
-              </p>
-              <h3 className="text-sm font-black text-gray-900 uppercase italic mt-1">
-                Comprar aquí es fácil
-              </h3>
-            </div>
-
-            <PackageCheck size={22} className="text-orange-500" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {TRUST_ITEMS.map(item => (
-              <div
-                key={item.title}
-                className="bg-gray-50 border border-gray-100 rounded-2xl p-3 text-center"
-              >
-                <div className="w-9 h-9 mx-auto rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center mb-2">
-                  {item.icon}
-                </div>
-
-                <p className="text-[8px] font-black text-gray-900 uppercase leading-tight">
-                  {item.title}
-                </p>
-
-                <p className="text-[8px] font-bold text-gray-400 leading-tight mt-1 line-clamp-2">
-                  {item.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {pairs.length > 0 && (
         <div className="px-6 py-6">
           <div className="flex items-center justify-between mb-6">
@@ -498,23 +460,52 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       )}
 
+      <div className="px-6 py-4">
+        <div className="bg-white rounded-[30px] border border-orange-100 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.2em]">
+                Confianza Pollazo
+              </p>
+              <h3 className="text-sm font-black text-gray-900 uppercase italic mt-1">
+                Comprar aquí es fácil
+              </h3>
+            </div>
+
+            <PackageCheck size={22} className="text-orange-500" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {TRUST_ITEMS.map(item => (
+              <div
+                key={item.title}
+                className="bg-gray-50 border border-gray-100 rounded-2xl p-3 text-center"
+              >
+                <div className="w-9 h-9 mx-auto rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center mb-2">
+                  {item.icon}
+                </div>
+
+                <p className="text-[8px] font-black text-gray-900 uppercase leading-tight">
+                  {item.title}
+                </p>
+
+                <p className="text-[8px] font-bold text-gray-400 leading-tight mt-1 line-clamp-2">
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="px-6 py-4 mb-4">
-        <div className="grid grid-cols-3 gap-2 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
+        <div className="grid grid-cols-2 gap-3 bg-white p-5 rounded-[32px] border border-orange-100 shadow-sm">
           <div className="flex flex-col items-center text-center gap-1.5">
             <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
               <Clock size={18} />
             </div>
             <span className="text-[9px] font-black text-gray-800 uppercase leading-none">
               7 AM - 9 PM
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center text-center gap-1.5 border-x border-gray-100">
-            <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
-              <Truck size={18} />
-            </div>
-            <span className="text-[9px] font-black text-gray-800 uppercase leading-none">
-              Delivery
             </span>
           </div>
 
