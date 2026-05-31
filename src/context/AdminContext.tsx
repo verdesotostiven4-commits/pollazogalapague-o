@@ -322,6 +322,32 @@ const buildCategoryList = (products: Product[]): CategoryString[] => {
   return result;
 };
 
+const sendOrderPushNotification = async (
+  order: ExtendedOrder,
+  status: ExtendedOrder['status'],
+  paymentStatus?: PaymentStatus | null
+) => {
+  try {
+    if (!order.customer_phone) return;
+
+    await fetch('/api/send-push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        customerPhone: order.customer_phone,
+        orderCode: order.order_code,
+        status,
+        paymentStatus: paymentStatus || order.payment_status || null,
+        url: '/',
+      }),
+    });
+  } catch (error) {
+    console.warn('⚠️ No se pudo enviar push del pedido:', error);
+  }
+};
+
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
   const [overrides, setOverrides] = useState<Record<string, ProductOverride>>({});
@@ -1146,6 +1172,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
       if (countNow && currentOrder) {
         await countOrderForMetricsAndCustomer({ ...currentOrder, ...patch });
+      }
+
+      if (currentOrder) {
+        void sendOrderPushNotification(
+          { ...currentOrder, ...patch },
+          status,
+          paymentStatus
+        );
       }
 
       await load();
