@@ -14,6 +14,7 @@ import {
   Heart,
   X,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   Star,
   ReceiptText,
@@ -35,7 +36,14 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  ShoppingCart,
+  Gift,
+  ChevronDown,
+  ChevronUp,
+  Repeat2,
+  HelpCircle,
+  Route,
+  Store,
+  Info,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
@@ -53,7 +61,6 @@ import type {
 
 const WHATSAPP = '+593989795628';
 const MAPS_URL = 'https://maps.app.goo.gl/uM7jPvwGxzyUeeJYA';
-const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 const WA_HELLO = `https://wa.me/${WHATSAPP}?text=Hola%2C%20quisiera%20m%C3%A1s%20informaci%C3%B3n%20sobre%20La%20Casa%20del%20Pollazo%20El%20Mirador%20%F0%9F%8D%97`;
 const LOGO_OFFICIAL =
   'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
@@ -119,11 +126,46 @@ const galleryPhotos = [
 ];
 
 const CUSTOMER_LEVELS = [
-  { level: 1, title: 'Cliente Nuevo', minExp: 0, nextExp: 25, emoji: '🐣' },
-  { level: 2, title: 'Pollazo Fan', minExp: 25, nextExp: 60, emoji: '🔥' },
-  { level: 3, title: 'Cliente Fiel', minExp: 60, nextExp: 120, emoji: '⭐' },
-  { level: 4, title: 'Cliente Oro', minExp: 120, nextExp: 250, emoji: '👑' },
-  { level: 5, title: 'Leyenda Pollazo', minExp: 250, nextExp: null, emoji: '🏆' },
+  {
+    level: 1,
+    title: 'Cliente Nuevo',
+    minExp: 0,
+    nextExp: 25,
+    emoji: '🐣',
+    benefit: 'Empieza tu historial Pollazo.',
+  },
+  {
+    level: 2,
+    title: 'Pollazo Fan',
+    minExp: 25,
+    nextExp: 60,
+    emoji: '🔥',
+    benefit: 'Más compras registradas y mejor progreso.',
+  },
+  {
+    level: 3,
+    title: 'Cliente Fiel',
+    minExp: 60,
+    nextExp: 120,
+    emoji: '⭐',
+    benefit: 'Cliente frecuente del negocio.',
+  },
+  {
+    level: 4,
+    title: 'Cliente Oro',
+    minExp: 120,
+    nextExp: 250,
+    emoji: '👑',
+    benefit: 'Nivel alto de fidelidad.',
+  },
+  {
+    level: 5,
+    title: 'Leyenda Pollazo',
+    minExp: 250,
+    nextExp: null,
+    emoji: '🏆',
+    benefit: 'Nivel máximo de cliente histórico.',
+  },
 ];
 
 const ACTIVE_ORDER_STATUSES: Order['status'][] = [
@@ -133,12 +175,14 @@ const ACTIVE_ORDER_STATUSES: Order['status'][] = [
   'Enviado',
 ];
 
+const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
+
 function cleanPhoneTail(phone?: string | null) {
-  return (phone || '').replace(/\D/g, '').slice(-9);
+  return String(phone || '').replace(/\D/g, '').slice(-9);
 }
 
 function cleanPhone(phone?: string | null) {
-  return (phone || '').replace(/\D/g, '');
+  return String(phone || '').replace(/\D/g, '');
 }
 
 function toMoney(value: unknown) {
@@ -177,6 +221,18 @@ function getLevelProgress(exp: number) {
   const currentProgress = exp - level.minExp;
 
   return Math.min(100, Math.max(0, Math.round((currentProgress / currentRange) * 100)));
+}
+
+function getNextLevelText(exp: number) {
+  const level = getCustomerLevel(exp);
+
+  if (!level.nextExp) {
+    return 'Ya llegaste al nivel máximo.';
+  }
+
+  const remaining = Math.max(0, level.nextExp - exp);
+
+  return `Te faltan ${remaining.toLocaleString('es-EC')} puntos de progreso para subir de nivel.`;
 }
 
 function formatOrderDate(date?: string | null) {
@@ -274,7 +330,7 @@ function paymentLabel(method?: Order['payment_method']) {
   if (method === 'transferencia') return 'Transferencia';
   if (method === 'tarjeta') return 'Tarjeta';
 
-  return 'No definido';
+  return 'Sin definir';
 }
 
 function buildOrderWhatsAppUrl(order: Order) {
@@ -400,42 +456,21 @@ function formatAddressCoords(address: DeliveryAddress) {
 }
 
 function TeamCarousel() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollSpeed = 1.35;
-  const tripledMembers = [...teamMembers, ...teamMembers, ...teamMembers];
-
-  useEffect(() => {
-    const container = containerRef.current;
-
-    if (!container) return undefined;
-
-    let animationId: number;
-
-    const animate = () => {
-      container.scrollLeft += scrollSpeed;
-
-      if (container.scrollLeft >= (container.scrollWidth / 3) * 2) {
-        container.scrollLeft = container.scrollWidth / 3;
-      }
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(animationId);
-  }, []);
+  const doubledMembers = [...teamMembers, ...teamMembers];
 
   return (
-    <div className="py-4 overflow-hidden relative pointer-events-none">
-      <div ref={containerRef} className="flex gap-4 px-4 overflow-x-hidden scrollbar-hide">
-        {tripledMembers.map((member, i) => (
+    <div className="py-4 overflow-hidden relative">
+      <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+
+      <div className="pollazo-team-track flex gap-4 px-4 w-max">
+        {doubledMembers.map((member, index) => (
           <div
-            key={`${member.name}-${i}`}
+            key={`${member.name}-${index}`}
             className="flex flex-col items-center gap-2.5 flex-shrink-0"
-            style={{ width: 100 }}
+            style={{ width: 104 }}
           >
-            <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white">
+            <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-[3px] border-orange-500 shadow-lg ring-2 ring-white bg-orange-50">
               <img
                 src={member.photo}
                 alt={member.name}
@@ -448,13 +483,30 @@ function TeamCarousel() {
               <p className="text-[10px] font-black text-gray-900 leading-tight uppercase">
                 {member.name.split(' ')[0]}
               </p>
-              <p className="text-[9px] text-orange-500 font-bold leading-tight mt-0.5">
+              <p className="text-[9px] text-orange-500 font-bold leading-tight mt-0.5 line-clamp-2">
                 {member.role}
               </p>
             </div>
           </div>
         ))}
       </div>
+
+      <style>{`
+        @keyframes pollazoTeamLoop {
+          0% {
+            transform: translateX(0);
+          }
+
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+
+        .pollazo-team-track {
+          animation: pollazoTeamLoop 24s linear infinite;
+          will-change: transform;
+        }
+      `}</style>
     </div>
   );
 }
@@ -493,10 +545,8 @@ function StatPill({
 
 function ActiveOrderCard({
   order,
-  onNavigate,
 }: {
   order: Order;
-  onNavigate: (screen: Screen) => void;
 }) {
   const progress = getOrderProgress(order.status);
 
@@ -567,15 +617,6 @@ function ActiveOrderCard({
           </div>
 
           <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => onNavigate('home')}
-              className="flex-1 bg-white text-slate-950 rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-            >
-              <Navigation size={13} />
-              Ver seguimiento
-            </button>
-
             <a
               href={buildOrderWhatsAppUrl(order)}
               target="_blank"
@@ -585,6 +626,11 @@ function ActiveOrderCard({
               <MessageCircle size={13} />
               Ayuda
             </a>
+
+            <div className="flex-1 bg-white/8 border border-white/10 text-white/70 rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5">
+              <Route size={13} />
+              Sigue desde inicio
+            </div>
           </div>
         </div>
       </div>
@@ -599,9 +645,10 @@ interface CustomerHistoryProps {
 function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const { orders, customers, extraSettings, products } = useAdmin();
   const { customerName, customerPhone, customerAvatar } = useUser();
-  const { addItem, clearCart, items: cartItems, setIsOpen } = useCart();
+  const { addItem, setIsOpen } = useCart();
+
   const [repeatNotice, setRepeatNotice] = useState('');
-  const [pendingRepeatOrder, setPendingRepeatOrder] = useState<Order | null>(null);
+  const [showAllOrders, setShowAllOrders] = useState(false);
 
   const seasonActive = extraSettings?.event_active !== false;
   const cleanUserPhone = cleanPhoneTail(customerPhone);
@@ -609,9 +656,23 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const customer = useMemo(() => {
     if (!cleanUserPhone) return null;
 
-    return (
-      customers.find(current => cleanPhoneTail(current.phone) === cleanUserPhone) || null
+    const samePhoneCustomers = customers.filter(
+      current => cleanPhoneTail(current.phone) === cleanUserPhone
     );
+
+    if (samePhoneCustomers.length === 0) return null;
+
+    return samePhoneCustomers.sort((a, b) => {
+      const pointDiff = toMoney(b.points) - toMoney(a.points);
+
+      if (pointDiff !== 0) return pointDiff;
+
+      const spentDiff = toMoney(b.total_spent) - toMoney(a.total_spent);
+
+      if (spentDiff !== 0) return spentDiff;
+
+      return toMoney(b.exp) - toMoney(a.exp);
+    })[0];
   }, [cleanUserPhone, customers]);
 
   const myOrders = useMemo(() => {
@@ -643,20 +704,18 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return myOrders.filter(order => (order.items || []).length > 0 && order.status !== 'Cancelado');
   }, [myOrders]);
 
-  const lastRepeatableOrder = repeatableOrders[0] || null;
-
   const totalSpentFromOrders = useMemo(() => {
     return validOrders.reduce((sum, order) => sum + toMoney(order.total), 0);
   }, [validOrders]);
 
   const totalSpent = toMoney(customer?.total_spent || totalSpentFromOrders);
   const totalOrders = customer?.total_orders || validOrders.length;
-  const exp = customer?.exp || Math.floor(totalSpent);
-  const points = customer?.points || 0;
+  const exp = toMoney(customer?.exp || Math.floor(totalSpent));
+  const points = toMoney(customer?.points || 0);
   const averageOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
   const level = getCustomerLevel(exp);
   const progress = getLevelProgress(exp);
-  const nextExp = level.nextExp;
+  const nextLevelText = getNextLevelText(exp);
 
   const topProduct = useMemo(() => {
     const productCount = new Map<string, number>();
@@ -673,9 +732,9 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return [...productCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   }, [validOrders]);
 
-  const savingTip = useMemo(() => {
+  const smartSummary = useMemo(() => {
     if (totalOrders === 0) {
-      return 'Cuando hagas tus compras, aquí verás consejos simples para ahorrar y organizar mejor tus pedidos.';
+      return 'Cuando hagas compras, aquí verás tu historial, nivel y pedidos para repetir fácilmente.';
     }
 
     if (activeOrders.length > 0) {
@@ -687,29 +746,31 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     }
 
     if (topProduct) {
-      return `Tu producto más repetido parece ser ${topProduct}. Pronto podremos avisarte ofertas relacionadas.`;
+      return `Tu producto más repetido parece ser ${topProduct}. Te servirá para repetir pedidos más rápido.`;
     }
 
-    return 'Vas bien: tus pedidos ya tienen historial para mostrarte recomendaciones útiles.';
+    return 'Tu historial ya permite mostrarte un resumen útil de tus compras y progreso.';
   }, [activeOrders.length, averageOrder, topProduct, totalOrders]);
 
-  const addRepeatOrderToCart = (order: Order, mode: 'replace' | 'merge') => {
-    const orderItems = order.items || [];
+  const orderedHistory = useMemo(() => {
+    return [...activeOrders, ...pastOrders];
+  }, [activeOrders, pastOrders]);
 
-    if (orderItems.length === 0) {
+  const visibleOrders = showAllOrders ? orderedHistory.slice(0, 12) : orderedHistory.slice(0, 3);
+
+  const handleRepeatOrder = (order: Order) => {
+    const items = order.items || [];
+
+    if (items.length === 0) {
       setRepeatNotice('Este pedido no tiene productos para repetir.');
       window.setTimeout(() => setRepeatNotice(''), 3000);
       return;
     }
 
-    if (mode === 'replace') {
-      clearCart();
-    }
-
     let addedUnits = 0;
     let skippedUnits = 0;
 
-    orderItems.forEach((item, index) => {
+    items.forEach((item, index) => {
       const product = buildRepeatProduct(order, item, index, products);
 
       if (!product) {
@@ -734,12 +795,9 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     setRepeatNotice(
       skippedUnits > 0
         ? `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
-        : mode === 'replace'
-          ? `Reemplazamos tu carrito con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}.`
-          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} junto a tu carrito.`
+        : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
     );
 
-    setPendingRepeatOrder(null);
     setIsOpen(true);
 
     window.setTimeout(() => {
@@ -749,15 +807,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     window.setTimeout(() => {
       setRepeatNotice('');
     }, 3500);
-  };
-
-  const handleRepeatOrder = (order: Order) => {
-    if ((cartItems || []).length > 0) {
-      setPendingRepeatOrder(order);
-      return;
-    }
-
-    addRepeatOrderToCart(order, 'replace');
   };
 
   if (!customerPhone) {
@@ -778,339 +827,251 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
           </div>
         </div>
 
-        <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 text-center">
-          <Crown size={30} className="mx-auto text-orange-500 mb-2" />
+        <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4 text-center">
+          <BadgeCheck size={32} className="mx-auto text-orange-500 mb-3" />
           <p className="text-xs font-black text-orange-700 uppercase leading-relaxed">
-            Completa tu perfil desde el ícono de usuario para ver tu historial, nivel y beneficios.
+            Registra tu nombre, WhatsApp y ubicación para guardar historial, repetir pedidos y subir de nivel.
           </p>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('cart')}
+            className="mt-4 bg-orange-500 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase active:scale-95 transition-transform"
+          >
+            Empezar pedido
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-5 relative">
-        <div className="absolute -top-16 -right-16 w-40 h-40 bg-orange-300/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-yellow-300/20 rounded-full blur-3xl" />
+    <div className="bg-gradient-to-br from-orange-50 via-white to-yellow-50 rounded-[34px] border border-orange-100 shadow-sm overflow-hidden p-4 relative">
+      <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-300/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-yellow-300/20 rounded-full blur-3xl" />
 
-        <div className="relative flex items-center gap-4 mb-5">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-[24px] overflow-hidden border-4 border-white shadow-xl bg-white">
-              <img
-                src={customer?.avatar_url || customerAvatar || LOGO_OFFICIAL}
-                alt={customerName || 'Cliente'}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-xl px-1.5 py-1 text-[9px] font-black border-2 border-white">
-              {level.emoji}
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-              Mi Historial Pollazo
-            </p>
-
-            <h3 className="font-black text-gray-900 text-lg uppercase italic truncate leading-none mt-1">
-              {customer?.name || customerName || 'Cliente Pollazo'}
-            </h3>
-
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="bg-white/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
-                <Crown size={11} />
-                Nivel {level.level}
-              </span>
-
-              <span className="bg-white/80 border border-green-100 text-green-600 px-2.5 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1">
-                <BadgeCheck size={11} />
-                {customer?.phone_verified ? 'Verificado' : 'Sin verificar'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {repeatNotice && (
-          <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4">
-            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed text-center">
-              {repeatNotice}
-            </p>
-          </div>
-        )}
-
-        {lastRepeatableOrder && (
-          <div className="relative bg-slate-950 text-white rounded-[28px] p-4 mb-4 overflow-hidden shadow-xl">
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/25 rounded-full blur-3xl" />
-            <div className="relative flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <ShoppingBag size={23} />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className="text-[9px] font-black text-orange-300 uppercase tracking-widest">
-                  Compra rápida
-                </p>
-                <p className="text-xs font-black uppercase truncate mt-1">
-                  Repetir: {getOrderItemsLabel(lastRepeatableOrder)}
-                </p>
-                <p className="text-[9px] font-bold text-white/45 mt-1">
-                  {formatOrderDate(lastRepeatableOrder.created_at)} · $
-                  {toMoney(lastRepeatableOrder.total).toFixed(2)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleRepeatOrder(lastRepeatableOrder)}
-                className="bg-white text-slate-950 rounded-2xl px-4 py-3 text-[9px] font-black uppercase active:scale-95 transition-transform flex-shrink-0"
-              >
-                Pedir otra vez
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeOrders.length > 0 && (
-          <div className="relative mb-4 space-y-3">
-            {activeOrders.slice(0, 2).map(order => (
-              <ActiveOrderCard key={order.id} order={order} onNavigate={onNavigate} />
-            ))}
-          </div>
-        )}
-
-        <div className="relative bg-white/70 backdrop-blur-md rounded-[28px] p-4 border border-white/70 mb-4">
-          <div className="flex justify-between items-end mb-2">
-            <div>
-              <p className="text-xs font-black text-gray-900 uppercase">
-                {level.title}
-              </p>
-
-              <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                {exp.toLocaleString('es-EC')} EXP permanente
-              </p>
-            </div>
-
-            {nextExp ? (
-              <p className="text-[9px] font-black text-orange-500 uppercase">
-                faltan {Math.max(0, nextExp - exp)} EXP
-              </p>
-            ) : (
-              <p className="text-[9px] font-black text-orange-500 uppercase">
-                nivel máximo
-              </p>
-            )}
-          </div>
-
-          <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-3">
-            La EXP no se borra. Los puntos de temporada solo cuentan cuando el negocio activa un concurso.
-          </p>
-        </div>
-
-        <div className="relative grid grid-cols-2 gap-3 mb-4">
-          <StatPill
-            icon={<Wallet size={18} />}
-            label="Gastado"
-            value={`$${totalSpent.toFixed(2)}`}
-          />
-
-          <StatPill
-            icon={<PackageCheck size={18} />}
-            label="Pedidos"
-            value={`${totalOrders}`}
-          />
-
-          <StatPill
-            icon={<TrendingUp size={18} />}
-            label="Promedio"
-            value={`$${averageOrder.toFixed(2)}`}
-          />
-
-          <StatPill
-            icon={<Activity size={18} />}
-            label={seasonActive ? 'Temporada' : 'Pausado'}
-            value={`${points} pts`}
-            muted={!seasonActive}
-          />
-        </div>
-
-        {!seasonActive && (
-          <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
-              El ranking de temporada está pausado. Tus compras válidas siguen sumando EXP permanente, pero no puntos de concurso.
-            </p>
-          </div>
-        )}
-
-        <div className="relative bg-white/80 border border-white rounded-[28px] p-4 mb-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <ShieldCheck size={21} />
-            </div>
-
-            <div>
-              <p className="text-[11px] font-black text-gray-900 uppercase">
-                Mi Bolsillo Pollazo
-              </p>
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                {savingTip}
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <div className="relative flex items-center gap-3 mb-4">
         <div className="relative">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Últimos pedidos
-            </p>
+          <img
+            src={
+              customerAvatar ||
+              customer?.avatar_url ||
+              `https://api.dicebear.com/8.x/adventurer/svg?seed=${customerName || customerPhone}`
+            }
+            className="w-14 h-14 rounded-[22px] object-cover border-4 border-white shadow-md"
+            alt={customerName || 'Cliente'}
+          />
 
-            {activeOrders.length > 0 && (
-              <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
-                {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
-              </span>
-            )}
+          <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg border-2 border-white shadow-sm">
+            {level.emoji}
           </div>
+        </div>
 
-          {myOrders.length > 0 ? (
-            <div className="space-y-2">
-              {[...activeOrders, ...pastOrders].slice(0, 4).map(order => (
-                <div
-                  key={order.id}
-                  className="bg-white/80 border border-white rounded-2xl p-3 flex items-center gap-3"
-                >
-                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                    {order.status === 'Enviado' ? (
-                      <Truck size={18} />
-                    ) : (
-                      <ReceiptText size={18} />
-                    )}
-                  </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
+            Mi cuenta Pollazo
+          </p>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-gray-900 uppercase truncate">
-                      {order.order_code} · {getOrderItemsLabel(order)}
-                    </p>
+          <h3 className="text-lg font-black text-gray-900 uppercase italic truncate leading-none mt-1">
+            {customerName || customer?.name || 'Cliente Pollazo'}
+          </h3>
 
-                    <p className="text-[9px] font-bold text-gray-400 mt-1">
-                      {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
-                      {toMoney(order.total).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
-                      {order.status}
-                    </span>
-
-                    {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRepeatOrder(order)}
-                        className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform"
-                      >
-                        Repetir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white/70 border border-white rounded-2xl p-4 text-center">
-              <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
-              <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
-                Aún no tienes pedidos registrados con este número.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('catalog')}
-                className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
-              >
-                Ver catálogo
-              </button>
-            </div>
-          )}
+          <p className="text-[10px] font-bold text-gray-400 mt-1">
+            Nivel {level.level} · {level.title}
+          </p>
         </div>
       </div>
 
-      {pendingRepeatOrder && (
-        <div className="fixed inset-0 z-[10020] bg-slate-950/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-[34px] shadow-2xl p-5 animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
-                <ShoppingCart size={24} />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-black text-slate-950 uppercase leading-tight">
-                  Ya tienes productos en el carrito
-                </p>
-                <p className="text-xs font-bold text-slate-500 mt-1 leading-relaxed">
-                  ¿Quieres reemplazar el carrito actual o agregar este pedido junto a lo que ya tienes?
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setPendingRepeatOrder(null)}
-                className="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center active:scale-90 transition-transform"
-              >
-                <X size={17} />
-              </button>
-            </div>
-
-            <div className="mt-4 bg-slate-50 border border-slate-100 rounded-[24px] p-3">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Pedido elegido
-              </p>
-              <p className="text-xs font-black text-slate-800 mt-1 truncate">
-                {getOrderItemsLabel(pendingRepeatOrder)}
-              </p>
-              <p className="text-[10px] font-bold text-slate-400 mt-1">
-                {formatOrderDate(pendingRepeatOrder.created_at)} · $
-                {toMoney(pendingRepeatOrder.total).toFixed(2)}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => addRepeatOrderToCart(pendingRepeatOrder, 'replace')}
-                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-200 active:scale-95 transition-transform"
-              >
-                Reemplazar carrito
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addRepeatOrderToCart(pendingRepeatOrder, 'merge')}
-                className="w-full bg-slate-950 text-white rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-              >
-                Agregar junto
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPendingRepeatOrder(null)}
-                className="w-full bg-slate-100 text-slate-500 rounded-[22px] py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+      {activeOrders.length > 0 && (
+        <div className="relative mb-4 space-y-3">
+          {activeOrders.slice(0, 2).map(order => (
+            <ActiveOrderCard key={order.id} order={order} />
+          ))}
         </div>
       )}
-    </>
+
+      <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
+        <div className="flex justify-between items-end mb-2">
+          <div>
+            <p className="text-[10px] font-black text-gray-900 uppercase">
+              Progreso de nivel
+            </p>
+            <p className="text-[10px] font-bold text-gray-500 mt-1">
+              {level.benefit}
+            </p>
+          </div>
+
+          <p className="text-[9px] font-black text-orange-500 uppercase">
+            {progress}%
+          </p>
+        </div>
+
+        <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        <p className="text-[9px] font-black text-gray-400 uppercase leading-relaxed mt-2">
+          {nextLevelText}
+        </p>
+      </div>
+
+      <div className="relative grid grid-cols-2 gap-3 mb-4">
+        <StatPill
+          icon={<Wallet size={18} />}
+          label="Comprado"
+          value={`$${totalSpent.toFixed(2)}`}
+        />
+        <StatPill
+          icon={<PackageCheck size={18} />}
+          label="Pedidos"
+          value={`${totalOrders}`}
+        />
+        <StatPill
+          icon={<TrendingUp size={18} />}
+          label="Promedio"
+          value={`$${averageOrder.toFixed(2)}`}
+        />
+        <StatPill
+          icon={<Activity size={18} />}
+          label={seasonActive ? 'Temporada' : 'Pausado'}
+          value={`${points.toLocaleString('es-EC')} pts`}
+          muted={!seasonActive}
+        />
+      </div>
+
+      {!seasonActive && (
+        <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
+          <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
+            El ranking de temporada está pausado. Tus compras válidas siguen subiendo tu nivel.
+          </p>
+        </div>
+      )}
+
+      <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={21} />
+          </div>
+
+          <div>
+            <p className="text-[11px] font-black text-gray-900 uppercase">
+              Resumen útil para ti
+            </p>
+            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+              {smartSummary}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {repeatNotice && (
+        <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4 flex items-center gap-2">
+          <CheckCircle2 size={17} className="text-green-600 flex-shrink-0" />
+          <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
+            {repeatNotice}
+          </p>
+        </div>
+      )}
+
+      <div className="relative">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Últimos pedidos
+          </p>
+
+          {activeOrders.length > 0 && (
+            <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
+              {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+
+        {myOrders.length > 0 ? (
+          <div className="space-y-2">
+            {visibleOrders.map(order => (
+              <div
+                key={order.id}
+                className="bg-white/90 border border-white rounded-2xl p-3 flex items-center gap-3 shadow-sm"
+              >
+                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
+                  {order.status === 'Enviado' ? (
+                    <Truck size={18} />
+                  ) : (
+                    <ReceiptText size={18} />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-gray-900 uppercase truncate">
+                    {order.order_code || 'Pedido'} · {getOrderItemsLabel(order)}
+                  </p>
+
+                  <p className="text-[9px] font-bold text-gray-400 mt-1">
+                    {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
+                    {toMoney(order.total).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
+                    {order.status}
+                  </span>
+
+                  {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
+                    <button
+                      type="button"
+                      onClick={() => handleRepeatOrder(order)}
+                      className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform flex items-center gap-1"
+                    >
+                      <Repeat2 size={10} />
+                      Repetir
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {orderedHistory.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllOrders(current => !current)}
+                className="w-full bg-white/90 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+              >
+                {showAllOrders ? (
+                  <>
+                    <ChevronUp size={14} />
+                    Mostrar menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} />
+                    Ver más pedidos
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white/80 border border-white rounded-2xl p-4 text-center">
+            <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
+            <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
+              Aún no tienes pedidos registrados con este número.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('catalog')}
+              className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
+            >
+              Ver catálogo
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1141,11 +1102,6 @@ function DeliveryAddressesPanel({
     onChangeLocation?.();
   };
 
-  const handleAddAddress = () => {
-    sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
-    openLocationEditor();
-  };
-
   const handleEditAddress = (address: DeliveryAddress) => {
     sessionStorage.setItem(EDIT_ADDRESS_STORAGE_KEY, address.id);
     selectDeliveryAddress(address.id);
@@ -1156,8 +1112,8 @@ function DeliveryAddressesPanel({
   };
 
   return (
-    <div className="px-4 py-4 border-b border-gray-100">
-      <div className="flex items-start gap-3">
+    <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-50 flex items-start gap-3">
         <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
           <Navigation size={20} className="text-orange-500" />
         </div>
@@ -1166,7 +1122,7 @@ function DeliveryAddressesPanel({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-black text-gray-800 uppercase leading-none">
-                Mi ubicación de entrega
+                Mi entrega
               </p>
 
               <p className="text-xs text-gray-500 mt-1 truncate">
@@ -1185,115 +1141,116 @@ function DeliveryAddressesPanel({
                   : 'bg-orange-100 text-orange-600'
               }`}
             >
-              {hasDeliveryLocation ? 'Activa' : 'Pendiente'}
+              {hasDeliveryLocation ? 'Lista' : 'Pendiente'}
             </span>
           </div>
+        </div>
+      </div>
 
-          {deliveryAddresses.length > 0 ? (
-            <div className="mt-4 space-y-2.5">
-              {deliveryAddresses.map(address => {
-                const active = address.id === selectedDeliveryAddressId;
+      <div className="p-4">
+        {deliveryAddresses.length > 0 ? (
+          <div className="space-y-2.5">
+            {deliveryAddresses.map(address => {
+              const active = address.id === selectedDeliveryAddressId;
 
-                return (
-                  <div
-                    key={address.id}
-                    className={`rounded-[24px] border p-3 transition-all ${
-                      active
-                        ? 'bg-orange-50 border-orange-200 shadow-sm'
-                        : 'bg-slate-50 border-slate-100'
-                    }`}
+              return (
+                <div
+                  key={address.id}
+                  className={`rounded-[24px] border p-3 transition-all ${
+                    active
+                      ? 'bg-orange-50 border-orange-200 shadow-sm'
+                      : 'bg-slate-50 border-slate-100'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => selectDeliveryAddress(address.id)}
+                    className="w-full text-left flex items-start gap-3 active:scale-[0.99] transition-transform"
                   >
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                        active
+                          ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
+                          : 'bg-white text-slate-400 border border-slate-100'
+                      }`}
+                    >
+                      <AddressIcon label={address.label} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-black text-slate-900 uppercase truncate">
+                          {address.label}
+                        </p>
+
+                        {active && (
+                          <span className="bg-green-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
+                            Actual
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] font-bold text-slate-500 leading-relaxed mt-1 line-clamp-2">
+                        {address.reference}
+                      </p>
+
+                      <p className="text-[8px] font-black text-slate-300 uppercase tracking-wider mt-1">
+                        {formatAddressCoords(address)}
+                      </p>
+                    </div>
+                  </button>
+
+                  <div className="flex items-center gap-2 mt-3">
                     <button
                       type="button"
                       onClick={() => selectDeliveryAddress(address.id)}
-                      className="w-full text-left flex items-start gap-3 active:scale-[0.99] transition-transform"
+                      className={`flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase active:scale-95 transition-all ${
+                        active
+                          ? 'bg-slate-950 text-white'
+                          : 'bg-white text-slate-600 border border-slate-100'
+                      }`}
                     >
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                          active
-                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
-                            : 'bg-white text-slate-400 border border-slate-100'
-                        }`}
-                      >
-                        <AddressIcon label={address.label} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-black text-slate-900 uppercase truncate">
-                            {address.label}
-                          </p>
-
-                          {active && (
-                            <span className="bg-green-100 text-green-600 rounded-full px-2 py-0.5 text-[7px] font-black uppercase flex items-center gap-1">
-                              <CheckCircle2 size={9} />
-                              En uso
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-[11px] font-bold text-slate-500 mt-1 line-clamp-2 leading-snug">
-                          {address.reference}
-                        </p>
-
-                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-wider mt-1">
-                          {formatAddressCoords(address)}
-                        </p>
-                      </div>
+                      {active ? 'Seleccionada' : 'Usar'}
                     </button>
 
-                    <div className="flex items-center gap-2 mt-3">
-                      <button
-                        type="button"
-                        onClick={() => selectDeliveryAddress(address.id)}
-                        className={`flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase active:scale-95 transition-all ${
-                          active
-                            ? 'bg-slate-950 text-white'
-                            : 'bg-white text-slate-600 border border-slate-100'
-                        }`}
-                      >
-                        {active ? 'Seleccionada' : 'Usar'}
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEditAddress(address)}
+                      className="flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase bg-white text-orange-600 border border-orange-100 active:scale-95 transition-all"
+                    >
+                      Editar
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleEditAddress(address)}
-                        className="flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase bg-white text-orange-600 border border-orange-100 active:scale-95 transition-all"
-                      >
-                        Editar
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => deleteDeliveryAddress(address.id)}
-                        className="w-11 h-10 rounded-2xl bg-white text-red-400 border border-red-50 flex items-center justify-center active:scale-95 transition-all"
-                        aria-label={`Eliminar ${address.label}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteDeliveryAddress(address.id)}
+                      className="w-11 h-10 rounded-2xl bg-white text-red-400 border border-red-50 flex items-center justify-center active:scale-95 transition-all"
+                      aria-label={`Eliminar ${address.label}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-4 text-center">
-              <MapPinned size={24} className="mx-auto text-orange-500 mb-2" />
-              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                Guarda Casa, Trabajo, Airbnb u Otro punto para pedir más rápido.
-              </p>
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 text-center">
+            <MapPinned size={24} className="mx-auto text-orange-500 mb-2" />
+            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+              Guarda Casa, Trabajo, Airbnb u otro punto para pedir más rápido.
+            </p>
+          </div>
+        )}
 
-          <button
-            type="button"
-            onClick={handleAddAddress}
-            className="mt-3 w-full bg-slate-950 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <Plus size={15} />
-            Agregar nueva dirección
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openLocationEditor}
+          className="mt-3 w-full bg-slate-950 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <Plus size={15} />
+          Agregar nueva dirección
+        </button>
       </div>
     </div>
   );
@@ -1306,7 +1263,7 @@ interface Props {
   onChangeLocation?: () => void;
 }
 
-export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
+export default function InfoScreen({ onInstall, canInstall, onNavigate, onChangeLocation }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -1325,14 +1282,14 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
     );
   };
 
-  const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+  const handleTouchStart = (event: TouchEvent) => {
+    touchStartX.current = event.touches[0].clientX;
   };
 
-  const handleTouchEnd = (e: TouchEvent) => {
+  const handleTouchEnd = (event: TouchEvent) => {
     if (touchStartX.current === null) return;
 
-    const dx = touchStartX.current - e.changedTouches[0].clientX;
+    const dx = touchStartX.current - event.changedTouches[0].clientX;
 
     if (Math.abs(dx) > 50) {
       if (dx > 0) {
@@ -1346,14 +1303,14 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
   };
 
   return (
-    <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-20">
+    <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-24">
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-white/20 animate-pulse blur-xl" />
             <img
               src={LOGO_OFFICIAL}
-              alt="logo"
+              alt="La Casa del Pollazo"
               className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl"
             />
           </div>
@@ -1366,7 +1323,7 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
             <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 mt-2">
               <MapPin className="text-yellow-300" size={14} />
               <span className="text-white font-bold text-[10px] uppercase tracking-widest">
-                El Mirador
+                El Mirador · Puerto Ayora
               </span>
             </div>
           </div>
@@ -1377,10 +1334,33 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
 
       <CustomerHistoryCard onNavigate={onNavigate} />
 
+      <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
+
+      {canInstall && onInstall && (
+        <button
+          type="button"
+          onClick={onInstall}
+          className="w-full bg-slate-950 text-white rounded-[28px] p-4 shadow-xl flex items-center gap-3 active:scale-[0.98] transition-transform"
+        >
+          <div className="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center">
+            <Sparkles size={22} className="text-yellow-300" />
+          </div>
+
+          <div className="text-left">
+            <p className="text-xs font-black uppercase">
+              Instalar app
+            </p>
+            <p className="text-[10px] font-bold text-white/60 mt-1">
+              Acceso rápido desde tu celular.
+            </p>
+          </div>
+        </button>
+      )}
+
       <div className="bg-white rounded-3xl border border-orange-50 shadow-sm overflow-hidden p-1">
         <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
           <h3 className="font-black text-gray-900 text-xs uppercase tracking-widest">
-            Contacto Directo
+            Contacto directo
           </h3>
           <Sparkles className="text-orange-500" size={16} />
         </div>
@@ -1396,8 +1376,12 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
           </div>
 
           <div className="flex-1">
-            <p className="text-sm font-black text-gray-800">WhatsApp Oficial</p>
-            <p className="text-xs text-gray-400">Atención inmediata</p>
+            <p className="text-sm font-black text-gray-800">
+              WhatsApp Oficial
+            </p>
+            <p className="text-xs text-gray-400">
+              Atención inmediata
+            </p>
           </div>
 
           <span className="text-[10px] text-green-600 font-black bg-green-100 px-3 py-1.5 rounded-full uppercase">
@@ -1414,8 +1398,12 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
           </div>
 
           <div className="flex-1">
-            <p className="text-sm font-black text-gray-800">Línea Telefónica</p>
-            <p className="text-xs text-gray-400">+593 989 795 628</p>
+            <p className="text-sm font-black text-gray-800">
+              Línea Telefónica
+            </p>
+            <p className="text-xs text-gray-400">
+              +593 989 795 628
+            </p>
           </div>
 
           <span className="text-[10px] text-orange-600 font-black bg-orange-100 px-3 py-1.5 rounded-full uppercase">
@@ -1432,10 +1420,10 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
 
           <div>
             <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Horario de Atención
+              Horario de atención
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              7:00 AM – 9:00 PM | Todos los días
+              7:00 AM – 9:00 PM · Todos los días
             </p>
           </div>
         </div>
@@ -1452,7 +1440,7 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
 
           <div className="flex-1">
             <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Ubicación del negocio
+              Ubicación
             </p>
             <p className="text-xs text-gray-500 mt-1">
               El Mirador, Puerto Ayora
@@ -1462,23 +1450,21 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
           <ChevronRight className="text-gray-300" size={18} />
         </a>
 
-        <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
-
         <button
           type="button"
-          onClick={() => setShowLegalModal(true)}
+          onClick={() => onNavigate('catalog')}
           className="w-full flex items-center gap-3 px-4 py-4 active:bg-orange-50 transition-colors text-left"
         >
           <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <Scale size={20} className="text-orange-500" />
+            <Store size={20} className="text-orange-500" />
           </div>
 
           <div className="flex-1">
             <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Términos y Privacidad
+              Comprar ahora
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Reglas de pedidos, pagos, puntos y datos
+              Ver catálogo y armar pedido
             </p>
           </div>
 
@@ -1492,7 +1478,7 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
             Nuestro <span className="text-orange-500">Equipo</span>
           </h3>
           <p className="text-gray-400 text-[10px] mt-1 uppercase font-medium tracking-tight leading-relaxed">
-            LAS MANOS DETRÁS DE UNA BUENA CALIDAD DE SERVICIO
+            Personas detrás de la atención y servicio
           </p>
         </div>
 
@@ -1520,6 +1506,7 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
+
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-left">
                 <p className="text-white text-[10px] font-black uppercase italic tracking-tighter">
                   {galleryPhotos[0].caption}
@@ -1528,138 +1515,138 @@ export default function InfoScreen({ onNavigate, onChangeLocation }: Props) {
             </button>
 
             <div className="flex-1 flex flex-col gap-2">
-              {[1, 2].map(i => (
+              {[1, 2].map(index => (
                 <button
                   type="button"
-                  key={i}
-                  onClick={() => setLightboxIndex(i)}
+                  key={index}
+                  onClick={() => setLightboxIndex(index)}
                   className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm"
                 >
                   <img
-                    src={galleryPhotos[i].url}
-                    alt={galleryPhotos[i].caption}
+                    src={galleryPhotos[index].url}
+                    alt={galleryPhotos[index].caption}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-left">
-                    <p className="text-white text-[8px] font-bold uppercase truncate">
-                      {galleryPhotos[i].caption}
-                    </p>
-                  </div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex gap-2" style={{ height: 100 }}>
-            {[3, 4, 5].map(i => (
+          <div className="grid grid-cols-3 gap-2">
+            {[3, 4, 5].map(index => (
               <button
                 type="button"
-                key={i}
-                onClick={() => setLightboxIndex(i)}
-                className="flex-1 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm"
+                key={index}
+                onClick={() => setLightboxIndex(index)}
+                className="h-24 rounded-2xl overflow-hidden relative active:scale-[0.98] transition-all shadow-sm"
               >
                 <img
-                  src={galleryPhotos[i].url}
-                  alt={galleryPhotos[i].caption}
+                  src={galleryPhotos[index].url}
+                  alt={galleryPhotos[index].caption}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-left">
-                  <p className="text-white text-[8px] font-bold uppercase truncate">
-                    {galleryPhotos[i].caption}
-                  </p>
-                </div>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <Testimonials onNavigateRanking={() => onNavigate('ranking')} />
+      <Testimonials />
 
-      <div className="flex items-center justify-center gap-1.5 py-6 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]">
-        <span>Hecho con</span>
-        <Heart size={12} className="text-orange-400 fill-orange-400" />
-        <span>en Galápagos</span>
+      <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowLegalModal(true)}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-orange-50 transition-colors"
+        >
+          <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Scale size={20} className="text-slate-600" />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm font-black text-gray-800 uppercase leading-none">
+              Términos y Privacidad
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Reglas claras de compra, entrega, puntos y datos
+            </p>
+          </div>
+
+          <ChevronRight className="text-gray-300" size={18} />
+        </button>
+
+        <div className="px-5 pb-5">
+          <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
+            <Info size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] font-bold text-orange-700 leading-relaxed">
+              Los premios, niveles y promociones pueden cambiar según lo que active el negocio. La app siempre mostrará lo disponible.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <LegalModal
-        isOpen={showLegalModal}
-        onClose={() => setShowLegalModal(false)}
-      />
+      <div className="text-center px-4 py-3">
+        <div className="inline-flex items-center gap-2 text-gray-400">
+          <Heart size={14} className="text-orange-400 fill-orange-400" />
+          <p className="text-[10px] font-bold uppercase">
+            Hecho para comprar fácil en Puerto Ayora
+          </p>
+        </div>
+      </div>
 
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-[35] bg-white/10 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
-          onClick={closeLightbox}
+          className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
           <button
             type="button"
-            onClick={e => {
-              e.stopPropagation();
-              setLightboxIndex(null);
-            }}
-            className="absolute top-20 right-6 w-10 h-10 bg-black/10 rounded-full flex items-center justify-center text-gray-900 active:scale-75 transition-all z-[40]"
+            onClick={closeLightbox}
+            className="absolute top-[calc(env(safe-area-inset-top)+18px)] right-4 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
+            aria-label="Cerrar galería"
           >
-            <X size={24} />
+            <X size={22} />
           </button>
 
-          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={prevPhoto}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
+            aria-label="Foto anterior"
+          >
+            <ChevronLeft size={24} />
+          </button>
+
+          <button
+            type="button"
+            onClick={nextPhoto}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
+            aria-label="Foto siguiente"
+          >
+            <ChevronRight size={24} />
+          </button>
+
+          <div className="w-full max-w-lg">
             <img
               src={galleryPhotos[lightboxIndex].url}
               alt={galleryPhotos[lightboxIndex].caption}
-              className="w-full max-h-[60vh] object-contain rounded-[40px] shadow-2xl border-2 border-white pointer-events-none select-none"
+              className="w-full max-h-[70vh] object-contain rounded-[28px] shadow-2xl"
             />
 
-            <div className="mt-6 text-center px-4">
-              <p className="text-gray-900 text-base font-black uppercase tracking-tighter italic">
-                {galleryPhotos[lightboxIndex].caption}
-              </p>
-
-              <div className="flex justify-center gap-2 mt-4">
-                {galleryPhotos.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === lightboxIndex ? 'w-8 bg-orange-500' : 'w-2 bg-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <p className="text-white text-[9px] mt-8 font-black uppercase tracking-[0.2em] mix-blend-difference">
-                ← desliza para cambiar →
-              </p>
-            </div>
+            <p className="text-white text-center text-xs font-black uppercase tracking-widest mt-4">
+              {galleryPhotos[lightboxIndex].caption}
+            </p>
           </div>
         </div>
       )}
 
-      <style>{`
-        @keyframes logoGlowPulse {
-          0%, 100% { transform: scale(1); opacity: 0.28; }
-          50% { transform: scale(1.3); opacity: 0.1; }
-        }
-
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
+      <LegalModal
+        isOpen={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+      />
     </div>
   );
 }
