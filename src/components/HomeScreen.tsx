@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Star,
   ChevronLeft,
+  ChevronDown,
   Sparkles,
   MessageCircle,
   ShieldCheck,
@@ -212,6 +213,13 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
     );
   };
 
+  const scrollToCategories = () => {
+    document.getElementById('home-categories')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
   return (
     <div className="flex flex-col bg-gray-50 pb-10">
       <AnnouncementBanner />
@@ -221,13 +229,13 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         <div className="absolute -top-20 -right-16 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute bottom-12 -left-20 w-56 h-56 rounded-full bg-yellow-200/20 blur-3xl" />
 
-        <div className="px-5 pt-7 pb-11 relative z-10 text-center flex flex-col items-center">
-          <div className="mb-4 text-center">
-            <p className="text-white font-black text-[28px] leading-none tracking-tight drop-shadow-md">
+        <div className="px-5 pt-6 pb-16 relative z-10 text-center flex flex-col items-center">
+          <div className="mb-3 text-center">
+            <p className="text-white font-black text-[23px] leading-none tracking-tight drop-shadow-md">
               {greeting.title}
             </p>
 
-            <p className="text-yellow-100/95 text-[14px] font-semibold leading-snug mt-2 drop-shadow-sm">
+            <p className="text-yellow-100/95 text-[12px] font-semibold leading-snug mt-1.5 drop-shadow-sm">
               {greeting.phrase}
             </p>
           </div>
@@ -241,7 +249,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             <img
               src={LOGO_URL}
               alt="La Casa del Pollazo"
-              className={`relative w-52 h-52 object-contain drop-shadow-2xl transition-all duration-300 ${
+              className={`relative w-56 h-56 object-contain drop-shadow-2xl transition-all duration-300 ${
                 !isAnimating ? 'animate-float-gen' : ''
               } ${isAnimating && logoAnimIndex === 0 ? 'animate-logo-spin' : ''} ${
                 isAnimating && logoAnimIndex === 1 ? 'animate-logo-jump' : ''
@@ -295,7 +303,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      <div className="px-6 pt-8 pb-1 bg-gray-50 relative z-10">
+      <div className="px-6 pt-8 pb-5 bg-gray-50 relative z-10">
         <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.28em] leading-none">
           Bienvenido de nuevo,
         </p>
@@ -305,9 +313,18 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           <span className="text-orange-500">{displayName}</span>
           <span className="not-italic text-[32px] ml-1">👋</span>
         </h2>
+
+        <button
+          type="button"
+          onClick={scrollToCategories}
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white border border-orange-100 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-orange-500 shadow-sm active:scale-95 transition-transform"
+        >
+          Desliza para ver categorías
+          <ChevronDown size={14} className="animate-bounce" />
+        </button>
       </div>
 
-      <div className="px-6 pt-7 pb-2">
+      <div id="home-categories" className="px-6 pt-9 pb-2 scroll-mt-20">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">
           Compra rápido
         </p>
