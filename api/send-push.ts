@@ -12,8 +12,27 @@ type PushPayload = {
   url?: string;
 };
 
+const NOTIFICATION_ICON = '/logo-final.png';
+const NOTIFICATION_BADGE = '/logo-final.png';
+
 const cleanPhoneTail = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '').slice(-9);
+};
+
+const buildTrackingUrl = (payload: PushPayload) => {
+  const params = new URLSearchParams();
+
+  params.set('tracking', '1');
+
+  if (payload.orderCode) {
+    params.set('orderCode', payload.orderCode);
+  }
+
+  if (payload.status) {
+    params.set('status', payload.status);
+  }
+
+  return `/?${params.toString()}`;
 };
 
 const getPushText = (payload: PushPayload) => {
@@ -21,20 +40,6 @@ const getPushText = (payload: PushPayload) => {
     return {
       title: payload.title,
       body: payload.body,
-    };
-  }
-
-  if (payload.paymentStatus === 'confirmado') {
-    return {
-      title: 'Pago confirmado ✅',
-      body: `Tu pago del pedido ${payload.orderCode || ''} fue validado.`,
-    };
-  }
-
-  if (payload.paymentStatus === 'rechazado') {
-    return {
-      title: 'Pago rechazado ⚠️',
-      body: `No pudimos validar el pago del pedido ${payload.orderCode || ''}.`,
     };
   }
 
@@ -62,7 +67,7 @@ const getPushText = (payload: PushPayload) => {
   if (payload.status === 'Entregado') {
     return {
       title: 'Pedido entregado 😋',
-      body: `Gracias por comprar en La Casa del Pollazo.`,
+      body: 'Gracias por comprar en La Casa del Pollazo.',
     };
   }
 
@@ -70,6 +75,20 @@ const getPushText = (payload: PushPayload) => {
     return {
       title: 'Pedido cancelado ❌',
       body: `Tu pedido ${payload.orderCode || ''} fue cancelado.`,
+    };
+  }
+
+  if (payload.paymentStatus === 'confirmado') {
+    return {
+      title: 'Pago confirmado ✅',
+      body: `Tu pago del pedido ${payload.orderCode || ''} fue validado.`,
+    };
+  }
+
+  if (payload.paymentStatus === 'rechazado') {
+    return {
+      title: 'Pago rechazado ⚠️',
+      body: `No pudimos validar el pago del pedido ${payload.orderCode || ''}.`,
     };
   }
 
@@ -167,13 +186,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const text = getPushText(payload);
+  const targetUrl =
+    payload.url && payload.url !== '/'
+      ? payload.url
+      : buildTrackingUrl(payload);
 
   const notificationPayload = JSON.stringify({
     title: text.title,
     body: text.body,
-    url: payload.url || '/',
-    icon: '/logo-final.png',
-    badge: '/logo-final.png',
+    url: targetUrl,
+    icon: NOTIFICATION_ICON,
+    badge: NOTIFICATION_BADGE,
     tag: `pollazo-${payload.orderCode || cleanCustomerTail}`,
     orderCode: payload.orderCode || null,
     status: payload.status || null,
