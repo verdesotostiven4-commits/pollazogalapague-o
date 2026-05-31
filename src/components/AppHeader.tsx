@@ -95,8 +95,8 @@ export default function AppHeader({
                 La Casa del Pollazo
               </span>
               <span className="font-black text-[9px] text-orange-500 uppercase tracking-widest mt-1.5 truncate">
-                Fresco · rápido · local
-              </span>
+  El #1 del mercado
+</span>
             </div>
           </button>
         ) : (
