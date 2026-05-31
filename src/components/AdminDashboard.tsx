@@ -38,6 +38,13 @@ import {
   PauseCircle,
   ShieldCheck,
   CalendarDays,
+  BarChart3,
+  ReceiptText,
+  Wallet,
+  CreditCard,
+  Copy,
+  TrendingUp,
+  Home,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -48,7 +55,9 @@ const ADMIN_PIN = '1328';
 const PIN_KEY = 'pollazo_admin_auth';
 
 const TABS = [
+  { id: 'overview', label: 'Inicio', Icon: Home },
   { id: 'orders', label: 'Pedidos', Icon: Send },
+  { id: 'cash', label: 'Caja', Icon: ReceiptText },
   { id: 'products', label: 'Menú', Icon: Package },
   { id: 'customers', label: 'Clientes', Icon: Users },
   { id: 'ranking_config', label: 'Concurso', Icon: Trophy },
@@ -75,6 +84,17 @@ interface AdminAlert {
   title: string;
   message: string;
   createdAt: number;
+}
+
+type MethodKey = 'efectivo' | 'deuna' | 'transferencia' | 'tarjeta' | 'otro';
+
+interface MethodTotal {
+  key: MethodKey;
+  label: string;
+  value: number;
+  count: number;
+  Icon: LucideIcon;
+  tone: 'orange' | 'green' | 'blue' | 'yellow' | 'slate';
 }
 
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
@@ -319,6 +339,18 @@ const isToday = (value?: string | null) => {
   );
 };
 
+const isThisMonth = (value?: string | null) => {
+  if (!value) return false;
+
+  const date = new Date(value);
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth()
+  );
+};
+
 const isValidCoordinate = (value: unknown) => {
   const number = toNumber(value);
   return Number.isFinite(number) && number !== 0;
@@ -353,6 +385,7 @@ const paymentIcon = (method?: string | null) => {
   if (method === 'efectivo') return <Banknote size={13} />;
   if (method === 'deuna') return <QrCode size={13} />;
   if (method === 'transferencia') return <Building size={13} />;
+  if (method === 'tarjeta') return <CreditCard size={13} />;
   return <PackageSearch size={13} />;
 };
 
@@ -435,6 +468,103 @@ const triggerAdminVibration = () => {
   }
 };
 
+const isValidSaleOrder = (order: any) => {
+  return order?.status !== 'Cancelado' && order?.status !== 'Por Confirmar';
+};
+
+const getMethodKey = (method?: string | null): MethodKey => {
+  if (method === 'efectivo') return 'efectivo';
+  if (method === 'deuna') return 'deuna';
+  if (method === 'transferencia') return 'transferencia';
+  if (method === 'tarjeta') return 'tarjeta';
+  return 'otro';
+};
+
+const buildMethodTotals = (orders: any[]): MethodTotal[] => {
+  const base: Record<MethodKey, MethodTotal> = {
+    efectivo: {
+      key: 'efectivo',
+      label: 'Efectivo',
+      value: 0,
+      count: 0,
+      Icon: Banknote,
+      tone: 'green',
+    },
+    deuna: {
+      key: 'deuna',
+      label: 'Deuna',
+      value: 0,
+      count: 0,
+      Icon: QrCode,
+      tone: 'blue',
+    },
+    transferencia: {
+      key: 'transferencia',
+      label: 'Transferencia',
+      value: 0,
+      count: 0,
+      Icon: Building,
+      tone: 'orange',
+    },
+    tarjeta: {
+      key: 'tarjeta',
+      label: 'Tarjeta',
+      value: 0,
+      count: 0,
+      Icon: CreditCard,
+      tone: 'yellow',
+    },
+    otro: {
+      key: 'otro',
+      label: 'Otro',
+      value: 0,
+      count: 0,
+      Icon: Wallet,
+      tone: 'slate',
+    },
+  };
+
+  orders.forEach(order => {
+    const key = getMethodKey(order.payment_method);
+
+    base[key].value += toNumber(order.total);
+    base[key].count += 1;
+  });
+
+  return Object.values(base);
+};
+
+const getTopProducts = (orders: any[], limit = 6) => {
+  const map = new Map<string, { name: string; quantity: number; sales: number }>();
+
+  orders.forEach(order => {
+    (order.items || []).forEach((item: any) => {
+      const name = item?.name || item?.product?.name || 'Producto';
+      const quantity = Number(item?.quantity || 1);
+      const unitPrice = toNumber(item?.custom_price || item?.price || item?.product?.price || 0);
+      const subtotal = toNumber(item?.subtotal || unitPrice * quantity);
+
+      const current = map.get(name) || {
+        name,
+        quantity: 0,
+        sales: 0,
+      };
+
+      current.quantity += quantity;
+      current.sales += subtotal;
+
+      map.set(name, current);
+    });
+  });
+
+  return Array.from(map.values())
+    .sort((a, b) => {
+      if (b.quantity !== a.quantity) return b.quantity - a.quantity;
+      return b.sales - a.sales;
+    })
+    .slice(0, limit);
+};
+
 function StatCard({
   label,
   value,
@@ -477,11 +607,45 @@ function StatCard({
   );
 }
 
+function MethodCard({ item }: { item: MethodTotal }) {
+  const tones = {
+    orange: 'bg-orange-50 text-orange-600 border-orange-100',
+    green: 'bg-green-50 text-green-600 border-green-100',
+    blue: 'bg-blue-50 text-blue-600 border-blue-100',
+    yellow: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+    slate: 'bg-slate-50 text-slate-600 border-slate-100',
+  };
+
+  const Icon = item.Icon;
+
+  return (
+    <div className="bg-white rounded-[28px] border border-gray-100 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${tones[item.tone]}`}>
+          <Icon size={20} />
+        </div>
+
+        <span className="text-[9px] font-black uppercase px-2 py-1 rounded-full bg-gray-50 text-gray-400 border border-gray-100">
+          {item.count} pedido{item.count !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-4">
+        {item.label}
+      </p>
+
+      <p className="text-2xl font-black text-gray-900 mt-1">
+        ${money(item.value)}
+      </p>
+    </div>
+  );
+}
+
 function AdminDashboardContent() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const context = useAdmin();
 
-  const [tab, setTab] = useState<TabId>('orders');
+  const [tab, setTab] = useState<TabId>('overview');
   const [search, setSearch] = useState('');
   const [orderBucket, setOrderBucket] = useState<OrderBucket>('waiting');
   const [points, setPoints] = useState<Record<string, string>>({});
@@ -489,6 +653,7 @@ function AdminDashboardContent() {
   const [savingSeason, setSavingSeason] = useState(false);
   const [resettingPoints, setResettingPoints] = useState(false);
   const [activeAlert, setActiveAlert] = useState<AdminAlert | null>(null);
+  const [copiedCashSummary, setCopiedCashSummary] = useState(false);
 
   const orderSnapshotRef = useRef<Map<string, { status?: OrderStatus; paymentStatus?: string | null }>>(new Map());
   const initializedOrderWatcherRef = useRef(false);
@@ -740,11 +905,13 @@ function AdminDashboardContent() {
 
     const totalWaiting = safeOrders.filter(order => order.status === 'Por Confirmar').length;
     const totalConfirmed = safeOrders.filter(order => order.status === 'Recibido').length;
+    const totalPreparing = safeOrders.filter(order => order.status === 'Preparando').length;
     const totalSent = safeOrders.filter(order => order.status === 'Enviado').length;
     const totalDeliveredToday = todayOrders.filter(order => order.status === 'Entregado').length;
+    const totalCancelledToday = todayOrders.filter(order => order.status === 'Cancelado').length;
 
     const todaySales = todayOrders
-      .filter(order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar')
+      .filter(isValidSaleOrder)
       .reduce((sum, order) => sum + toNumber(order.total), 0);
 
     const pendingPayments = safeOrders.filter(order => {
@@ -757,12 +924,92 @@ function AdminDashboardContent() {
     return {
       totalWaiting,
       totalConfirmed,
+      totalPreparing,
       totalSent,
       totalDeliveredToday,
+      totalCancelledToday,
       todaySales,
       pendingPayments,
     };
   }, [safeOrders]);
+
+  const financialStats = useMemo(() => {
+    const validOrders = safeOrders.filter(isValidSaleOrder);
+    const todayValidOrders = validOrders.filter(order => isToday(order.created_at));
+    const monthValidOrders = validOrders.filter(order => isThisMonth(order.created_at));
+
+    const totalSales = validOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+    const todaySales = todayValidOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+    const monthSales = monthValidOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+
+    const todayAverageTicket =
+      todayValidOrders.length > 0 ? todaySales / todayValidOrders.length : 0;
+
+    const monthAverageTicket =
+      monthValidOrders.length > 0 ? monthSales / monthValidOrders.length : 0;
+
+    const todayMethods = buildMethodTotals(todayValidOrders);
+    const monthMethods = buildMethodTotals(monthValidOrders);
+    const totalMethods = buildMethodTotals(validOrders);
+
+    const topTodayProducts = getTopProducts(todayValidOrders);
+    const topMonthProducts = getTopProducts(monthValidOrders);
+
+    const deliveredToday = safeOrders.filter(order => {
+      return order.status === 'Entregado' && isToday(order.updated_at || order.created_at);
+    });
+
+    const cancelledToday = safeOrders.filter(order => {
+      return order.status === 'Cancelado' && isToday(order.updated_at || order.created_at);
+    });
+
+    return {
+      validOrders,
+      todayValidOrders,
+      monthValidOrders,
+      totalSales,
+      todaySales,
+      monthSales,
+      todayAverageTicket,
+      monthAverageTicket,
+      todayMethods,
+      monthMethods,
+      totalMethods,
+      topTodayProducts,
+      topMonthProducts,
+      deliveredToday,
+      cancelledToday,
+    };
+  }, [safeOrders]);
+
+  const cashSummaryText = useMemo(() => {
+    const today = new Date().toLocaleDateString('es-EC', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    const methods = financialStats.todayMethods
+      .map(method => `- ${method.label}: $${money(method.value)} (${method.count})`)
+      .join('\n');
+
+    return [
+      `📊 CORTE DEL DÍA - LA CASA DEL POLLAZO`,
+      `Fecha: ${today}`,
+      ``,
+      `Total vendido: $${money(financialStats.todaySales)}`,
+      `Pedidos válidos: ${financialStats.todayValidOrders.length}`,
+      `Ticket promedio: $${money(financialStats.todayAverageTicket)}`,
+      `Entregados hoy: ${financialStats.deliveredToday.length}`,
+      `Cancelados hoy: ${financialStats.cancelledToday.length}`,
+      ``,
+      `Métodos de pago:`,
+      methods,
+      ``,
+      `Pendientes por confirmar: ${orderStats.totalWaiting}`,
+      `Pagos por validar: ${orderStats.pendingPayments}`,
+    ].join('\n');
+  }, [financialStats, orderStats.pendingPayments, orderStats.totalWaiting]);
 
   const filteredOrders = useMemo(() => {
     const bucket = ORDER_BUCKETS.find(item => item.id === orderBucket);
@@ -1027,49 +1274,63 @@ function AdminDashboardContent() {
     }
   };
 
+  const copyCashSummary = async () => {
+    try {
+      await navigator.clipboard.writeText(cashSummaryText);
+      setCopiedCashSummary(true);
+
+      window.setTimeout(() => {
+        setCopiedCashSummary(false);
+      }, 2500);
+    } catch {
+      window.prompt('Copia el corte del día:', cashSummaryText);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900 overflow-x-hidden leading-tight">
       <header
-        className={`sticky top-0 z-40 bg-white border-b p-4 flex justify-between items-center shadow-sm ${
+        className={`sticky top-0 z-40 bg-white border-b p-4 shadow-sm ${
           activeAlert ? 'ring-4 ring-orange-200 animate-pulse' : ''
         }`}
       >
-        <div className="flex items-center gap-2">
-          <img
-            src={safeExtraSettings?.logo_url || '/logo-final.png'}
-            className="w-8 h-8 object-contain"
-            alt="Logo admin"
-          />
-          <div>
-            <p className="font-black text-xs uppercase italic">Admin Panel VIP</p>
-            <p className="text-[9px] text-gray-400 font-black uppercase">
-              {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} activo
-              {activeOrders.length !== 1 ? 's' : ''}
-            </p>
+        <div className="max-w-4xl mx-auto flex justify-between items-center gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src={safeExtraSettings?.logo_url || '/logo-final.png'}
+              className="w-9 h-9 object-contain flex-shrink-0"
+              alt="Logo admin"
+            />
+            <div className="min-w-0">
+              <p className="font-black text-xs uppercase italic truncate">Admin Panel VIP</p>
+              <p className="text-[9px] text-gray-400 font-black uppercase truncate">
+                {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · Hoy ${money(financialStats.todaySales)}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={context.refreshData}
-            className="p-2 bg-orange-50 text-orange-600 rounded-xl active:scale-75 transition-all"
-            aria-label="Actualizar datos"
-          >
-            <RefreshCw size={18} />
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={context.refreshData}
+              className="p-2 bg-orange-50 text-orange-600 rounded-xl active:scale-75 transition-all"
+              aria-label="Actualizar datos"
+            >
+              <RefreshCw size={18} />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              sessionStorage.removeItem(PIN_KEY);
-              setAuthed(false);
-            }}
-            className="p-2 text-gray-400 active:scale-75"
-            aria-label="Cerrar admin"
-          >
-            <LogOut size={18} />
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.removeItem(PIN_KEY);
+                setAuthed(false);
+              }}
+              className="p-2 text-gray-400 active:scale-75"
+              aria-label="Cerrar admin"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1137,6 +1398,393 @@ function AdminDashboardContent() {
             </button>
           ))}
         </div>
+
+        {tab === 'overview' && (
+          <div className="space-y-5 animate-in fade-in duration-500 pb-10">
+            <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 rounded-[34px] p-5 text-white shadow-2xl shadow-orange-100 overflow-hidden relative">
+              <div className="absolute -right-12 -top-12 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl" />
+              <div className="absolute -left-16 bottom-0 w-44 h-44 bg-yellow-400/10 rounded-full blur-3xl" />
+
+              <div className="relative flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-300">
+                    Resumen de control
+                  </p>
+                  <h1 className="text-2xl font-black uppercase italic mt-2 leading-none">
+                    Hoy: ${money(financialStats.todaySales)}
+                  </h1>
+                  <p className="text-[11px] font-bold text-white/55 mt-2 leading-relaxed">
+                    {financialStats.todayValidOrders.length} pedidos válidos · {orderStats.totalWaiting} en espera · {orderStats.pendingPayments} pagos por validar
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={copyCashSummary}
+                  className="bg-white/10 border border-white/10 rounded-2xl px-3 py-2 text-[9px] font-black uppercase flex items-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Copy size={13} />
+                  {copiedCashSummary ? 'Copiado' : 'Corte'}
+                </button>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard
+                label="Ventas hoy"
+                value={`$${money(financialStats.todaySales)}`}
+                detail={`${financialStats.todayValidOrders.length} pedidos válidos`}
+                Icon={DollarSign}
+                tone="green"
+              />
+              <StatCard
+                label="Ventas mes"
+                value={`$${money(financialStats.monthSales)}`}
+                detail={new Date().toLocaleDateString('es-EC', { month: 'long' })}
+                Icon={TrendingUp}
+                tone="blue"
+              />
+              <StatCard
+                label="Ticket prom."
+                value={`$${money(financialStats.todayAverageTicket)}`}
+                detail="Promedio del día"
+                Icon={ReceiptText}
+                tone="orange"
+              />
+              <StatCard
+                label="Activos"
+                value={activeOrders.length}
+                detail="Sin entregar/cancelar"
+                Icon={Zap}
+                tone="yellow"
+              />
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('orders');
+                  setOrderBucket('waiting');
+                }}
+                className="bg-white rounded-[28px] border border-orange-100 p-4 shadow-sm text-left active:scale-[0.98] transition-all"
+              >
+                <AlertTriangle size={22} className="text-orange-500 mb-3" />
+                <p className="text-2xl font-black text-gray-900">{orderStats.totalWaiting}</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase mt-1">
+                  Pedidos por confirmar
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('orders');
+                  setOrderBucket('confirmed');
+                }}
+                className="bg-white rounded-[28px] border border-blue-100 p-4 shadow-sm text-left active:scale-[0.98] transition-all"
+              >
+                <ClipboardList size={22} className="text-blue-500 mb-3" />
+                <p className="text-2xl font-black text-gray-900">{orderStats.totalConfirmed}</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase mt-1">
+                  Confirmados
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('orders');
+                  setOrderBucket('preparing');
+                }}
+                className="bg-white rounded-[28px] border border-yellow-100 p-4 shadow-sm text-left active:scale-[0.98] transition-all"
+              >
+                <Package size={22} className="text-yellow-600 mb-3" />
+                <p className="text-2xl font-black text-gray-900">{orderStats.totalPreparing}</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase mt-1">
+                  Preparando
+                </p>
+              </button>
+            </section>
+
+            {orderStats.pendingPayments > 0 && (
+              <section className="bg-yellow-50 border border-yellow-100 rounded-[28px] p-4 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-yellow-600 shadow-sm">
+                  <QrCode size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-yellow-700 uppercase">
+                    {orderStats.pendingPayments} pago{orderStats.pendingPayments !== 1 ? 's' : ''} por validar
+                  </p>
+                  <p className="text-[10px] font-bold text-yellow-700/70 mt-1">
+                    Revisa Deuna o transferencia antes de confirmar.
+                  </p>
+                </div>
+              </section>
+            )}
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-black uppercase italic">Pago de hoy</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">
+                      Separado por método
+                    </p>
+                  </div>
+                  <Wallet size={22} className="text-orange-500" />
+                </div>
+
+                <div className="space-y-2">
+                  {financialStats.todayMethods.map(method => {
+                    const Icon = method.Icon;
+
+                    return (
+                      <div key={method.key} className="flex items-center justify-between gap-3 bg-gray-50 rounded-2xl p-3 border border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-orange-500 shadow-sm">
+                            <Icon size={16} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-gray-700">
+                              {method.label}
+                            </p>
+                            <p className="text-[8px] font-bold text-gray-400">
+                              {method.count} pedido{method.count !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm font-black text-gray-900">
+                          ${money(method.value)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-black uppercase italic">Top productos hoy</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">
+                      Lo que más se mueve
+                    </p>
+                  </div>
+                  <BarChart3 size={22} className="text-orange-500" />
+                </div>
+
+                {financialStats.topTodayProducts.length > 0 ? (
+                  <div className="space-y-2">
+                    {financialStats.topTodayProducts.slice(0, 5).map((product, index) => (
+                      <div key={product.name} className="flex items-center justify-between gap-3 bg-gray-50 rounded-2xl p-3 border border-gray-100">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-gray-800 uppercase truncate">
+                            {index + 1}. {product.name}
+                          </p>
+                          <p className="text-[8px] font-bold text-gray-400">
+                            {product.quantity} vendido{product.quantity !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <p className="text-xs font-black text-green-600">
+                          ${money(product.sales)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-bold text-gray-400 bg-gray-50 rounded-2xl p-5 text-center">
+                    Todavía no hay productos vendidos hoy.
+                  </p>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {tab === 'cash' && (
+          <div className="space-y-5 pb-10 animate-in fade-in duration-500">
+            <section className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                    Caja y ventas
+                  </p>
+                  <h2 className="text-2xl font-black text-gray-900 uppercase italic mt-1">
+                    Corte del día
+                  </h2>
+                  <p className="text-xs font-bold text-gray-400 mt-2 leading-relaxed">
+                    Ventas registradas sin contar pedidos cancelados ni pedidos por confirmar.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={copyCashSummary}
+                  className="bg-slate-950 text-white rounded-2xl px-4 py-3 text-[10px] font-black uppercase flex items-center gap-2 active:scale-95 transition-all"
+                >
+                  <Copy size={14} />
+                  {copiedCashSummary ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard
+                label="Hoy"
+                value={`$${money(financialStats.todaySales)}`}
+                detail={`${financialStats.todayValidOrders.length} pedidos`}
+                Icon={DollarSign}
+                tone="green"
+              />
+              <StatCard
+                label="Este mes"
+                value={`$${money(financialStats.monthSales)}`}
+                detail={`${financialStats.monthValidOrders.length} pedidos`}
+                Icon={TrendingUp}
+                tone="blue"
+              />
+              <StatCard
+                label="Total"
+                value={`$${money(financialStats.totalSales)}`}
+                detail={`${financialStats.validOrders.length} ventas`}
+                Icon={Wallet}
+                tone="orange"
+              />
+              <StatCard
+                label="Prom. mes"
+                value={`$${money(financialStats.monthAverageTicket)}`}
+                detail="Ticket promedio"
+                Icon={ReceiptText}
+                tone="slate"
+              />
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase italic text-gray-500">
+                  Métodos de pago hoy
+                </h3>
+                <span className="text-[9px] font-black uppercase text-gray-300">
+                  Total ${money(financialStats.todaySales)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {financialStats.todayMethods.map(method => (
+                  <MethodCard key={method.key} item={method} />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase italic text-gray-500">
+                  Métodos de pago del mes
+                </h3>
+                <span className="text-[9px] font-black uppercase text-gray-300">
+                  Total ${money(financialStats.monthSales)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {financialStats.monthMethods.map(method => (
+                  <MethodCard key={method.key} item={method} />
+                ))}
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-[32px] border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-black uppercase italic">Productos top hoy</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">
+                      Por cantidad vendida
+                    </p>
+                  </div>
+                  <Package size={22} className="text-orange-500" />
+                </div>
+
+                {financialStats.topTodayProducts.length > 0 ? (
+                  <div className="space-y-2">
+                    {financialStats.topTodayProducts.map((product, index) => (
+                      <div key={product.name} className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase text-gray-800 truncate">
+                            {index + 1}. {product.name}
+                          </p>
+                          <p className="text-[8px] font-bold text-gray-400">
+                            {product.quantity} unidades
+                          </p>
+                        </div>
+                        <p className="text-xs font-black text-green-600">
+                          ${money(product.sales)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-bold text-gray-400 text-center bg-gray-50 rounded-2xl p-5">
+                    Sin ventas de productos hoy.
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white rounded-[32px] border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-black uppercase italic">Productos top mes</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">
+                      Lo más vendido del mes
+                    </p>
+                  </div>
+                  <BarChart3 size={22} className="text-blue-500" />
+                </div>
+
+                {financialStats.topMonthProducts.length > 0 ? (
+                  <div className="space-y-2">
+                    {financialStats.topMonthProducts.map((product, index) => (
+                      <div key={product.name} className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase text-gray-800 truncate">
+                            {index + 1}. {product.name}
+                          </p>
+                          <p className="text-[8px] font-bold text-gray-400">
+                            {product.quantity} unidades
+                          </p>
+                        </div>
+                        <p className="text-xs font-black text-green-600">
+                          ${money(product.sales)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-bold text-gray-400 text-center bg-gray-50 rounded-2xl p-5">
+                    Sin ventas de productos este mes.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="bg-slate-950 text-white rounded-[32px] p-5 shadow-xl">
+              <div className="flex items-center gap-3 mb-4">
+                <ReceiptText size={22} className="text-orange-400" />
+                <div>
+                  <p className="text-xs font-black uppercase italic">Resumen copiable</p>
+                  <p className="text-[10px] font-bold text-white/45 mt-1">
+                    Útil para enviar por WhatsApp o guardar el corte.
+                  </p>
+                </div>
+              </div>
+
+              <pre className="whitespace-pre-wrap text-[11px] font-bold leading-relaxed bg-white/5 border border-white/10 rounded-2xl p-4 text-white/75">
+                {cashSummaryText}
+              </pre>
+            </section>
+          </div>
+        )}
 
         {tab === 'orders' && (
           <div className="space-y-4 pb-10 animate-in fade-in duration-500">
