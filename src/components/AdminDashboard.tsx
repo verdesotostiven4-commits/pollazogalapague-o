@@ -1,4 +1,4 @@
-import { useMemo, useState, Component } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -65,6 +65,17 @@ type OrderBucket =
   | 'delivered'
   | 'cancelled'
   | 'all';
+
+type AdminAlertKind = 'new_order' | 'ready_order' | 'payment_ready';
+
+interface AdminAlert {
+  id: string;
+  orderId?: string;
+  kind: AdminAlertKind;
+  title: string;
+  message: string;
+  createdAt: number;
+}
 
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'Por Confirmar',
@@ -414,6 +425,16 @@ const productTextOfOrder = (order: any) => {
     .join(' ');
 };
 
+const triggerAdminVibration = () => {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([90, 55, 90, 55, 140]);
+    }
+  } catch {
+    // Vibración opcional.
+  }
+};
+
 function StatCard({
   label,
   value,
@@ -467,6 +488,11 @@ function AdminDashboardContent() {
   const [savingBranding, setSavingBranding] = useState(false);
   const [savingSeason, setSavingSeason] = useState(false);
   const [resettingPoints, setResettingPoints] = useState(false);
+  const [activeAlert, setActiveAlert] = useState<AdminAlert | null>(null);
+
+  const orderSnapshotRef = useRef<Map<string, { status?: OrderStatus; paymentStatus?: string | null }>>(new Map());
+  const initializedOrderWatcherRef = useRef(false);
+  const alertAudioRef = useRef<AudioContext | null>(null);
 
   const [draft, setDraft] = useState({
     name: '',
@@ -503,6 +529,177 @@ function AdminDashboardContent() {
   };
 
   const seasonActive = safeExtraSettings.event_active !== false;
+
+  const playAdminAlertSound = useCallback((kind: AdminAlertKind) => {
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+      if (!AudioContextClass) return;
+
+      if (alertAudioRef.current) {
+        alertAudioRef.current.close().catch(() => undefined);
+        alertAudioRef.current = null;
+      }
+
+      const ctx = new AudioContextClass();
+      alertAudioRef.current = ctx;
+
+      const notes =
+        kind === 'new_order'
+          ? [523.25, 659.25, 783.99]
+          : kind === 'ready_order'
+            ? [440, 587.33, 698.46]
+            : [493.88, 659.25, 880];
+
+      notes.forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const start = ctx.currentTime + index * 0.12;
+        const duration = 0.18;
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.linearRampToValueAtTime(0.08, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+        osc.start(start);
+        osc.stop(start + duration);
+      });
+
+      window.setTimeout(() => {
+        if (alertAudioRef.current) {
+          alertAudioRef.current.close().catch(() => undefined);
+          alertAudioRef.current = null;
+        }
+      }, 900);
+    } catch {
+      // Sonido opcional.
+    }
+  }, []);
+
+  const raiseOperationalAlert = useCallback(
+    (alert: Omit<AdminAlert, 'id' | 'createdAt'>) => {
+      const nextAlert: AdminAlert = {
+        ...alert,
+        id: `${alert.kind}-${alert.orderId || 'general'}-${Date.now()}`,
+        createdAt: Date.now(),
+      };
+
+      setActiveAlert(nextAlert);
+      triggerAdminVibration();
+      playAdminAlertSound(alert.kind);
+
+      if (alert.kind === 'new_order') {
+        setTab('orders');
+        setOrderBucket('waiting');
+      }
+
+      if (alert.kind === 'ready_order') {
+        setTab('orders');
+        setOrderBucket('preparing');
+      }
+
+      if (alert.kind === 'payment_ready') {
+        setTab('orders');
+        setOrderBucket('confirmed');
+      }
+    },
+    [playAdminAlertSound]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (alertAudioRef.current) {
+        alertAudioRef.current.close().catch(() => undefined);
+        alertAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authed || !safeOrders.length) {
+      return;
+    }
+
+    const currentSnapshot = new Map<string, { status?: OrderStatus; paymentStatus?: string | null }>();
+
+    safeOrders.forEach(order => {
+      if (!order?.id) return;
+
+      currentSnapshot.set(String(order.id), {
+        status: order.status,
+        paymentStatus: order.payment_status || null,
+      });
+    });
+
+    if (!initializedOrderWatcherRef.current) {
+      orderSnapshotRef.current = currentSnapshot;
+      initializedOrderWatcherRef.current = true;
+      return;
+    }
+
+    let pendingAlert: Omit<AdminAlert, 'id' | 'createdAt'> | null = null;
+
+    for (const order of safeOrders) {
+      if (!order?.id) continue;
+
+      const orderId = String(order.id);
+      const previous = orderSnapshotRef.current.get(orderId);
+      const isNewOrder = !previous;
+      const becamePreparing =
+        Boolean(previous) &&
+        previous?.status !== 'Preparando' &&
+        order.status === 'Preparando';
+
+      const paymentBecameConfirmed =
+        Boolean(previous) &&
+        previous?.paymentStatus !== 'confirmado' &&
+        order.payment_status === 'confirmado' &&
+        (order.status === 'Recibido' || order.status === 'Preparando');
+
+      if (isNewOrder && order.status === 'Por Confirmar') {
+        pendingAlert = {
+          kind: 'new_order',
+          orderId,
+          title: '🚨 Nuevo pedido por confirmar',
+          message: `${order.order_code || 'Pedido nuevo'} necesita revisión de disponibilidad y pago.`,
+        };
+        break;
+      }
+
+      if (becamePreparing) {
+        pendingAlert = {
+          kind: 'ready_order',
+          orderId,
+          title: '📦 Pedido listo para empacar/enviar',
+          message: `${order.order_code || 'Pedido'} entró a preparación. Revísalo para despacho.`,
+        };
+        break;
+      }
+
+      if (paymentBecameConfirmed) {
+        pendingAlert = {
+          kind: 'payment_ready',
+          orderId,
+          title: '💸 Pago confirmado',
+          message: `${order.order_code || 'Pedido'} ya tiene pago confirmado. Puede pasar a preparación.`,
+        };
+        break;
+      }
+    }
+
+    orderSnapshotRef.current = currentSnapshot;
+
+    if (pendingAlert) {
+      raiseOperationalAlert(pendingAlert);
+    }
+  }, [authed, raiseOperationalAlert, safeOrders]);
 
   const ranking = useMemo(() => {
     return [...safeCustomers].sort((a, b) => (b?.points || 0) - (a?.points || 0));
@@ -659,6 +856,10 @@ function AdminDashboardContent() {
     try {
       await context.updateOrderStatus(orderId, status);
       await context.refreshData();
+
+      if (activeAlert?.orderId === orderId) {
+        setActiveAlert(null);
+      }
     } catch {
       window.alert('No se pudo actualizar el pedido.');
     }
@@ -685,6 +886,10 @@ function AdminDashboardContent() {
       window.alert('No se pudo borrar. Puede faltar una política DELETE en Supabase.');
       console.error(error);
       return;
+    }
+
+    if (activeAlert?.orderId === orderId) {
+      setActiveAlert(null);
     }
 
     await context.refreshData();
@@ -803,9 +1008,32 @@ function AdminDashboardContent() {
     }
   };
 
+  const handleViewAlertOrder = () => {
+    if (!activeAlert) return;
+
+    setTab('orders');
+    setSearch('');
+
+    if (activeAlert.kind === 'new_order') {
+      setOrderBucket('waiting');
+    }
+
+    if (activeAlert.kind === 'ready_order') {
+      setOrderBucket('preparing');
+    }
+
+    if (activeAlert.kind === 'payment_ready') {
+      setOrderBucket('confirmed');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900 overflow-x-hidden leading-tight">
-      <header className="sticky top-0 z-40 bg-white border-b p-4 flex justify-between items-center shadow-sm">
+      <header
+        className={`sticky top-0 z-40 bg-white border-b p-4 flex justify-between items-center shadow-sm ${
+          activeAlert ? 'ring-4 ring-orange-200 animate-pulse' : ''
+        }`}
+      >
         <div className="flex items-center gap-2">
           <img
             src={safeExtraSettings?.logo_url || '/logo-final.png'}
@@ -846,6 +1074,49 @@ function AdminDashboardContent() {
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-6">
+        {activeAlert && (
+          <section className="bg-slate-950 text-white rounded-[32px] p-4 border border-orange-400/40 shadow-2xl shadow-orange-200 animate-pulse">
+            <div className="flex gap-3 items-start">
+              <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/30 flex-shrink-0">
+                {activeAlert.kind === 'new_order' ? (
+                  <AlertTriangle size={24} />
+                ) : activeAlert.kind === 'ready_order' ? (
+                  <Package size={24} />
+                ) : (
+                  <ShieldCheck size={24} />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black uppercase italic tracking-tight">
+                  {activeAlert.title}
+                </p>
+                <p className="text-[11px] font-bold text-white/65 leading-relaxed mt-1">
+                  {activeAlert.message}
+                </p>
+
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={handleViewAlertOrder}
+                    className="bg-orange-500 text-white rounded-2xl px-4 py-3 text-[10px] font-black uppercase active:scale-95 shadow-lg shadow-orange-500/20"
+                  >
+                    Ver pedido
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveAlert(null)}
+                    className="bg-white/10 text-white rounded-2xl px-4 py-3 text-[10px] font-black uppercase active:scale-95 border border-white/10"
+                  >
+                    Entendido
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {TABS.map(item => (
             <button
@@ -983,15 +1254,24 @@ function AdminDashboardContent() {
               const deliveryRef = order.reference || customer?.reference || '';
 
               const isPending = order.status === 'Por Confirmar';
+              const isReadyForAction =
+                order.status === 'Preparando' ||
+                (order.status === 'Recibido' && order.payment_status === 'confirmado');
+
+              const isActiveAlertOrder = activeAlert?.orderId === order.id;
               const cleanCustomerPhone = cleanPhone(order.customer_phone);
 
               return (
                 <div
                   key={order.id}
-                  className={`bg-white rounded-[32px] border p-5 space-y-4 shadow-sm ${
-                    isPending
-                      ? 'border-orange-300 shadow-orange-100 ring-2 ring-orange-100'
-                      : 'border-gray-100'
+                  className={`bg-white rounded-[32px] border p-5 space-y-4 shadow-sm transition-all ${
+                    isActiveAlertOrder
+                      ? 'border-orange-400 shadow-orange-200 ring-4 ring-orange-200 animate-pulse'
+                      : isPending
+                        ? 'border-orange-300 shadow-orange-100 ring-2 ring-orange-100'
+                        : isReadyForAction
+                          ? 'border-blue-300 shadow-blue-100 ring-2 ring-blue-100'
+                          : 'border-gray-100'
                   }`}
                 >
                   <div className="flex justify-between items-start border-b pb-3 border-gray-50 gap-3">
@@ -1014,6 +1294,12 @@ function AdminDashboardContent() {
                           {isPending && (
                             <span className="bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
                               Nuevo
+                            </span>
+                          )}
+
+                          {isReadyForAction && !isPending && (
+                            <span className="bg-blue-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">
+                              Acción
                             </span>
                           )}
                         </div>
