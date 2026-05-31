@@ -341,7 +341,7 @@ function AppShell() {
   });
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, orders, products } = useAdmin();
+  const { createOrder, upsertCustomer, orders, products, loading } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -367,7 +367,7 @@ function AppShell() {
     return hasValidDeliveryLocation(customerLat, customerLng, customerReference);
   }, [customerLat, customerLng, customerReference]);
 
-    const latestTrackableOrder = useMemo(() => {
+  const latestTrackableOrder = useMemo(() => {
     const cleanUserPhone = cleanPhoneTail(customerPhone);
 
     if (!cleanUserPhone) return null;
@@ -397,31 +397,13 @@ function AppShell() {
   }, [customerPhone, orders]);
 
   const hasTrackableOrder = Boolean(latestTrackableOrder);
-    const cleanUserPhone = cleanPhoneTail(customerPhone);
-
-    if (!cleanUserPhone) return false;
-
-    return Boolean(
-      orders?.some(order => {
-        const cleanOrderPhone = cleanPhoneTail(order.customer_phone);
-        const isSameCustomer = cleanOrderPhone === cleanUserPhone;
-        const isRecent = isRecentTrackableOrder(order.created_at);
-        const isActiveStatus = ACTIVE_TRACKING_STATUSES.includes(order.status);
-        const isFinalStatus = FINAL_TRACKING_STATUSES.includes(order.status);
-        const isFreshFinalStatus = isFinalStatus
-          ? isRecentlyFinalizedOrder(order.updated_at, order.created_at)
-          : false;
-
-        return isSameCustomer && isRecent && (isActiveStatus || isFreshFinalStatus);
-      })
-    );
-  }, [customerPhone, orders]);
 
   useEffect(() => {
-    if (!hasTrackableOrder && showTracking) {
+    if (!loading && !hasTrackableOrder && showTracking) {
       setShowTracking(false);
     }
-  }, [hasTrackableOrder, showTracking]);
+  }, [hasTrackableOrder, loading, showTracking]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shouldOpenTracking = params.get('tracking') === '1';
@@ -840,9 +822,10 @@ export default function App() {
 
     const isDismissed = Boolean(localStorage.getItem('pollazo_landing_dismissed'));
 
-    const shouldOpenTracking = new URLSearchParams(window.location.search).get('tracking') === '1';
+    const shouldOpenTracking =
+      new URLSearchParams(window.location.search).get('tracking') === '1';
 
-return isPWA || isDismissed || shouldOpenTracking;
+    return isPWA || isDismissed || shouldOpenTracking;
   });
 
   useEffect(() => {
