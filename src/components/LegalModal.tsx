@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type ReactNode } from 'react';
 import {
   X,
   Scale,
@@ -13,35 +13,50 @@ import {
   BadgeCheck,
   UserCheck,
   RefreshCw,
-  ChevronDown,
   CheckCircle2,
   FileText,
   Lock,
+  BellRing,
+  HelpCircle,
+  Crown,
+  Star,
+  Smartphone,
 } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+
+  // No es obligatorio pasarlo.
+  // auto:
+  // - si el cliente aún no aceptó, muestra versión obligatoria sin X.
+  // - si ya aceptó, muestra versión de lectura con X.
+  mode?: 'auto' | 'required' | 'read';
 }
+
+const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
+
+const WHATSAPP_HELP_URL =
+  'https://wa.me/593989795628?text=Hola%2C%20tengo%20una%20consulta%20sobre%20t%C3%A9rminos%2C%20privacidad%20o%20un%20pedido%20en%20La%20Casa%20del%20Pollazo.';
 
 function Section({
   icon,
   title,
   children,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <section className="bg-white border border-orange-50 rounded-[28px] p-4 shadow-sm">
+    <section className="bg-white border border-orange-100/70 rounded-[30px] p-4 shadow-sm">
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+        <div className="w-11 h-11 rounded-[20px] bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0 border border-orange-100">
           {icon}
         </div>
 
-        <div className="min-w-0">
-          <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-widest leading-tight">
+        <div className="min-w-0 pt-0.5">
+          <h3 className="text-[11px] font-black text-gray-950 uppercase tracking-widest leading-tight">
             {title}
           </h3>
         </div>
@@ -54,134 +69,207 @@ function Section({
   );
 }
 
-export default function LegalModal({ isOpen, onClose }: Props) {
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+function MiniLegalCard({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="bg-white/80 border border-white rounded-[24px] p-3 shadow-sm">
+      <div className="w-9 h-9 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mb-2">
+        {icon}
+      </div>
 
+      <p className="text-[9px] font-black text-gray-900 uppercase leading-tight">
+        {title}
+      </p>
+
+      <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-1">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function HelpItem({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="bg-orange-50/70 border border-orange-100 rounded-[24px] p-3 flex items-start gap-3">
+      <div className="w-9 h-9 rounded-2xl bg-white text-orange-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[10px] font-black text-gray-900 uppercase leading-tight">
+          {title}
+        </p>
+
+        <p className="text-[10px] font-bold text-gray-500 leading-relaxed mt-1">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function LegalModal({
+  isOpen,
+  onClose,
+  mode = 'auto',
+}: Props) {
   if (!isOpen) return null;
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end',
-    });
+  const hasAccepted =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(LEGAL_ACCEPTED_KEY) === '1';
+
+  const isRequired = mode === 'required' || (mode === 'auto' && !hasAccepted);
+  const isReadOnly = !isRequired;
+
+  const handlePrimaryAction = () => {
+    if (isRequired && typeof window !== 'undefined') {
+      window.localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
+    }
+
+    onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <button
-        type="button"
-        aria-label="Cerrar términos"
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-950/65 backdrop-blur-xl"
-      />
+  const modalTitle = isRequired
+    ? 'Antes de continuar'
+    : 'Centro legal y ayuda';
 
-      <div className="relative w-full sm:max-w-lg h-[92dvh] sm:h-[90vh] bg-gray-50 rounded-t-[38px] sm:rounded-[38px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-white/70">
-        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-orange-50 px-5 pt-[calc(env(safe-area-inset-top)+16px)] sm:pt-5 pb-4">
+  const modalSubtitle = isRequired
+    ? 'Revisa y acepta para usar la app'
+    : 'Consulta reglas, privacidad y soporte';
+
+  return (
+    <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center bg-orange-950/20 p-0 sm:p-4">
+      {isReadOnly ? (
+        <button
+          type="button"
+          aria-label="Cerrar centro legal"
+          onClick={onClose}
+          className="absolute inset-0 bg-orange-950/10"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-orange-950/10" />
+      )}
+
+      <section className="relative w-full sm:max-w-lg h-[94dvh] sm:h-[90vh] bg-gradient-to-b from-orange-50 via-white to-white rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-white/80 flex flex-col">
+        <header className="flex-shrink-0 bg-white/95 border-b border-orange-100 px-5 pt-[calc(env(safe-area-inset-top)+16px)] sm:pt-5 pb-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
-                <Scale size={23} />
+              <div className="relative w-13 h-13 flex-shrink-0">
+                <div className="absolute inset-0 bg-orange-300/40 rounded-[24px] blur-lg" />
+                <div className="relative w-13 h-13 rounded-[24px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200">
+                  <Scale size={24} />
+                </div>
               </div>
 
               <div className="min-w-0">
-                <h2 className="text-sm font-black text-gray-900 uppercase italic leading-tight truncate">
-                  Términos y Privacidad
+                <h2 className="text-base font-black text-gray-950 uppercase italic leading-tight truncate">
+                  {modalTitle}
                 </h2>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1 truncate">
-                  La Casa del Pollazo
+
+                <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em] mt-1 truncate">
+                  {modalSubtitle}
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
-              aria-label="Cerrar"
-            >
-              <X size={20} />
-            </button>
+            {isReadOnly && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 border border-orange-100"
+                aria-label="Cerrar"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={scrollToBottom}
-              className="bg-orange-50 text-orange-600 border border-orange-100 rounded-2xl py-3 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-            >
-              <ChevronDown size={14} />
-              Bajar al final
-            </button>
+          {isRequired && (
+            <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3 flex items-start gap-3">
+              <ShieldCheck size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+                Para comprar, guardar tu ubicación, recibir avisos de pedido y usar beneficios, necesitamos que aceptes estas reglas básicas.
+              </p>
+            </div>
+          )}
+        </header>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-slate-950 text-white rounded-2xl py-3 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-            >
-              <CheckCircle2 size={14} />
-              Aceptar
-            </button>
-          </div>
-        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 hide-scrollbar">
+          <section className="relative overflow-hidden bg-gradient-to-br from-white via-orange-50 to-yellow-50 border border-orange-100 rounded-[36px] p-5 shadow-sm">
+            <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-300/25 rounded-full blur-3xl" />
+            <div className="absolute -left-12 -bottom-14 w-36 h-36 bg-yellow-300/25 rounded-full blur-3xl" />
 
-        <div
-          ref={contentRef}
-          className="overflow-y-auto h-[calc(92dvh-137px)] sm:h-[calc(90vh-137px)] p-4 space-y-4 hide-scrollbar"
-        >
-          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 rounded-[34px] p-5 text-white shadow-xl overflow-hidden relative">
-            <div className="absolute -top-14 -right-12 w-36 h-36 bg-orange-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-14 -left-12 w-36 h-36 bg-yellow-400/10 rounded-full blur-3xl" />
+            <div className="relative">
+              <div className="flex items-start gap-3">
+                <div className="w-13 h-13 rounded-[24px] bg-white text-orange-500 flex items-center justify-center shadow-md border border-orange-100 flex-shrink-0">
+                  <ShieldCheck size={28} />
+                </div>
 
-            <div className="relative flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
-                <ShieldCheck size={25} />
+                <div>
+                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
+                    La Casa del Pollazo
+                  </p>
+
+                  <h3 className="text-2xl font-black text-gray-950 uppercase italic leading-none mt-2">
+                    Compra fácil, con reglas claras
+                  </h3>
+
+                  <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
+                    Aquí explicamos cómo funcionan pedidos, pagos, entregas, datos personales, beneficios, puntos, notificaciones y ayuda.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm font-black uppercase italic leading-tight">
-                  Reglas claras para comprar mejor
-                </p>
-                <p className="text-[10px] font-bold text-white/60 mt-1">
-                  Última actualización: 2026
-                </p>
+              <div className="grid grid-cols-3 gap-2 mt-5">
+                <MiniLegalCard
+                  icon={<FileText size={18} />}
+                  title="Pedidos"
+                  text="Estados, cambios y confirmación."
+                />
+
+                <MiniLegalCard
+                  icon={<CreditCard size={18} />}
+                  title="Pagos"
+                  text="Efectivo, Deuna, transferencia y tarjeta."
+                />
+
+                <MiniLegalCard
+                  icon={<Lock size={18} />}
+                  title="Datos"
+                  text="Privacidad, ubicación y seguridad."
+                />
               </div>
             </div>
+          </section>
 
-            <p className="relative text-xs font-bold text-white/85 leading-relaxed">
-              Al usar la app, hacer un pedido o contactarnos por WhatsApp, aceptas estas reglas básicas de compra, entrega, pagos y tratamiento de datos.
+          <div className="px-1">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
+              Información legal
             </p>
-
-            <div className="relative mt-4 grid grid-cols-3 gap-2">
-              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
-                <FileText size={18} className="mx-auto text-orange-300 mb-1" />
-                <p className="text-[7px] font-black uppercase text-white/55">
-                  Pedidos
-                </p>
-              </div>
-
-              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
-                <CreditCard size={18} className="mx-auto text-orange-300 mb-1" />
-                <p className="text-[7px] font-black uppercase text-white/55">
-                  Pagos
-                </p>
-              </div>
-
-              <div className="bg-white/8 border border-white/10 rounded-2xl p-3 text-center">
-                <Lock size={18} className="mx-auto text-orange-300 mb-1" />
-                <p className="text-[7px] font-black uppercase text-white/55">
-                  Datos
-                </p>
-              </div>
-            </div>
           </div>
 
           <Section icon={<ClipboardList size={20} />} title="1. Uso de la app">
             <p>
-              La app permite ver productos, armar pedidos, registrar datos de entrega, revisar historial, participar en dinámicas de puntos cuando estén activas y contactar al negocio.
+              La app permite ver productos, armar pedidos, registrar datos de entrega, revisar historial, participar en dinámicas de puntos cuando estén activas, recibir avisos importantes y contactar al negocio.
             </p>
             <p>
-              El cliente debe ingresar información real y suficiente para poder coordinar la entrega: nombre, teléfono, ubicación y referencia.
+              El cliente debe ingresar información real y suficiente para coordinar la atención: nombre, WhatsApp, ubicación y referencia de entrega.
             </p>
           </Section>
 
@@ -197,27 +285,27 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </Section>
 
-          <Section icon={<CreditCard size={20} />} title="3. Métodos de pago">
+          <Section icon={<CreditCard size={20} />} title="3. Pagos y comprobantes">
             <p>
               Los métodos disponibles pueden incluir efectivo, Deuna, transferencia bancaria y tarjeta, según lo que el negocio tenga activo.
             </p>
             <p>
-              En efectivo, el pago se realiza contra entrega y el pedido debe ser aceptado por el negocio antes de prepararse.
+              En efectivo, el pago se realiza contra entrega. En Deuna, transferencia o tarjeta, el pedido puede requerir validación antes de avanzar.
             </p>
             <p>
-              En Deuna, transferencia o tarjeta, el pedido puede requerir validación del pago antes de avanzar. Si el comprobante o pago no coincide, el pedido puede quedar pendiente, rechazado o cancelado.
+              Si el pago, comprobante, monto o referencia no coincide, el pedido puede quedar pendiente, rechazado o cancelado.
             </p>
             <p>
-              Si a futuro se activa pago con tarjeta o pasarela con comisión, el negocio podrá mostrar una tarifa adicional o recargo antes de confirmar el pedido.
+              Si a futuro se activa una pasarela de tarjeta con comisión, la app podrá mostrar el valor adicional antes de confirmar el pedido.
             </p>
           </Section>
 
           <Section icon={<Truck size={20} />} title="4. Entregas y ubicación">
             <p>
-              El cliente debe marcar una ubicación lo más exacta posible y escribir una referencia clara. Ejemplo: color de casa, entrada, calle, negocio cercano o punto de encuentro.
+              El cliente debe marcar una ubicación lo más exacta posible y escribir una referencia clara, como color de casa, entrada, calle, negocio cercano o punto de encuentro.
             </p>
             <p>
-              Los tiempos de entrega mostrados en la app son estimados. Pueden variar por distancia, cantidad de productos, clima, tráfico, disponibilidad o coordinación con el cliente.
+              Los tiempos de entrega son estimados. Pueden variar por distancia, clima, tráfico, cantidad de productos, disponibilidad o coordinación con el cliente.
             </p>
             <p>
               Si la ubicación GPS no es exacta o la referencia es insuficiente, el repartidor o el negocio puede llamar o escribir por WhatsApp para coordinar.
@@ -236,7 +324,19 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </Section>
 
-          <Section icon={<Gift size={20} />} title="6. Niveles, puntos y temporadas">
+          <Section icon={<Crown size={20} />} title="6. Pollazo Plus">
+            <p>
+              Pollazo Plus es una membresía mensual que puede incluir beneficios como delivery gratis dentro de cobertura, prioridad operativa, avisos importantes y regalos sorpresa cuando el negocio los active.
+            </p>
+            <p>
+              Los beneficios aplican mientras la membresía esté activa. El negocio podrá revisar, pausar o cancelar beneficios si detecta abuso, datos falsos, pagos no válidos o uso indebido.
+            </p>
+            <p>
+              El delivery gratis aplica dentro de las zonas y condiciones operativas del negocio. Algunos pedidos pueden requerir coordinación especial por distancia, horario o disponibilidad.
+            </p>
+          </Section>
+
+          <Section icon={<Gift size={20} />} title="7. Niveles, puntos, ranking y promociones">
             <p>
               La app puede mostrar niveles, progreso del cliente, puntos de temporada, rankings, premios o dinámicas promocionales.
             </p>
@@ -247,28 +347,25 @@ export default function LegalModal({ isOpen, onClose }: Props) {
               Los puntos no son dinero, no son transferibles y no garantizan premio salvo que una temporada activa lo indique claramente.
             </p>
             <p>
-              El negocio puede pausar, reiniciar o ajustar temporadas, especialmente por errores, abuso, pedidos falsos o cambios operativos.
+              El negocio puede pausar, reiniciar o ajustar temporadas por errores, abuso, pedidos falsos o cambios operativos.
             </p>
           </Section>
 
-          <Section icon={<UserCheck size={20} />} title="7. Opiniones del Club Pollazo">
+          <Section icon={<BellRing size={20} />} title="8. Notificaciones y rastreo">
             <p>
-              El cliente puede dejar opiniones sobre su experiencia. Cuando exista una temporada activa, la primera opinión puede otorgar puntos promocionales una sola vez.
+              La app puede pedir permiso para enviar notificaciones importantes sobre estados del pedido, pago, entrega, regalos Plus, membresía, seguridad o novedades relevantes.
             </p>
             <p>
-              No se permiten comentarios ofensivos, falsos, discriminatorios, spam o contenido que afecte injustamente a otras personas.
-            </p>
-            <p>
-              El negocio puede ocultar o eliminar opiniones abusivas o claramente falsas.
+              Las notificaciones se usan para mejorar la experiencia del cliente, no para enviar spam. El cliente puede administrar permisos desde la configuración de su navegador o celular.
             </p>
           </Section>
 
-          <Section icon={<ShieldCheck size={20} />} title="8. Privacidad y datos personales">
+          <Section icon={<ShieldCheck size={20} />} title="9. Privacidad y datos personales">
             <p>
-              La app puede guardar datos como nombre, teléfono, avatar, ubicación de entrega, referencia, historial de pedidos, estado de pago, opiniones, puntos y estadísticas de uso.
+              La app puede guardar datos como nombre, teléfono, avatar, ubicación de entrega, referencia, historial de pedidos, método de pago, estado de pago, opiniones, puntos, membresía y estadísticas de uso.
             </p>
             <p>
-              Estos datos se usan para procesar pedidos, coordinar entregas, mejorar la atención, prevenir pedidos falsos, mostrar historial del cliente y administrar beneficios.
+              Estos datos se usan para procesar pedidos, coordinar entregas, mejorar la atención, prevenir pedidos falsos, mostrar historial, entregar beneficios y administrar el servicio.
             </p>
             <p>
               No vendemos los datos del cliente a anunciantes. El acceso interno debe limitarse al negocio, administración, soporte técnico o reparto cuando sea necesario para cumplir el pedido.
@@ -278,7 +375,7 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </Section>
 
-          <Section icon={<AlertTriangle size={20} />} title="9. Uso responsable y pedidos falsos">
+          <Section icon={<AlertTriangle size={20} />} title="10. Uso responsable y seguridad">
             <p>
               Está prohibido usar números ajenos, ubicaciones falsas, pedidos de broma, abuso de promociones, suplantación de identidad o manipulación del sistema de puntos.
             </p>
@@ -287,51 +384,96 @@ export default function LegalModal({ isOpen, onClose }: Props) {
             </p>
           </Section>
 
-          <Section icon={<MapPin size={20} />} title="10. Productos sensibles o con restricción">
+          <Section icon={<MapPin size={20} />} title="11. Productos o zonas con restricción">
             <p>
-              Si el catálogo incluye productos con restricción por edad o control especial, el negocio podrá pedir verificación, limitar su venta o retirarlos de la app.
+              Si el catálogo incluye productos con restricción por edad, disponibilidad especial o control operativo, el negocio podrá pedir verificación, limitar la venta o retirarlos de la app.
             </p>
             <p>
-              El cliente declara que usará la app de forma responsable y conforme a las normas aplicables.
+              Algunas zonas, horarios o entregas pueden requerir confirmación adicional antes de aceptar el pedido.
             </p>
           </Section>
 
-          <Section icon={<MessageCircle size={20} />} title="11. Contacto">
-            <p>
-              Para soporte, reclamos, correcciones de pedido, privacidad o dudas sobre estos términos, el canal principal de contacto es WhatsApp oficial del negocio.
-            </p>
-
-            <a
-              href="https://wa.me/593989795628?text=Hola%2C%20tengo%20una%20consulta%20sobre%20t%C3%A9rminos%2C%20privacidad%20o%20un%20pedido."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
-            >
-              <MessageCircle size={15} />
-              Contactar por WhatsApp
-            </a>
-          </Section>
-
-          <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4">
-            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
-              Estos términos pueden actualizarse cuando cambien funciones, métodos de pago, promociones, reparto o requisitos del negocio.
+          <div className="px-1 pt-1">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
+              Ayuda rápida
             </p>
           </div>
 
-          <div ref={bottomRef} />
+          <section className="bg-white border border-orange-100 rounded-[32px] p-4 shadow-sm space-y-3">
+            <HelpItem
+              icon={<ClipboardList size={18} />}
+              title="Problemas con mi pedido"
+              text="Consulta estados, cambios, cancelaciones, productos faltantes o coordinación de entrega."
+            />
+
+            <HelpItem
+              icon={<CreditCard size={18} />}
+              title="Problemas con pago"
+              text="Ayuda con comprobantes, Deuna, transferencias, pagos rechazados o pagos pendientes."
+            />
+
+            <HelpItem
+              icon={<MapPin size={18} />}
+              title="Ubicación o entrega"
+              text="Corrige referencia, punto de entrega, Airbnb, hotel, casa o negocio cercano."
+            />
+
+            <HelpItem
+              icon={<BellRing size={18} />}
+              title="Notificaciones y rastreo"
+              text="Revisa avisos del pedido, permisos del celular y seguimiento en vivo."
+            />
+
+            <HelpItem
+              icon={<Smartphone size={18} />}
+              title="Seguridad de mi cuenta"
+              text="Reporta actividad sospechosa, número equivocado o problemas de verificación."
+            />
+
+            <HelpItem
+              icon={<UserCheck size={18} />}
+              title="Mis datos"
+              text="Solicita actualizar, corregir o eliminar datos asociados a tu WhatsApp."
+            />
+
+            <a
+              href={WHATSAPP_HELP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-[#25D366] text-white px-4 py-4 rounded-[24px] font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+            >
+              <MessageCircle size={16} />
+              Contactar por WhatsApp
+            </a>
+          </section>
+
+          <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4">
+            <div className="flex items-start gap-3">
+              <Star size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
+                Estos términos pueden actualizarse cuando cambien funciones, métodos de pago, promociones, reparto, membresías o requisitos del negocio.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <footer className="flex-shrink-0 bg-white/95 border-t border-orange-100 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)]">
+          <p className="text-[9px] font-bold text-gray-400 leading-relaxed text-center mb-3">
+            {isRequired
+              ? 'Al continuar confirmas que entiendes las reglas de uso, compra, entrega, pagos y privacidad.'
+              : 'Esta sección es solo para consulta. Ya aceptaste las reglas al ingresar por primera vez.'}
+          </p>
 
           <button
             type="button"
-            onClick={onClose}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-700 flex items-center justify-center gap-2"
+            onClick={handlePrimaryAction}
+            className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-5 rounded-[26px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-600 flex items-center justify-center gap-2"
           >
             <CheckCircle2 size={17} />
-            Aceptar y cerrar
+            {isRequired ? 'Acepto y continuar' : 'Cerrar lectura'}
           </button>
-
-          <div className="h-3" />
-        </div>
-      </div>
+        </footer>
+      </section>
     </div>
   );
 }
