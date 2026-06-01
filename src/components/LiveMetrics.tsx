@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Users, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
+import { Users, Eye, ShoppingBag, Sparkles } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const ONLINE_KEY = 'pollazo_session_id';
@@ -59,36 +59,26 @@ export default function LiveMetrics() {
   const [onlineCount, setOnlineCount] = useState(1);
   const [totalVisits, setTotalVisits] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [presenceReady, setPresenceReady] = useState(false);
 
   const sessionId = getSessionId();
 
   const fetchMetrics = useCallback(async () => {
     if (!isSupabaseConfigured) return;
 
-    try {
-      setRefreshing(true);
+    const { data, error } = await supabase
+      .from('app_metrics')
+      .select('id, value');
 
-      const { data, error } = await supabase
-        .from('app_metrics')
-        .select('id, value');
-
-      if (error) {
-        console.warn('No se pudieron cargar métricas:', error);
-        return;
-      }
-
-      const visits = data?.find(metric => metric.id === 'total_visits');
-      const orders = data?.find(metric => metric.id === 'total_orders');
-
-      setTotalVisits(Number(visits?.value || 0));
-      setTotalOrders(Number(orders?.value || 0));
-      setLastUpdated(new Date());
-    } finally {
-      setRefreshing(false);
+    if (error) {
+      console.warn('No se pudieron cargar métricas:', error);
+      return;
     }
+
+    const visits = data?.find(metric => metric.id === 'total_visits');
+    const orders = data?.find(metric => metric.id === 'total_orders');
+
+    setTotalVisits(Number(visits?.value || 0));
+    setTotalOrders(Number(orders?.value || 0));
   }, []);
 
   useEffect(() => {
@@ -140,12 +130,10 @@ export default function LiveMetrics() {
 
           if (row?.id === 'total_visits') {
             setTotalVisits(Number(row.value || 0));
-            setLastUpdated(new Date());
           }
 
           if (row?.id === 'total_orders') {
             setTotalOrders(Number(row.value || 0));
-            setLastUpdated(new Date());
           }
         }
       )
@@ -159,7 +147,6 @@ export default function LiveMetrics() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setOnlineCount(1);
-      setPresenceReady(false);
       return undefined;
     }
 
@@ -176,7 +163,6 @@ export default function LiveMetrics() {
       const activeSessions = Object.keys(presenceState).length;
 
       setOnlineCount(Math.max(1, activeSessions));
-      setPresenceReady(true);
     };
 
     channel
@@ -217,100 +203,85 @@ export default function LiveMetrics() {
 
   const metrics = [
     {
-      icon: <Users size={20} className="text-green-500" />,
+      icon: <Users size={21} className="text-green-500" />,
       bg: 'bg-green-50',
+      ring: 'ring-green-100',
       value: onlineCount,
       label: 'En línea ahora',
-      sublabel: presenceReady ? 'sesiones activas' : 'conectando',
       dot: true,
     },
     {
-      icon: <Eye size={20} className="text-blue-500" />,
+      icon: <Eye size={21} className="text-blue-500" />,
       bg: 'bg-blue-50',
+      ring: 'ring-blue-100',
       value: totalVisits,
       label: 'Visitas totales',
-      sublabel: 'sesiones',
       dot: false,
     },
     {
-      icon: <ShoppingBag size={20} className="text-orange-500" />,
+      icon: <ShoppingBag size={21} className="text-orange-500" />,
       bg: 'bg-orange-50',
+      ring: 'ring-orange-100',
       value: totalOrders,
       label: 'Pedidos confirmados',
-      sublabel: 'reales',
       dot: false,
     },
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="font-black text-gray-900 text-base">
-            Transparencia en tiempo real
-          </h3>
-          <p className="text-gray-400 text-xs mt-0.5">
-            Indicadores actualizados de nuestra tienda
-          </p>
-        </div>
+    <section className="relative overflow-hidden rounded-[34px] border border-orange-100 bg-white shadow-sm">
+      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-200/30 blur-3xl" />
+      <div className="absolute -left-16 -bottom-16 h-40 w-40 rounded-full bg-yellow-200/35 blur-3xl" />
 
-        <button
-          type="button"
-          onClick={fetchMetrics}
-          className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1.5 active:scale-95 transition-all"
-          aria-label="Actualizar métricas"
-        >
-          <RefreshCw
-            size={12}
-            className={`text-orange-500 ${refreshing ? 'animate-spin' : ''}`}
-          />
-          <span className="text-[8px] font-black uppercase text-gray-400">
-            Live
-          </span>
-        </button>
+      <div className="relative px-5 pt-5 pb-4 border-b border-orange-50">
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-[20px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-100 flex-shrink-0">
+            <Sparkles size={21} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
+              Transparencia
+            </p>
+
+            <h3 className="font-black text-gray-950 text-lg uppercase italic leading-none mt-1">
+              En tiempo real
+            </h3>
+
+            <p className="text-gray-400 text-[11px] font-bold leading-relaxed mt-2">
+              Indicadores vivos de actividad y pedidos de La Casa del Pollazo.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 divide-x divide-gray-100">
-        {metrics.map(({ icon, bg, value, label, sublabel, dot }) => (
-          <div key={label} className="flex flex-col items-center py-4 px-2 gap-2">
-            <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center relative`}>
+      <div className="relative grid grid-cols-3">
+        {metrics.map(({ icon, bg, ring, value, label, dot }) => (
+          <div
+            key={label}
+            className="flex flex-col items-center justify-start py-5 px-2 gap-2 border-r border-orange-50 last:border-r-0"
+          >
+            <div className={`relative w-12 h-12 ${bg} ${ring} ring-4 rounded-[22px] flex items-center justify-center`}>
               {icon}
 
               {dot && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                <span className="absolute -top-0.5 -right-0.5 w-3 h-3">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-70 animate-ping" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white" />
                 </span>
               )}
             </div>
 
-            <p className="text-gray-900 font-black text-lg leading-none">
+            <p className="text-gray-950 font-black text-xl leading-none mt-1">
               <AnimatedCount value={value} />
             </p>
 
-            <div className="text-center leading-tight">
-              <p className="text-gray-400 text-[10px] font-bold">
-                {label}
-              </p>
-              <p className="text-gray-300 text-[8px] font-black uppercase mt-0.5">
-                {sublabel}
-              </p>
-            </div>
+            <p className="text-center text-gray-400 text-[9px] font-black uppercase leading-tight px-1">
+              {label}
+            </p>
           </div>
         ))}
       </div>
-
-      {lastUpdated && (
-        <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 text-center">
-          <p className="text-[9px] font-bold text-gray-400 uppercase">
-            Última actualización:{' '}
-            {lastUpdated.toLocaleTimeString('es-EC', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </p>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
