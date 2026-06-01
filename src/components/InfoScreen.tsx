@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -7,51 +6,48 @@ import {
   type TouchEvent,
 } from 'react';
 import {
-  MapPin,
-  Clock,
-  MessageCircle,
-  Phone,
-  Heart,
-  X,
-  ChevronRight,
-  ChevronLeft,
-  Sparkles,
-  Star,
-  ReceiptText,
-  Wallet,
-  TrendingUp,
-  ShieldCheck,
-  PackageCheck,
-  BadgeCheck,
   Activity,
-  Truck,
-  Navigation,
-  ShoppingBag,
-  Scale,
-  Home,
+  AlertCircle,
+  BadgeCheck,
   Building2,
-  Umbrella,
-  MapPinned,
-  Plus,
-  Trash2,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
-  Repeat2,
-  Route,
-  Store,
-  Info,
-  AlertCircle,
+  Clock,
   Crown,
   Gift,
-  Bell,
-  CreditCard,
-  Lock,
-  PartyPopper,
+  Heart,
+  Home,
+  Info as InfoIcon,
+  MapPin,
+  MapPinned,
+  MessageCircle,
+  Navigation,
+  PackageCheck,
+  Phone,
+  Plus,
+  ReceiptText,
+  Repeat2,
+  Route,
+  Scale,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Store,
+  Target,
+  Trash2,
+  TrendingUp,
+  Truck,
+  Umbrella,
+  Wallet,
+  X,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
 import LegalModal from './LegalModal';
+import PollazoPlusProCard from './PollazoPlusProCard';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { useCart } from '../context/CartContext';
@@ -137,6 +133,7 @@ const CUSTOMER_LEVELS = [
     nextExp: 25,
     emoji: '🐣',
     benefit: 'Empieza tu historial Pollazo.',
+    reward: 'Tu primera meta es registrar compras reales.',
   },
   {
     level: 2,
@@ -144,7 +141,8 @@ const CUSTOMER_LEVELS = [
     minExp: 25,
     nextExp: 60,
     emoji: '🔥',
-    benefit: 'Más compras registradas y mejor progreso.',
+    benefit: 'Ya eres cliente frecuente.',
+    reward: 'Podrás recibir mejores avisos y recomendaciones.',
   },
   {
     level: 3,
@@ -152,7 +150,8 @@ const CUSTOMER_LEVELS = [
     minExp: 60,
     nextExp: 120,
     emoji: '⭐',
-    benefit: 'Cliente frecuente del negocio.',
+    benefit: 'Tu historial empieza a pesar más.',
+    reward: 'Nivel ideal para futuras promos del negocio.',
   },
   {
     level: 4,
@@ -161,6 +160,7 @@ const CUSTOMER_LEVELS = [
     nextExp: 250,
     emoji: '👑',
     benefit: 'Nivel alto de fidelidad.',
+    reward: 'Perfil destacado para beneficios especiales.',
   },
   {
     level: 5,
@@ -169,6 +169,7 @@ const CUSTOMER_LEVELS = [
     nextExp: null,
     emoji: '🏆',
     benefit: 'Nivel máximo de cliente histórico.',
+    reward: 'Eres de los clientes más fuertes del Pollazo.',
   },
 ];
 
@@ -236,7 +237,7 @@ function getNextLevelText(exp: number) {
 
   const remaining = Math.max(0, level.nextExp - exp);
 
-  return `Te faltan ${remaining.toLocaleString('es-EC')} puntos de progreso para subir de nivel.`;
+  return `Te faltan ${remaining.toLocaleString('es-EC')} puntos de progreso para subir.`;
 }
 
 function formatOrderDate(date?: string | null) {
@@ -527,7 +528,7 @@ function StatPill({
   muted?: boolean;
 }) {
   return (
-    <div className="bg-white/75 border border-white/70 rounded-2xl p-3 shadow-sm">
+    <div className="bg-white/85 border border-white rounded-2xl p-3 shadow-sm">
       <div
         className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${
           muted ? 'bg-slate-50 text-slate-400' : 'bg-orange-50 text-orange-500'
@@ -547,779 +548,6 @@ function StatPill({
   );
 }
 
-const PLUS_PRICE = 6.99;
-
-const PLUS_STORAGE_KEYS = {
-  lastCelebrated: 'pollazo_plus_last_celebrated_key',
-  infoVisits: 'pollazo_plus_info_visits',
-  lastPromoShown: 'pollazo_plus_last_promo_shown',
-};
-
-function formatPlusDate(value?: string | null) {
-  if (!value) return '';
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return '';
-
-  return date.toLocaleDateString('es-EC', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function getPlusDaysLeft(value?: string | null) {
-  if (!value) return null;
-
-  const expires = new Date(value).getTime();
-
-  if (Number.isNaN(expires)) return null;
-
-  const diff = expires - Date.now();
-
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function PlusDarkBenefit({
-  icon,
-  title,
-  desc,
-}: {
-  icon: ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="bg-white/10 border border-white/10 rounded-[24px] p-3">
-      <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-yellow-300 mb-2">
-        {icon}
-      </div>
-
-      <p className="text-[10px] font-black uppercase text-white leading-tight">
-        {title}
-      </p>
-
-      <p className="text-[9px] font-bold text-white/45 leading-relaxed mt-1">
-        {desc}
-      </p>
-    </div>
-  );
-}
-
-function PlusLightBenefit({
-  icon,
-  title,
-  desc,
-}: {
-  icon: ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="bg-white/85 border border-yellow-100 rounded-[24px] p-3 shadow-sm">
-      <div className="w-9 h-9 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-2">
-        {icon}
-      </div>
-
-      <p className="text-[10px] font-black uppercase text-gray-900 leading-tight">
-        {title}
-      </p>
-
-      <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-1">
-        {desc}
-      </p>
-    </div>
-  );
-}
-
-function PollazoPlusTermsSheet({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[13050] flex items-end justify-center">
-      <button
-        type="button"
-        aria-label="Cerrar términos Pollazo Plus"
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-950/55"
-      />
-
-      <section className="relative w-full max-w-md max-h-[58vh] bg-white rounded-t-[34px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10">
-          <div>
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
-              Pollazo Plus
-            </p>
-            <h3 className="text-lg font-black text-gray-950 uppercase italic leading-none mt-1">
-              Términos y condiciones
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center active:scale-90 transition-transform"
-            aria-label="Cerrar"
-          >
-            <X size={19} />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(58vh-76px)]">
-          <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4">
-            <p className="text-[11px] font-bold text-orange-800 leading-relaxed">
-              Pollazo Plus es una membresía mensual de beneficios para clientes de La Casa del Pollazo. Su objetivo es mejorar la experiencia de compra, entrega y fidelización.
-            </p>
-          </div>
-
-          {[
-            {
-              title: 'Pago mensual',
-              text: `La membresía tiene un valor de $${PLUS_PRICE.toFixed(2)} mensuales. Cuando se active el pago con tarjeta, el cobro será mensual mientras la membresía esté activa.`,
-            },
-            {
-              title: 'Delivery gratis',
-              text: 'El beneficio principal es delivery gratis durante el periodo activo de la membresía, dentro de la zona de cobertura del negocio.',
-            },
-            {
-              title: 'Regalos y beneficios sorpresa',
-              text: 'Los regalos, extras, descuentos o beneficios sorpresa dependen de disponibilidad, stock, temporada y decisión del negocio. No se garantizan en todos los pedidos.',
-            },
-            {
-              title: 'Cancelación',
-              text: 'Cuando esté activo el pago con tarjeta, el cliente podrá solicitar cancelar la membresía para evitar futuras renovaciones. Los beneficios ya pagados se mantienen hasta el vencimiento del periodo activo.',
-            },
-            {
-              title: 'Uso correcto',
-              text: 'La membresía es personal para el número de WhatsApp registrado. El negocio puede revisar, pausar o cancelar beneficios si detecta abuso, datos falsos o mal uso del servicio.',
-            },
-          ].map(item => (
-            <div key={item.title} className="border-b border-gray-100 pb-4 last:border-0">
-              <p className="text-xs font-black text-gray-950 uppercase">
-                {item.title}
-              </p>
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                {item.text}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function PollazoPlusCard({
-  onNavigate,
-}: {
-  onNavigate: (screen: Screen) => void;
-}) {
-  const { requestMembership } = useAdmin();
-
-  const {
-    customerPhone,
-    customerName,
-    hasPollazoPlus,
-    membershipStatus,
-    activeMembership,
-    pollazoPlusExpiresAt,
-    refreshMembership,
-  } = useUser();
-
-  const [showDetails, setShowDetails] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showCelebrate, setShowCelebrate] = useState(false);
-  const [showEntryPromo, setShowEntryPromo] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState('');
-
-  const expiresAt = activeMembership?.expires_at || pollazoPlusExpiresAt;
-  const expiresLabel = formatPlusDate(expiresAt);
-  const daysLeft = getPlusDaysLeft(expiresAt);
-
-  const celebrationKey = useMemo(() => {
-    if (!hasPollazoPlus) return '';
-
-    return `${activeMembership?.id || 'plus'}-${expiresAt || 'sin-fecha'}`;
-  }, [activeMembership?.id, expiresAt, hasPollazoPlus]);
-
-  useEffect(() => {
-    if (!hasPollazoPlus || !celebrationKey) return undefined;
-
-    const lastCelebrated = localStorage.getItem(PLUS_STORAGE_KEYS.lastCelebrated);
-
-    if (lastCelebrated === celebrationKey) return undefined;
-
-    const timer = window.setTimeout(() => {
-      setShowCelebrate(true);
-      localStorage.setItem(PLUS_STORAGE_KEYS.lastCelebrated, celebrationKey);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [celebrationKey, hasPollazoPlus]);
-
-  useEffect(() => {
-    if (hasPollazoPlus || membershipStatus === 'pending') return undefined;
-
-    const visits = Number(localStorage.getItem(PLUS_STORAGE_KEYS.infoVisits) || '0') + 1;
-    const lastShown = Number(localStorage.getItem(PLUS_STORAGE_KEYS.lastPromoShown) || '0');
-    const twelveHours = 1000 * 60 * 60 * 12;
-    const canShowAgain = Date.now() - lastShown > twelveHours;
-
-    localStorage.setItem(PLUS_STORAGE_KEYS.infoVisits, String(visits));
-
-    if (visits >= 2 && canShowAgain) {
-      const timer = window.setTimeout(() => {
-        setShowEntryPromo(true);
-        localStorage.setItem(PLUS_STORAGE_KEYS.lastPromoShown, String(Date.now()));
-      }, 1100);
-
-      return () => window.clearTimeout(timer);
-    }
-
-    return undefined;
-  }, [hasPollazoPlus, membershipStatus]);
-
-  const handleSubscribe = async () => {
-    if (!customerPhone) {
-      setShowDetails(false);
-      onNavigate('cart');
-      return;
-    }
-
-    setLoading(true);
-    setNotice('');
-
-    try {
-      await requestMembership({
-        customerPhone,
-        customerName,
-        paymentMethod: 'tarjeta',
-        notes:
-          'Solicitud Pollazo Plus desde modal profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.',
-      });
-
-      await refreshMembership();
-
-      setNotice(
-        'Solicitud enviada. Por ahora el negocio podrá activar tu Plus manualmente mientras se integra pago con tarjeta.'
-      );
-    } catch (error) {
-      console.error('No se pudo solicitar Pollazo Plus:', error);
-      setNotice('No se pudo enviar la solicitud. Intenta otra vez.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openSubscribeModal = () => {
-    setNotice('');
-    setShowEntryPromo(false);
-    setShowDetails(true);
-  };
-
-  return (
-    <>
-      <style>
-        {`
-          @keyframes plusShine {
-            0% { transform: translateX(-120%) rotate(18deg); opacity: 0; }
-            20% { opacity: .55; }
-            55% { opacity: .35; }
-            100% { transform: translateX(180%) rotate(18deg); opacity: 0; }
-          }
-
-          @keyframes plusFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-6px); }
-          }
-
-          @keyframes plusPulseSoft {
-            0%, 100% { transform: scale(1); opacity: .8; }
-            50% { transform: scale(1.08); opacity: 1; }
-          }
-
-          .pollazo-plus-shine::after {
-            content: '';
-            position: absolute;
-            top: -30%;
-            left: -35%;
-            width: 38%;
-            height: 160%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
-            animation: plusShine 4.5s ease-in-out infinite;
-            pointer-events: none;
-          }
-
-          .pollazo-plus-float {
-            animation: plusFloat 3.8s ease-in-out infinite;
-          }
-
-          .pollazo-plus-pulse {
-            animation: plusPulseSoft 2.4s ease-in-out infinite;
-          }
-        `}
-      </style>
-
-      {hasPollazoPlus ? (
-        <section
-          className="relative overflow-hidden rounded-[38px] border border-yellow-200 bg-gradient-to-br from-yellow-50 via-orange-50 to-white p-5 shadow-lg shadow-orange-100/60 pollazo-plus-shine active:scale-[0.99] transition-transform"
-          onClick={() => setShowDetails(true)}
-        >
-          <div className="absolute -right-14 -top-14 w-44 h-44 bg-yellow-300/25 rounded-full blur-3xl" />
-          <div className="absolute -left-12 -bottom-16 w-40 h-40 bg-orange-400/15 rounded-full blur-3xl" />
-
-          <div className="relative flex items-start gap-4">
-            <div className="pollazo-plus-float w-14 h-14 rounded-[24px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white flex items-center justify-center shadow-xl shadow-orange-300/50 flex-shrink-0">
-              <Crown size={29} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-[9px] font-black text-orange-600 uppercase tracking-[0.26em]">
-                  Pollazo Plus
-                </p>
-                <span className="bg-green-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase">
-                  Activo
-                </span>
-              </div>
-
-              <h3 className="text-xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Envíos gratis activados
-              </h3>
-
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
-                Tu membresía está lista para aplicar delivery gratis, prioridad y sorpresas en pedidos seleccionados.
-              </p>
-
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <PlusLightBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
-                <PlusLightBenefit icon={<Gift size={17} />} title="Regalos" desc="Sorpresa" />
-                <PlusLightBenefit icon={<Sparkles size={17} />} title="Prioridad" desc="VIP" />
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
-                    Vigencia
-                  </p>
-                  <p className="text-[11px] font-black text-orange-600 uppercase mt-1">
-                    {expiresLabel || 'Activa'}
-                    {daysLeft !== null ? ` · ${daysLeft} día${daysLeft === 1 ? '' : 's'}` : ''}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setShowDetails(true);
-                  }}
-                  className="w-10 h-10 rounded-2xl bg-slate-950 text-white flex items-center justify-center active:scale-90 transition-transform"
-                  aria-label="Ver beneficios Pollazo Plus"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : membershipStatus === 'pending' ? (
-        <section className="relative overflow-hidden rounded-[38px] border border-orange-100 bg-white p-5 shadow-sm">
-          <div className="absolute -right-14 -top-14 w-40 h-40 bg-orange-300/15 rounded-full blur-3xl" />
-
-          <div className="relative flex items-start gap-4">
-            <div className="w-14 h-14 rounded-[24px] bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
-              <Clock size={29} />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.26em]">
-                Pollazo Plus
-              </p>
-
-              <h3 className="text-xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Solicitud en revisión
-              </h3>
-
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
-                Tu solicitud ya está enviada. Cuando el negocio confirme la activación, tu app cambiará en tiempo real.
-              </p>
-
-              <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
-                <AlertCircle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                  Al activarse tendrás delivery gratis por 30 días.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section
-          className="relative overflow-hidden rounded-[38px] bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 p-5 text-white shadow-2xl shadow-orange-200/50 pollazo-plus-shine active:scale-[0.99] transition-transform"
-          onClick={openSubscribeModal}
-        >
-          <div className="absolute -right-16 -top-20 w-56 h-56 bg-orange-500/25 rounded-full blur-3xl" />
-          <div className="absolute -left-14 -bottom-20 w-52 h-52 bg-yellow-400/10 rounded-full blur-3xl" />
-
-          <div className="relative">
-            <div className="flex items-start gap-4">
-              <div className="pollazo-plus-float w-14 h-14 rounded-[24px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white flex items-center justify-center shadow-xl shadow-orange-950/30 flex-shrink-0">
-                <Crown size={29} />
-              </div>
-
-              <div className="flex-1">
-                <p className="text-[9px] font-black text-yellow-300 uppercase tracking-[0.28em]">
-                  Hazte Plus
-                </p>
-
-                <h3 className="text-2xl font-black uppercase italic leading-none mt-2">
-                  Te conviene ser Pollazo Plus
-                </h3>
-
-                <p className="text-[11px] font-bold text-white/55 leading-relaxed mt-2">
-                  Disfruta envíos gratis ilimitados, prioridad y sorpresas exclusivas en tus pedidos.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              <PlusDarkBenefit icon={<Truck size={17} />} title="Envíos gratis" desc="Durante el mes" />
-              <PlusDarkBenefit icon={<Gift size={17} />} title="Regalos VIP" desc="Según stock" />
-              <PlusDarkBenefit icon={<Star size={17} />} title="Exclusivos" desc="Promos Plus" />
-            </div>
-
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[8px] font-black text-white/35 uppercase tracking-widest">
-                  Membresía mensual
-                </p>
-                <p className="text-2xl font-black text-white leading-none mt-1">
-                  ${PLUS_PRICE.toFixed(2)}
-                  <span className="text-[10px] text-white/35 font-bold"> / mes</span>
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={event => {
-                  event.stopPropagation();
-                  openSubscribeModal();
-                }}
-                className="bg-white text-slate-950 rounded-[22px] px-5 py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center gap-2"
-              >
-                Suscríbete
-                <ChevronRight size={15} />
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {showDetails && (
-        <div className="fixed inset-0 z-[13000] flex items-end justify-center">
-          <button
-            type="button"
-            aria-label="Cerrar Pollazo Plus"
-            onClick={() => setShowDetails(false)}
-            className="absolute inset-0 bg-slate-950/70"
-          />
-
-          <section className="relative w-full max-w-md max-h-[92vh] bg-white rounded-t-[38px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
-            <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 text-white px-5 pt-5 pb-6 overflow-hidden">
-              <div className="absolute -right-16 -top-16 w-52 h-52 bg-orange-500/25 rounded-full blur-3xl" />
-              <div className="absolute -left-16 bottom-0 w-44 h-44 bg-yellow-400/10 rounded-full blur-3xl" />
-
-              <button
-                type="button"
-                onClick={() => setShowDetails(false)}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
-                aria-label="Cerrar"
-              >
-                <X size={19} />
-              </button>
-
-              <div className="relative pr-12">
-                <div className="w-16 h-16 rounded-[26px] bg-gradient-to-br from-yellow-400 to-orange-600 flex items-center justify-center shadow-xl shadow-orange-950/40 mb-4">
-                  <Crown size={34} />
-                </div>
-
-                <p className="text-[10px] font-black text-yellow-300 uppercase tracking-[0.28em]">
-                  La Casa del Pollazo
-                </p>
-
-                <h2 className="text-3xl font-black uppercase italic leading-none mt-2">
-                  Suscríbete a Pollazo Plus
-                </h2>
-
-                <p className="text-[12px] font-bold text-white/55 leading-relaxed mt-3">
-                  Envíos gratis ilimitados dentro de cobertura, beneficios exclusivos y regalos sorpresa para clientes Plus.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(92vh-218px)]">
-              <div className="grid grid-cols-2 gap-3">
-                <PlusLightBenefit icon={<Truck size={18} />} title="Envíos gratis" desc="A toda la ciudad dentro de zona." />
-                <PlusLightBenefit icon={<Gift size={18} />} title="Regalos sorpresa" desc="Extras VIP según disponibilidad." />
-                <PlusLightBenefit icon={<Sparkles size={18} />} title="Prioridad" desc="Atención preferente en pedidos." />
-                <PlusLightBenefit icon={<Bell size={18} />} title="Avisos Plus" desc="Promos y vencimiento de membresía." />
-              </div>
-
-              <div className="bg-slate-950 text-white rounded-[30px] p-4 overflow-hidden relative">
-                <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-500/20 rounded-full blur-2xl" />
-
-                <div className="relative flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-yellow-300">
-                    <CreditCard size={24} />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">
-                      Método de pago
-                    </p>
-                    <p className="text-sm font-black uppercase mt-1">
-                      Tarjeta mensual
-                    </p>
-                    <p className="text-[10px] font-bold text-white/45 mt-1">
-                      Visa / Mastercard. Integración real de tarjeta pendiente.
-                    </p>
-                  </div>
-
-                  <Lock size={17} className="text-white/35" />
-                </div>
-              </div>
-
-              {hasPollazoPlus ? (
-                <div className="bg-green-50 border border-green-100 rounded-[28px] p-4 flex gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-black text-green-700 uppercase">
-                      Tu Plus está activo
-                    </p>
-                    <p className="text-[11px] font-bold text-green-700/70 leading-relaxed mt-1">
-                      {expiresLabel
-                        ? `Beneficios activos hasta ${expiresLabel}.`
-                        : 'Tus beneficios están activos.'}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
-                    <ShieldCheck size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
-                      Por ahora, mientras se integra el cobro real con tarjeta, esta solicitud queda para que el admin pueda activar Plus manualmente y seguir probando.
-                    </p>
-                  </div>
-
-                  {notice && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-[24px] p-3">
-                      <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed text-center">
-                        {notice}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="border-t border-gray-100 bg-white px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
-              <div className="flex items-end justify-between gap-3 mb-3">
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                    Total
-                  </p>
-                  <p className="text-3xl font-black text-gray-950 leading-none">
-                    ${PLUS_PRICE.toFixed(2)}
-                    <span className="text-[11px] text-gray-400 font-bold"> / mes</span>
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[9px] font-black text-green-600 uppercase">
-                    Sin contrato
-                  </p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-1">
-                    Cancela cuando quieras
-                  </p>
-                </div>
-              </div>
-
-              {!hasPollazoPlus && (
-                <button
-                  type="button"
-                  onClick={handleSubscribe}
-                  disabled={loading || membershipStatus === 'pending'}
-                  className={`w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-[24px] py-4 text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-orange-200 ${
-                    loading || membershipStatus === 'pending' ? 'opacity-60 cursor-wait' : ''
-                  }`}
-                >
-                  <Crown size={18} />
-                  {membershipStatus === 'pending'
-                    ? 'Solicitud pendiente'
-                    : loading
-                      ? 'Procesando...'
-                      : 'Suscribirme a Plus'}
-                </button>
-              )}
-
-              <p className="text-[9px] font-bold text-gray-400 text-center leading-relaxed mt-3">
-                Al continuar aceptas{' '}
-                <button
-                  type="button"
-                  onClick={() => setShowTerms(true)}
-                  className="font-black text-gray-900 underline underline-offset-2"
-                >
-                  términos y condiciones
-                </button>
-                .
-              </p>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showCelebrate && (
-        <div className="fixed inset-0 z-[13100] flex items-center justify-center p-5">
-          <button
-            type="button"
-            aria-label="Cerrar felicitación Pollazo Plus"
-            onClick={() => setShowCelebrate(false)}
-            className="absolute inset-0 bg-slate-950/70"
-          />
-
-          <section className="relative w-full max-w-sm bg-white rounded-[38px] p-6 text-center shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
-            <div className="absolute -top-16 -right-10 w-44 h-44 bg-yellow-300/25 rounded-full blur-3xl" />
-            <div className="absolute -bottom-16 -left-10 w-44 h-44 bg-orange-400/20 rounded-full blur-3xl" />
-
-            <div className="relative">
-              <div className="pollazo-plus-pulse w-24 h-24 rounded-[34px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white mx-auto flex items-center justify-center shadow-2xl shadow-orange-200 mb-5">
-                <PartyPopper size={44} />
-              </div>
-
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.28em]">
-                Felicidades
-              </p>
-
-              <h2 className="text-3xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Ya eres Pollazo Plus
-              </h2>
-
-              <p className="text-[12px] font-bold text-gray-500 leading-relaxed mt-3">
-                Tu delivery gratis quedó activado. Desde ahora tus pedidos pueden recibir beneficios VIP y sorpresas.
-              </p>
-
-              <div className="grid grid-cols-3 gap-2 mt-5">
-                <PlusLightBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
-                <PlusLightBenefit icon={<Gift size={17} />} title="Sorpresas" desc="VIP" />
-                <PlusLightBenefit icon={<Crown size={17} />} title="Plus" desc="Activo" />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCelebrate(false);
-                  setShowDetails(true);
-                }}
-                className="mt-5 w-full bg-slate-950 text-white rounded-[24px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-              >
-                Ver mis beneficios
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowCelebrate(false)}
-                className="mt-3 text-[10px] font-black text-gray-400 uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showEntryPromo && (
-        <div className="fixed inset-0 z-[13080] flex items-end justify-center">
-          <button
-            type="button"
-            aria-label="Cerrar promoción Pollazo Plus"
-            onClick={() => setShowEntryPromo(false)}
-            className="absolute inset-0 bg-slate-950/65"
-          />
-
-          <section className="relative w-full max-w-md bg-white rounded-t-[38px] p-5 shadow-2xl animate-in slide-in-from-bottom-8 duration-300">
-            <button
-              type="button"
-              onClick={() => setShowEntryPromo(false)}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center active:scale-90 transition-transform"
-              aria-label="Cerrar promoción"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="pr-10">
-              <div className="w-16 h-16 rounded-[26px] bg-gradient-to-br from-yellow-400 to-orange-600 text-white flex items-center justify-center shadow-xl shadow-orange-200 mb-4">
-                <Crown size={34} />
-              </div>
-
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.28em]">
-                Aprovecha ya
-              </p>
-
-              <h2 className="text-3xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Ser Plus te conviene
-              </h2>
-
-              <p className="text-[12px] font-bold text-gray-500 leading-relaxed mt-3">
-                Suscríbete a La Casa del Pollazo y disfruta envíos gratis ilimitados, beneficios exclusivos y sorpresas en tus pedidos.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-5">
-              <PlusLightBenefit icon={<Truck size={17} />} title="Envíos" desc="Gratis" />
-              <PlusLightBenefit icon={<Sparkles size={17} />} title="Promos" desc="Plus" />
-              <PlusLightBenefit icon={<Gift size={17} />} title="Regalos" desc="VIP" />
-            </div>
-
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                  Mensual
-                </p>
-                <p className="text-3xl font-black text-gray-950 leading-none">
-                  ${PLUS_PRICE.toFixed(2)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={openSubscribeModal}
-                className="bg-orange-500 text-white rounded-[24px] px-6 py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200"
-              >
-                Suscríbete
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      <PollazoPlusTermsSheet
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-      />
-    </>
-  );
-}
-
 function ActiveOrderCard({
   order,
 }: {
@@ -1328,52 +556,52 @@ function ActiveOrderCard({
   const progress = getOrderProgress(order.status);
 
   return (
-    <div className="bg-slate-950 text-white rounded-[30px] p-4 shadow-xl overflow-hidden relative">
-      <div className="absolute -top-16 -right-12 w-36 h-36 bg-orange-500/20 rounded-full blur-3xl" />
-      <div className="absolute -bottom-16 -left-12 w-36 h-36 bg-yellow-400/10 rounded-full blur-3xl" />
+    <div className="bg-white border border-orange-100 rounded-[30px] p-4 shadow-sm overflow-hidden relative">
+      <div className="absolute -top-16 -right-12 w-36 h-36 bg-orange-300/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-16 -left-12 w-36 h-36 bg-yellow-300/20 rounded-full blur-3xl" />
 
       <div className="relative flex items-start gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-900/40 flex-shrink-0">
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
           {order.status === 'Enviado' ? <Truck size={22} /> : <ReceiptText size={22} />}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[9px] font-black text-orange-300 uppercase tracking-widest">
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
                 Pedido activo
               </p>
-              <p className="text-sm font-black uppercase truncate mt-0.5">
+              <p className="text-sm font-black uppercase text-gray-950 truncate mt-0.5">
                 {order.order_code || 'Pedido'}
               </p>
             </div>
 
-            <span className="bg-white/10 border border-white/10 rounded-full px-2.5 py-1 text-[8px] font-black uppercase text-white/80 flex-shrink-0">
+            <span className={`rounded-full px-2.5 py-1 text-[8px] font-black uppercase flex-shrink-0 border ${getStatusStyle(order.status)}`}>
               {order.status}
             </span>
           </div>
 
-          <p className="text-[10px] font-bold text-white/60 mt-2 leading-relaxed">
+          <p className="text-[10px] font-bold text-gray-500 mt-2 leading-relaxed">
             {getStatusMessage(order.status)}
           </p>
 
           {order.membership_applied && (
-            <div className="mt-3 bg-yellow-400/10 border border-yellow-300/10 rounded-2xl p-2.5 flex items-center gap-2">
-              <Crown size={14} className="text-yellow-300 flex-shrink-0" />
-              <p className="text-[8px] font-black text-yellow-100 uppercase">
+            <div className="mt-3 bg-yellow-50 border border-yellow-100 rounded-2xl p-2.5 flex items-center gap-2">
+              <Crown size={14} className="text-orange-500 flex-shrink-0" />
+              <p className="text-[8px] font-black text-orange-700 uppercase">
                 Pollazo Plus aplicado
               </p>
             </div>
           )}
 
           {Array.isArray(order.bonus_items) && order.bonus_items.length > 0 && (
-            <div className="mt-3 bg-white/8 border border-white/10 rounded-2xl p-2.5 flex items-start gap-2">
-              <Gift size={14} className="text-yellow-300 flex-shrink-0 mt-0.5" />
+            <div className="mt-3 bg-orange-50 border border-orange-100 rounded-2xl p-2.5 flex items-start gap-2">
+              <Gift size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[8px] font-black text-yellow-100 uppercase">
+                <p className="text-[8px] font-black text-orange-700 uppercase">
                   Regalo agregado
                 </p>
-                <p className="text-[9px] font-bold text-white/60 mt-0.5">
+                <p className="text-[9px] font-bold text-gray-500 mt-0.5">
                   {order.bonus_items[order.bonus_items.length - 1]?.item_name || 'Sorpresa Pollazo Plus'}
                 </p>
               </div>
@@ -1381,14 +609,14 @@ function ActiveOrderCard({
           )}
 
           <div className="mt-3">
-            <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2.5 bg-orange-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-700"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="flex justify-between mt-1.5 text-[7px] font-black uppercase text-white/35">
+            <div className="flex justify-between mt-1.5 text-[7px] font-black uppercase text-gray-400">
               <span>Confirmar</span>
               <span>Preparar</span>
               <span>Enviar</span>
@@ -1397,20 +625,20 @@ function ActiveOrderCard({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="bg-white/8 border border-white/10 rounded-2xl p-2.5">
-              <p className="text-[7px] font-black uppercase text-white/35">
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-2.5">
+              <p className="text-[7px] font-black uppercase text-orange-500">
                 Total
               </p>
-              <p className="text-sm font-black text-white mt-1">
+              <p className="text-sm font-black text-gray-950 mt-1">
                 ${toMoney(order.total).toFixed(2)}
               </p>
             </div>
 
-            <div className="bg-white/8 border border-white/10 rounded-2xl p-2.5">
-              <p className="text-[7px] font-black uppercase text-white/35">
+            <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-2.5">
+              <p className="text-[7px] font-black uppercase text-yellow-700">
                 Pago
               </p>
-              <p className="text-sm font-black text-white mt-1 truncate">
+              <p className="text-sm font-black text-gray-950 mt-1 truncate">
                 {paymentLabel(order.payment_method)}
               </p>
             </div>
@@ -1427,13 +655,110 @@ function ActiveOrderCard({
               Ayuda
             </a>
 
-            <div className="flex-1 bg-white/8 border border-white/10 text-white/70 rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5">
+            <div className="flex-1 bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5">
               <Route size={13} />
-              Sigue desde inicio
+              En vivo
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LevelGuideSheet({
+  open,
+  onClose,
+  exp,
+}: {
+  open: boolean;
+  onClose: () => void;
+  exp: number;
+}) {
+  if (!open) return null;
+
+  const currentLevel = getCustomerLevel(exp);
+
+  return (
+    <div className="fixed inset-0 z-[12060] flex items-end justify-center">
+      <button
+        type="button"
+        aria-label="Cerrar información de niveles"
+        onClick={onClose}
+        className="absolute inset-0 bg-orange-950/25"
+      />
+
+      <section className="relative w-full max-w-md max-h-[70dvh] bg-white rounded-t-[34px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
+        <div className="px-5 py-4 border-b border-orange-50 flex items-center justify-between">
+          <div>
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
+              Niveles Pollazo
+            </p>
+            <h3 className="text-xl font-black text-gray-950 uppercase italic leading-none mt-1">
+              Así subes de nivel
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Cerrar"
+          >
+            <X size={19} />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[calc(70dvh-74px)] space-y-3">
+          <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4">
+            <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
+              Tu nivel sube con tu historial de compras válidas. Sirve para entender tu progreso como cliente y preparar futuros beneficios cuando el negocio los active.
+            </p>
+          </div>
+
+          {CUSTOMER_LEVELS.map(level => {
+            const active = currentLevel.level === level.level;
+
+            return (
+              <div
+                key={level.level}
+                className={`rounded-[24px] border p-4 flex gap-3 ${
+                  active
+                    ? 'bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200 shadow-sm'
+                    : 'bg-white border-gray-100'
+                }`}
+              >
+                <div className="w-11 h-11 rounded-2xl bg-orange-50 flex items-center justify-center text-xl flex-shrink-0">
+                  {level.emoji}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-black text-gray-950 uppercase">
+                      Nivel {level.level} · {level.title}
+                    </p>
+
+                    {active && (
+                      <span className="bg-orange-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase">
+                        Actual
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] font-bold text-gray-500 mt-1 leading-relaxed">
+                    Desde {level.minExp} pts
+                    {level.nextExp ? ` hasta ${level.nextExp - 1} pts` : ' en adelante'}.
+                  </p>
+
+                  <p className="text-[10px] font-black text-orange-600 uppercase mt-2 leading-relaxed">
+                    {level.reward}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
@@ -1453,12 +778,11 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const {
     addItem,
     clearCart,
-    setIsOpen,
     items: cartItems,
   } = useCart();
 
   const [repeatNotice, setRepeatNotice] = useState('');
-  const [showAllOrders, setShowAllOrders] = useState(false);
+  const [showLevelGuide, setShowLevelGuide] = useState(false);
   const [repeatOrderToConfirm, setRepeatOrderToConfirm] = useState<Order | null>(null);
 
   const seasonActive = extraSettings?.event_active !== false;
@@ -1501,10 +825,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return myOrders.filter(order => ACTIVE_ORDER_STATUSES.includes(order.status));
   }, [myOrders]);
 
-  const pastOrders = useMemo(() => {
-    return myOrders.filter(order => !ACTIVE_ORDER_STATUSES.includes(order.status));
-  }, [myOrders]);
-
   const validOrders = useMemo(() => {
     return myOrders.filter(
       order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar'
@@ -1523,6 +843,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
   const level = getCustomerLevel(exp);
   const progress = getLevelProgress(exp);
   const nextLevelText = getNextLevelText(exp);
+  const recentOrders = myOrders.slice(0, 2);
 
   const topProduct = useMemo(() => {
     const productCount = new Map<string, number>();
@@ -1539,40 +860,30 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     return [...productCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   }, [validOrders]);
 
-  const smartSummary = useMemo(() => {
-    if (hasPollazoPlus) {
-      return 'Tu Pollazo Plus está activo. Tus pedidos pueden tener delivery gratis y regalos sorpresa según disponibilidad.';
-    }
-
+  const walletAdvice = useMemo(() => {
     if (totalOrders === 0) {
-      return 'Cuando hagas compras, aquí verás tu historial, nivel y pedidos para repetir fácilmente.';
+      return 'Cuando hagas tus primeras compras, aquí te diré qué compras más, cuánto llevas gastado y cómo repetir más rápido.';
     }
 
-    if (activeOrders.length > 0) {
-      return 'Tienes un pedido activo. Revisa su estado y mantente pendiente del teléfono para coordinar la entrega.';
+    if (hasPollazoPlus) {
+      return 'Tu Pollazo Plus está activo. En cada pedido con domicilio puedes ahorrar el delivery y recibir sorpresas cuando haya disponibilidad.';
     }
 
-    if (averageOrder < 10) {
-      return 'Tip: intenta agrupar tus compras desde $10 para aprovechar mejor cada entrega.';
+    if (averageOrder >= 12) {
+      return 'Tus compras suelen ser completas. Pollazo Plus podría convenirte si pides varias veces al mes y quieres ahorrar delivery.';
     }
 
     if (topProduct) {
-      return `Tu producto más repetido parece ser ${topProduct}. Te servirá para repetir pedidos más rápido.`;
+      return `Tu producto más repetido es ${topProduct}. Puedes ir a Mis pedidos para repetirlo sin buscarlo de nuevo.`;
     }
 
-    return 'Tu historial ya permite mostrarte un resumen útil de tus compras y progreso.';
-  }, [activeOrders.length, averageOrder, hasPollazoPlus, topProduct, totalOrders]);
-
-  const orderedHistory = useMemo(() => {
-    return [...activeOrders, ...pastOrders];
-  }, [activeOrders, pastOrders]);
-
-  const visibleOrders = showAllOrders ? orderedHistory.slice(0, 12) : orderedHistory.slice(0, 3);
+    return 'Tu historial ya está ayudando a darte mejores recomendaciones de compra.';
+  }, [averageOrder, hasPollazoPlus, topProduct, totalOrders]);
 
   const addRepeatedOrderToCart = (order: Order, mode: 'replace' | 'add') => {
-    const items = order.items || [];
+    const orderItems = order.items || [];
 
-    if (items.length === 0) {
+    if (orderItems.length === 0) {
       setRepeatNotice('Este pedido no tiene productos para repetir.');
       window.setTimeout(() => setRepeatNotice(''), 3000);
       return;
@@ -1585,7 +896,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     let addedUnits = 0;
     let skippedUnits = 0;
 
-    items.forEach((item, index) => {
+    orderItems.forEach((item, index) => {
       const product = buildRepeatProduct(order, item, index, products);
 
       if (!product) {
@@ -1595,10 +906,8 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
       const quantity = Math.max(1, Math.round(Number(item.quantity || 1)));
 
-      for (let i = 0; i < quantity; i += 1) {
-        addItem(product);
-        addedUnits += 1;
-      }
+      addItem(product, quantity);
+      addedUnits += quantity;
     });
 
     setRepeatOrderToConfirm(null);
@@ -1618,8 +927,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
           ? `Carrito reemplazado con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}.`
           : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
     );
-
-    setIsOpen(true);
 
     window.setTimeout(() => {
       onNavigate('cart');
@@ -1657,10 +964,10 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
           <div>
             <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">
-              Mi Historial Pollazo
+              Mi Cuenta Pollazo
             </h3>
             <p className="text-gray-400 text-[10px] font-bold uppercase">
-              Tu cuenta y compras
+              Historial, nivel y pedidos
             </p>
           </div>
         </div>
@@ -1715,7 +1022,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
               {customerName || customer?.name || 'Cliente Pollazo'}
             </h3>
 
-            <p className="text-[10px] font-bold text-gray-400 mt-1">
+            <p className="text-[10px] font-bold text-gray-500 mt-1">
               {hasPollazoPlus ? 'Pollazo Plus activo · ' : ''}
               Nivel {level.level} · {level.title}
             </p>
@@ -1730,20 +1037,30 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
           </div>
         )}
 
-        <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
-          <div className="flex justify-between items-end mb-2">
-            <div>
-              <p className="text-[10px] font-black text-gray-900 uppercase">
-                Progreso de nivel
-              </p>
-              <p className="text-[10px] font-bold text-gray-500 mt-1">
-                {level.benefit}
-              </p>
+        <button
+          type="button"
+          onClick={() => setShowLevelGuide(true)}
+          className="relative w-full bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm text-left active:scale-[0.99] transition-transform"
+        >
+          <div className="flex justify-between items-start gap-3 mb-3">
+            <div className="flex gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-orange-50 text-xl flex items-center justify-center flex-shrink-0">
+                {level.emoji}
+              </div>
+
+              <div>
+                <p className="text-[10px] font-black text-gray-900 uppercase">
+                  Progreso de nivel
+                </p>
+                <p className="text-[10px] font-bold text-gray-500 mt-1 leading-relaxed">
+                  {level.benefit}
+                </p>
+              </div>
             </div>
 
-            <p className="text-[9px] font-black text-orange-500 uppercase">
+            <span className="text-[9px] font-black text-orange-500 uppercase bg-orange-50 px-2.5 py-1 rounded-full flex-shrink-0">
               {progress}%
-            </p>
+            </span>
           </div>
 
           <div className="h-3 bg-orange-100 rounded-full overflow-hidden">
@@ -1753,10 +1070,17 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
             />
           </div>
 
-          <p className="text-[9px] font-black text-gray-400 uppercase leading-relaxed mt-2">
-            {nextLevelText}
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-3 mt-3">
+            <p className="text-[9px] font-black text-gray-400 uppercase leading-relaxed">
+              {nextLevelText}
+            </p>
+
+            <span className="text-[9px] font-black text-orange-600 uppercase flex items-center gap-1">
+              Ver niveles
+              <ChevronRight size={13} />
+            </span>
+          </div>
+        </button>
 
         <div className="relative grid grid-cols-2 gap-3 mb-4">
           <StatPill
@@ -1783,8 +1107,8 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         </div>
 
         {!seasonActive && (
-          <div className="relative bg-slate-50 border border-slate-100 rounded-[24px] p-3 mb-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed text-center">
+          <div className="relative bg-orange-50 border border-orange-100 rounded-[24px] p-3 mb-4">
+            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
               El ranking de temporada está pausado. Tus compras válidas siguen subiendo tu nivel.
             </p>
           </div>
@@ -1792,17 +1116,25 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
 
         <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <ShieldCheck size={21} />
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-yellow-100 text-orange-500 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Target size={21} />
             </div>
 
             <div>
               <p className="text-[11px] font-black text-gray-900 uppercase">
-                Resumen útil para ti
+                Mi bolsillo Pollazo
               </p>
               <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                {smartSummary}
+                {walletAdvice}
               </p>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('orders')}
+                className="mt-3 bg-orange-50 text-orange-600 border border-orange-100 rounded-2xl px-4 py-2.5 text-[9px] font-black uppercase active:scale-95 transition-transform"
+              >
+                Ver análisis en pedidos
+              </button>
             </div>
           </div>
         </div>
@@ -1819,24 +1151,26 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         <div className="relative">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Últimos pedidos
+              Últimos movimientos
             </p>
 
-            {activeOrders.length > 0 && (
-              <span className="text-[8px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded-full uppercase">
-                {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={() => onNavigate('orders')}
+              className="text-[9px] font-black text-orange-600 bg-orange-100 px-3 py-1.5 rounded-full uppercase active:scale-95 transition-transform"
+            >
+              Ver todos
+            </button>
           </div>
 
-          {myOrders.length > 0 ? (
+          {recentOrders.length > 0 ? (
             <div className="space-y-2">
-              {visibleOrders.map(order => (
+              {recentOrders.map(order => (
                 <div
                   key={order.id}
                   className="bg-white/90 border border-white rounded-2xl p-3 flex items-center gap-3 shadow-sm"
                 >
-                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
+                  <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
                     {order.status === 'Enviado' ? (
                       <Truck size={18} />
                     ) : (
@@ -1873,26 +1207,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
                   </div>
                 </div>
               ))}
-
-              {orderedHistory.length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllOrders(current => !current)}
-                  className="w-full bg-white/90 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-                >
-                  {showAllOrders ? (
-                    <>
-                      <ChevronUp size={14} />
-                      Mostrar menos
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown size={14} />
-                      Ver más pedidos
-                    </>
-                  )}
-                </button>
-              )}
             </div>
           ) : (
             <div className="bg-white/80 border border-white rounded-2xl p-4 text-center">
@@ -1913,25 +1227,31 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         </div>
       </div>
 
+      <LevelGuideSheet
+        open={showLevelGuide}
+        onClose={() => setShowLevelGuide(false)}
+        exp={exp}
+      />
+
       {repeatOrderToConfirm && (
         <div className="fixed inset-0 z-[12050] flex items-end sm:items-center justify-center p-4">
           <button
             type="button"
             aria-label="Cancelar repetir pedido"
             onClick={() => setRepeatOrderToConfirm(null)}
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+            className="absolute inset-0 bg-orange-950/25"
           />
 
           <div className="relative w-full max-w-sm bg-white rounded-[34px] shadow-2xl border border-white overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5">
+            <div className="bg-gradient-to-br from-orange-500 to-yellow-400 text-white p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
                     <Repeat2 size={24} />
                   </div>
 
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/70">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/80">
                       Repetir pedido
                     </p>
                     <h3 className="text-lg font-black uppercase italic leading-tight mt-1">
@@ -1943,7 +1263,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
                 <button
                   type="button"
                   onClick={() => setRepeatOrderToConfirm(null)}
-                  className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition-transform"
+                  className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform"
                   aria-label="Cerrar"
                 >
                   <X size={18} />
@@ -1962,7 +1282,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
               <button
                 type="button"
                 onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'replace')}
-                className="w-full bg-slate-950 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
               >
                 <ShoppingBag size={16} />
                 Reemplazar carrito
@@ -1971,7 +1291,7 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
               <button
                 type="button"
                 onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'add')}
-                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
+                className="w-full bg-orange-50 text-orange-600 border border-orange-100 rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
                 <Plus size={16} />
                 Agregar al carrito
@@ -2008,12 +1328,25 @@ function DeliveryAddressesPanel({
     deleteDeliveryAddress,
   } = useUser();
 
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
+
   const hasDeliveryLocation =
     typeof customerLat === 'number' &&
     Number.isFinite(customerLat) &&
     typeof customerLng === 'number' &&
     Number.isFinite(customerLng) &&
     customerReference.trim().length > 0;
+
+  const sortedAddresses = useMemo(() => {
+    return [...deliveryAddresses].sort((a, b) => {
+      if (a.id === selectedDeliveryAddressId) return -1;
+      if (b.id === selectedDeliveryAddressId) return 1;
+      return 0;
+    });
+  }, [deliveryAddresses, selectedDeliveryAddressId]);
+
+  const visibleAddresses = showAllAddresses ? sortedAddresses : sortedAddresses.slice(0, 2);
+  const hiddenAddressCount = Math.max(0, sortedAddresses.length - visibleAddresses.length);
 
   const openLocationEditor = () => {
     onChangeLocation?.();
@@ -2030,7 +1363,7 @@ function DeliveryAddressesPanel({
 
   return (
     <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-50 flex items-start gap-3">
+      <div className="px-5 py-4 border-b border-orange-50 flex items-start gap-3">
         <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
           <Navigation size={20} className="text-orange-500" />
         </div>
@@ -2065,9 +1398,9 @@ function DeliveryAddressesPanel({
       </div>
 
       <div className="p-4">
-        {deliveryAddresses.length > 0 ? (
+        {sortedAddresses.length > 0 ? (
           <div className="space-y-2.5">
-            {deliveryAddresses.map(address => {
+            {visibleAddresses.map(address => {
               const active = address.id === selectedDeliveryAddressId;
 
               return (
@@ -2123,7 +1456,7 @@ function DeliveryAddressesPanel({
                       onClick={() => selectDeliveryAddress(address.id)}
                       className={`flex-1 rounded-2xl py-2.5 text-[9px] font-black uppercase active:scale-95 transition-all ${
                         active
-                          ? 'bg-slate-950 text-white'
+                          ? 'bg-orange-500 text-white'
                           : 'bg-white text-slate-600 border border-slate-100'
                       }`}
                     >
@@ -2150,6 +1483,26 @@ function DeliveryAddressesPanel({
                 </div>
               );
             })}
+
+            {sortedAddresses.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setShowAllAddresses(current => !current)}
+                className="w-full bg-orange-50 text-orange-600 border border-orange-100 rounded-2xl py-3 text-[10px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+              >
+                {showAllAddresses ? (
+                  <>
+                    <ChevronUp size={14} />
+                    Mostrar menos direcciones
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} />
+                    Mostrar {hiddenAddressCount} más
+                  </>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 text-center">
@@ -2163,7 +1516,7 @@ function DeliveryAddressesPanel({
         <button
           type="button"
           onClick={openLocationEditor}
-          className="mt-3 w-full bg-slate-950 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          className="mt-3 w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-orange-100"
         >
           <Plus size={15} />
           Agregar nueva dirección
@@ -2220,7 +1573,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
   };
 
   return (
-    <div className="bg-gray-50 px-4 py-5 space-y-4 min-h-full pb-24">
+    <div className="bg-gradient-to-b from-orange-50/65 via-white to-white px-4 py-5 space-y-4 min-h-full pb-24">
       <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
         <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
           <div className="relative">
@@ -2237,7 +1590,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
               La Casa del Pollazo
             </h2>
 
-            <div className="flex items-center justify-center gap-1.5 bg-black/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 mt-2">
+            <div className="flex items-center justify-center gap-1.5 bg-white/15 px-4 py-1.5 rounded-full border border-white/15 mt-2">
               <MapPin className="text-yellow-300" size={14} />
               <span className="text-white font-bold text-[10px] uppercase tracking-widest">
                 El Mirador · Puerto Ayora
@@ -2251,7 +1604,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
       <CustomerHistoryCard onNavigate={onNavigate} />
 
-      <PollazoPlusCard onNavigate={onNavigate} />
+      <PollazoPlusProCard onNavigate={onNavigate} />
 
       <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
 
@@ -2259,17 +1612,17 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
         <button
           type="button"
           onClick={onInstall}
-          className="w-full bg-slate-950 text-white rounded-[28px] p-4 shadow-xl flex items-center gap-3 active:scale-[0.98] transition-transform"
+          className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[28px] p-4 shadow-xl shadow-orange-100 flex items-center gap-3 active:scale-[0.98] transition-transform"
         >
-          <div className="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center">
-            <Sparkles size={22} className="text-yellow-300" />
+          <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center">
+            <Sparkles size={22} className="text-white" />
           </div>
 
           <div className="text-left">
             <p className="text-xs font-black uppercase">
               Instalar app
             </p>
-            <p className="text-[10px] font-bold text-white/60 mt-1">
+            <p className="text-[10px] font-bold text-white/80 mt-1">
               Acceso rápido desde tu celular.
             </p>
           </div>
@@ -2426,7 +1779,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
                 loading="lazy"
               />
 
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-left">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-left">
                 <p className="text-white text-[10px] font-black uppercase italic tracking-tighter">
                   {galleryPhotos[0].caption}
                 </p>
@@ -2480,8 +1833,8 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
           onClick={() => setShowLegalModal(true)}
           className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-orange-50 transition-colors"
         >
-          <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <Scale size={20} className="text-slate-600" />
+          <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Scale size={20} className="text-orange-500" />
           </div>
 
           <div className="flex-1">
@@ -2498,7 +1851,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
         <div className="px-5 pb-5">
           <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
-            <Info size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+            <InfoIcon size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] font-bold text-orange-700 leading-relaxed">
               Los premios, niveles y promociones pueden cambiar según lo que active el negocio. La app siempre mostrará lo disponible.
             </p>
@@ -2517,7 +1870,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-[11000] bg-black/85 flex items-center justify-center p-4"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
