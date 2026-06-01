@@ -10,7 +10,13 @@ export type Category =
   | 'Cuidado personal'
   | 'Limpieza y hogar';
 
-export type Screen = 'home' | 'catalog' | 'cart' | 'info' | 'ranking';
+export type Screen =
+  | 'home'
+  | 'catalog'
+  | 'orders'
+  | 'cart'
+  | 'info'
+  | 'ranking';
 
 export type OrderStatus =
   | 'Por Confirmar'
