@@ -25,6 +25,7 @@ const LOGO_URL =
 const screenTitles: Record<Screen, string> = {
   home: '',
   catalog: 'Catálogo',
+  orders: 'Mis pedidos',
   cart: 'Carrito',
   info: 'Información',
   ranking: 'Ranking VIP',
@@ -95,8 +96,8 @@ export default function AppHeader({
                 La Casa del Pollazo
               </span>
               <span className="font-black text-[9px] text-orange-500 uppercase tracking-widest mt-1.5 truncate">
-  El #1 del mercado
-</span>
+                El #1 del mercado
+              </span>
             </div>
           </button>
         ) : (
