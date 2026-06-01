@@ -28,8 +28,6 @@ const PLUS_PRICE = 6.99;
 
 const STORAGE_KEYS = {
   lastCelebrated: 'pollazo_plus_last_celebrated_key',
-  infoVisits: 'pollazo_plus_info_visits',
-  lastPromoShown: 'pollazo_plus_last_promo_shown',
   openPlusSignal: 'pollazo_open_plus',
 };
 
@@ -192,15 +190,16 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
   const [showDetails, setShowDetails] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showCelebrate, setShowCelebrate] = useState(false);
-  const [showEntryPromo, setShowEntryPromo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
 
   const expiresAt = activeMembership?.expires_at || pollazoPlusExpiresAt;
   const expiresLabel = formatDate(expiresAt);
   const daysLeft = getDaysLeft(expiresAt);
+
   const isExpiredOrCancelled =
     membershipStatus === 'expired' || membershipStatus === 'cancelled';
+
   const isExpiringSoon =
     hasPollazoPlus && typeof daysLeft === 'number' && daysLeft <= 3;
 
@@ -212,7 +211,6 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
   const openDetailsFromExternalSignal = useCallback(() => {
     sessionStorage.removeItem(STORAGE_KEYS.openPlusSignal);
     setNotice('');
-    setShowEntryPromo(false);
     setShowDetails(true);
 
     window.setTimeout(() => {
@@ -222,10 +220,12 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     const shouldOpenFromUrl =
       params.get('plus') === '1' ||
       params.has('membershipReminder') ||
       params.has('membershipId');
+
     const shouldOpenFromSession =
       sessionStorage.getItem(STORAGE_KEYS.openPlusSignal) === '1';
 
@@ -260,34 +260,6 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
     return () => window.clearTimeout(timer);
   }, [celebrationKey, hasPollazoPlus]);
-
-  useEffect(() => {
-    if (hasPollazoPlus || membershipStatus === 'pending') return undefined;
-
-    const hasExternalSignal =
-      sessionStorage.getItem(STORAGE_KEYS.openPlusSignal) === '1' ||
-      new URLSearchParams(window.location.search).get('plus') === '1';
-
-    if (hasExternalSignal) return undefined;
-
-    const visits = Number(localStorage.getItem(STORAGE_KEYS.infoVisits) || '0') + 1;
-    const lastShown = Number(localStorage.getItem(STORAGE_KEYS.lastPromoShown) || '0');
-    const twelveHours = 1000 * 60 * 60 * 12;
-    const canShowAgain = Date.now() - lastShown > twelveHours;
-
-    localStorage.setItem(STORAGE_KEYS.infoVisits, String(visits));
-
-    if (visits >= 2 && canShowAgain) {
-      const timer = window.setTimeout(() => {
-        setShowEntryPromo(true);
-        localStorage.setItem(STORAGE_KEYS.lastPromoShown, String(Date.now()));
-      }, 1100);
-
-      return () => window.clearTimeout(timer);
-    }
-
-    return undefined;
-  }, [hasPollazoPlus, membershipStatus]);
 
   const handleSubscribe = async () => {
     if (!customerPhone) {
@@ -326,11 +298,11 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
   const openSubscribeModal = () => {
     setNotice('');
-    setShowEntryPromo(false);
     setShowDetails(true);
   };
 
   const subscribeVerb = isExpiredOrCancelled ? 'Renovar' : 'Suscríbete';
+
   const subscribeButtonLabel = isExpiredOrCancelled
     ? 'Renovar Plus'
     : 'Suscribirme a Plus';
@@ -401,6 +373,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 <p className="text-[9px] font-black text-orange-600 uppercase tracking-[0.24em]">
                   Pollazo Plus
                 </p>
+
                 <span className="bg-green-500 text-white text-[7px] font-black px-2 py-1 rounded-full uppercase">
                   Activo
                 </span>
@@ -440,6 +413,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                   <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                     Vigencia
                   </p>
+
                   <p className="text-[11px] font-black text-orange-600 uppercase mt-1">
                     {expiresLabel || 'Activa'}
                     {daysLeft !== null ? ` · ${daysLeft} día${daysLeft === 1 ? '' : 's'}` : ''}
@@ -462,7 +436,10 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
           </div>
         </section>
       ) : membershipStatus === 'pending' ? (
-        <section className="relative overflow-hidden rounded-[36px] border border-orange-100 bg-white p-5 shadow-sm">
+        <section
+          className="relative overflow-hidden rounded-[36px] border border-orange-100 bg-white p-5 shadow-sm active:scale-[0.99] transition-transform"
+          onClick={() => setShowDetails(true)}
+        >
           <div className="absolute -right-14 -top-14 w-40 h-40 bg-orange-300/15 rounded-full blur-3xl" />
 
           <div className="relative flex items-start gap-4">
@@ -534,6 +511,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                   Membresía mensual
                 </p>
+
                 <p className="text-2xl font-black text-orange-600 leading-none mt-1">
                   ${PLUS_PRICE.toFixed(2)}
                   <span className="text-[10px] text-gray-400 font-bold"> / mes</span>
@@ -622,9 +600,11 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                     <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
                       Método de pago
                     </p>
+
                     <p className="text-sm font-black uppercase mt-1">
                       Tarjeta mensual
                     </p>
+
                     <p className="text-[10px] font-bold text-gray-500 mt-1">
                       Próximamente podrás pagar y renovar automáticamente desde la app.
                     </p>
@@ -638,10 +618,12 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 <>
                   <div className="bg-green-50 border border-green-100 rounded-[28px] p-4 flex gap-3">
                     <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+
                     <div>
                       <p className="text-xs font-black text-green-700 uppercase">
                         Tu Plus está activo
                       </p>
+
                       <p className="text-[11px] font-bold text-green-700/70 leading-relaxed mt-1">
                         {expiresLabel
                           ? `Beneficios activos hasta ${expiresLabel}.`
@@ -653,10 +635,12 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                   {isExpiringSoon && (
                     <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
                       <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
+
                       <div>
                         <p className="text-xs font-black text-orange-700 uppercase">
                           Renovación recomendada
                         </p>
+
                         <p className="text-[11px] font-bold text-orange-700/70 leading-relaxed mt-1">
                           Tu membresía vence {daysLeft === 0 ? 'hoy' : `en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}. Renueva para mantener delivery gratis.
                         </p>
@@ -668,6 +652,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 <>
                   <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
                     <ShieldCheck size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
+
                     <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
                       Por ahora, mientras se integra el cobro real con tarjeta, esta solicitud queda para que el admin pueda activar Plus manualmente y seguir probando.
                     </p>
@@ -690,6 +675,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                     Total mensual
                   </p>
+
                   <p className="text-3xl font-black text-orange-600 leading-none">
                     ${PLUS_PRICE.toFixed(2)}
                     <span className="text-[11px] text-gray-400 font-bold"> / mes</span>
@@ -700,6 +686,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                   <p className="text-[9px] font-black text-green-600 uppercase">
                     Sin contrato
                   </p>
+
                   <p className="text-[9px] font-bold text-gray-400 mt-1">
                     Cancela cuando quieras
                   </p>
@@ -793,71 +780,6 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
                 className="mt-3 text-[10px] font-black text-gray-400 uppercase"
               >
                 Cerrar
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showEntryPromo && (
-        <div className="fixed inset-0 z-[13080] flex items-end justify-center">
-          <button
-            type="button"
-            aria-label="Cerrar promoción Pollazo Plus"
-            onClick={() => setShowEntryPromo(false)}
-            className="absolute inset-0 bg-orange-950/25"
-          />
-
-          <section className="relative w-full max-w-md bg-white rounded-t-[38px] p-5 shadow-2xl animate-[pollazoSheetIn_260ms_cubic-bezier(.2,.9,.2,1)]">
-            <button
-              type="button"
-              onClick={() => setShowEntryPromo(false)}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform"
-              aria-label="Cerrar promoción"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="pr-10">
-              <div className="w-16 h-16 rounded-[26px] bg-gradient-to-br from-yellow-400 to-orange-600 text-white flex items-center justify-center shadow-xl shadow-orange-200 mb-4">
-                <Crown size={34} />
-              </div>
-
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.28em]">
-                Aprovecha ya
-              </p>
-
-              <h2 className="text-3xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Ser Plus te conviene
-              </h2>
-
-              <p className="text-[12px] font-bold text-gray-500 leading-relaxed mt-3">
-                Suscríbete a La Casa del Pollazo y disfruta delivery gratis, beneficios exclusivos y sorpresas en tus pedidos.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-5">
-              <PollazoBenefit icon={<Truck size={17} />} title="Envíos" desc="Gratis" />
-              <PollazoBenefit icon={<Sparkles size={17} />} title="Promos" desc="Plus" />
-              <PollazoBenefit icon={<Gift size={17} />} title="Regalos" desc="VIP" />
-            </div>
-
-            <div className="mt-5 flex items-center justify-between gap-3 rounded-[28px] bg-orange-50 border border-orange-100 p-3">
-              <div>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                  Mensual
-                </p>
-                <p className="text-3xl font-black text-orange-600 leading-none">
-                  ${PLUS_PRICE.toFixed(2)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={openSubscribeModal}
-                className="bg-orange-500 text-white rounded-[24px] px-6 py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200"
-              >
-                Suscríbete
               </button>
             </div>
           </section>
