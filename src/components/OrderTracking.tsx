@@ -1,26 +1,31 @@
 import {
-  Truck,
-  CheckCircle2,
-  ClipboardList,
-  X,
-  ShoppingBag,
-  Info,
-  PackageSearch,
-  Clock3,
-  MapPin,
-  TimerReset,
-  Navigation,
-  RefreshCw,
-  ShieldCheck,
-  Banknote,
-  QrCode,
-  Building,
   AlertCircle,
-  XCircle,
-  BellRing,
-  Volume2,
+  Banknote,
   Bell,
   BellOff,
+  BellRing,
+  Building,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  Crown,
+  Gift,
+  Info,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  PackageSearch,
+  QrCode,
+  ReceiptText,
+  RefreshCw,
+  Route,
+  ShieldCheck,
+  ShoppingBag,
+  TimerReset,
+  Truck,
+  Volume2,
+  X,
+  XCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -69,6 +74,7 @@ const STORE_LOCATION = {
 
 const NOTICE_AUTO_CLOSE_MS = 6500;
 const PUSH_CARD_HIDE_KEY = 'pollazo_hide_push_card_until';
+const WHATSAPP_NUMBER = '593989795628';
 
 const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon }> = [
   { status: 'Por Confirmar', label: 'Por confirmar', icon: Clock3 },
@@ -79,7 +85,7 @@ const statusSteps: Array<{ status: OrderStatus; label: string; icon: LucideIcon 
 ];
 
 const cleanPhoneTail = (phone?: string | null) => {
-  return (phone || '').replace(/\D/g, '').slice(-9);
+  return String(phone || '').replace(/\D/g, '').slice(-9);
 };
 
 const toRadians = (value: number) => {
@@ -102,6 +108,24 @@ const parseCoordinate = (value: unknown): number | null => {
   return null;
 };
 
+const parseMoney = (value: unknown) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const parsed = Number.parseFloat(
+    String(value || '0')
+      .replace(',', '.')
+      .replace(/[^0-9.-]/g, '')
+  );
+
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const moneyText = (value: unknown) => {
+  return `$${parseMoney(value).toFixed(2)}`;
+};
+
 const getOrderLocation = (order: Order | null) => {
   if (!order) return null;
 
@@ -122,11 +146,7 @@ const getOptionalDate = (order: Order, key: string): Date | null => {
 
   const parsed = new Date(String(value));
 
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed;
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const distanceKmBetween = (
@@ -304,7 +324,7 @@ const estimateOrderTiming = (order: Order, now: Date) => {
 const getStatusMessage = (status: OrderStatus) => {
   switch (status) {
     case 'Por Confirmar':
-      return 'Recibimos tu pedido. El negocio está revisando disponibilidad y método de pago.';
+      return 'Recibimos tu pedido. El negocio está revisando disponibilidad, ubicación y método de pago.';
     case 'Recibido':
       return '¡Pedido confirmado! Ya tenemos tu compra en el sistema.';
     case 'Preparando':
@@ -312,7 +332,7 @@ const getStatusMessage = (status: OrderStatus) => {
     case 'Enviado':
       return '¡Tu pedido va en camino a tu casa!';
     case 'Entregado':
-      return '¡Pedido entregado! ¡Gracias por comprar en La Casa del Pollazo!';
+      return '¡Pedido entregado! Gracias por comprar en La Casa del Pollazo.';
     case 'Cancelado':
       return 'Este pedido fue cancelado.';
     default:
@@ -325,6 +345,7 @@ const getPaymentMethodLabel = (method?: PaymentMethod | null) => {
   if (method === 'deuna') return 'Deuna';
   if (method === 'transferencia') return 'Transferencia';
   if (method === 'tarjeta') return 'Tarjeta';
+
   return 'No definido';
 };
 
@@ -449,6 +470,53 @@ const getHeaderIcon = (status?: OrderStatus) => {
   return PackageSearch;
 };
 
+const getStatusTitle = (status?: OrderStatus) => {
+  if (status === 'Por Confirmar') return 'Pedido recibido';
+  if (status === 'Recibido') return 'Pedido confirmado';
+  if (status === 'Preparando') return 'Empacando tu pedido';
+  if (status === 'Enviado') return 'Tu pedido va en camino';
+  if (status === 'Entregado') return 'Pedido entregado';
+  if (status === 'Cancelado') return 'Pedido cancelado';
+
+  return 'Rastreo en vivo';
+};
+
+const getHeroTone = (status?: OrderStatus) => {
+  if (status === 'Cancelado') {
+    return {
+      hero: 'from-red-500 via-red-400 to-orange-400',
+      glow: 'bg-red-300/30',
+      chip: 'bg-red-50 text-red-500 border-red-100',
+      message: 'bg-red-50 border-red-100 text-red-600',
+    };
+  }
+
+  if (status === 'Entregado') {
+    return {
+      hero: 'from-green-500 via-emerald-400 to-yellow-400',
+      glow: 'bg-green-300/30',
+      chip: 'bg-green-50 text-green-600 border-green-100',
+      message: 'bg-green-50 border-green-100 text-green-700',
+    };
+  }
+
+  if (status === 'Por Confirmar') {
+    return {
+      hero: 'from-orange-500 via-orange-400 to-yellow-400',
+      glow: 'bg-orange-300/30',
+      chip: 'bg-orange-50 text-orange-600 border-orange-100',
+      message: 'bg-orange-50 border-orange-100 text-orange-700',
+    };
+  }
+
+  return {
+    hero: 'from-orange-500 via-orange-400 to-yellow-400',
+    glow: 'bg-yellow-300/30',
+    chip: 'bg-blue-50 text-blue-600 border-blue-100',
+    message: 'bg-green-50 border-green-100 text-green-700',
+  };
+};
+
 const getNoticeClasses = (tone: TrackingNoticeTone) => {
   if (tone === 'green') {
     return {
@@ -482,19 +550,58 @@ const getNoticeClasses = (tone: TrackingNoticeTone) => {
 };
 
 const getPushFeedbackClasses = (tone: PushCardFeedback['tone']) => {
-  if (tone === 'green') {
-    return 'bg-green-50 border-green-100 text-green-700';
-  }
-
-  if (tone === 'red') {
-    return 'bg-red-50 border-red-100 text-red-600';
-  }
-
-  if (tone === 'blue') {
-    return 'bg-blue-50 border-blue-100 text-blue-700';
-  }
+  if (tone === 'green') return 'bg-green-50 border-green-100 text-green-700';
+  if (tone === 'red') return 'bg-red-50 border-red-100 text-red-600';
+  if (tone === 'blue') return 'bg-blue-50 border-blue-100 text-blue-700';
 
   return 'bg-orange-50 border-orange-100 text-orange-700';
+};
+
+const getOrderPreviewText = (order: Order) => {
+  const items = order.items || [];
+
+  if (items.length === 0) return 'Pedido sin detalle';
+
+  const firstItems = items
+    .slice(0, 2)
+    .map(item => item.name || item.product?.name || 'Producto')
+    .join(', ');
+
+  return items.length > 2 ? `${firstItems} +${items.length - 2}` : firstItems;
+};
+
+const getOrderDeliveryText = (order: Order) => {
+  const deliveryFeeFinal = (order as unknown as { delivery_fee_final?: number | null })
+    .delivery_fee_final;
+  const delivery = Number(deliveryFeeFinal ?? order.delivery_fee ?? 0);
+
+  return delivery <= 0 ? 'Gratis' : moneyText(delivery);
+};
+
+const getOrderBonusItems = (order: Order) => {
+  const raw = (order as unknown as {
+    bonus_items?: Array<{
+      item_name?: string | null;
+      quantity?: number | string | null;
+      message?: string | null;
+    }> | null;
+  }).bonus_items;
+
+  return Array.isArray(raw) ? raw : [];
+};
+
+const hasOrderMembershipApplied = (order: Order) => {
+  return Boolean((order as unknown as { membership_applied?: boolean }).membership_applied);
+};
+
+const buildHelpWhatsAppUrl = (order: Order) => {
+  const text = [
+    `Hola, necesito ayuda con mi pedido ${order.order_code || 'actual'}.`,
+    `Estado: ${order.status}.`,
+    `Pago: ${getPaymentStatusLabel(order.payment_status)}.`,
+  ].join('\n');
+
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 };
 
 const buildTrackingNotice = (
@@ -655,9 +762,7 @@ export default function OrderTracking({
   const cleanUserPhone = cleanPhoneTail(customerPhone);
 
   const activeOrder = useMemo(() => {
-    if (!cleanUserPhone) {
-      return null;
-    }
+    if (!cleanUserPhone) return null;
 
     return (
       orders
@@ -676,6 +781,7 @@ export default function OrderTracking({
   }, [cleanUserPhone, orders]);
 
   const pushSupported = useMemo(() => isPushSupported(), []);
+
   const shouldShowPushCard =
     Boolean(activeOrder) &&
     Boolean(customerPhone) &&
@@ -738,26 +844,29 @@ export default function OrderTracking({
     }
   }, []);
 
-  const showBrowserNotification = useCallback((notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
-    try {
-      if (typeof window === 'undefined' || !('Notification' in window)) return;
-      if (Notification.permission !== 'granted') return;
+  const showBrowserNotification = useCallback(
+    (notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
+      try {
+        if (typeof window === 'undefined' || !('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
 
-      const notification = new Notification(notice.title, {
-        body: notice.message,
-        icon: '/logo-final.png',
-        badge: '/logo-final.png',
-        tag: `pollazo-${notice.orderId || 'tracking'}`,
-        requireInteraction: false,
-      });
+        const notification = new Notification(notice.title, {
+          body: notice.message,
+          icon: '/logo-final.png',
+          badge: '/logo-final.png',
+          tag: `pollazo-${notice.orderId || 'tracking'}`,
+          requireInteraction: false,
+        });
 
-      window.setTimeout(() => {
-        notification.close();
-      }, 6500);
-    } catch {
-      // Notificación del sistema opcional.
-    }
-  }, []);
+        window.setTimeout(() => {
+          notification.close();
+        }, 6500);
+      } catch {
+        // Notificación del sistema opcional.
+      }
+    },
+    []
+  );
 
   const raiseTrackingNotice = useCallback(
     (notice: Omit<TrackingNotice, 'id' | 'createdAt'>) => {
@@ -1060,7 +1169,7 @@ export default function OrderTracking({
     return (
       <div
         className={`rounded-[28px] border p-4 shadow-xl animate-in slide-in-from-top-4 duration-300 ${classes.wrapper} ${
-          compact ? 'w-[calc(100vw-24px)] max-w-md' : 'mb-5'
+          compact ? 'w-[calc(100vw-24px)] max-w-md' : ''
         }`}
       >
         <div className="flex items-start gap-3">
@@ -1072,6 +1181,7 @@ export default function OrderTracking({
             <p className="text-xs font-black uppercase italic leading-tight">
               {trackingNotice.title}
             </p>
+
             <p className="text-[11px] font-bold leading-relaxed mt-1 opacity-80">
               {trackingNotice.message}
             </p>
@@ -1109,7 +1219,7 @@ export default function OrderTracking({
     if (!shouldShowPushCard) return null;
 
     return (
-      <div className="mt-4 rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 shadow-sm">
+      <section className="rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-200 flex items-center justify-center flex-shrink-0">
             {pushPermission === 'denied' ? <BellOff size={22} /> : <Bell size={22} />}
@@ -1158,7 +1268,7 @@ export default function OrderTracking({
             </div>
           </div>
         </div>
-      </div>
+      </section>
     );
   };
 
@@ -1192,290 +1302,483 @@ export default function OrderTracking({
   const PaymentIcon = activeOrder ? getPaymentIcon(activeOrder.payment_method) : AlertCircle;
   const paymentTone = activeOrder ? getPaymentStatusTone(activeOrder.payment_status) : null;
   const HeaderIcon = getHeaderIcon(currentStatus);
+  const heroTone = getHeroTone(currentStatus);
+  const progressPercent =
+    currentStatus && currentStatusIdx >= 0
+      ? Math.round((currentStatusIdx / Math.max(1, statusSteps.length - 1)) * 100)
+      : 0;
+
+  const bonusItems = activeOrder ? getOrderBonusItems(activeOrder) : [];
+  const plusApplied = activeOrder ? hasOrderMembershipApplied(activeOrder) : false;
+  const activeHelpUrl = activeOrder ? buildHelpWhatsAppUrl(activeOrder) : '';
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-md"
+    <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-orange-950/20"
         onClick={onClose}
+        aria-label="Cerrar rastreo"
       />
 
-      <div className="relative z-10 w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-300 border border-white/20 max-h-[92vh] overflow-y-auto">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-6 right-6 w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-          aria-label="Cerrar rastreo"
-        >
-          <X size={20} />
-        </button>
+      <section className="relative z-10 w-full sm:max-w-md max-h-[94dvh] bg-white rounded-t-[42px] sm:rounded-[42px] shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300 border border-white/80 overflow-hidden flex flex-col">
+        <header className={`relative overflow-hidden bg-gradient-to-br ${heroTone.hero} text-white px-5 pt-[calc(env(safe-area-inset-top)+18px)] sm:pt-5 pb-5 flex-shrink-0`}>
+          <div className={`absolute -right-16 -top-16 w-52 h-52 ${heroTone.glow} rounded-full blur-3xl`} />
+          <div className="absolute -left-16 -bottom-16 w-52 h-52 bg-white/15 rounded-full blur-3xl" />
 
-        <div className="text-center mb-8">
-          <div
-            className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 ${
-              currentStatus === 'Cancelado'
-                ? 'bg-red-100 text-red-500'
-                : currentStatus === 'Por Confirmar'
-                  ? 'bg-orange-100 text-orange-500'
-                  : currentStatus === 'Entregado'
-                    ? 'bg-green-100 text-green-600'
-                    : hasActiveOrder
-                      ? 'bg-green-100 text-green-600'
-                      : 'bg-orange-100 text-orange-500'
-            }`}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-[calc(env(safe-area-inset-top)+16px)] sm:top-4 right-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform z-10 border border-white/20"
+            aria-label="Cerrar rastreo"
           >
-            <HeaderIcon size={40} />
-          </div>
+            <X size={20} />
+          </button>
 
-          <h2 className="text-2xl font-black text-gray-900 uppercase italic leading-none">
-            {hasActiveOrder
-              ? currentStatus === 'Por Confirmar'
-                ? 'Esperando Confirmación'
-                : currentStatus === 'Entregado'
-                  ? 'Pedido Entregado'
-                  : currentStatus === 'Cancelado'
-                    ? 'Pedido Cancelado'
-                    : 'Pedido en Curso'
-              : 'Rastreo en Vivo'}
-          </h2>
-
-          <p className="text-sm font-bold text-gray-400 mt-2">
-            {hasActiveOrder
-              ? `Código: ${activeOrder?.order_code || 'Sin código'}`
-              : 'Sigue tu compra paso a paso'}
-          </p>
-
-          {hasActiveOrder && (
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <div className="inline-flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-full px-3 py-1.5">
-                <RefreshCw
-                  size={12}
-                  className={`text-orange-500 ${isRefreshing ? 'animate-spin' : ''}`}
-                />
-                <span className="text-[9px] font-black uppercase text-gray-400">
-                  En vivo
-                </span>
+          <div className="relative pr-12">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-[26px] flex items-center justify-center shadow-xl border bg-white/20 text-white border-white/25">
+                <HeaderIcon size={34} />
               </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/75">
+                  Rastreo Pollazo
+                </p>
+
+                <h2 className="text-2xl font-black uppercase italic leading-none mt-2">
+                  {hasActiveOrder ? getStatusTitle(currentStatus) : 'Rastreo en vivo'}
+                </h2>
+
+                <p className="text-[12px] font-bold text-white/80 leading-relaxed mt-2 line-clamp-2">
+                  {hasActiveOrder && activeOrder
+                    ? `${activeOrder.order_code || 'Pedido'} · ${getOrderPreviewText(activeOrder)}`
+                    : 'Sigue tu compra paso a paso cuando tengas un pedido activo.'}
+                </p>
+              </div>
+            </div>
+
+            {hasActiveOrder && (
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 border bg-white/20 border-white/25 text-white">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-70 animate-ping" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                  </span>
+
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    En vivo
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={refreshTracking}
+                  className="inline-flex items-center gap-2 bg-white/20 text-white border border-white/25 rounded-full px-3 py-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                >
+                  <RefreshCw
+                    size={12}
+                    className={isRefreshing ? 'animate-spin' : ''}
+                  />
+                  Actualizar
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+18px)] space-y-4 bg-gradient-to-b from-orange-50/45 via-white to-white">
+          {renderTrackingNotice(false)}
+
+          {hasActiveOrder && currentStatus && activeOrder ? (
+            <>
+              {currentStatus !== 'Cancelado' && (
+                <section className="bg-white border border-orange-100 rounded-[32px] p-4 shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
+                        Progreso del pedido
+                      </p>
+                      <p className="text-xs font-bold text-gray-400 mt-1">
+                        Actualización automática desde el negocio.
+                      </p>
+                    </div>
+
+                    <span className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase ${heroTone.chip}`}>
+                      {currentStatus}
+                    </span>
+                  </div>
+
+                  <div className="relative px-1 pt-1 pb-2">
+                    <div className="absolute left-5 right-5 top-[21px] h-2 bg-orange-50 rounded-full" />
+                    <div
+                      className="absolute left-5 top-[21px] h-2 bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-700"
+                      style={{ width: `calc((100% - 40px) * ${progressPercent / 100})` }}
+                    />
+
+                    <div className="relative flex justify-between">
+                      {statusSteps.map((step, idx) => {
+                        const isCompleted = currentStatusIdx >= idx;
+                        const isCurrent = currentStatus === step.status;
+                        const Icon = step.icon;
+
+                        return (
+                          <div key={step.status} className="flex flex-col items-center gap-2 z-10">
+                            <div
+                              className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
+                                isCompleted
+                                  ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-200'
+                                  : 'bg-white border-orange-100 text-orange-200'
+                              } ${isCurrent ? 'scale-110 ring-4 ring-orange-100 animate-pulse' : ''}`}
+                            >
+                              <Icon size={18} />
+                            </div>
+
+                            <span
+                              className={`text-[7px] font-black uppercase tracking-tighter text-center max-w-[58px] leading-tight ${
+                                isCompleted ? 'text-gray-900' : 'text-gray-300'
+                              }`}
+                            >
+                              {step.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <section className={`rounded-[30px] border p-4 shadow-sm ${heroTone.message}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-white/85 flex items-center justify-center shadow-sm flex-shrink-0">
+                    <HeaderIcon size={22} />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase italic leading-tight">
+                      {getStatusTitle(currentStatus)}
+                    </p>
+                    <p className="text-[11px] font-bold leading-relaxed mt-1.5 opacity-80">
+                      {getStatusMessage(currentStatus)}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {(plusApplied || bonusItems.length > 0) && (
+                <section className="grid grid-cols-1 gap-3">
+                  {plusApplied && (
+                    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-100 rounded-[28px] p-4 shadow-sm flex items-start gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-100 flex-shrink-0">
+                        <Crown size={22} />
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest">
+                          Pollazo Plus aplicado
+                        </p>
+                        <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                          Tu membresía se aplicó en este pedido. Si era domicilio, el delivery queda gratis según cobertura.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {bonusItems.length > 0 && (
+                    <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Gift size={17} className="text-orange-500" />
+                        <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest">
+                          Regalo agregado
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        {bonusItems.map((gift, index) => (
+                          <div
+                            key={`${gift.item_name || 'regalo'}-${index}`}
+                            className="bg-white border border-orange-100 rounded-2xl p-3"
+                          >
+                            <p className="text-[11px] font-black text-gray-900 uppercase">
+                              {Number(gift.quantity || 1)}x {gift.item_name || 'Sorpresa Pollazo'}
+                            </p>
+                            {gift.message && (
+                              <p className="text-[10px] font-bold text-gray-400 mt-1 leading-relaxed">
+                                {gift.message}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {renderPushCard()}
+
+              {paymentTone && (
+                <section className={`rounded-[30px] border p-4 shadow-sm ${paymentTone.wrapper}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${paymentTone.icon}`}>
+                      <PaymentIcon size={21} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className={`text-[10px] font-black uppercase leading-tight ${paymentTone.title}`}>
+                        {getPaymentMethodLabel(activeOrder.payment_method)} · {getPaymentStatusLabel(activeOrder.payment_status)}
+                      </p>
+
+                      <p className={`text-[11px] font-bold leading-relaxed mt-1.5 ${paymentTone.text}`}>
+                        {getPaymentHelpText(activeOrder)}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {currentStatus === 'Por Confirmar' && (
+                <section className="bg-yellow-50 border border-yellow-100 rounded-[30px] p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
+                      <ShieldCheck size={21} />
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-black text-yellow-700 uppercase tracking-widest">
+                        Tiempo estimado pendiente
+                      </p>
+
+                      <p className="text-[11px] font-bold text-yellow-700/80 leading-relaxed mt-1">
+                        {getPendingPaymentText(activeOrder)}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {estimate && (
+                <section className="bg-white border border-orange-100 rounded-[32px] p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TimerReset size={16} className="text-orange-500" />
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">
+                      Tiempo estimado
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3">
+                      <div className="flex items-center gap-2 text-orange-600 mb-1">
+                        <Clock3 size={15} />
+                        <span className="text-[8px] font-black uppercase">
+                          Llegada
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-black text-gray-900 leading-snug">
+                        {formatTime(estimate.earliest)} - {formatTime(estimate.latest)}
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3">
+                      <div className="flex items-center gap-2 text-blue-600 mb-1">
+                        <Navigation size={15} />
+                        <span className="text-[8px] font-black uppercase">
+                          Distancia
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-black text-gray-900 leading-snug">
+                        {estimate.distanceKm !== null
+                          ? `${estimate.distanceKm.toFixed(1)} km`
+                          : 'Sin GPS exacto'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] font-black uppercase text-green-700 leading-relaxed">
+                      {currentStatus === 'Enviado'
+                        ? `Tu pedido debería llegar en aproximadamente ${estimate.remainingMinutes} min.`
+                        : `Tu pedido está estimado para llegar entre ${estimate.minMinutes} y ${estimate.maxMinutes} min desde la confirmación.`}
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              <section className="bg-white border border-orange-100 rounded-[32px] p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <ReceiptText size={16} className="text-orange-500" />
+                  <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">
+                    Resumen del pedido
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3">
+                    <p className="text-[8px] font-black text-orange-500 uppercase">
+                      Productos
+                    </p>
+                    <p className="text-sm font-black text-gray-900 mt-1">
+                      {getOrderItemCount(activeOrder)} unidad{getOrderItemCount(activeOrder) === 1 ? '' : 'es'}
+                    </p>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-3">
+                    <p className="text-[8px] font-black text-yellow-700 uppercase">
+                      Delivery
+                    </p>
+                    <p className="text-sm font-black text-gray-900 mt-1">
+                      {getOrderDeliveryText(activeOrder)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 bg-gray-50 border border-gray-100 rounded-2xl p-3 space-y-2">
+                  <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                    <span>Subtotal</span>
+                    <span>{moneyText(activeOrder.subtotal)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                    <span>Pago</span>
+                    <span>{getPaymentMethodLabel(activeOrder.payment_method)}</span>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
+                    <span className="text-xs font-black text-gray-900 uppercase">
+                      Total
+                    </span>
+                    <span className="text-2xl font-black text-orange-600">
+                      {moneyText(activeOrder.total)}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {currentStatus === 'Entregado' && (
+                <section className="bg-green-50 border border-green-100 rounded-[30px] p-5 text-center shadow-sm">
+                  <CheckCircle2 size={34} className="text-green-600 mx-auto mb-3" />
+                  <p className="text-xs font-black text-green-700 uppercase italic leading-tight">
+                    Gracias por tu compra
+                  </p>
+                  <p className="text-[11px] font-bold text-green-700/75 leading-relaxed mt-2">
+                    Tu historial y experiencia se actualizarán si aplica. Puedes repetir este pedido desde la pestaña Pedidos.
+                  </p>
+                </section>
+              )}
+
+              {currentStatus === 'Cancelado' && (
+                <section className="bg-red-50 border border-red-100 rounded-[30px] p-5 text-center shadow-sm">
+                  <XCircle size={34} className="text-red-500 mx-auto mb-3" />
+                  <p className="text-xs font-black text-red-600 uppercase italic leading-tight">
+                    Pedido cancelado
+                  </p>
+                  <p className="text-[11px] font-bold text-red-600/75 leading-relaxed mt-2">
+                    Si crees que hubo un error, comunícate por WhatsApp con el negocio.
+                  </p>
+                </section>
+              )}
+
+              {activeOrder.reference && (
+                <section className="bg-blue-50 border border-blue-100 rounded-[28px] p-4 flex items-start gap-3 shadow-sm">
+                  <MapPin size={18} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                      Referencia
+                    </p>
+                    <p className="text-[11px] font-bold text-blue-700 leading-relaxed mt-1">
+                      {activeOrder.reference}
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              {!orderLocation &&
+                currentStatus !== 'Por Confirmar' &&
+                currentStatus !== 'Cancelado' && (
+                  <section className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex items-start gap-3 shadow-sm">
+                    <MapPin size={18} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-[10px] font-bold text-orange-700 uppercase leading-relaxed">
+                      No encontramos GPS exacto en este pedido. El tiempo se calcula como zona cercana.
+                    </p>
+                  </section>
+                )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <a
+                  href={activeHelpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-500 text-white rounded-[24px] py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-green-100"
+                >
+                  <MessageCircle size={16} />
+                  Ayuda
+                </a>
+
+                <button
+                  type="button"
+                  onClick={refreshTracking}
+                  className="bg-orange-50 text-orange-600 border border-orange-100 rounded-[24px] py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                >
+                  <Route size={16} />
+                  Actualizar
+                </button>
+              </div>
+
+              {activeOrder.created_at && (
+                <p className="text-center text-[9px] text-gray-300 font-black uppercase leading-relaxed">
+                  Se actualiza automáticamente cuando admin o repartidor cambian el estado.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="space-y-4">
+              <section className="relative overflow-hidden bg-white border border-orange-100 rounded-[34px] p-6 text-center shadow-sm">
+                <div className="absolute -right-12 -top-12 w-40 h-40 bg-orange-200/30 rounded-full blur-3xl" />
+                <div className="absolute -left-12 -bottom-12 w-40 h-40 bg-yellow-200/30 rounded-full blur-3xl" />
+
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-[30px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white mx-auto flex items-center justify-center shadow-xl shadow-orange-100 mb-5">
+                    <PackageSearch size={38} />
+                  </div>
+
+                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.26em]">
+                    Sin pedido activo
+                  </p>
+
+                  <h3 className="text-2xl font-black text-gray-950 uppercase italic leading-none mt-2">
+                    Aquí verás tu rastreo
+                  </h3>
+
+                  <p className="text-sm font-bold text-gray-500 leading-relaxed mt-4">
+                    Cuando realices un pedido reciente, aquí aparecerán sus estados, pago, tiempo estimado, regalos Plus y ayuda.
+                  </p>
+                </div>
+              </section>
+
+              <section className="bg-blue-50 rounded-[30px] flex items-start gap-4 border border-blue-100 shadow-sm p-4">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0">
+                  <Info size={24} />
+                </div>
+
+                <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed text-left">
+                  Te avisaremos dentro de la app cuando el pedido cambie de estado. Si activas avisos, también recibirás notificaciones aunque cierres la app.
+                </p>
+              </section>
 
               <button
                 type="button"
-                onClick={refreshTracking}
-                className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100 rounded-full px-3 py-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                onClick={onClose}
+                className="w-full py-5 bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-black rounded-[26px] text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-orange-100"
               >
-                Actualizar
+                ¡Entendido!
               </button>
             </div>
           )}
         </div>
-
-        {renderTrackingNotice(false)}
-
-        {hasActiveOrder && currentStatus && activeOrder ? (
-          <div className="py-2">
-            {currentStatus !== 'Cancelado' && (
-              <div className="relative flex justify-between items-center px-1 mb-8">
-                <div className="absolute left-0 right-0 top-[20px] h-[3px] bg-gray-100 rounded-full" />
-
-                {statusSteps.map((step, idx) => {
-                  const isCompleted = currentStatusIdx >= idx;
-                  const isCurrent = currentStatus === step.status;
-                  const Icon = step.icon;
-
-                  return (
-                    <div key={step.status} className="flex flex-col items-center gap-2 z-10">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-                          isCompleted
-                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
-                            : 'bg-white border-2 border-gray-100 text-gray-300'
-                        } ${isCurrent ? 'scale-125 ring-4 ring-orange-100' : ''}`}
-                      >
-                        <Icon size={18} />
-                      </div>
-
-                      <span
-                        className={`text-[7px] font-black uppercase tracking-tighter text-center max-w-[58px] leading-tight ${
-                          isCompleted ? 'text-gray-900' : 'text-gray-300'
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div
-              className={`p-4 rounded-2xl border text-center shadow-sm ${
-                currentStatus === 'Cancelado'
-                  ? 'bg-red-50 border-red-100'
-                  : currentStatus === 'Por Confirmar'
-                    ? 'bg-orange-50 border-orange-100'
-                    : 'bg-green-50 border-green-100'
-              }`}
-            >
-              <p
-                className={`text-xs font-black uppercase italic leading-relaxed ${
-                  currentStatus === 'Cancelado'
-                    ? 'text-red-600'
-                    : currentStatus === 'Por Confirmar'
-                      ? 'text-orange-600'
-                      : 'text-green-700'
-                }`}
-              >
-                {getStatusMessage(currentStatus)}
-              </p>
-            </div>
-
-            {renderPushCard()}
-
-            {paymentTone && (
-              <div className={`mt-4 rounded-[28px] border p-4 ${paymentTone.wrapper}`}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${paymentTone.icon}`}>
-                    <PaymentIcon size={20} />
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className={`text-[10px] font-black uppercase leading-tight ${paymentTone.title}`}>
-                      {getPaymentMethodLabel(activeOrder.payment_method)} · {getPaymentStatusLabel(activeOrder.payment_status)}
-                    </p>
-                    <p className={`text-[11px] font-bold leading-relaxed mt-1.5 ${paymentTone.text}`}>
-                      {getPaymentHelpText(activeOrder)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStatus === 'Por Confirmar' && (
-              <div className="mt-4 bg-yellow-50 border border-yellow-100 rounded-[28px] p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
-                    <ShieldCheck size={20} />
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-black text-yellow-700 uppercase">
-                      Tiempo estimado bloqueado
-                    </p>
-                    <p className="text-[11px] font-bold text-yellow-700/80 leading-relaxed mt-1">
-                      {getPendingPaymentText(activeOrder)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {estimate && (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3">
-                  <div className="flex items-center gap-2 text-orange-600 mb-1">
-                    <TimerReset size={15} />
-                    <span className="text-[8px] font-black uppercase">
-                      Llegada estimada
-                    </span>
-                  </div>
-                  <p className="text-xs font-black text-gray-900 leading-snug">
-                    {formatTime(estimate.earliest)} - {formatTime(estimate.latest)}
-                  </p>
-                </div>
-
-                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3">
-                  <div className="flex items-center gap-2 text-blue-600 mb-1">
-                    <Navigation size={15} />
-                    <span className="text-[8px] font-black uppercase">
-                      Distancia aprox.
-                    </span>
-                  </div>
-                  <p className="text-xs font-black text-gray-900 leading-snug">
-                    {estimate.distanceKm !== null
-                      ? `${estimate.distanceKm.toFixed(1)} km`
-                      : 'Sin GPS exacto'}
-                  </p>
-                </div>
-
-                <div className="col-span-2 bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-                  <p className="text-[10px] font-black uppercase text-green-700 leading-relaxed">
-                    {currentStatus === 'Enviado'
-                      ? `Tu pedido debería llegar en aproximadamente ${estimate.remainingMinutes} min.`
-                      : `Tu pedido está estimado para llegar entre ${estimate.minMinutes} y ${estimate.maxMinutes} min desde la confirmación.`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {currentStatus === 'Entregado' && (
-              <div className="mt-4 bg-green-50 border border-green-100 rounded-[28px] p-4 text-center">
-                <CheckCircle2 size={28} className="text-green-600 mx-auto mb-2" />
-                <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
-                  Gracias por tu compra. Tu historial y experiencia se actualizarán si aplica.
-                </p>
-              </div>
-            )}
-
-            {currentStatus === 'Cancelado' && (
-              <div className="mt-4 bg-red-50 border border-red-100 rounded-[28px] p-4 text-center">
-                <XCircle size={28} className="text-red-500 mx-auto mb-2" />
-                <p className="text-[10px] font-black text-red-600 uppercase leading-relaxed">
-                  Si crees que hubo un error, comunícate por WhatsApp con el negocio.
-                </p>
-              </div>
-            )}
-
-            {activeOrder.reference && (
-              <div className="mt-4 bg-blue-50 border border-blue-100 rounded-2xl p-3 flex items-start gap-3">
-                <MapPin size={17} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[10px] font-bold text-blue-700 uppercase leading-relaxed">
-                  Referencia: {activeOrder.reference}
-                </p>
-              </div>
-            )}
-
-            {!orderLocation &&
-              currentStatus !== 'Por Confirmar' &&
-              currentStatus !== 'Cancelado' && (
-                <div className="mt-4 bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-3">
-                  <MapPin size={17} className="text-orange-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-[10px] font-bold text-orange-700 uppercase leading-relaxed">
-                    No encontramos GPS exacto en este pedido. El tiempo se calcula como zona cercana.
-                  </p>
-                </div>
-              )}
-
-            {activeOrder.created_at && (
-              <p className="text-center text-[10px] text-gray-300 font-bold uppercase mt-4">
-                Se actualiza automáticamente cuando el admin o repartidor cambia el estado
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <p className="text-sm text-gray-500 font-bold leading-relaxed text-center px-2">
-              Aquí podrás ver el progreso de tu compra en tiempo real. Cuando realices un pedido y lo confirmemos, se activará este seguimiento automático. 🛵💨
-            </p>
-
-            <div className="p-5 bg-blue-50 rounded-[32px] flex items-center gap-4 border border-blue-100 shadow-sm">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm flex-shrink-0">
-                <Info size={24} />
-              </div>
-
-              <p className="text-[10px] font-black text-blue-700 uppercase leading-tight text-left">
-                Te avisaremos dentro de la app cuando el pedido cambie de estado. Si activas avisos del pedido, también recibirás notificaciones aunque cierres la app.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-5 bg-gray-900 text-white font-black rounded-[24px] text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl"
-            >
-              ¡Entendido!
-            </button>
-          </div>
-        )}
-      </div>
+      </section>
     </div>
   );
 }
