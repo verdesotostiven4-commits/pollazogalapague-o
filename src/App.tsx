@@ -8,6 +8,7 @@ import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
 import CartScreen from './components/CartScreen';
+import OrdersScreen from './components/OrdersScreen';
 import InfoScreen from './components/InfoScreen';
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/AppHeader';
@@ -502,6 +503,19 @@ function AppShell() {
     });
   }, [refreshData]);
 
+  const openTrackingManually = useCallback(() => {
+    setShowTracking(true);
+    setTrackingLaunchSource(null);
+    setShowLoginModal(false);
+    setIsChangingLocation(false);
+    setPendingOrder(false);
+    setShowConfirmation(false);
+
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, []);
+
   const closeTracking = useCallback(() => {
     setShowTracking(false);
     setTrackingLaunchSource(null);
@@ -925,6 +939,14 @@ function AppShell() {
           />
         )}
 
+        {screen === 'orders' && (
+          <OrdersScreen
+            onNavigate={handleNavigate}
+            onOpenProfile={() => setShowLoginModal(true)}
+            onOpenTracking={openTrackingManually}
+          />
+        )}
+
         {screen === 'cart' && (
           <CartScreen
             onCheckout={() => setShowConfirmation(true)}
@@ -959,10 +981,7 @@ function AppShell() {
       {screen !== 'ranking' && hasTrackableOrder && (
         <button
           type="button"
-          onClick={() => {
-            setShowTracking(true);
-            setTrackingLaunchSource(null);
-          }}
+          onClick={openTrackingManually}
           className="fixed right-4 bottom-[88px] z-40 flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md border border-orange-100 px-4 py-3 shadow-xl shadow-orange-100 text-orange-600 active:scale-95 transition-all"
           aria-label="Abrir rastreo de pedido"
         >
