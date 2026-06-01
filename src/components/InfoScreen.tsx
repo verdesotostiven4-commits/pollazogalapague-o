@@ -2,22 +2,16 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
   type TouchEvent,
 } from 'react';
 import {
-  Activity,
-  AlertCircle,
   BadgeCheck,
   Building2,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clock,
-  Crown,
-  Gift,
   Heart,
   Home,
   Info as InfoIcon,
@@ -25,23 +19,14 @@ import {
   MapPinned,
   MessageCircle,
   Navigation,
-  PackageCheck,
   Phone,
   Plus,
-  ReceiptText,
-  Repeat2,
-  Route,
   Scale,
-  ShoppingBag,
   Sparkles,
   Star,
   Store,
-  Target,
   Trash2,
-  TrendingUp,
-  Truck,
   Umbrella,
-  Wallet,
   X,
 } from 'lucide-react';
 import Testimonials from './Testimonials';
@@ -50,12 +35,9 @@ import LegalModal from './LegalModal';
 import PollazoPlusProCard from './PollazoPlusProCard';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
-import { useCart } from '../context/CartContext';
 import type {
   DeliveryAddress,
   DeliveryAddressLabel,
-  Order,
-  Product,
   Screen,
 } from '../types';
 
@@ -173,21 +155,10 @@ const CUSTOMER_LEVELS = [
   },
 ];
 
-const ACTIVE_ORDER_STATUSES: Order['status'][] = [
-  'Por Confirmar',
-  'Recibido',
-  'Preparando',
-  'Enviado',
-];
-
 const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
 function cleanPhoneTail(phone?: string | null) {
   return String(phone || '').replace(/\D/g, '').slice(-9);
-}
-
-function cleanPhone(phone?: string | null) {
-  return String(phone || '').replace(/\D/g, '');
 }
 
 function toMoney(value: unknown) {
@@ -202,11 +173,6 @@ function toMoney(value: unknown) {
   );
 
   return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function formatMoneyText(value: unknown) {
-  const money = toMoney(value);
-  return money > 0 ? `$${money.toFixed(2)}` : 'Consultar precio';
 }
 
 function getCustomerLevel(exp: number) {
@@ -238,208 +204,6 @@ function getNextLevelText(exp: number) {
   const remaining = Math.max(0, level.nextExp - exp);
 
   return `Te faltan ${remaining.toLocaleString('es-EC')} puntos de progreso para subir.`;
-}
-
-function formatOrderDate(date?: string | null) {
-  if (!date) return '--';
-
-  const parsed = new Date(date);
-
-  if (Number.isNaN(parsed.getTime())) return '--';
-
-  return parsed.toLocaleDateString('es-EC', {
-    day: '2-digit',
-    month: 'short',
-  });
-}
-
-function formatOrderTime(date?: string | null) {
-  if (!date) return '--';
-
-  const parsed = new Date(date);
-
-  if (Number.isNaN(parsed.getTime())) return '--';
-
-  return parsed.toLocaleTimeString('es-EC', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function getOrderItemsLabel(order: Order) {
-  const items = order.items || [];
-
-  if (items.length === 0) return 'Pedido sin detalle';
-
-  const names = items
-    .slice(0, 2)
-    .map(item => item.name || item.product?.name || 'Producto')
-    .join(', ');
-
-  return items.length > 2 ? `${names} +${items.length - 2}` : names;
-}
-
-function getStatusStyle(status: Order['status']) {
-  if (status === 'Por Confirmar') return 'bg-orange-50 text-orange-600 border-orange-100';
-  if (status === 'Recibido') return 'bg-blue-50 text-blue-600 border-blue-100';
-  if (status === 'Preparando') return 'bg-purple-50 text-purple-600 border-purple-100';
-  if (status === 'Enviado') return 'bg-yellow-50 text-yellow-700 border-yellow-100';
-  if (status === 'Entregado') return 'bg-green-50 text-green-600 border-green-100';
-  if (status === 'Cancelado') return 'bg-red-50 text-red-500 border-red-100';
-
-  return 'bg-gray-50 text-gray-400 border-gray-100';
-}
-
-function getStatusMessage(status: Order['status']) {
-  if (status === 'Por Confirmar') {
-    return 'El negocio está revisando disponibilidad y/o pago.';
-  }
-
-  if (status === 'Recibido') {
-    return 'Tu pedido fue aceptado. Pronto empezará la preparación.';
-  }
-
-  if (status === 'Preparando') {
-    return 'Estamos armando tu pedido con cuidado.';
-  }
-
-  if (status === 'Enviado') {
-    return 'Tu pedido está en camino. Mantente pendiente.';
-  }
-
-  if (status === 'Entregado') {
-    return 'Pedido completado. Gracias por comprar.';
-  }
-
-  if (status === 'Cancelado') {
-    return 'Este pedido fue cancelado.';
-  }
-
-  return 'Estado del pedido actualizado.';
-}
-
-function getOrderProgress(status: Order['status']) {
-  if (status === 'Por Confirmar') return 15;
-  if (status === 'Recibido') return 35;
-  if (status === 'Preparando') return 60;
-  if (status === 'Enviado') return 85;
-  if (status === 'Entregado') return 100;
-  if (status === 'Cancelado') return 100;
-
-  return 10;
-}
-
-function paymentLabel(method?: Order['payment_method']) {
-  if (method === 'efectivo') return 'Efectivo';
-  if (method === 'deuna') return 'Deuna';
-  if (method === 'transferencia') return 'Transferencia';
-  if (method === 'tarjeta') return 'Tarjeta';
-
-  return 'Sin definir';
-}
-
-function buildOrderWhatsAppUrl(order: Order) {
-  const phone = cleanPhone(WHATSAPP);
-  const code = order.order_code || 'PEDIDO';
-
-  const text = [
-    `Hola, necesito ayuda con mi pedido ${code}.`,
-    `Estado actual: ${order.status}.`,
-  ].join('\n');
-
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-}
-
-function findLiveProductForOrderItem(item: any, products: Product[]) {
-  const possibleIds = [
-    item?.product_id,
-    item?.id,
-    item?.cart_item_id,
-    item?.product?.id,
-  ]
-    .filter(Boolean)
-    .map((value: unknown) => String(value));
-
-  for (const id of possibleIds) {
-    const directMatch = products.find(product => String(product.id) === id);
-
-    if (directMatch) return directMatch;
-
-    const byPrefix = products.find(product => id.startsWith(`${product.id}-`));
-
-    if (byPrefix) return byPrefix;
-  }
-
-  const possibleName = String(item?.name || item?.product?.name || '')
-    .trim()
-    .toLowerCase();
-
-  if (!possibleName) return null;
-
-  return (
-    products.find(product => product.name.trim().toLowerCase() === possibleName) || null
-  );
-}
-
-function buildRepeatProduct(order: Order, item: any, index: number, products: Product[]) {
-  const liveProduct = findLiveProductForOrderItem(item, products);
-  const savedProduct = item?.product || {};
-
-  if (liveProduct?.available === false) {
-    return null;
-  }
-
-  const savedUnitPrice =
-    typeof item?.price === 'number' && item.price > 0
-      ? item.price
-      : typeof savedProduct?.custom_price === 'number' && savedProduct.custom_price > 0
-        ? savedProduct.custom_price
-        : typeof item?.custom_price === 'number' && item.custom_price > 0
-          ? item.custom_price
-          : toMoney(item?.price || item?.price_text || savedProduct?.price || liveProduct?.price);
-
-  const baseId =
-    liveProduct?.id ||
-    item?.product_id ||
-    item?.id ||
-    savedProduct?.id ||
-    `${order.order_code || order.id || 'pedido'}-${index}`;
-
-  const name =
-    liveProduct?.name ||
-    savedProduct?.name ||
-    item?.name ||
-    'Producto';
-
-  const product: Product = {
-    ...(liveProduct || {}),
-    ...(savedProduct || {}),
-    id: String(baseId),
-    name,
-    price:
-      savedUnitPrice > 0
-        ? formatMoneyText(savedUnitPrice)
-        : liveProduct?.price || savedProduct?.price || item?.price_text || 'Consultar precio',
-    custom_price:
-      typeof item?.custom_price === 'number' && item.custom_price > 0
-        ? item.custom_price
-        : typeof savedProduct?.custom_price === 'number' && savedProduct.custom_price > 0
-          ? savedProduct.custom_price
-          : undefined,
-    category:
-      liveProduct?.category ||
-      savedProduct?.category ||
-      item?.category ||
-      'Abarrotes y básicos',
-    image:
-      liveProduct?.image ||
-      savedProduct?.image ||
-      item?.image ||
-      LOGO_OFFICIAL,
-    available: true,
-  } as Product;
-
-  return product;
 }
 
 function AddressIcon({
@@ -498,13 +262,8 @@ function TeamCarousel() {
 
       <style>{`
         @keyframes pollazoTeamLoop {
-          0% {
-            transform: translateX(0);
-          }
-
-          100% {
-            transform: translateX(-50%);
-          }
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
 
         .pollazo-team-track {
@@ -516,153 +275,49 @@ function TeamCarousel() {
   );
 }
 
-function StatPill({
-  icon,
-  label,
-  value,
-  muted = false,
+function InfoHero({
+  onNavigate,
 }: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  muted?: boolean;
+  onNavigate: (screen: Screen) => void;
 }) {
   return (
-    <div className="bg-white/85 border border-white rounded-2xl p-3 shadow-sm">
-      <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${
-          muted ? 'bg-slate-50 text-slate-400' : 'bg-orange-50 text-orange-500'
-        }`}
-      >
-        {icon}
-      </div>
+    <section className="relative overflow-hidden rounded-[42px] bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 shadow-2xl shadow-orange-100">
+      <div className="absolute inset-0 hero-water opacity-90" />
+      <div className="absolute -top-24 -right-20 w-64 h-64 bg-white/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-24 -left-20 w-64 h-64 bg-yellow-200/30 rounded-full blur-3xl" />
 
-      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">
-        {label}
-      </p>
-
-      <p className="text-sm font-black text-gray-900 mt-1 leading-none">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ActiveOrderCard({
-  order,
-}: {
-  order: Order;
-}) {
-  const progress = getOrderProgress(order.status);
-
-  return (
-    <div className="bg-white border border-orange-100 rounded-[30px] p-4 shadow-sm overflow-hidden relative">
-      <div className="absolute -top-16 -right-12 w-36 h-36 bg-orange-300/20 rounded-full blur-3xl" />
-      <div className="absolute -bottom-16 -left-12 w-36 h-36 bg-yellow-300/20 rounded-full blur-3xl" />
-
-      <div className="relative flex items-start gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
-          {order.status === 'Enviado' ? <Truck size={22} /> : <ReceiptText size={22} />}
+      <div className="relative px-5 pt-7 pb-4 flex flex-col items-center text-center gap-3">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-white/30 animate-pulse blur-xl" />
+          <img
+            src={LOGO_OFFICIAL}
+            alt="La Casa del Pollazo"
+            className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl"
+          />
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
-                Pedido activo
-              </p>
-              <p className="text-sm font-black uppercase text-gray-950 truncate mt-0.5">
-                {order.order_code || 'Pedido'}
-              </p>
-            </div>
-
-            <span className={`rounded-full px-2.5 py-1 text-[8px] font-black uppercase flex-shrink-0 border ${getStatusStyle(order.status)}`}>
-              {order.status}
-            </span>
-          </div>
-
-          <p className="text-[10px] font-bold text-gray-500 mt-2 leading-relaxed">
-            {getStatusMessage(order.status)}
+        <div>
+          <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.28em]">
+            Información oficial
           </p>
 
-          {order.membership_applied && (
-            <div className="mt-3 bg-yellow-50 border border-yellow-100 rounded-2xl p-2.5 flex items-center gap-2">
-              <Crown size={14} className="text-orange-500 flex-shrink-0" />
-              <p className="text-[8px] font-black text-orange-700 uppercase">
-                Pollazo Plus aplicado
-              </p>
-            </div>
-          )}
+          <h2 className="text-white font-black text-3xl uppercase tracking-tighter italic leading-none mt-2">
+            La Casa del Pollazo
+          </h2>
 
-          {Array.isArray(order.bonus_items) && order.bonus_items.length > 0 && (
-            <div className="mt-3 bg-orange-50 border border-orange-100 rounded-2xl p-2.5 flex items-start gap-2">
-              <Gift size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[8px] font-black text-orange-700 uppercase">
-                  Regalo agregado
-                </p>
-                <p className="text-[9px] font-bold text-gray-500 mt-0.5">
-                  {order.bonus_items[order.bonus_items.length - 1]?.item_name || 'Sorpresa Pollazo Plus'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3">
-            <div className="h-2.5 bg-orange-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full transition-all duration-700"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-
-            <div className="flex justify-between mt-1.5 text-[7px] font-black uppercase text-gray-400">
-              <span>Confirmar</span>
-              <span>Preparar</span>
-              <span>Enviar</span>
-              <span>Entregar</span>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-2.5">
-              <p className="text-[7px] font-black uppercase text-orange-500">
-                Total
-              </p>
-              <p className="text-sm font-black text-gray-950 mt-1">
-                ${toMoney(order.total).toFixed(2)}
-              </p>
-            </div>
-
-            <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-2.5">
-              <p className="text-[7px] font-black uppercase text-yellow-700">
-                Pago
-              </p>
-              <p className="text-sm font-black text-gray-950 mt-1 truncate">
-                {paymentLabel(order.payment_method)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 flex gap-2">
-            <a
-              href={buildOrderWhatsAppUrl(order)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 bg-green-500 text-white rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-            >
-              <MessageCircle size={13} />
-              Ayuda
-            </a>
-
-            <div className="flex-1 bg-orange-50 border border-orange-100 text-orange-600 rounded-2xl py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1.5">
-              <Route size={13} />
-              En vivo
-            </div>
+          <div className="inline-flex items-center justify-center gap-1.5 bg-white/18 px-4 py-1.5 rounded-full border border-white/20 mt-3">
+            <MapPin className="text-yellow-100" size={14} />
+            <span className="text-white font-black text-[10px] uppercase tracking-widest">
+              El Mirador · Puerto Ayora
+            </span>
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="relative px-3 pb-3 pt-1">
+        <PollazoPlusProCard onNavigate={onNavigate} />
+      </div>
+    </section>
   );
 }
 
@@ -733,7 +388,7 @@ function LevelGuideSheet({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-xs font-black text-gray-950 uppercase">
                       Nivel {level.level} · {level.title}
                     </p>
@@ -763,29 +418,16 @@ function LevelGuideSheet({
   );
 }
 
-interface CustomerHistoryProps {
-  onNavigate: (screen: Screen) => void;
-}
-
-function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
-  const { orders, customers, extraSettings, products } = useAdmin();
+function CustomerAccountCard() {
+  const { customers = [] } = useAdmin();
   const {
     customerName,
     customerPhone,
     customerAvatar,
     hasPollazoPlus,
   } = useUser();
-  const {
-    addItem,
-    clearCart,
-    items: cartItems,
-  } = useCart();
 
-  const [repeatNotice, setRepeatNotice] = useState('');
   const [showLevelGuide, setShowLevelGuide] = useState(false);
-  const [repeatOrderToConfirm, setRepeatOrderToConfirm] = useState<Order | null>(null);
-
-  const seasonActive = extraSettings?.event_active !== false;
   const cleanUserPhone = cleanPhoneTail(customerPhone);
 
   const customer = useMemo(() => {
@@ -810,164 +452,25 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
     })[0];
   }, [cleanUserPhone, customers]);
 
-  const myOrders = useMemo(() => {
-    if (!cleanUserPhone) return [];
-
-    return [...orders]
-      .filter(order => cleanPhoneTail(order.customer_phone) === cleanUserPhone)
-      .sort(
-        (a, b) =>
-          new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
-      );
-  }, [cleanUserPhone, orders]);
-
-  const activeOrders = useMemo(() => {
-    return myOrders.filter(order => ACTIVE_ORDER_STATUSES.includes(order.status));
-  }, [myOrders]);
-
-  const validOrders = useMemo(() => {
-    return myOrders.filter(
-      order => order.status !== 'Cancelado' && order.status !== 'Por Confirmar'
-    );
-  }, [myOrders]);
-
-  const totalSpentFromOrders = useMemo(() => {
-    return validOrders.reduce((sum, order) => sum + toMoney(order.total), 0);
-  }, [validOrders]);
-
-  const totalSpent = toMoney(customer?.total_spent || totalSpentFromOrders);
-  const totalOrders = customer?.total_orders || validOrders.length;
-  const exp = toMoney(customer?.exp || Math.floor(totalSpent));
-  const points = toMoney(customer?.points || 0);
-  const averageOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
+  const exp = toMoney(customer?.exp || customer?.total_spent || 0);
   const level = getCustomerLevel(exp);
   const progress = getLevelProgress(exp);
   const nextLevelText = getNextLevelText(exp);
-  const recentOrders = myOrders.slice(0, 2);
-
-  const topProduct = useMemo(() => {
-    const productCount = new Map<string, number>();
-
-    validOrders.forEach(order => {
-      (order.items || []).forEach(item => {
-        const name = item.name || item.product?.name || 'Producto';
-        const quantity = Number(item.quantity || 1);
-
-        productCount.set(name, (productCount.get(name) || 0) + quantity);
-      });
-    });
-
-    return [...productCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  }, [validOrders]);
-
-  const walletAdvice = useMemo(() => {
-    if (totalOrders === 0) {
-      return 'Cuando hagas tus primeras compras, aquí te diré qué compras más, cuánto llevas gastado y cómo repetir más rápido.';
-    }
-
-    if (hasPollazoPlus) {
-      return 'Tu Pollazo Plus está activo. En cada pedido con domicilio puedes ahorrar el delivery y recibir sorpresas cuando haya disponibilidad.';
-    }
-
-    if (averageOrder >= 12) {
-      return 'Tus compras suelen ser completas. Pollazo Plus podría convenirte si pides varias veces al mes y quieres ahorrar delivery.';
-    }
-
-    if (topProduct) {
-      return `Tu producto más repetido es ${topProduct}. Puedes ir a Mis pedidos para repetirlo sin buscarlo de nuevo.`;
-    }
-
-    return 'Tu historial ya está ayudando a darte mejores recomendaciones de compra.';
-  }, [averageOrder, hasPollazoPlus, topProduct, totalOrders]);
-
-  const addRepeatedOrderToCart = (order: Order, mode: 'replace' | 'add') => {
-    const orderItems = order.items || [];
-
-    if (orderItems.length === 0) {
-      setRepeatNotice('Este pedido no tiene productos para repetir.');
-      window.setTimeout(() => setRepeatNotice(''), 3000);
-      return;
-    }
-
-    if (mode === 'replace') {
-      clearCart();
-    }
-
-    let addedUnits = 0;
-    let skippedUnits = 0;
-
-    orderItems.forEach((item, index) => {
-      const product = buildRepeatProduct(order, item, index, products);
-
-      if (!product) {
-        skippedUnits += Number(item.quantity || 1);
-        return;
-      }
-
-      const quantity = Math.max(1, Math.round(Number(item.quantity || 1)));
-
-      addItem(product, quantity);
-      addedUnits += quantity;
-    });
-
-    setRepeatOrderToConfirm(null);
-
-    if (addedUnits === 0) {
-      setRepeatNotice('No pudimos repetir este pedido porque sus productos ya no están disponibles.');
-      window.setTimeout(() => setRepeatNotice(''), 3500);
-      return;
-    }
-
-    setRepeatNotice(
-      skippedUnits > 0
-        ? mode === 'replace'
-          ? `Reemplazamos el carrito con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}. Algunos ya no estaban disponibles.`
-          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito. Algunos ya no estaban disponibles.`
-        : mode === 'replace'
-          ? `Carrito reemplazado con ${addedUnits} producto${addedUnits === 1 ? '' : 's'}.`
-          : `Agregamos ${addedUnits} producto${addedUnits === 1 ? '' : 's'} al carrito.`
-    );
-
-    window.setTimeout(() => {
-      onNavigate('cart');
-    }, 350);
-
-    window.setTimeout(() => {
-      setRepeatNotice('');
-    }, 3500);
-  };
-
-  const handleRepeatOrder = (order: Order) => {
-    const orderItems = order.items || [];
-
-    if (orderItems.length === 0) {
-      setRepeatNotice('Este pedido no tiene productos para repetir.');
-      window.setTimeout(() => setRepeatNotice(''), 3000);
-      return;
-    }
-
-    if (cartItems.length > 0) {
-      setRepeatOrderToConfirm(order);
-      return;
-    }
-
-    addRepeatedOrderToCart(order, 'add');
-  };
 
   if (!customerPhone) {
     return (
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-11 h-11 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center">
-            <ReceiptText size={22} />
+            <BadgeCheck size={22} />
           </div>
 
           <div>
             <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">
-              Mi Cuenta Pollazo
+              Mi cuenta Pollazo
             </h3>
             <p className="text-gray-400 text-[10px] font-bold uppercase">
-              Historial, nivel y pedidos
+              Nivel y perfil del cliente
             </p>
           </div>
         </div>
@@ -975,16 +478,8 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4 text-center">
           <BadgeCheck size={32} className="mx-auto text-orange-500 mb-3" />
           <p className="text-xs font-black text-orange-700 uppercase leading-relaxed">
-            Registra tu nombre, WhatsApp y ubicación para guardar historial, repetir pedidos y subir de nivel.
+            Registra tu nombre, WhatsApp y ubicación para activar tu perfil, guardar direcciones y subir de nivel.
           </p>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('cart')}
-            className="mt-4 bg-orange-500 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase active:scale-95 transition-transform"
-          >
-            Empezar pedido
-          </button>
         </div>
       </div>
     );
@@ -1029,18 +524,10 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
           </div>
         </div>
 
-        {activeOrders.length > 0 && (
-          <div className="relative mb-4 space-y-3">
-            {activeOrders.slice(0, 2).map(order => (
-              <ActiveOrderCard key={order.id} order={order} />
-            ))}
-          </div>
-        )}
-
         <button
           type="button"
           onClick={() => setShowLevelGuide(true)}
-          className="relative w-full bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm text-left active:scale-[0.99] transition-transform"
+          className="relative w-full bg-white/90 border border-white rounded-[28px] p-4 shadow-sm text-left active:scale-[0.99] transition-transform"
         >
           <div className="flex justify-between items-start gap-3 mb-3">
             <div className="flex gap-3">
@@ -1081,150 +568,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
             </span>
           </div>
         </button>
-
-        <div className="relative grid grid-cols-2 gap-3 mb-4">
-          <StatPill
-            icon={<Wallet size={18} />}
-            label="Comprado"
-            value={`$${totalSpent.toFixed(2)}`}
-          />
-          <StatPill
-            icon={<PackageCheck size={18} />}
-            label="Pedidos"
-            value={`${totalOrders}`}
-          />
-          <StatPill
-            icon={<TrendingUp size={18} />}
-            label="Promedio"
-            value={`$${averageOrder.toFixed(2)}`}
-          />
-          <StatPill
-            icon={<Activity size={18} />}
-            label={seasonActive ? 'Temporada' : 'Pausado'}
-            value={`${points.toLocaleString('es-EC')} pts`}
-            muted={!seasonActive}
-          />
-        </div>
-
-        {!seasonActive && (
-          <div className="relative bg-orange-50 border border-orange-100 rounded-[24px] p-3 mb-4">
-            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
-              El ranking de temporada está pausado. Tus compras válidas siguen subiendo tu nivel.
-            </p>
-          </div>
-        )}
-
-        <div className="relative bg-white/90 border border-white rounded-[28px] p-4 mb-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-yellow-100 text-orange-500 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <Target size={21} />
-            </div>
-
-            <div>
-              <p className="text-[11px] font-black text-gray-900 uppercase">
-                Mi bolsillo Pollazo
-              </p>
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                {walletAdvice}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('orders')}
-                className="mt-3 bg-orange-50 text-orange-600 border border-orange-100 rounded-2xl px-4 py-2.5 text-[9px] font-black uppercase active:scale-95 transition-transform"
-              >
-                Ver análisis en pedidos
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {repeatNotice && (
-          <div className="relative bg-green-50 border border-green-100 rounded-[24px] p-3 mb-4 flex items-center gap-2">
-            <CheckCircle2 size={17} className="text-green-600 flex-shrink-0" />
-            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
-              {repeatNotice}
-            </p>
-          </div>
-        )}
-
-        <div className="relative">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Últimos movimientos
-            </p>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('orders')}
-              className="text-[9px] font-black text-orange-600 bg-orange-100 px-3 py-1.5 rounded-full uppercase active:scale-95 transition-transform"
-            >
-              Ver todos
-            </button>
-          </div>
-
-          {recentOrders.length > 0 ? (
-            <div className="space-y-2">
-              {recentOrders.map(order => (
-                <div
-                  key={order.id}
-                  className="bg-white/90 border border-white rounded-2xl p-3 flex items-center gap-3 shadow-sm"
-                >
-                  <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                    {order.status === 'Enviado' ? (
-                      <Truck size={18} />
-                    ) : (
-                      <ReceiptText size={18} />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-gray-900 uppercase truncate">
-                      {order.order_code || 'Pedido'} · {getOrderItemsLabel(order)}
-                    </p>
-
-                    <p className="text-[9px] font-bold text-gray-400 mt-1">
-                      {formatOrderDate(order.created_at)} · {formatOrderTime(order.created_at)} · $
-                      {toMoney(order.total).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-full border ${getStatusStyle(order.status)}`}>
-                      {order.status}
-                    </span>
-
-                    {(order.items || []).length > 0 && order.status !== 'Cancelado' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRepeatOrder(order)}
-                        className="bg-orange-500 text-white rounded-full px-2.5 py-1.5 text-[7px] font-black uppercase active:scale-95 transition-transform flex items-center gap-1"
-                      >
-                        <Repeat2 size={10} />
-                        Repetir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white/80 border border-white rounded-2xl p-4 text-center">
-              <ShoppingBag size={30} className="mx-auto text-orange-300 mb-2" />
-              <p className="text-[11px] font-black text-gray-500 uppercase leading-relaxed">
-                Aún no tienes pedidos registrados con este número.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('catalog')}
-                className="mt-3 bg-orange-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-transform"
-              >
-                Ver catálogo
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       <LevelGuideSheet
@@ -1232,82 +575,6 @@ function CustomerHistoryCard({ onNavigate }: CustomerHistoryProps) {
         onClose={() => setShowLevelGuide(false)}
         exp={exp}
       />
-
-      {repeatOrderToConfirm && (
-        <div className="fixed inset-0 z-[12050] flex items-end sm:items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Cancelar repetir pedido"
-            onClick={() => setRepeatOrderToConfirm(null)}
-            className="absolute inset-0 bg-orange-950/25"
-          />
-
-          <div className="relative w-full max-w-sm bg-white rounded-[34px] shadow-2xl border border-white overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
-            <div className="bg-gradient-to-br from-orange-500 to-yellow-400 text-white p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <Repeat2 size={24} />
-                  </div>
-
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/80">
-                      Repetir pedido
-                    </p>
-                    <h3 className="text-lg font-black uppercase italic leading-tight mt-1">
-                      ¿Qué hacemos con tu carrito?
-                    </h3>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setRepeatOrderToConfirm(null)}
-                  className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform"
-                  aria-label="Cerrar"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
-                <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
-                  Ya tienes productos en el carrito. Puedes reemplazarlos por este pedido anterior o sumar este pedido a lo que ya tienes.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'replace')}
-                className="w-full bg-orange-500 text-white rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
-              >
-                <ShoppingBag size={16} />
-                Reemplazar carrito
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addRepeatedOrderToCart(repeatOrderToConfirm, 'add')}
-                className="w-full bg-orange-50 text-orange-600 border border-orange-100 rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
-              >
-                <Plus size={16} />
-                Agregar al carrito
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRepeatOrderToConfirm(null)}
-                className="w-full bg-gray-100 text-gray-500 rounded-[22px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -1329,6 +596,7 @@ function DeliveryAddressesPanel({
   } = useUser();
 
   const [showAllAddresses, setShowAllAddresses] = useState(false);
+  const safeAddresses = Array.isArray(deliveryAddresses) ? deliveryAddresses : [];
 
   const hasDeliveryLocation =
     typeof customerLat === 'number' &&
@@ -1338,12 +606,12 @@ function DeliveryAddressesPanel({
     customerReference.trim().length > 0;
 
   const sortedAddresses = useMemo(() => {
-    return [...deliveryAddresses].sort((a, b) => {
+    return [...safeAddresses].sort((a, b) => {
       if (a.id === selectedDeliveryAddressId) return -1;
       if (b.id === selectedDeliveryAddressId) return 1;
       return 0;
     });
-  }, [deliveryAddresses, selectedDeliveryAddressId]);
+  }, [safeAddresses, selectedDeliveryAddressId]);
 
   const visibleAddresses = showAllAddresses ? sortedAddresses : sortedAddresses.slice(0, 2);
   const hiddenAddressCount = Math.max(0, sortedAddresses.length - visibleAddresses.length);
@@ -1574,37 +842,11 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
   return (
     <div className="bg-gradient-to-b from-orange-50/65 via-white to-white px-4 py-5 space-y-4 min-h-full pb-24">
-      <div className="rounded-[40px] overflow-hidden hero-water shadow-xl">
-        <div className="px-5 py-8 flex flex-col items-center text-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full bg-white/20 animate-pulse blur-xl" />
-            <img
-              src={LOGO_OFFICIAL}
-              alt="La Casa del Pollazo"
-              className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl"
-            />
-          </div>
-
-          <div>
-            <h2 className="text-white font-black text-2xl uppercase tracking-tighter not-italic">
-              La Casa del Pollazo
-            </h2>
-
-            <div className="flex items-center justify-center gap-1.5 bg-white/15 px-4 py-1.5 rounded-full border border-white/15 mt-2">
-              <MapPin className="text-yellow-300" size={14} />
-              <span className="text-white font-bold text-[10px] uppercase tracking-widest">
-                El Mirador · Puerto Ayora
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <InfoHero onNavigate={onNavigate} />
 
       <LiveMetrics />
 
-      <CustomerHistoryCard onNavigate={onNavigate} />
-
-      <PollazoPlusProCard onNavigate={onNavigate} />
+      <CustomerAccountCard />
 
       <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
 
