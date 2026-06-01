@@ -886,6 +886,7 @@ function AppShell() {
         customerLat,
         customerLng,
         deliveryType: 'domicilio',
+        hasPollazoPlus,
       }
     );
 
