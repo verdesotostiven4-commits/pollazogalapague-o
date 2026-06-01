@@ -56,6 +56,7 @@ const BUSINESS_DEUNA_PHONE = '0989795628';
 const BUSINESS_BANK_ACCOUNT = '2204567890';
 const BUSINESS_BANK_ID = '1726543210';
 const BUSINESS_BENEFICIARY = 'La Casa del Pollazo';
+const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 
 const BANK_OPTIONS = [
   {
@@ -302,6 +303,61 @@ function StepTitle({
   );
 }
 
+
+function PollazoPlusSmartHint({
+  deliveryFee,
+  onOpenPlus,
+}: {
+  deliveryFee: number;
+  onOpenPlus: () => void;
+}) {
+  if (deliveryFee <= 0) return null;
+
+  return (
+    <section className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-white via-orange-50 to-yellow-50 p-4 shadow-sm">
+      <div className="absolute -right-12 -top-12 w-32 h-32 rounded-full bg-orange-300/25 blur-3xl" />
+      <div className="absolute -left-10 -bottom-12 w-32 h-32 rounded-full bg-yellow-300/25 blur-3xl" />
+
+      <div className="relative flex items-start gap-3">
+        <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
+          <Crown size={24} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
+                Tip Pollazo Plus
+              </p>
+
+              <h3 className="text-sm font-black text-slate-900 uppercase italic leading-tight mt-1">
+                Este delivery podría ser gratis
+              </h3>
+            </div>
+
+            <span className="bg-green-50 text-green-600 border border-green-100 rounded-full px-2.5 py-1 text-[8px] font-black uppercase flex-shrink-0">
+              Ahorras ${deliveryFee.toFixed(2)}
+            </span>
+          </div>
+
+          <p className="text-[10px] font-bold text-slate-500 leading-relaxed mt-2">
+            Hoy pagarías ${deliveryFee.toFixed(2)} de delivery. Con Pollazo Plus, este envío saldría gratis y podrías recibir beneficios sorpresa cuando estén activos.
+          </p>
+
+          <button
+            type="button"
+            onClick={onOpenPlus}
+            className="mt-3 inline-flex items-center justify-center gap-2 bg-white text-orange-600 border border-orange-100 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-sm"
+          >
+            Ver Pollazo Plus
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function CartScreen({
   onCheckout,
   onNavigate,
@@ -419,6 +475,16 @@ export default function CartScreen({
       behavior: 'smooth',
       block: 'start',
     });
+  };
+
+
+  const handleOpenPlusInfo = () => {
+    sessionStorage.setItem(PLUS_OPEN_SIGNAL_KEY, '1');
+    onNavigate('info');
+
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('pollazo:open-plus'));
+    }, 220);
   };
 
   const handleSmartScroll = () => {
@@ -820,6 +886,13 @@ export default function CartScreen({
               </div>
             </div>
           </section>
+        )}
+
+        {!hasPollazoPlus && subtotal > 0 && deliveryFeeOriginal > 0 && !isOrderSaved && (
+          <PollazoPlusSmartHint
+            deliveryFee={deliveryFeeOriginal}
+            onOpenPlus={handleOpenPlusInfo}
+          />
         )}
 
         <section className="bg-white rounded-[30px] border border-orange-100 p-4 shadow-sm space-y-3">
