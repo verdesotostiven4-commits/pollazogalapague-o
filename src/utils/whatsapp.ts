@@ -12,6 +12,9 @@ interface WhatsAppOptions {
   customerLat?: number | null;
   customerLng?: number | null;
   deliveryType?: 'domicilio' | 'retiro';
+
+  // Pollazo Plus: solo con membresía activa el delivery va gratis.
+  hasPollazoPlus?: boolean;
 }
 
 const BANK_LABELS: Record<string, string> = {
@@ -68,7 +71,9 @@ export function subtotalOf(items: CartItem[]): number {
 export function deliveryFeeOf(subtotal: number): number {
   if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
 
-  return subtotal >= 10 ? 0 : 1;
+  // Cliente normal SIEMPRE paga delivery.
+  // El delivery gratis solo se aplica desde App/Carrito cuando tiene Pollazo Plus activo.
+  return 1.5;
 }
 
 export function orderCode(): string {
@@ -171,7 +176,9 @@ export function buildWhatsAppUrl(
   options?: WhatsAppOptions
 ): string {
   const subtotal = subtotalOf(items);
-  const deliveryFee = deliveryFeeOf(subtotal);
+  const deliveryBase = deliveryFeeOf(subtotal);
+  const hasPollazoPlus = options?.hasPollazoPlus === true;
+  const deliveryFee = hasPollazoPlus ? 0 : deliveryBase;
   const total = Number((subtotal + deliveryFee).toFixed(2));
 
   const selectedBank =
@@ -181,6 +188,10 @@ export function buildWhatsAppUrl(
 
   const locationText = buildLocationText(options);
 
+  const deliveryText = hasPollazoPlus
+    ? 'Gratis por Pollazo Plus 👑'
+    : formatMoney(deliveryFee);
+
   const messageSections = [
     `Hola, soy ${customerName || 'cliente'} 👋`,
     `Necesito ayuda con mi pedido registrado en la app.`,
@@ -189,15 +200,14 @@ export function buildWhatsAppUrl(
       ? `Estado de horario: Pedido programado / tienda fuera de horario`
       : `Estado de horario: Tienda abierta`,
     `WhatsApp del cliente: ${customerPhone}`,
+    hasPollazoPlus ? `Membresía: Pollazo Plus activo 👑` : '',
     `Método de pago: ${paymentLabel(options?.paymentMethod)}`,
     options?.paymentMethod === 'transferencia'
       ? `Banco del cliente: ${selectedBank}`
       : '',
     locationText ? `Entrega:\n${locationText}` : '',
     `Productos:\n${orderItemsText(items)}`,
-    `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${
-      deliveryFee > 0 ? formatMoney(deliveryFee) : 'Gratis'
-    }\nTotal: ${formatMoney(total)}`,
+    `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${deliveryText}\nTotal: ${formatMoney(total)}`,
     options?.paymentMethod === 'deuna' || options?.paymentMethod === 'transferencia'
       ? `Adjunto o enviaré el comprobante de pago para validación.`
       : `Quedo pendiente de confirmación.`,
