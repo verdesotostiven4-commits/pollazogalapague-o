@@ -1,11 +1,14 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
   type TouchEvent,
 } from 'react';
 import {
+  AlertCircle,
   BadgeCheck,
+  BellRing,
   Building2,
   ChevronDown,
   ChevronLeft,
@@ -22,6 +25,7 @@ import {
   Phone,
   Plus,
   Scale,
+  ShieldCheck,
   Sparkles,
   Star,
   Store,
@@ -35,6 +39,11 @@ import LegalModal from './LegalModal';
 import PollazoPlusProCard from './PollazoPlusProCard';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
+import {
+  getPushPermission,
+  isPushSupported,
+  registerPushNotifications,
+} from '../utils/pushNotifications';
 import type {
   DeliveryAddress,
   DeliveryAddressLabel,
@@ -794,6 +803,180 @@ function DeliveryAddressesPanel({
   );
 }
 
+function NotificationInfoCard({
+  onChangeLocation,
+}: {
+  onChangeLocation?: () => void;
+}) {
+  const { customerPhone } = useUser();
+
+  const [permission, setPermission] = useState<NotificationPermission>(() => getPushPermission());
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const supported = isPushSupported();
+  const hasPhone = customerPhone.trim().length > 0;
+  const enabled = permission === 'granted';
+  const blocked = permission === 'denied';
+
+  useEffect(() => {
+    const syncPermission = () => {
+      setPermission(getPushPermission());
+    };
+
+    syncPermission();
+
+    window.addEventListener('focus', syncPermission);
+    document.addEventListener('visibilitychange', syncPermission);
+
+    return () => {
+      window.removeEventListener('focus', syncPermission);
+      document.removeEventListener('visibilitychange', syncPermission);
+    };
+  }, []);
+
+  const handleActivate = async () => {
+    setNotice('');
+
+    if (!supported) {
+      setNotice('Este navegador no permite avisos push web.');
+      return;
+    }
+
+    if (!hasPhone) {
+      setNotice('Primero registra tu WhatsApp para asociar los avisos a tu pedido.');
+      onChangeLocation?.();
+      return;
+    }
+
+    if (enabled || blocked) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const result = await registerPushNotifications(customerPhone);
+      setPermission(getPushPermission());
+
+      if (result.ok) {
+        setNotice('Listo. Te avisaremos cambios importantes de pedidos, entrega y beneficios.');
+      } else {
+        setNotice(result.reason || 'No se pudo activar avisos en este dispositivo.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusLabel = !supported
+    ? 'No disponible'
+    : enabled
+      ? 'Activas'
+      : blocked
+        ? 'Bloqueadas'
+        : 'Recomendado';
+
+  const statusClass = !supported
+    ? 'bg-gray-100 text-gray-500'
+    : enabled
+      ? 'bg-green-100 text-green-600'
+      : blocked
+        ? 'bg-red-100 text-red-500'
+        : 'bg-orange-100 text-orange-600';
+
+  const buttonLabel = !supported
+    ? 'No disponible'
+    : !hasPhone
+      ? 'Registrar datos'
+      : enabled
+        ? 'Avisos activos'
+        : blocked
+          ? 'Revisar permisos'
+          : loading
+            ? 'Activando...'
+            : 'Activar avisos';
+
+  return (
+    <section className="relative overflow-hidden bg-white rounded-[32px] border border-orange-50 shadow-sm">
+      <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-200/30 rounded-full blur-3xl" />
+      <div className="absolute -left-12 -bottom-12 w-36 h-36 bg-yellow-200/25 rounded-full blur-3xl" />
+
+      <div className="relative p-5">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-100 flex-shrink-0">
+            <BellRing size={24} />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
+                  Avisos importantes
+                </p>
+
+                <h3 className="text-base font-black text-gray-950 uppercase italic leading-none mt-1">
+                  Notificaciones Pollazo
+                </h3>
+              </div>
+
+              <span className={`text-[8px] font-black uppercase px-2.5 py-1.5 rounded-full flex-shrink-0 ${statusClass}`}>
+                {statusLabel}
+              </span>
+            </div>
+
+            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
+              Actívalas para enterarte del estado de tu pedido, regalos Plus, cambios de entrega y recordatorios útiles. No las usamos para molestar.
+            </p>
+          </div>
+        </div>
+
+        {blocked && (
+          <div className="mt-4 bg-red-50 border border-red-100 rounded-[24px] p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] font-black text-red-600 uppercase leading-relaxed">
+              Tu celular o navegador bloqueó los avisos. Debes permitirlos desde la configuración del sitio o de la app instalada.
+            </p>
+          </div>
+        )}
+
+        {enabled && (
+          <div className="mt-4 bg-green-50 border border-green-100 rounded-[24px] p-3 flex items-start gap-2">
+            <ShieldCheck size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
+              Tus avisos están activos en este dispositivo.
+            </p>
+          </div>
+        )}
+
+        {notice && !blocked && !enabled && (
+          <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3">
+            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
+              {notice}
+            </p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleActivate}
+          disabled={loading || !supported || enabled || blocked}
+          className={`mt-4 w-full rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform ${
+            enabled
+              ? 'bg-green-50 text-green-600 border border-green-100'
+              : blocked || !supported
+                ? 'bg-gray-100 text-gray-400'
+                : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-100'
+          }`}
+        >
+          <BellRing size={15} className={loading ? 'animate-pulse' : ''} />
+          {buttonLabel}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 interface Props {
   onInstall?: () => void;
   canInstall?: boolean;
@@ -849,6 +1032,8 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
       <CustomerAccountCard />
 
       <DeliveryAddressesPanel onChangeLocation={onChangeLocation} />
+
+      <NotificationInfoCard onChangeLocation={onChangeLocation} />
 
       {canInstall && onInstall && (
         <button
@@ -1081,10 +1266,10 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
           <div className="flex-1">
             <p className="text-sm font-black text-gray-800 uppercase leading-none">
-              Términos y Privacidad
+              Información legal y ayuda
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Reglas claras de compra, entrega, puntos y datos
+              Términos, privacidad, pagos, entregas y soporte
             </p>
           </div>
 
@@ -1095,7 +1280,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
           <div className="bg-orange-50 border border-orange-100 rounded-[24px] p-4 flex gap-3">
             <InfoIcon size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] font-bold text-orange-700 leading-relaxed">
-              Los premios, niveles y promociones pueden cambiar según lo que active el negocio. La app siempre mostrará lo disponible.
+              Los premios, niveles, promociones y beneficios pueden cambiar según lo que active el negocio. La app siempre mostrará lo disponible.
             </p>
           </div>
         </div>
@@ -1160,6 +1345,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
       <LegalModal
         isOpen={showLegalModal}
         onClose={() => setShowLegalModal(false)}
+        mode="read"
       />
     </div>
   );
