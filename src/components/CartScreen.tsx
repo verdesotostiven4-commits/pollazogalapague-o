@@ -12,7 +12,6 @@ import {
   AlertCircle,
   MapPin,
   Lock,
-  Clock3,
   Info,
   CheckCircle2,
   ShieldCheck,
@@ -634,26 +633,7 @@ export default function CartScreen({
   };
 
   const renderPaymentStatusBox = () => {
-    if (!paymentMethod) return null;
-
-    if (!isOrderSaved) {
-      return (
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
-          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-amber-600 flex-shrink-0 shadow-sm">
-            <Clock3 size={18} />
-          </div>
-
-          <div>
-            <p className="text-[10px] font-black text-amber-700 uppercase">
-              Falta continuar
-            </p>
-            <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed mt-1">
-              Toca el botón de abajo para continuar con tu pedido.
-            </p>
-          </div>
-        </div>
-      );
-    }
+    if (!paymentMethod || !isOrderSaved) return null;
 
     if (paymentMethod === 'efectivo') {
       return (
