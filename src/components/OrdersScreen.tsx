@@ -1,21 +1,27 @@
 import { useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRight,
+  BellRing,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
   Clock3,
   Crown,
   Gift,
+  MapPin,
   MessageCircle,
   PackageSearch,
   ReceiptText,
   RefreshCw,
   Repeat2,
   Search,
+  ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Star,
   Truck,
+  UserCheck,
   X,
   XCircle,
 } from 'lucide-react';
@@ -273,17 +279,222 @@ const itemToProduct = (item: OrderItem, index: number, orderCode: string): Produ
   };
 };
 
+function MiniFeature({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="bg-white/90 border border-white rounded-[24px] p-3 shadow-sm">
+      <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mb-2">
+        {icon}
+      </div>
+
+      <p className="text-[10px] font-black text-gray-950 uppercase leading-tight">
+        {title}
+      </p>
+
+      <p className="text-[9px] font-bold text-gray-400 leading-relaxed mt-1">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function GuestOrdersScreen({
+  onOpenProfile,
+  onNavigate,
+}: {
+  onOpenProfile: () => void;
+  onNavigate: (screen: Screen) => void;
+}) {
+  return (
+    <div className="min-h-full bg-gradient-to-b from-orange-50/70 via-white to-white px-4 pt-5 pb-32 space-y-4">
+      <section className="relative overflow-hidden rounded-[42px] bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 text-white p-6 shadow-2xl shadow-orange-100">
+        <div className="absolute -right-20 -top-20 w-56 h-56 bg-white/20 rounded-full blur-3xl" />
+        <div className="absolute -left-20 -bottom-24 w-56 h-56 bg-yellow-200/25 rounded-full blur-3xl" />
+
+        <div className="relative">
+          <div className="w-17 h-17 rounded-[28px] bg-white/20 border border-white/25 flex items-center justify-center mb-5 shadow-inner">
+            <ReceiptText size={38} />
+          </div>
+
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">
+            Mis pedidos
+          </p>
+
+          <h1 className="text-4xl font-black uppercase italic leading-none mt-2 tracking-tight">
+            Tu historial empieza aquí
+          </h1>
+
+          <p className="text-sm font-bold text-white/85 leading-relaxed mt-4">
+            Identifícate una sola vez con tu WhatsApp y tendrás tus pedidos, estados, compras repetidas y ayuda en un solo lugar.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 mt-5">
+            <div className="bg-white/15 border border-white/20 rounded-2xl p-3">
+              <p className="text-xl font-black leading-none">1</p>
+              <p className="text-[8px] font-black uppercase text-white/75 mt-1">
+                Estado en vivo
+              </p>
+            </div>
+
+            <div className="bg-white/15 border border-white/20 rounded-2xl p-3">
+              <p className="text-xl font-black leading-none">2</p>
+              <p className="text-[8px] font-black uppercase text-white/75 mt-1">
+                Repite rápido
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="mt-6 w-full bg-white text-orange-600 rounded-[26px] px-6 py-4 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-700/10 flex items-center justify-center gap-2"
+          >
+            <UserCheck size={17} />
+            Identificarme con WhatsApp
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3">
+        <MiniFeature
+          icon={<Truck size={19} />}
+          title="Rastreo"
+          text="Mira si está confirmado, preparando o en camino."
+        />
+
+        <MiniFeature
+          icon={<Repeat2 size={19} />}
+          title="Repetir"
+          text="Vuelve a pedir lo mismo sin buscar producto por producto."
+        />
+
+        <MiniFeature
+          icon={<BellRing size={19} />}
+          title="Avisos"
+          text="Recibe cambios importantes de tu pedido."
+        />
+
+        <MiniFeature
+          icon={<ShieldCheck size={19} />}
+          title="Seguro"
+          text="Tus datos ayudan a entregar mejor y evitar pedidos falsos."
+        />
+      </section>
+
+      <section className="bg-white rounded-[32px] border border-orange-100 p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-[22px] bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+            <Sparkles size={24} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+              Tip Pollazo
+            </p>
+
+            <h2 className="text-base font-black text-gray-950 uppercase italic leading-none mt-1">
+              Primero arma tu pedido
+            </h2>
+
+            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
+              Puedes mirar el catálogo, agregar productos y registrarte al confirmar. Tu historial se guardará con tu WhatsApp.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('catalog')}
+          className="mt-4 w-full bg-orange-50 text-orange-600 border border-orange-100 rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
+        >
+          Ver catálogo
+          <ArrowRight size={15} />
+        </button>
+      </section>
+    </div>
+  );
+}
+
 function EmptyState({
   title,
   message,
   actionLabel,
   onAction,
+  kind = 'default',
 }: {
   title: string;
   message: string;
   actionLabel: string;
   onAction: () => void;
+  kind?: 'default' | 'no-orders';
 }) {
+  if (kind === 'no-orders') {
+    return (
+      <section className="relative overflow-hidden bg-white rounded-[36px] border border-orange-100 p-6 text-center shadow-sm">
+        <div className="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-orange-200/30 blur-3xl" />
+        <div className="absolute -left-16 -bottom-16 w-44 h-44 rounded-full bg-yellow-200/30 blur-3xl" />
+
+        <div className="relative">
+          <div className="w-22 h-22 rounded-[34px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center mx-auto mb-5 shadow-xl shadow-orange-100">
+            <PackageSearch size={40} />
+          </div>
+
+          <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.26em]">
+            Primer pedido pendiente
+          </p>
+
+          <h3 className="text-2xl font-black text-gray-950 uppercase italic leading-none mt-2">
+            {title}
+          </h3>
+
+          <p className="text-sm font-bold text-gray-500 leading-relaxed mt-4">
+            {message}
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 mt-5">
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3">
+              <ReceiptText size={18} className="mx-auto text-orange-500 mb-1" />
+              <p className="text-[7px] font-black text-orange-600 uppercase">
+                Se guarda
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-3">
+              <Truck size={18} className="mx-auto text-yellow-700 mb-1" />
+              <p className="text-[7px] font-black text-yellow-700 uppercase">
+                Se rastrea
+              </p>
+            </div>
+
+            <div className="bg-green-50 border border-green-100 rounded-2xl p-3">
+              <Repeat2 size={18} className="mx-auto text-green-600 mb-1" />
+              <p className="text-[7px] font-black text-green-600 uppercase">
+                Se repite
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onAction}
+            className="mt-6 w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white px-6 py-4 rounded-[24px] text-xs font-black uppercase tracking-widest shadow-xl shadow-orange-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
+          >
+            {actionLabel}
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-white rounded-[32px] border border-orange-100 p-8 text-center shadow-sm">
       <div className="w-20 h-20 rounded-[30px] bg-orange-50 text-orange-500 flex items-center justify-center mx-auto mb-5">
@@ -784,36 +995,10 @@ export default function OrdersScreen({
 
   if (!cleanCustomerPhone) {
     return (
-      <div className="min-h-full bg-gradient-to-b from-orange-50/70 via-white to-white px-4 pt-5 pb-32">
-        <section className="relative overflow-hidden rounded-[36px] bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 text-white p-6 shadow-2xl shadow-orange-100">
-          <div className="absolute -right-12 -top-12 w-40 h-40 bg-white/20 rounded-full blur-3xl" />
-          <div className="relative">
-            <div className="w-16 h-16 rounded-[26px] bg-white/20 flex items-center justify-center mb-5">
-              <ReceiptText size={34} />
-            </div>
-
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">
-              Historial Pollazo
-            </p>
-
-            <h1 className="text-3xl font-black uppercase italic leading-none mt-2">
-              Tus pedidos en un solo lugar
-            </h1>
-
-            <p className="text-sm font-bold text-white/80 leading-relaxed mt-4">
-              Identifícate con tu nombre y WhatsApp para ver tus pedidos, repetir compras y seguir tus estados.
-            </p>
-
-            <button
-              type="button"
-              onClick={onOpenProfile}
-              className="mt-6 bg-white text-orange-600 rounded-[24px] px-6 py-4 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-700/10"
-            >
-              Identificarme
-            </button>
-          </div>
-        </section>
-      </div>
+      <GuestOrdersScreen
+        onOpenProfile={onOpenProfile}
+        onNavigate={onNavigate}
+      />
     );
   }
 
@@ -978,11 +1163,12 @@ export default function OrdersScreen({
           title={customerOrders.length === 0 ? 'Aún no tienes pedidos' : 'No encontramos pedidos'}
           message={
             customerOrders.length === 0
-              ? 'Cuando hagas tu primera compra, aparecerá aquí con fecha, estado y opción para repetir.'
+              ? 'Cuando hagas tu primera compra, aparecerá aquí con fecha, estado, detalle, rastreo y opción para repetir.'
               : 'Prueba cambiando el periodo, limpiando filtros o buscando otro producto.'
           }
           actionLabel={customerOrders.length === 0 ? 'Ir al catálogo' : 'Limpiar filtros'}
           onAction={customerOrders.length === 0 ? () => onNavigate('catalog') : resetFilters}
+          kind={customerOrders.length === 0 ? 'no-orders' : 'default'}
         />
       ) : (
         <section className="space-y-3">
