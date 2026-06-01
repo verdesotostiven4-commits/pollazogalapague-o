@@ -4,6 +4,7 @@ import {
   ShoppingCart,
   Info,
   Sparkles,
+  ClipboardList,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -23,6 +24,7 @@ const tabs: Array<{
 }> = [
   { id: 'home', icon: Home, label: 'Inicio' },
   { id: 'catalog', icon: Grid3X3, label: 'Catálogo' },
+  { id: 'orders', icon: ClipboardList, label: 'Pedidos' },
   { id: 'cart', icon: ShoppingCart, label: 'Carrito' },
   { id: 'info', icon: Info, label: 'Info' },
 ];
@@ -37,7 +39,7 @@ export default function BottomNav({ current, onNavigate }: Props) {
     >
       <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-none" />
 
-      <div className="relative mx-3 mb-2 rounded-[30px] bg-white/94 backdrop-blur-xl border border-orange-100 shadow-[0_-10px_35px_rgba(249,115,22,0.14)] overflow-visible pointer-events-auto">
+      <div className="relative mx-2 mb-2 rounded-[30px] bg-white/94 backdrop-blur-xl border border-orange-100 shadow-[0_-10px_35px_rgba(249,115,22,0.14)] overflow-visible pointer-events-auto">
         <div className="flex h-[68px] overflow-visible">
           {tabs.map(({ id, icon: Icon, label }) => {
             const isActive = current === id;
@@ -54,7 +56,7 @@ export default function BottomNav({ current, onNavigate }: Props) {
                 aria-current={isActive ? 'page' : undefined}
               >
                 <div
-                  className={`relative w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 overflow-visible ${
+                  className={`relative w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 overflow-visible ${
                     isActive
                       ? 'bg-gradient-to-br from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-400/35 -translate-y-1'
                       : isCart && hasItems
@@ -63,14 +65,14 @@ export default function BottomNav({ current, onNavigate }: Props) {
                   }`}
                 >
                   <Icon
-                    size={isCart ? 20 : 21}
+                    size={isCart ? 20 : 20}
                     strokeWidth={isActive ? 2.7 : 2.2}
                     className={isActive ? 'drop-shadow-sm' : ''}
                   />
 
                   {isActive && (
                     <Sparkles
-                      size={11}
+                      size={10}
                       className="absolute -top-1 -left-1 text-yellow-200 animate-pulse"
                     />
                   )}
@@ -86,7 +88,7 @@ export default function BottomNav({ current, onNavigate }: Props) {
                 </div>
 
                 <span
-                  className={`text-[9px] font-black leading-none uppercase tracking-tight transition-colors ${
+                  className={`text-[8px] font-black leading-none uppercase tracking-tight transition-colors ${
                     isActive ? 'text-orange-500' : 'text-gray-400'
                   }`}
                 >
