@@ -1,0 +1,480 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { LanguageCode, LanguageOption } from '../types';
+
+const LANGUAGE_STORAGE_KEY = 'pollazo_language';
+
+export const LANGUAGE_OPTIONS: LanguageOption[] = [
+  { code: 'es', name: 'Español', nativeName: 'Español', shortLabel: 'ES', flag: '🇪🇨' },
+  { code: 'en', name: 'English', nativeName: 'English', shortLabel: 'EN', flag: '🇺🇸' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', shortLabel: 'PT', flag: '🇧🇷' },
+  { code: 'fr', name: 'French', nativeName: 'Français', shortLabel: 'FR', flag: '🇫🇷' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', shortLabel: 'DE', flag: '🇩🇪' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', shortLabel: 'IT', flag: '🇮🇹' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文', shortLabel: 'ZH', flag: '🇨🇳' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', shortLabel: 'JA', flag: '🇯🇵' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', shortLabel: 'NL', flag: '🇳🇱' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский', shortLabel: 'RU', flag: '🇷🇺' },
+];
+
+const supportedCodes = LANGUAGE_OPTIONS.map(option => option.code);
+
+const normalizeLanguage = (value?: string | null): LanguageCode | null => {
+  const code = String(value || '')
+    .trim()
+    .toLowerCase()
+    .split('-')[0] as LanguageCode;
+
+  return supportedCodes.includes(code) ? code : null;
+};
+
+const detectInitialLanguage = (): LanguageCode => {
+  if (typeof window === 'undefined') return 'es';
+
+  const stored = normalizeLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
+
+  if (stored) return stored;
+
+  const browserLanguages = [
+    window.navigator.language,
+    ...(Array.isArray(window.navigator.languages) ? window.navigator.languages : []),
+  ];
+
+  for (const lang of browserLanguages) {
+    const normalized = normalizeLanguage(lang);
+
+    if (normalized) return normalized;
+  }
+
+  return 'es';
+};
+
+type TranslationMap = Record<string, string>;
+
+const es: TranslationMap = {
+  'common.close': 'Cerrar',
+  'common.continue': 'Continuar',
+  'common.loading': 'Cargando...',
+  'common.ready': 'Lista',
+  'common.pending': 'Pendiente',
+  'common.current': 'Actual',
+  'common.use': 'Usar',
+  'common.edit': 'Editar',
+  'common.help': 'Ayuda',
+  'common.repair': 'Reparar',
+  'common.understood': 'Entendido',
+  'common.view_more': 'Ver más',
+  'common.show_less': 'Mostrar menos',
+
+  'nav.home': 'Inicio',
+  'nav.catalog': 'Catálogo',
+  'nav.orders': 'Pedidos',
+  'nav.cart': 'Carrito',
+  'nav.info': 'Info',
+  'nav.ranking': 'Ranking',
+
+  'header.home_subtitle': 'El #1 del mercado',
+  'header.back_home': 'Inicio',
+  'header.catalog': 'Catálogo',
+  'header.orders': 'Mis pedidos',
+  'header.cart': 'Carrito',
+  'header.info': 'Información',
+  'header.ranking': 'Ranking VIP',
+  'header.open_cart': 'Abrir carrito',
+  'header.open_profile': 'Abrir perfil',
+  'header.open_ranking': 'Ir al ranking VIP',
+
+  'language.card_kicker': 'Idioma',
+  'language.card_title': 'Elige tu idioma',
+  'language.card_text': 'La app se adapta para turistas y clientes locales. Productos y precios se mantienen iguales.',
+  'language.detected': 'Detectado automáticamente',
+  'language.saved': 'Idioma guardado',
+
+  'info.hero.kicker': 'Información oficial',
+  'info.location': 'El Mirador · Puerto Ayora',
+  'info.account.title': 'Mi cuenta Pollazo',
+  'info.account.subtitle': 'Nivel y perfil del cliente',
+  'info.account.empty': 'Registra tu nombre, WhatsApp y ubicación para activar tu perfil, guardar direcciones y subir de nivel.',
+  'info.account.level_progress': 'Progreso de nivel',
+  'info.account.view_levels': 'Ver niveles',
+  'info.level.sheet_kicker': 'Niveles Pollazo',
+  'info.level.sheet_title': 'Así subes de nivel',
+  'info.level.sheet_text': 'Tu nivel sube con tu historial de compras válidas. Sirve para entender tu progreso como cliente y preparar futuros beneficios cuando el negocio los active.',
+  'info.delivery.title': 'Mi entrega',
+  'info.delivery.add_point': 'Agrega tu punto de entrega',
+  'info.delivery.saved_location': 'Ubicación guardada',
+  'info.delivery.save_fast': 'Guarda Casa, Trabajo, Airbnb u otro punto para pedir más rápido.',
+  'info.delivery.add_new': 'Agregar nueva dirección',
+  'info.delivery.selected': 'Seleccionada',
+  'info.delivery.show_less': 'Mostrar menos direcciones',
+  'info.delivery.show_more': 'Mostrar más direcciones',
+  'info.notifications.kicker': 'Avisos importantes',
+  'info.notifications.title': 'Notificaciones Pollazo',
+  'info.notifications.text': 'Te avisaremos sobre el estado de tu pedido, regalos Plus, cambios importantes y recordatorios útiles. Sin spam.',
+  'info.notifications.active': 'Activos',
+  'info.notifications.blocked': 'Bloqueados',
+  'info.notifications.recommended': 'Recomendado',
+  'info.notifications.not_available': 'No disponible',
+  'info.notifications.active_message': 'Avisos activos. Tu celular está listo para recibir notificaciones del Pollazo.',
+  'info.notifications.blocked_message': 'Tu celular o navegador bloqueó los avisos. Por seguridad, el permiso debe cambiarse manualmente desde ajustes.',
+  'info.notifications.activate': 'Activar avisos',
+  'info.notifications.active_button': 'Avisos activos',
+  'info.notifications.register_data': 'Registrar datos',
+  'info.notifications.allow_help': 'Ver cómo permitir',
+  'info.notifications.activating': 'Activando...',
+  'info.notifications.repairing': 'Reparando...',
+  'info.notifications.ready_notice': 'Listo. Te avisaremos sobre pedidos, Plus y cambios importantes.',
+  'info.notifications.repaired_notice': 'Avisos reparados. Este celular quedó registrado nuevamente.',
+  'info.notifications.need_phone': 'Primero registra tu WhatsApp para asociar los avisos a tu pedido.',
+  'info.notifications.manual_blocked': 'Los avisos están bloqueados. Debes permitirlos manualmente desde ajustes del celular o navegador.',
+  'info.notifications.permission_title': 'Activa notificaciones',
+  'info.notifications.permission_kicker': 'Permisos del celular',
+  'info.notifications.permission_text': 'Cuando una notificación queda bloqueada, la app no puede abrir otra vez el permiso automático. Debes permitirlo desde los ajustes del celular o del navegador.',
+  'info.notifications.android_steps_title': 'Android / app instalada',
+  'info.notifications.chrome_steps_title': 'Chrome',
+  'info.notifications.android_steps': 'Mantén presionado el ícono de La Casa del Pollazo. Entra a Información de la app, Notificaciones y activa Permitir notificaciones. Luego vuelve a Info y toca Reparar avisos.',
+  'info.notifications.chrome_steps': 'Abre Chrome, entra a Configuración del sitio, busca la app, cambia Notificaciones a Permitir y vuelve a Info para reparar avisos.',
+  'info.contact.title': 'Contacto directo',
+  'info.contact.whatsapp': 'WhatsApp Oficial',
+  'info.contact.attention': 'Atención inmediata',
+  'info.contact.chat': 'Chatear',
+  'info.contact.phone': 'Línea Telefónica',
+  'info.contact.call': 'Llamar',
+  'info.hours.title': 'Horario de atención',
+  'info.hours.value': '7:00 AM – 9:00 PM · Todos los días',
+  'info.location.title': 'Ubicación',
+  'info.buy.title': 'Comprar ahora',
+  'info.buy.subtitle': 'Ver catálogo y armar pedido',
+  'info.team.title': 'Nuestro Equipo',
+  'info.team.subtitle': 'Personas detrás de la atención y servicio',
+  'info.gallery.title': 'Galería',
+  'info.legal.title': 'Información legal y ayuda',
+  'info.legal.subtitle': 'Términos, privacidad, pagos, entregas y soporte',
+  'info.legal.note': 'Los premios, niveles, promociones y beneficios pueden cambiar según lo que active el negocio. La app siempre mostrará lo disponible.',
+  'info.footer': 'Hecho para comprar fácil en Puerto Ayora',
+  'info.install.title': 'Instalar app',
+  'info.install.subtitle': 'Acceso rápido desde tu celular.',
+
+  'legal.required.title': 'Antes de continuar',
+  'legal.required.subtitle': 'Revisa y acepta para usar la app',
+  'legal.read.title': 'Centro legal y ayuda',
+  'legal.read.subtitle': 'Consulta reglas, privacidad y soporte',
+  'legal.required.notice': 'Para comprar, guardar tu ubicación, recibir avisos de pedido y usar beneficios, necesitamos que aceptes estas reglas básicas.',
+  'legal.hero.kicker': 'La Casa del Pollazo',
+  'legal.hero.title': 'Compra fácil, con reglas claras',
+  'legal.hero.text': 'Aquí explicamos cómo funcionan pedidos, pagos, entregas, datos personales, beneficios, puntos, notificaciones y ayuda.',
+  'legal.category.orders': 'Pedidos',
+  'legal.category.orders_text': 'Estados, cambios y confirmación.',
+  'legal.category.payments': 'Pagos',
+  'legal.category.payments_text': 'Efectivo, Deuna, transferencia y tarjeta.',
+  'legal.category.data': 'Datos',
+  'legal.category.data_text': 'Privacidad, ubicación y seguridad.',
+  'legal.info_title': 'Información legal',
+  'legal.help_title': 'Ayuda rápida',
+  'legal.footer_required': 'Al continuar confirmas que entiendes las reglas de uso, compra, entrega, pagos y privacidad.',
+  'legal.footer_read': 'Esta sección es solo para consulta. Ya aceptaste las reglas al ingresar por primera vez.',
+  'legal.accept': 'Acepto y continuar',
+  'legal.close_reading': 'Cerrar lectura',
+  'legal.update_note': 'Estos términos pueden actualizarse cuando cambien funciones, métodos de pago, promociones, reparto, membresías o requisitos del negocio.',
+  'legal.whatsapp': 'Contactar por WhatsApp',
+  'legal.help.order': 'Problemas con mi pedido',
+  'legal.help.order_text': 'Consulta estados, cambios, cancelaciones, productos faltantes o coordinación de entrega.',
+  'legal.help.payment': 'Problemas con pago',
+  'legal.help.payment_text': 'Ayuda con comprobantes, Deuna, transferencias, pagos rechazados o pagos pendientes.',
+  'legal.help.location': 'Ubicación o entrega',
+  'legal.help.location_text': 'Corrige referencia, punto de entrega, Airbnb, hotel, casa o negocio cercano.',
+  'legal.help.notifications': 'Notificaciones y rastreo',
+  'legal.help.notifications_text': 'Revisa avisos del pedido, permisos del celular y seguimiento en vivo.',
+  'legal.help.security': 'Seguridad de mi cuenta',
+  'legal.help.security_text': 'Reporta actividad sospechosa, número equivocado o problemas de verificación.',
+  'legal.help.data': 'Mis datos',
+  'legal.help.data_text': 'Solicita actualizar, corregir o eliminar datos asociados a tu WhatsApp.',
+};
+
+const en: TranslationMap = {
+  'common.close': 'Close',
+  'common.continue': 'Continue',
+  'common.loading': 'Loading...',
+  'common.ready': 'Ready',
+  'common.pending': 'Pending',
+  'common.current': 'Current',
+  'common.use': 'Use',
+  'common.edit': 'Edit',
+  'common.help': 'Help',
+  'common.repair': 'Repair',
+  'common.understood': 'Got it',
+  'common.view_more': 'View more',
+  'common.show_less': 'Show less',
+  'nav.home': 'Home',
+  'nav.catalog': 'Catalog',
+  'nav.orders': 'Orders',
+  'nav.cart': 'Cart',
+  'nav.info': 'Info',
+  'nav.ranking': 'Ranking',
+  'header.home_subtitle': 'The market favorite',
+  'header.back_home': 'Home',
+  'header.catalog': 'Catalog',
+  'header.orders': 'My orders',
+  'header.cart': 'Cart',
+  'header.info': 'Information',
+  'header.ranking': 'VIP Ranking',
+  'header.open_cart': 'Open cart',
+  'header.open_profile': 'Open profile',
+  'header.open_ranking': 'Open VIP ranking',
+  'language.card_kicker': 'Language',
+  'language.card_title': 'Choose your language',
+  'language.card_text': 'The app adapts for tourists and local customers. Products and prices stay the same.',
+  'language.detected': 'Auto detected',
+  'language.saved': 'Language saved',
+  'info.hero.kicker': 'Official information',
+  'info.location': 'El Mirador · Puerto Ayora',
+  'info.account.title': 'My Pollazo account',
+  'info.account.subtitle': 'Customer level and profile',
+  'info.account.empty': 'Add your name, WhatsApp and location to activate your profile, save addresses and level up.',
+  'info.account.level_progress': 'Level progress',
+  'info.account.view_levels': 'View levels',
+  'info.level.sheet_kicker': 'Pollazo levels',
+  'info.level.sheet_title': 'How you level up',
+  'info.level.sheet_text': 'Your level grows with valid purchase history. It helps us understand your progress and prepare future benefits.',
+  'info.delivery.title': 'My delivery',
+  'info.delivery.add_point': 'Add delivery point',
+  'info.delivery.saved_location': 'Saved location',
+  'info.delivery.save_fast': 'Save Home, Work, Airbnb or another point to order faster.',
+  'info.delivery.add_new': 'Add new address',
+  'info.delivery.selected': 'Selected',
+  'info.delivery.show_less': 'Show fewer addresses',
+  'info.delivery.show_more': 'Show more addresses',
+  'info.notifications.kicker': 'Important alerts',
+  'info.notifications.title': 'Pollazo notifications',
+  'info.notifications.text': 'We will notify you about your order status, Plus gifts, important changes and useful reminders. No spam.',
+  'info.notifications.active': 'Active',
+  'info.notifications.blocked': 'Blocked',
+  'info.notifications.recommended': 'Recommended',
+  'info.notifications.not_available': 'Not available',
+  'info.notifications.active_message': 'Notifications are active. This phone is ready to receive Pollazo alerts.',
+  'info.notifications.blocked_message': 'Your phone or browser blocked notifications. For security, permission must be changed manually in settings.',
+  'info.notifications.activate': 'Enable alerts',
+  'info.notifications.active_button': 'Alerts active',
+  'info.notifications.register_data': 'Add details',
+  'info.notifications.allow_help': 'How to allow',
+  'info.notifications.activating': 'Enabling...',
+  'info.notifications.repairing': 'Repairing...',
+  'info.notifications.ready_notice': 'Ready. We will notify you about orders, Plus and important changes.',
+  'info.notifications.repaired_notice': 'Alerts repaired. This phone was registered again.',
+  'info.notifications.need_phone': 'First add your WhatsApp to link alerts to your order.',
+  'info.notifications.manual_blocked': 'Notifications are blocked. Allow them manually from phone or browser settings.',
+  'info.notifications.permission_title': 'Enable notifications',
+  'info.notifications.permission_kicker': 'Phone permissions',
+  'info.notifications.permission_text': 'When notifications are blocked, the app cannot open the automatic permission again. You must allow it from phone or browser settings.',
+  'info.notifications.android_steps_title': 'Android / installed app',
+  'info.notifications.chrome_steps_title': 'Chrome',
+  'info.notifications.android_steps': 'Long press the app icon. Open App info, Notifications and enable notifications. Then return to Info and tap Repair alerts.',
+  'info.notifications.chrome_steps': 'Open Chrome, Site settings, find the app, set Notifications to Allow and return to Info to repair alerts.',
+  'info.contact.title': 'Direct contact',
+  'info.contact.whatsapp': 'Official WhatsApp',
+  'info.contact.attention': 'Fast support',
+  'info.contact.chat': 'Chat',
+  'info.contact.phone': 'Phone line',
+  'info.contact.call': 'Call',
+  'info.hours.title': 'Opening hours',
+  'info.hours.value': '7:00 AM – 9:00 PM · Every day',
+  'info.location.title': 'Location',
+  'info.buy.title': 'Buy now',
+  'info.buy.subtitle': 'View catalog and build your order',
+  'info.team.title': 'Our Team',
+  'info.team.subtitle': 'People behind service and attention',
+  'info.gallery.title': 'Gallery',
+  'info.legal.title': 'Legal information and help',
+  'info.legal.subtitle': 'Terms, privacy, payments, delivery and support',
+  'info.legal.note': 'Rewards, levels, promotions and benefits may change depending on what the business activates. The app will always show what is available.',
+  'info.footer': 'Made for easy shopping in Puerto Ayora',
+  'info.install.title': 'Install app',
+  'info.install.subtitle': 'Quick access from your phone.',
+  'legal.required.title': 'Before continuing',
+  'legal.required.subtitle': 'Review and accept to use the app',
+  'legal.read.title': 'Legal and help center',
+  'legal.read.subtitle': 'Review rules, privacy and support',
+  'legal.required.notice': 'To order, save your location, receive order alerts and use benefits, you need to accept these basic rules.',
+  'legal.hero.kicker': 'La Casa del Pollazo',
+  'legal.hero.title': 'Easy shopping, clear rules',
+  'legal.hero.text': 'Here we explain how orders, payments, deliveries, personal data, benefits, points, notifications and help work.',
+  'legal.category.orders': 'Orders',
+  'legal.category.orders_text': 'Statuses, changes and confirmation.',
+  'legal.category.payments': 'Payments',
+  'legal.category.payments_text': 'Cash, Deuna, bank transfer and card.',
+  'legal.category.data': 'Data',
+  'legal.category.data_text': 'Privacy, location and security.',
+  'legal.info_title': 'Legal information',
+  'legal.help_title': 'Quick help',
+  'legal.footer_required': 'By continuing, you confirm you understand the rules for use, ordering, delivery, payments and privacy.',
+  'legal.footer_read': 'This section is for reference only. You already accepted the rules when you first entered.',
+  'legal.accept': 'Accept and continue',
+  'legal.close_reading': 'Close reading',
+  'legal.update_note': 'These terms may be updated when features, payment methods, promotions, delivery, memberships or business requirements change.',
+  'legal.whatsapp': 'Contact on WhatsApp',
+  'legal.help.order': 'Order issues',
+  'legal.help.order_text': 'Check statuses, changes, cancellations, missing products or delivery coordination.',
+  'legal.help.payment': 'Payment issues',
+  'legal.help.payment_text': 'Help with receipts, Deuna, transfers, rejected or pending payments.',
+  'legal.help.location': 'Location or delivery',
+  'legal.help.location_text': 'Fix your reference, delivery point, Airbnb, hotel, home or nearby business.',
+  'legal.help.notifications': 'Notifications and tracking',
+  'legal.help.notifications_text': 'Review order alerts, phone permissions and live tracking.',
+  'legal.help.security': 'Account security',
+  'legal.help.security_text': 'Report suspicious activity, wrong number or verification issues.',
+  'legal.help.data': 'My data',
+  'legal.help.data_text': 'Request updates, corrections or deletion of data linked to your WhatsApp.',
+};
+
+const pt: TranslationMap = {
+  'nav.home': 'Início', 'nav.catalog': 'Catálogo', 'nav.orders': 'Pedidos', 'nav.cart': 'Carrinho', 'nav.info': 'Info', 'nav.ranking': 'Ranking',
+  'header.home_subtitle': 'O favorito do mercado', 'header.back_home': 'Início', 'header.catalog': 'Catálogo', 'header.orders': 'Meus pedidos', 'header.cart': 'Carrinho', 'header.info': 'Informações', 'header.ranking': 'Ranking VIP',
+  'language.card_kicker': 'Idioma', 'language.card_title': 'Escolha seu idioma', 'language.card_text': 'A app se adapta a turistas e clientes locais. Produtos e preços não mudam.', 'language.detected': 'Detectado automaticamente', 'language.saved': 'Idioma salvo',
+  'info.hero.kicker': 'Informação oficial', 'info.account.title': 'Minha conta Pollazo', 'info.delivery.title': 'Minha entrega', 'info.notifications.title': 'Notificações Pollazo', 'info.notifications.text': 'Avisamos sobre pedidos, presentes Plus, mudanças importantes e lembretes úteis. Sem spam.', 'info.notifications.active': 'Ativos', 'info.notifications.activate': 'Ativar avisos', 'info.contact.title': 'Contato direto', 'info.hours.title': 'Horário de atendimento', 'info.buy.title': 'Comprar agora', 'info.team.title': 'Nossa equipe', 'info.gallery.title': 'Galeria', 'info.legal.title': 'Informação legal e ajuda', 'info.footer': 'Feito para comprar fácil em Puerto Ayora',
+  'legal.required.title': 'Antes de continuar', 'legal.read.title': 'Centro legal e ajuda', 'legal.hero.title': 'Compra fácil, regras claras', 'legal.accept': 'Aceitar e continuar', 'legal.close_reading': 'Fechar leitura', 'legal.whatsapp': 'Contato por WhatsApp',
+};
+
+const fr: TranslationMap = {
+  'nav.home': 'Accueil', 'nav.catalog': 'Catalogue', 'nav.orders': 'Commandes', 'nav.cart': 'Panier', 'nav.info': 'Infos', 'nav.ranking': 'Classement',
+  'header.home_subtitle': 'Le favori du marché', 'header.back_home': 'Accueil', 'header.catalog': 'Catalogue', 'header.orders': 'Mes commandes', 'header.cart': 'Panier', 'header.info': 'Information', 'header.ranking': 'Classement VIP',
+  'language.card_kicker': 'Langue', 'language.card_title': 'Choisissez votre langue', 'language.card_text': 'L’application s’adapte aux touristes et clients locaux. Produits et prix restent identiques.', 'language.detected': 'Détecté automatiquement', 'language.saved': 'Langue enregistrée',
+  'info.hero.kicker': 'Information officielle', 'info.account.title': 'Mon compte Pollazo', 'info.delivery.title': 'Ma livraison', 'info.notifications.title': 'Notifications Pollazo', 'info.notifications.text': 'Nous vous prévenons pour les commandes, cadeaux Plus, changements importants et rappels utiles. Pas de spam.', 'info.notifications.active': 'Actives', 'info.notifications.activate': 'Activer', 'info.contact.title': 'Contact direct', 'info.hours.title': 'Horaires', 'info.buy.title': 'Acheter maintenant', 'info.team.title': 'Notre équipe', 'info.gallery.title': 'Galerie', 'info.legal.title': 'Informations légales et aide', 'info.footer': 'Fait pour acheter facilement à Puerto Ayora',
+  'legal.required.title': 'Avant de continuer', 'legal.read.title': 'Centre légal et aide', 'legal.hero.title': 'Achat facile, règles claires', 'legal.accept': 'Accepter et continuer', 'legal.close_reading': 'Fermer', 'legal.whatsapp': 'Contacter par WhatsApp',
+};
+
+const de: TranslationMap = {
+  'nav.home': 'Start', 'nav.catalog': 'Katalog', 'nav.orders': 'Bestellungen', 'nav.cart': 'Warenkorb', 'nav.info': 'Info', 'nav.ranking': 'Ranking',
+  'header.home_subtitle': 'Der Markt-Favorit', 'header.back_home': 'Start', 'header.catalog': 'Katalog', 'header.orders': 'Meine Bestellungen', 'header.cart': 'Warenkorb', 'header.info': 'Informationen', 'header.ranking': 'VIP Ranking',
+  'language.card_kicker': 'Sprache', 'language.card_title': 'Sprache wählen', 'language.card_text': 'Die App passt sich Touristen und lokalen Kunden an. Produkte und Preise bleiben gleich.', 'language.detected': 'Automatisch erkannt', 'language.saved': 'Sprache gespeichert',
+  'info.hero.kicker': 'Offizielle Information', 'info.account.title': 'Mein Pollazo-Konto', 'info.delivery.title': 'Meine Lieferung', 'info.notifications.title': 'Pollazo-Benachrichtigungen', 'info.notifications.text': 'Wir informieren über Bestellstatus, Plus-Geschenke, wichtige Änderungen und nützliche Erinnerungen. Kein Spam.', 'info.notifications.active': 'Aktiv', 'info.notifications.activate': 'Aktivieren', 'info.contact.title': 'Direkter Kontakt', 'info.hours.title': 'Öffnungszeiten', 'info.buy.title': 'Jetzt kaufen', 'info.team.title': 'Unser Team', 'info.gallery.title': 'Galerie', 'info.legal.title': 'Rechtliches und Hilfe', 'info.footer': 'Für einfaches Einkaufen in Puerto Ayora gemacht',
+  'legal.required.title': 'Bevor du fortfährst', 'legal.read.title': 'Rechtliches und Hilfe', 'legal.hero.title': 'Einfach kaufen, klare Regeln', 'legal.accept': 'Akzeptieren und fortfahren', 'legal.close_reading': 'Schließen', 'legal.whatsapp': 'Per WhatsApp kontaktieren',
+};
+
+const it: TranslationMap = {
+  'nav.home': 'Home', 'nav.catalog': 'Catalogo', 'nav.orders': 'Ordini', 'nav.cart': 'Carrello', 'nav.info': 'Info', 'nav.ranking': 'Classifica',
+  'header.home_subtitle': 'Il preferito del mercato', 'header.back_home': 'Home', 'header.catalog': 'Catalogo', 'header.orders': 'I miei ordini', 'header.cart': 'Carrello', 'header.info': 'Informazioni', 'header.ranking': 'Classifica VIP',
+  'language.card_kicker': 'Lingua', 'language.card_title': 'Scegli la lingua', 'language.card_text': 'L’app si adatta a turisti e clienti locali. Prodotti e prezzi restano uguali.', 'language.detected': 'Rilevata automaticamente', 'language.saved': 'Lingua salvata',
+  'info.hero.kicker': 'Informazioni ufficiali', 'info.account.title': 'Il mio account Pollazo', 'info.delivery.title': 'La mia consegna', 'info.notifications.title': 'Notifiche Pollazo', 'info.notifications.text': 'Ti avviseremo su ordini, regali Plus, cambiamenti importanti e promemoria utili. Niente spam.', 'info.notifications.active': 'Attive', 'info.notifications.activate': 'Attiva avvisi', 'info.contact.title': 'Contatto diretto', 'info.hours.title': 'Orari', 'info.buy.title': 'Compra ora', 'info.team.title': 'Il nostro team', 'info.gallery.title': 'Galleria', 'info.legal.title': 'Informazioni legali e aiuto', 'info.footer': 'Creato per comprare facile a Puerto Ayora',
+  'legal.required.title': 'Prima di continuare', 'legal.read.title': 'Centro legale e aiuto', 'legal.hero.title': 'Acquisto facile, regole chiare', 'legal.accept': 'Accetta e continua', 'legal.close_reading': 'Chiudi', 'legal.whatsapp': 'Contatta via WhatsApp',
+};
+
+const zh: TranslationMap = {
+  'nav.home': '首页', 'nav.catalog': '目录', 'nav.orders': '订单', 'nav.cart': '购物车', 'nav.info': '信息', 'nav.ranking': '排行',
+  'header.home_subtitle': '市场人气之选', 'header.back_home': '首页', 'header.catalog': '目录', 'header.orders': '我的订单', 'header.cart': '购物车', 'header.info': '信息', 'header.ranking': 'VIP排行',
+  'language.card_kicker': '语言', 'language.card_title': '选择语言', 'language.card_text': '应用适合游客和本地客户。商品和价格保持不变。', 'language.detected': '自动检测', 'language.saved': '语言已保存',
+  'info.hero.kicker': '官方信息', 'info.account.title': '我的 Pollazo 账户', 'info.delivery.title': '我的配送', 'info.notifications.title': 'Pollazo 通知', 'info.notifications.text': '我们会通知订单状态、Plus 礼品、重要变化和提醒。不发垃圾信息。', 'info.notifications.active': '已开启', 'info.notifications.activate': '开启通知', 'info.contact.title': '直接联系', 'info.hours.title': '营业时间', 'info.buy.title': '立即购买', 'info.team.title': '我们的团队', 'info.gallery.title': '图库', 'info.legal.title': '法律信息与帮助', 'info.footer': '为 Puerto Ayora 轻松购物而做',
+  'legal.required.title': '继续之前', 'legal.read.title': '法律与帮助中心', 'legal.hero.title': '轻松购买，规则清晰', 'legal.accept': '接受并继续', 'legal.close_reading': '关闭', 'legal.whatsapp': '通过 WhatsApp 联系',
+};
+
+const ja: TranslationMap = {
+  'nav.home': 'ホーム', 'nav.catalog': 'カタログ', 'nav.orders': '注文', 'nav.cart': 'カート', 'nav.info': '情報', 'nav.ranking': 'ランキング',
+  'header.home_subtitle': '市場の人気店', 'header.back_home': 'ホーム', 'header.catalog': 'カタログ', 'header.orders': '注文履歴', 'header.cart': 'カート', 'header.info': '情報', 'header.ranking': 'VIPランキング',
+  'language.card_kicker': '言語', 'language.card_title': '言語を選択', 'language.card_text': 'アプリは観光客と地元のお客様に対応します。商品と価格は変わりません。', 'language.detected': '自動検出', 'language.saved': '言語を保存しました',
+  'info.hero.kicker': '公式情報', 'info.account.title': 'Pollazo アカウント', 'info.delivery.title': '配送先', 'info.notifications.title': 'Pollazo 通知', 'info.notifications.text': '注文状況、Plus特典、重要な変更、便利な通知をお知らせします。スパムなし。', 'info.notifications.active': '有効', 'info.notifications.activate': '通知を有効化', 'info.contact.title': '直接連絡', 'info.hours.title': '営業時間', 'info.buy.title': '今すぐ購入', 'info.team.title': 'チーム', 'info.gallery.title': 'ギャラリー', 'info.legal.title': '法的情報とヘルプ', 'info.footer': 'Puerto Ayoraで簡単に買い物できるように作りました',
+  'legal.required.title': '続行する前に', 'legal.read.title': '法的情報とヘルプ', 'legal.hero.title': '簡単購入、明確なルール', 'legal.accept': '同意して続行', 'legal.close_reading': '閉じる', 'legal.whatsapp': 'WhatsAppで連絡',
+};
+
+const nl: TranslationMap = {
+  'nav.home': 'Start', 'nav.catalog': 'Catalogus', 'nav.orders': 'Bestellingen', 'nav.cart': 'Mandje', 'nav.info': 'Info', 'nav.ranking': 'Ranking',
+  'header.home_subtitle': 'Favoriet van de markt', 'header.back_home': 'Start', 'header.catalog': 'Catalogus', 'header.orders': 'Mijn bestellingen', 'header.cart': 'Mandje', 'header.info': 'Informatie', 'header.ranking': 'VIP Ranking',
+  'language.card_kicker': 'Taal', 'language.card_title': 'Kies je taal', 'language.card_text': 'De app past zich aan voor toeristen en lokale klanten. Producten en prijzen blijven hetzelfde.', 'language.detected': 'Automatisch herkend', 'language.saved': 'Taal opgeslagen',
+  'info.hero.kicker': 'Officiële informatie', 'info.account.title': 'Mijn Pollazo-account', 'info.delivery.title': 'Mijn levering', 'info.notifications.title': 'Pollazo-meldingen', 'info.notifications.text': 'We melden orderstatus, Plus-cadeaus, belangrijke wijzigingen en nuttige herinneringen. Geen spam.', 'info.notifications.active': 'Actief', 'info.notifications.activate': 'Meldingen aan', 'info.contact.title': 'Direct contact', 'info.hours.title': 'Openingstijden', 'info.buy.title': 'Nu kopen', 'info.team.title': 'Ons team', 'info.gallery.title': 'Galerij', 'info.legal.title': 'Juridische info en hulp', 'info.footer': 'Gemaakt voor makkelijk winkelen in Puerto Ayora',
+  'legal.required.title': 'Voordat je doorgaat', 'legal.read.title': 'Juridische info en hulp', 'legal.hero.title': 'Makkelijk kopen, duidelijke regels', 'legal.accept': 'Accepteren en doorgaan', 'legal.close_reading': 'Sluiten', 'legal.whatsapp': 'Contact via WhatsApp',
+};
+
+const ru: TranslationMap = {
+  'nav.home': 'Главная', 'nav.catalog': 'Каталог', 'nav.orders': 'Заказы', 'nav.cart': 'Корзина', 'nav.info': 'Инфо', 'nav.ranking': 'Рейтинг',
+  'header.home_subtitle': 'Фаворит рынка', 'header.back_home': 'Главная', 'header.catalog': 'Каталог', 'header.orders': 'Мои заказы', 'header.cart': 'Корзина', 'header.info': 'Информация', 'header.ranking': 'VIP рейтинг',
+  'language.card_kicker': 'Язык', 'language.card_title': 'Выберите язык', 'language.card_text': 'Приложение адаптируется для туристов и местных клиентов. Товары и цены не меняются.', 'language.detected': 'Определено автоматически', 'language.saved': 'Язык сохранён',
+  'info.hero.kicker': 'Официальная информация', 'info.account.title': 'Мой аккаунт Pollazo', 'info.delivery.title': 'Моя доставка', 'info.notifications.title': 'Уведомления Pollazo', 'info.notifications.text': 'Мы сообщим о статусе заказа, подарках Plus, важных изменениях и полезных напоминаниях. Без спама.', 'info.notifications.active': 'Активны', 'info.notifications.activate': 'Включить', 'info.contact.title': 'Прямой контакт', 'info.hours.title': 'Часы работы', 'info.buy.title': 'Купить сейчас', 'info.team.title': 'Наша команда', 'info.gallery.title': 'Галерея', 'info.legal.title': 'Правовая информация и помощь', 'info.footer': 'Сделано для удобных покупок в Puerto Ayora',
+  'legal.required.title': 'Перед продолжением', 'legal.read.title': 'Правовой центр и помощь', 'legal.hero.title': 'Лёгкая покупка, понятные правила', 'legal.accept': 'Принять и продолжить', 'legal.close_reading': 'Закрыть', 'legal.whatsapp': 'Связаться в WhatsApp',
+};
+
+const translations: Record<LanguageCode, TranslationMap> = {
+  es,
+  en,
+  pt,
+  fr,
+  de,
+  it,
+  zh,
+  ja,
+  nl,
+  ru,
+};
+
+interface LanguageContextValue {
+  language: LanguageCode;
+  currentLanguage: LanguageOption;
+  languages: LanguageOption[];
+  setLanguage: (language: LanguageCode) => void;
+  t: (key: string, fallback?: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<LanguageCode>(() => detectInitialLanguage());
+
+  const setLanguage = (nextLanguage: LanguageCode) => {
+    const safeLanguage = normalizeLanguage(nextLanguage) || 'es';
+
+    setLanguageState(safeLanguage);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, safeLanguage);
+      document.documentElement.lang = safeLanguage;
+    }
+  };
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+    }
+  }, [language]);
+
+  const value = useMemo<LanguageContextValue>(() => {
+    const currentLanguage =
+      LANGUAGE_OPTIONS.find(option => option.code === language) || LANGUAGE_OPTIONS[0];
+
+    const t = (key: string, fallback?: string) => {
+      return (
+        translations[language]?.[key] ||
+        (language !== 'es' ? translations.en[key] : undefined) ||
+        translations.es[key] ||
+        fallback ||
+        key
+      );
+    };
+
+    return {
+      language,
+      currentLanguage,
+      languages: LANGUAGE_OPTIONS,
+      setLanguage,
+      t,
+    };
+  }, [language]);
+
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+
+  if (!context) {
+    throw new Error('useLanguage debe usarse dentro de LanguageProvider');
+  }
+
+  return context;
+}
