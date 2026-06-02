@@ -221,7 +221,9 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [showScrollArrow, setShowScrollArrow] = useState(false);
+  const [isLanguageScrolling, setIsLanguageScrolling] = useState(false);
   const languageScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollIdleTimerRef = useRef<number | null>(null);
   const text = COPY[language] || COPY.es;
 
   const visibleLanguages = useMemo(() => {
@@ -238,6 +240,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!showAllLanguages) {
       setShowScrollArrow(false);
+      setIsLanguageScrolling(false);
       return;
     }
 
@@ -247,6 +250,15 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
     const updateArrow = () => {
       const distanceToBottom = list.scrollHeight - list.clientHeight - list.scrollTop;
       setShowScrollArrow(distanceToBottom > 18);
+      setIsLanguageScrolling(true);
+
+      if (scrollIdleTimerRef.current) {
+        window.clearTimeout(scrollIdleTimerRef.current);
+      }
+
+      scrollIdleTimerRef.current = window.setTimeout(() => {
+        setIsLanguageScrolling(false);
+      }, 760);
     };
 
     updateArrow();
@@ -254,19 +266,20 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
 
     const previewTimer = window.setTimeout(() => {
       if (!languageScrollRef.current) return;
-      const target = Math.min(74, languageScrollRef.current.scrollHeight - languageScrollRef.current.clientHeight);
+      const target = Math.min(46, languageScrollRef.current.scrollHeight - languageScrollRef.current.clientHeight);
       if (target <= 0) return;
 
       languageScrollRef.current.scrollTo({ top: target, behavior: 'smooth' });
 
       window.setTimeout(() => {
         languageScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 420);
-    }, 160);
+      }, 850);
+    }, 300);
 
     return () => {
       list.removeEventListener('scroll', updateArrow);
       window.clearTimeout(previewTimer);
+      if (scrollIdleTimerRef.current) window.clearTimeout(scrollIdleTimerRef.current);
     };
   }, [showAllLanguages]);
 
@@ -282,6 +295,13 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
     window.setTimeout(() => {
       setShowWelcome(false);
     }, 980);
+  };
+
+  const scrollLanguagesToEnd = () => {
+    const list = languageScrollRef.current;
+    if (!list) return;
+
+    list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
   };
 
   if (!showWelcome) return <>{children}</>;
@@ -302,7 +322,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
           }
 
           @keyframes pollazoArrowBounce {
-            0%, 100% { transform: translateY(0); opacity: 0.86; }
+            0%, 100% { transform: translateY(0); opacity: 0.9; }
             50% { transform: translateY(8px); opacity: 1; }
           }
 
@@ -337,8 +357,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
           }
 
           .pollazo-language-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: #fb923c #fff7ed;
+            scrollbar-width: none;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
           }
@@ -348,13 +367,26 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
           }
 
           .pollazo-language-scroll::-webkit-scrollbar-thumb {
-            background: #fb923c;
+            background: transparent;
             border-radius: 999px;
           }
 
           .pollazo-language-scroll::-webkit-scrollbar-track {
-            background: #fff7ed;
+            background: transparent;
             border-radius: 999px;
+          }
+
+          .pollazo-language-scroll.is-scrolling {
+            scrollbar-width: thin;
+            scrollbar-color: #fb923c #fff7ed;
+          }
+
+          .pollazo-language-scroll.is-scrolling::-webkit-scrollbar-thumb {
+            background: #fb923c;
+          }
+
+          .pollazo-language-scroll.is-scrolling::-webkit-scrollbar-track {
+            background: #fff7ed;
           }
 
           .pollazo-scroll-arrow {
@@ -450,7 +482,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
             <div className="relative min-h-0 flex-1">
               <div
                 ref={languageScrollRef}
-                className="pollazo-language-scroll grid max-h-full gap-2 overflow-y-auto pr-1 pb-2"
+                className={`pollazo-language-scroll grid max-h-full gap-2 overflow-y-auto pr-1 pb-2 ${isLanguageScrolling ? 'is-scrolling' : ''}`}
                 style={{ maxHeight: showAllLanguages ? 'min(272px, 34dvh)' : 'auto' }}
               >
                 {visibleLanguages.map(option => {
@@ -484,9 +516,14 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
               </div>
 
               {showAllLanguages && showScrollArrow && (
-                <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 p-2 text-white shadow-xl shadow-orange-200 ring-4 ring-white/80 transition-opacity duration-300">
-                  <ChevronDown className="pollazo-scroll-arrow" size={18} strokeWidth={3} />
-                </div>
+                <button
+                  type="button"
+                  onClick={scrollLanguagesToEnd}
+                  className="absolute bottom-2 left-1/2 -translate-x-1/2 text-orange-500 drop-shadow-[0_2px_6px_rgba(124,45,18,0.35)] active:scale-90 transition-transform"
+                  aria-label="Ir al final de idiomas"
+                >
+                  <ChevronDown className="pollazo-scroll-arrow" size={28} strokeWidth={4} />
+                </button>
               )}
             </div>
 
@@ -510,7 +547,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
             <ChevronRight className="relative" size={18} strokeWidth={3} />
           </button>
 
-          <p className="relative mt-2 shrink-0 rounded-full border border-orange-100 bg-orange-50 px-3 py-2 text-center text-[9px] font-black uppercase tracking-widest text-orange-700 shadow-sm">
+          <p className="relative mt-2 shrink-0 text-center text-[10px] font-black uppercase tracking-widest text-orange-500">
             {text.note}
           </p>
         </section>
