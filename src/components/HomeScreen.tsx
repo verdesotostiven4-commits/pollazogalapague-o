@@ -121,7 +121,8 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = getGreeting();
 
-  const displayName = customerName?.trim() || 'Pollazo Lover';
+  const cleanCustomerName = customerName?.trim();
+  const hasCustomerName = Boolean(cleanCustomerName);
 
   const bestsellers = useMemo(() => {
     const selected = products.filter(product => BESTSELLER_IDS.includes(product.id));
@@ -240,16 +241,18 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
             </p>
           </div>
 
-          <div
-            className="flex justify-center mb-6 relative cursor-pointer active:scale-95 transition-transform"
+          <button
+            type="button"
+            className="flex justify-center mb-6 relative cursor-pointer active:scale-95 transition-transform select-none outline-none [-webkit-tap-highlight-color:transparent]"
             onClick={handleLogoClick}
+            aria-label="Animar logo de La Casa del Pollazo"
           >
             <div className="absolute inset-0 rounded-full bg-white/15 blur-3xl scale-90" />
 
             <img
               src={LOGO_URL}
               alt="La Casa del Pollazo"
-              className={`relative w-56 h-56 object-contain drop-shadow-2xl transition-all duration-300 ${
+              className={`pollazo-home-logo relative w-56 h-56 object-contain drop-shadow-2xl transition-transform duration-300 ${
                 !isAnimating ? 'animate-float-gen' : ''
               } ${isAnimating && logoAnimIndex === 0 ? 'animate-logo-spin' : ''} ${
                 isAnimating && logoAnimIndex === 1 ? 'animate-logo-jump' : ''
@@ -262,7 +265,7 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
                 size={50}
               />
             )}
-          </div>
+          </button>
 
           <div className="space-y-1">
             <h1 className="text-white font-black text-[42px] leading-none drop-shadow-md tracking-tighter uppercase">
@@ -305,12 +308,12 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
 
       <div className="px-6 pt-8 pb-5 bg-gray-50 relative z-10">
         <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.28em] leading-none">
-          Bienvenido de nuevo,
+          {hasCustomerName ? 'Bienvenido de nuevo,' : 'Bienvenido,'}
         </p>
 
-        <h2 className="text-[38px] leading-none font-black italic tracking-tight mt-2">
-          <span className="text-slate-950">Hola, </span>
-          <span className="text-orange-500">{displayName}</span>
+        <h2 className="text-[38px] leading-none font-black tracking-tight mt-2">
+          <span className="text-slate-950">Hola</span>
+          {hasCustomerName && <span className="text-orange-500">, {cleanCustomerName}</span>}
           <span className="not-italic text-[32px] ml-1">👋</span>
         </h2>
 
@@ -534,6 +537,17 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         @keyframes logo-flip {
           0% { transform: rotateY(0deg); }
           100% { transform: rotateY(360deg); }
+        }
+
+        .pollazo-home-logo {
+          filter: drop-shadow(0 22px 26px rgba(124, 45, 18, 0.28)) !important;
+          transform-origin: center;
+        }
+
+        button:active .pollazo-home-logo,
+        .pollazo-home-logo:active {
+          filter: drop-shadow(0 22px 26px rgba(124, 45, 18, 0.28)) !important;
+          opacity: 1 !important;
         }
 
         .animate-logo-spin {
