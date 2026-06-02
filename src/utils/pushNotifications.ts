@@ -4,6 +4,11 @@ type PushRegisterResult = {
   ok: boolean;
   reason?: string;
   permission?: NotificationPermission;
+  endpoint?: string;
+};
+
+type PushRegisterOptions = {
+  forceRefresh?: boolean;
 };
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
@@ -98,9 +103,11 @@ const createFreshSubscription = async (
 };
 
 export const registerPushNotifications = async (
-  customerPhone: string
+  customerPhone: string,
+  options: PushRegisterOptions = {}
 ): Promise<PushRegisterResult> => {
   const phone = cleanPhone(customerPhone);
+  const forceRefresh = options.forceRefresh === true;
 
   if (!phone) {
     localStorage.removeItem('pollazo_push_enabled');
@@ -155,6 +162,19 @@ export const registerPushNotifications = async (
 
     let subscription = await registration.pushManager.getSubscription();
 
+    if (subscription && forceRefresh) {
+      const oldEndpoint = subscription.endpoint;
+
+      try {
+        await deleteSubscriptionFromSupabase(oldEndpoint);
+        await subscription.unsubscribe();
+      } catch (unsubscribeError) {
+        console.warn('No se pudo limpiar suscripción anterior:', unsubscribeError);
+      }
+
+      subscription = null;
+    }
+
     if (!subscription) {
       subscription = await createFreshSubscription(registration);
     }
@@ -183,7 +203,7 @@ export const registerPushNotifications = async (
       return {
         ok: false,
         permission,
-        reason: 'No se pudo guardar este dispositivo para notificaciones.',
+        reason: `No se pudo guardar este dispositivo para notificaciones: ${saveResult.error.message}`,
       };
     }
 
@@ -192,6 +212,7 @@ export const registerPushNotifications = async (
     return {
       ok: true,
       permission,
+      endpoint: subscription.endpoint,
     };
   } catch (error) {
     console.error('Error activando push notifications:', error);
