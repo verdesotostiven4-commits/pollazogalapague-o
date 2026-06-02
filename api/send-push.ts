@@ -1,6 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
+
+type ApiRequest = {
+  method?: string;
+  body?: any;
+  headers?: Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
+};
+
+type ApiResponse = {
+  status: (code: number) => {
+    json: (payload: unknown) => void;
+  };
+};
 
 type PushPayload = {
   customerPhone?: string;
@@ -16,6 +28,13 @@ type PushPayload = {
   membershipReminder?: string | null;
 };
 
+type PushSubscriptionRow = {
+  id: string;
+  customer_phone: string;
+  endpoint: string;
+  subscription: any;
+};
+
 const DEFAULT_ICON = '/logo-final.png';
 
 const STATUS_ICONS: Record<string, string> = {
@@ -28,6 +47,20 @@ const STATUS_ICONS: Record<string, string> = {
 
 const cleanPhoneTail = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '').slice(-9);
+};
+
+const getBody = (req: ApiRequest): PushPayload => {
+  if (!req.body) return {};
+
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+
+  return req.body;
 };
 
 const getNotificationIcon = (payload: PushPayload) => {
@@ -67,6 +100,13 @@ const getPushText = (payload: PushPayload) => {
     return {
       title: payload.title,
       body: payload.body,
+    };
+  }
+
+  if (payload.notificationType === 'plus') {
+    return {
+      title: 'Pollazo Plus 👑',
+      body: 'Tienes una actualización importante sobre tu membresía Plus.',
     };
   }
 
@@ -125,7 +165,7 @@ const getPushText = (payload: PushPayload) => {
   };
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({
       ok: false,
@@ -164,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const payload = req.body as PushPayload;
+  const payload = getBody(req);
   const cleanCustomerTail = cleanPhoneTail(payload.customerPhone);
 
   if (!cleanCustomerTail) {
@@ -200,7 +240,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const subscriptions = (data || []).filter(row => {
+  const subscriptions = ((data || []) as unknown as PushSubscriptionRow[]).filter(row => {
     return cleanPhoneTail(row.customer_phone) === cleanCustomerTail;
   });
 
@@ -208,6 +248,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       ok: true,
       sent: 0,
+      failed: 0,
+      expiredDeleted: 0,
       message: 'No push subscriptions for this customer',
     });
   }
@@ -218,11 +260,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const targetUrl =
     payload.notificationType === 'plus'
       ? payload.url || '/?plus=1'
-      : buildTrackingUrl(payload);
+      : payload.url || buildTrackingUrl(payload);
 
   const uniqueTag =
     payload.tag ||
-    `pollazo-${payload.orderCode || cleanCustomerTail}-${payload.status || payload.paymentStatus || 'update'}-${Date.now()}`;
+    `pollazo-${payload.notificationType || 'tracking'}-${payload.orderCode || cleanCustomerTail}-${payload.status || payload.paymentStatus || payload.membershipReminder || 'update'}-${Date.now()}`;
 
   const notificationPayload = JSON.stringify({
     title: text.title,
