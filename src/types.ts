@@ -1,3 +1,23 @@
+export type LanguageCode =
+  | 'es'
+  | 'en'
+  | 'pt'
+  | 'fr'
+  | 'de'
+  | 'it'
+  | 'zh'
+  | 'ja'
+  | 'nl'
+  | 'ru';
+
+export interface LanguageOption {
+  code: LanguageCode;
+  name: string;
+  nativeName: string;
+  shortLabel: string;
+  flag: string;
+}
+
 export type Category =
   | 'Pollos'
   | 'Embutidos'
@@ -114,8 +134,8 @@ export interface Customer {
   avatar_url?: string | null;
 
   // Fidelización
-  points: number; // Puntos de temporada
-  exp: number; // Experiencia histórica permanente
+  points: number;
+  exp: number;
   is_vip: boolean;
 
   // Membresía Pollazo Plus
