@@ -9,6 +9,7 @@ import AdminPosCorrectionsLauncher from './components/AdminPosCorrectionsLaunche
 import AdminCatalogMasterLauncher from './components/AdminCatalogMasterLauncher';
 import AdminCatalogMenuBridge from './components/AdminCatalogMenuBridge';
 import CustomerCatalogVisibilityFilter from './components/CustomerCatalogVisibilityFilter';
+import CustomerCatalogSoldOutPositionFix from './components/CustomerCatalogSoldOutPositionFix';
 import AdminPosToolEventBridge from './components/AdminPosToolEventBridge';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
 import './index.css';
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
     <FirstRunWelcome>
       <App />
       <CustomerCatalogVisibilityFilter />
+      <CustomerCatalogSoldOutPositionFix />
       <AdminPosSmartLauncher />
       <AdminInventoryLauncher />
       <AdminPosReportsLauncher />
