@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardList, Eye, EyeOff, ImageOff, Loader2, PackageCheck, RefreshCw, Save, Search, Sparkles, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { products as seedProducts } from '../data/products';
 import type { Category, Product } from '../types';
 
 type CatalogProduct = Product & {
@@ -9,6 +10,7 @@ type CatalogProduct = Product & {
   current_stock?: number | string | null;
   stock_minimum?: number | string | null;
   track_stock?: boolean | null;
+  source?: 'base' | 'supabase';
 };
 
 type Draft = {
@@ -74,10 +76,37 @@ const hasImage = (product: CatalogProduct) => String(product.image || '').trim()
 const hasPrice = (product: CatalogProduct) => Boolean(product.is_variable) || n(product.price) > 0 || String(product.price || '').toLowerCase().includes('consultar');
 const lowStock = (product: CatalogProduct) => Boolean(product.track_stock) && n(product.current_stock) <= n(product.stock_minimum);
 
+const mergeCatalogProducts = (remoteProducts: CatalogProduct[]) => {
+  const map = new Map<string, CatalogProduct>();
+
+  seedProducts.forEach(product => {
+    map.set(product.id, {
+      ...product,
+      available: product.available !== false,
+      cost_price: 0,
+      current_stock: 0,
+      stock_minimum: 0,
+      track_stock: false,
+      source: 'base',
+    });
+  });
+
+  remoteProducts.forEach(product => {
+    map.set(product.id, {
+      ...map.get(product.id),
+      ...product,
+      available: product.available !== false,
+      source: 'supabase',
+    });
+  });
+
+  return Array.from(map.values());
+};
+
 export default function AdminCatalogMasterLauncher() {
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>(() => mergeCatalogProducts([]));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(() => blankDraft());
   const [query, setQuery] = useState('');
@@ -101,7 +130,8 @@ export default function AdminCatalogMasterLauncher() {
 
   const loadProducts = async () => {
     if (!isSupabaseConfigured) {
-      setError('Supabase no está configurado.');
+      setProducts(mergeCatalogProducts([]));
+      setError('Supabase no está configurado. Mostrando catálogo base.');
       return;
     }
     setLoading(true);
@@ -109,10 +139,10 @@ export default function AdminCatalogMasterLauncher() {
     const { data, error: loadError } = await supabase.from('products').select('*').order('category').order('name');
     if (loadError) {
       console.error(loadError);
-      setError('No pude cargar catálogo.');
-      setProducts([]);
+      setError('No pude cargar productos remotos. Mostrando catálogo base.');
+      setProducts(mergeCatalogProducts([]));
     } else {
-      setProducts((data || []) as CatalogProduct[]);
+      setProducts(mergeCatalogProducts((data || []) as CatalogProduct[]));
     }
     setLoading(false);
   };
@@ -173,12 +203,17 @@ export default function AdminCatalogMasterLauncher() {
       setError('Falta el precio o activa valor variable.');
       return;
     }
+    if (!isSupabaseConfigured) {
+      setError('Supabase no está configurado. No puedo guardar cambios reales.');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setMessage(null);
     const now = new Date().toISOString();
     const id = selectedId || draft.id || slug(draft.name);
-    const payload = {
+    const payload: Record<string, unknown> = {
       id,
       name: draft.name.trim(),
       category: draft.category,
@@ -195,14 +230,18 @@ export default function AdminCatalogMasterLauncher() {
       is_variable: draft.is_variable,
       track_stock: draft.track_stock,
       updated_at: now,
-      created_at: selectedId ? undefined : now,
     };
+
+    if (!selectedId || selected?.source === 'base') {
+      payload.created_at = now;
+    }
+
     const { error: saveError } = await supabase.from('products').upsert(payload);
     if (saveError) {
       console.error(saveError);
       setError(saveError.message || 'No pude guardar.');
     } else {
-      setMessage('Guardado. App, POS e inventario quedan sincronizados automáticamente.');
+      setMessage('Guardado. Este producto ya quedó en Supabase y sincronizado con app, POS e inventario.');
       await loadProducts();
       setSelectedId(id);
     }
@@ -211,8 +250,34 @@ export default function AdminCatalogMasterLauncher() {
 
   const toggleAvailability = async () => {
     if (!selected) return;
+    if (!isSupabaseConfigured) {
+      setError('Supabase no está configurado. No puedo guardar cambios reales.');
+      return;
+    }
+
     const next = selected.available === false;
-    const { error: toggleError } = await supabase.from('products').update({ available: next, updated_at: new Date().toISOString() }).eq('id', selected.id);
+    const now = new Date().toISOString();
+    const payload = {
+      id: selected.id,
+      name: selected.name,
+      category: selected.category,
+      subcategory: selected.subcategory || null,
+      price: selected.price || 'Consultar precio',
+      image: selected.image || null,
+      description: selected.description || null,
+      unit: selected.unit || null,
+      barcode: selected.barcode || null,
+      cost_price: n(selected.cost_price),
+      current_stock: Math.max(0, n(selected.current_stock)),
+      stock_minimum: Math.max(0, n(selected.stock_minimum)),
+      track_stock: Boolean(selected.track_stock),
+      is_variable: Boolean(selected.is_variable),
+      available: next,
+      updated_at: now,
+      created_at: selected.created_at || now,
+    };
+
+    const { error: toggleError } = await supabase.from('products').upsert(payload);
     if (toggleError) {
       setError('No pude cambiar disponibilidad.');
     } else {
@@ -248,14 +313,14 @@ export default function AdminCatalogMasterLauncher() {
             <main className="p-4 sm:p-5 space-y-4">
               <section className="rounded-[28px] bg-orange-50 border border-orange-100 p-4 flex items-start gap-3 text-orange-900">
                 <Sparkles size={22} className="flex-shrink-0 text-orange-500" />
-                <p className="text-[11px] font-bold leading-relaxed"><b>Automático:</b> cuando guardas un producto aquí, queda listo para app cliente, POS e inventario. La meta es evitar tocar Supabase y reducir errores.</p>
+                <p className="text-[11px] font-bold leading-relaxed"><b>Automático:</b> ahora muestra el catálogo base completo y lo que ya está en Supabase. Cuando guardas un producto base, se copia a Supabase y queda editable para app, POS e inventario.</p>
               </section>
 
               {error && <div className="rounded-3xl border border-red-100 bg-red-50 p-4 text-xs font-black uppercase tracking-wide text-red-600">{error}</div>}
               {message && <div className="rounded-3xl border border-green-100 bg-green-50 p-4 text-xs font-black uppercase tracking-wide text-green-700">{message}</div>}
 
               <section className="grid grid-cols-2 lg:grid-cols-7 gap-2">
-                {[['Catálogo', stats.total], ['Activos', stats.active], ['Ocultos', stats.hidden], ['Sin imagen', stats.noImage], ['Sin precio', stats.noPrice], ['Con stock', stats.stock], ['Stock bajo', stats.low]].map(([label, value]) => (
+                {[["Catálogo", stats.total], ["Activos", stats.active], ["Ocultos", stats.hidden], ["Sin imagen", stats.noImage], ["Sin precio", stats.noPrice], ["Con stock", stats.stock], ["Stock bajo", stats.low]].map(([label, value]) => (
                   <div key={String(label)} className="rounded-3xl bg-white border border-gray-100 p-3 shadow-sm"><p className="text-[8px] font-black uppercase text-gray-400">{label}</p><p className="text-2xl font-black text-slate-950">{value}</p></div>
                 ))}
               </section>
@@ -273,7 +338,7 @@ export default function AdminCatalogMasterLauncher() {
                       return (
                         <button key={product.id} type="button" onClick={() => selectProduct(product)} className={`w-full rounded-[24px] border p-3 text-left flex items-center gap-3 transition-all active:scale-[0.99] ${selectedId === product.id ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-100' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
                           <img src={product.image || '/logo-final.png'} alt={product.name} className="h-14 w-14 rounded-2xl object-cover border border-gray-100 bg-gray-50 flex-shrink-0" />
-                          <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-xs font-black uppercase text-slate-950 truncate">{product.name}</p>{ready ? <CheckCircle2 size={14} className="text-green-500" /> : <AlertTriangle size={14} className="text-orange-500" />}</div><p className="mt-1 text-[10px] font-bold text-gray-400 truncate">{product.category} · {product.subcategory || 'Sin subcategoría'} · {product.is_variable ? 'Variable' : `$${money(product.price)}`}</p></div>
+                          <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-xs font-black uppercase text-slate-950 truncate">{product.name}</p>{ready ? <CheckCircle2 size={14} className="text-green-500" /> : <AlertTriangle size={14} className="text-orange-500" />}{product.source === 'base' && <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-700 border border-yellow-100">Base</span>}</div><p className="mt-1 text-[10px] font-bold text-gray-400 truncate">{product.category} · {product.subcategory || 'Sin subcategoría'} · {product.is_variable ? 'Variable' : `$${money(product.price)}`}</p></div>
                           {!hasImage(product) && <ImageOff size={16} className="text-yellow-600" />}
                         </button>
                       );
