@@ -4,6 +4,7 @@ import { CartProvider, useCart } from './context/CartContext';
 import { FlyToCartProvider } from './context/FlyToCartContext';
 import { AdminProvider, useAdmin } from './context/AdminContext';
 import { UserProvider, useUser } from './context/UserContext';
+import { LanguageProvider } from './context/LanguageContext';
 import FlyParticleLayer from './components/FlyParticleLayer';
 import HomeScreen from './components/HomeScreen';
 import CatalogScreen from './components/CatalogScreen';
@@ -1090,14 +1091,16 @@ export default function App() {
     return (
       <ErrorBoundary>
         <AdminProvider>
-          <LandingPage
-            onInstall={() => undefined}
-            canInstall={false}
-            onContinueWeb={() => {
-              localStorage.setItem('pollazo_landing_dismissed', '1');
-              setLandingDone(true);
-            }}
-          />
+          <LanguageProvider>
+            <LandingPage
+              onInstall={() => undefined}
+              canInstall={false}
+              onContinueWeb={() => {
+                localStorage.setItem('pollazo_landing_dismissed', '1');
+                setLandingDone(true);
+              }}
+            />
+          </LanguageProvider>
         </AdminProvider>
       </ErrorBoundary>
     );
@@ -1106,13 +1109,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AdminProvider>
-        <UserProvider>
-          <CartProvider>
-            <FlyToCartProvider>
-              <AppShell />
-            </FlyToCartProvider>
-          </CartProvider>
-        </UserProvider>
+        <LanguageProvider>
+          <UserProvider>
+            <CartProvider>
+              <FlyToCartProvider>
+                <AppShell />
+              </FlyToCartProvider>
+            </CartProvider>
+          </UserProvider>
+        </LanguageProvider>
       </AdminProvider>
     </ErrorBoundary>
   );
