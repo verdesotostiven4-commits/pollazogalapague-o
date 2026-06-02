@@ -17,20 +17,16 @@ import {
   FileText,
   Lock,
   BellRing,
-  HelpCircle,
   Crown,
   Star,
   Smartphone,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import type { LanguageCode } from '../types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-
-  // No es obligatorio pasarlo.
-  // auto:
-  // - si el cliente aún no aceptó, muestra versión obligatoria sin X.
-  // - si ya aceptó, muestra versión de lectura con X.
   mode?: 'auto' | 'required' | 'read';
 }
 
@@ -38,6 +34,11 @@ const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 
 const WHATSAPP_HELP_URL =
   'https://wa.me/593989795628?text=Hola%2C%20tengo%20una%20consulta%20sobre%20t%C3%A9rminos%2C%20privacidad%20o%20un%20pedido%20en%20La%20Casa%20del%20Pollazo.';
+
+type LegalSectionCopy = {
+  title: string;
+  paragraphs: string[];
+};
 
 function Section({
   icon,
@@ -123,11 +124,212 @@ function HelpItem({
   );
 }
 
+const SECTION_ICONS = [
+  <ClipboardList size={20} />,
+  <BadgeCheck size={20} />,
+  <CreditCard size={20} />,
+  <Truck size={20} />,
+  <RefreshCw size={20} />,
+  <Crown size={20} />,
+  <Gift size={20} />,
+  <BellRing size={20} />,
+  <ShieldCheck size={20} />,
+  <AlertTriangle size={20} />,
+  <MapPin size={20} />,
+];
+
+const esSections: LegalSectionCopy[] = [
+  {
+    title: '1. Uso de la app',
+    paragraphs: [
+      'La app permite ver productos, armar pedidos, registrar datos de entrega, revisar historial, participar en dinámicas de puntos cuando estén activas, recibir avisos importantes y contactar al negocio.',
+      'El cliente debe ingresar información real y suficiente para coordinar la atención: nombre, WhatsApp, ubicación y referencia de entrega.',
+    ],
+  },
+  {
+    title: '2. Confirmación de pedidos',
+    paragraphs: [
+      'Todo pedido puede entrar inicialmente como Por Confirmar. El negocio revisa disponibilidad, ubicación, método de pago y detalles necesarios antes de preparar.',
+      'El pedido se considera aceptado cuando cambia a Recibido, Preparando, Enviado o Entregado. El negocio puede cancelar pedidos por falta de stock, datos incompletos, ubicación no atendida, pago no validado o imposibilidad de contacto.',
+    ],
+  },
+  {
+    title: '3. Pagos y comprobantes',
+    paragraphs: [
+      'Los métodos disponibles pueden incluir efectivo, Deuna, transferencia bancaria y tarjeta, según lo que el negocio tenga activo.',
+      'En efectivo, el pago se realiza contra entrega. En Deuna, transferencia o tarjeta, el pedido puede requerir validación antes de avanzar. Si el comprobante, monto o referencia no coincide, el pedido puede quedar pendiente, rechazado o cancelado.',
+    ],
+  },
+  {
+    title: '4. Entregas y ubicación',
+    paragraphs: [
+      'El cliente debe marcar una ubicación lo más exacta posible y escribir una referencia clara, como color de casa, entrada, calle, negocio cercano o punto de encuentro.',
+      'Los tiempos de entrega son estimados y pueden variar por distancia, clima, tráfico, cantidad de productos, disponibilidad o coordinación con el cliente.',
+    ],
+  },
+  {
+    title: '5. Cambios, cancelaciones y disponibilidad',
+    paragraphs: [
+      'Los productos están sujetos a disponibilidad. Si un producto se agota, cambia de precio o requiere confirmación, el negocio podrá informarlo antes de preparar.',
+      'En productos de valor variable, como compras por monto, el valor elegido por el cliente sirve como referencia del pedido.',
+    ],
+  },
+  {
+    title: '6. Pollazo Plus',
+    paragraphs: [
+      'Pollazo Plus es una membresía mensual que puede incluir delivery gratis dentro de cobertura, prioridad operativa, avisos importantes y regalos sorpresa cuando el negocio los active.',
+      'Los beneficios aplican mientras la membresía esté activa. El negocio podrá revisar, pausar o cancelar beneficios si detecta abuso, datos falsos, pagos no válidos o uso indebido.',
+    ],
+  },
+  {
+    title: '7. Niveles, puntos, ranking y promociones',
+    paragraphs: [
+      'La app puede mostrar niveles, progreso del cliente, puntos de temporada, rankings, premios o dinámicas promocionales.',
+      'Los puntos no son dinero, no son transferibles y no garantizan premio salvo que una temporada activa lo indique claramente.',
+    ],
+  },
+  {
+    title: '8. Notificaciones y rastreo',
+    paragraphs: [
+      'La app puede pedir permiso para enviar notificaciones importantes sobre estados del pedido, pago, entrega, regalos Plus, membresía, seguridad o novedades relevantes.',
+      'Las notificaciones se usan para mejorar la experiencia del cliente, no para enviar spam. El cliente puede administrar permisos desde la configuración de su navegador o celular.',
+    ],
+  },
+  {
+    title: '9. Privacidad y datos personales',
+    paragraphs: [
+      'La app puede guardar datos como nombre, teléfono, avatar, ubicación de entrega, referencia, historial de pedidos, método de pago, estado de pago, opiniones, puntos, membresía y estadísticas de uso.',
+      'Estos datos se usan para procesar pedidos, coordinar entregas, mejorar la atención, prevenir pedidos falsos, mostrar historial, entregar beneficios y administrar el servicio. No vendemos los datos del cliente a anunciantes.',
+    ],
+  },
+  {
+    title: '10. Uso responsable y seguridad',
+    paragraphs: [
+      'Está prohibido usar números ajenos, ubicaciones falsas, pedidos de broma, abuso de promociones, suplantación de identidad o manipulación del sistema de puntos.',
+      'Si se detecta abuso, el negocio puede cancelar pedidos, bloquear beneficios, marcar al cliente como riesgoso o restringir atención por la app.',
+    ],
+  },
+  {
+    title: '11. Productos o zonas con restricción',
+    paragraphs: [
+      'Si el catálogo incluye productos con restricción por edad, disponibilidad especial o control operativo, el negocio podrá pedir verificación, limitar la venta o retirarlos de la app.',
+      'Algunas zonas, horarios o entregas pueden requerir confirmación adicional antes de aceptar el pedido.',
+    ],
+  },
+];
+
+const enSections: LegalSectionCopy[] = [
+  {
+    title: '1. App use',
+    paragraphs: [
+      'The app lets you view products, build orders, save delivery details, review history, join active points dynamics, receive important alerts and contact the business.',
+      'Customers must enter real and sufficient information to coordinate service: name, WhatsApp, location and delivery reference.',
+    ],
+  },
+  {
+    title: '2. Order confirmation',
+    paragraphs: [
+      'Every order may start as Pending Confirmation. The business reviews availability, location, payment method and required details before preparing it.',
+      'The order is accepted when it changes to Received, Preparing, Sent or Delivered. The business may cancel orders due to lack of stock, incomplete data, unsupported location, unvalidated payment or inability to contact the customer.',
+    ],
+  },
+  {
+    title: '3. Payments and receipts',
+    paragraphs: [
+      'Available methods may include cash, Deuna, bank transfer and card, depending on what the business has active.',
+      'Cash is paid on delivery. Deuna, transfer or card may require validation before the order moves forward. If the receipt, amount or reference does not match, the order may remain pending, be rejected or cancelled.',
+    ],
+  },
+  {
+    title: '4. Delivery and location',
+    paragraphs: [
+      'Customers must mark the most accurate location possible and write a clear reference, such as house color, entrance, street, nearby shop or meeting point.',
+      'Delivery times are estimates and may vary due to distance, weather, traffic, product quantity, availability or coordination with the customer.',
+    ],
+  },
+  {
+    title: '5. Changes, cancellations and availability',
+    paragraphs: [
+      'Products are subject to availability. If a product runs out, changes price or needs confirmation, the business may inform the customer before preparing.',
+      'For variable-value products, the selected value works as a reference for the order.',
+    ],
+  },
+  {
+    title: '6. Pollazo Plus',
+    paragraphs: [
+      'Pollazo Plus is a monthly membership that may include free delivery within coverage, operational priority, important alerts and surprise gifts when activated by the business.',
+      'Benefits apply while the membership is active. The business may review, pause or cancel benefits if abuse, false data, invalid payments or misuse is detected.',
+    ],
+  },
+  {
+    title: '7. Levels, points, ranking and promotions',
+    paragraphs: [
+      'The app may show levels, customer progress, seasonal points, rankings, rewards or promotional dynamics.',
+      'Points are not money, are not transferable and do not guarantee a reward unless an active season clearly says so.',
+    ],
+  },
+  {
+    title: '8. Notifications and tracking',
+    paragraphs: [
+      'The app may request permission to send important notifications about order status, payment, delivery, Plus gifts, membership, security or relevant updates.',
+      'Notifications are used to improve the customer experience, not to send spam. Customers may manage permissions from their browser or phone settings.',
+    ],
+  },
+  {
+    title: '9. Privacy and personal data',
+    paragraphs: [
+      'The app may save data such as name, phone, avatar, delivery location, reference, order history, payment method, payment status, reviews, points, membership and usage statistics.',
+      'This data is used to process orders, coordinate deliveries, improve service, prevent fake orders, show history, deliver benefits and administer the service. We do not sell customer data to advertisers.',
+    ],
+  },
+  {
+    title: '10. Responsible use and security',
+    paragraphs: [
+      'Using other people’s numbers, fake locations, joke orders, promotion abuse, identity impersonation or points manipulation is prohibited.',
+      'If abuse is detected, the business may cancel orders, block benefits, mark the customer as risky or restrict app service.',
+    ],
+  },
+  {
+    title: '11. Restricted products or areas',
+    paragraphs: [
+      'If the catalog includes products with age, special availability or operational restrictions, the business may request verification, limit the sale or remove them from the app.',
+      'Some areas, schedules or deliveries may require additional confirmation before accepting the order.',
+    ],
+  },
+];
+
+const localizedSectionNames: Record<LanguageCode, string[]> = {
+  es: esSections.map(section => section.title),
+  en: enSections.map(section => section.title),
+  pt: ['1. Uso do app', '2. Confirmação de pedidos', '3. Pagamentos e comprovantes', '4. Entregas e localização', '5. Mudanças e disponibilidade', '6. Pollazo Plus', '7. Níveis e pontos', '8. Notificações e rastreamento', '9. Privacidade e dados', '10. Uso responsável', '11. Produtos ou zonas restritas'],
+  fr: ['1. Utilisation de l’app', '2. Confirmation des commandes', '3. Paiements et justificatifs', '4. Livraison et localisation', '5. Changements et disponibilité', '6. Pollazo Plus', '7. Niveaux et points', '8. Notifications et suivi', '9. Confidentialité et données', '10. Usage responsable', '11. Produits ou zones restreints'],
+  de: ['1. Nutzung der App', '2. Bestellbestätigung', '3. Zahlungen und Belege', '4. Lieferung und Standort', '5. Änderungen und Verfügbarkeit', '6. Pollazo Plus', '7. Level und Punkte', '8. Benachrichtigungen und Tracking', '9. Datenschutz und Daten', '10. Verantwortliche Nutzung', '11. Eingeschränkte Produkte oder Gebiete'],
+  it: ['1. Uso dell’app', '2. Conferma ordini', '3. Pagamenti e ricevute', '4. Consegna e posizione', '5. Cambi e disponibilità', '6. Pollazo Plus', '7. Livelli e punti', '8. Notifiche e tracciamento', '9. Privacy e dati', '10. Uso responsabile', '11. Prodotti o zone limitate'],
+  zh: ['1. 应用使用', '2. 订单确认', '3. 支付与凭证', '4. 配送和位置', '5. 变更和库存', '6. Pollazo Plus', '7. 等级与积分', '8. 通知和追踪', '9. 隐私和数据', '10. 负责任使用', '11. 受限商品或区域'],
+  ja: ['1. アプリ利用', '2. 注文確認', '3. 支払いと証明', '4. 配送と位置', '5. 変更と在庫', '6. Pollazo Plus', '7. レベルとポイント', '8. 通知と追跡', '9. プライバシーとデータ', '10. 責任ある利用', '11. 制限商品または地域'],
+  nl: ['1. App-gebruik', '2. Bestelbevestiging', '3. Betalingen en bewijzen', '4. Levering en locatie', '5. Wijzigingen en beschikbaarheid', '6. Pollazo Plus', '7. Niveaus en punten', '8. Meldingen en tracking', '9. Privacy en gegevens', '10. Verantwoord gebruik', '11. Beperkte producten of zones'],
+  ru: ['1. Использование приложения', '2. Подтверждение заказов', '3. Платежи и чеки', '4. Доставка и местоположение', '5. Изменения и наличие', '6. Pollazo Plus', '7. Уровни и баллы', '8. Уведомления и отслеживание', '9. Конфиденциальность и данные', '10. Ответственное использование', '11. Ограниченные товары или зоны'],
+};
+
+function getLegalSections(language: LanguageCode) {
+  if (language === 'es') return esSections;
+  if (language === 'en') return enSections;
+
+  const names = localizedSectionNames[language] || localizedSectionNames.en;
+
+  return enSections.map((section, index) => ({
+    title: names[index] || section.title,
+    paragraphs: section.paragraphs,
+  }));
+}
+
 export default function LegalModal({
   isOpen,
   onClose,
   mode = 'auto',
 }: Props) {
+  const { language, t } = useLanguage();
+
   if (!isOpen) return null;
 
   const hasAccepted =
@@ -136,6 +338,7 @@ export default function LegalModal({
 
   const isRequired = mode === 'required' || (mode === 'auto' && !hasAccepted);
   const isReadOnly = !isRequired;
+  const legalSections = getLegalSections(language);
 
   const handlePrimaryAction = () => {
     if (isRequired && typeof window !== 'undefined') {
@@ -146,19 +349,19 @@ export default function LegalModal({
   };
 
   const modalTitle = isRequired
-    ? 'Antes de continuar'
-    : 'Centro legal y ayuda';
+    ? t('legal.required.title')
+    : t('legal.read.title');
 
   const modalSubtitle = isRequired
-    ? 'Revisa y acepta para usar la app'
-    : 'Consulta reglas, privacidad y soporte';
+    ? t('legal.required.subtitle')
+    : t('legal.read.subtitle');
 
   return (
     <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center bg-orange-950/20 p-0 sm:p-4">
       {isReadOnly ? (
         <button
           type="button"
-          aria-label="Cerrar centro legal"
+          aria-label={t('common.close')}
           onClick={onClose}
           className="absolute inset-0 bg-orange-950/10"
         />
@@ -193,7 +396,7 @@ export default function LegalModal({
                 type="button"
                 onClick={onClose}
                 className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 border border-orange-100"
-                aria-label="Cerrar"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
@@ -204,7 +407,7 @@ export default function LegalModal({
             <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3 flex items-start gap-3">
               <ShieldCheck size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
               <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                Para comprar, guardar tu ubicación, recibir avisos de pedido y usar beneficios, necesitamos que aceptes estas reglas básicas.
+                {t('legal.required.notice')}
               </p>
             </div>
           )}
@@ -223,15 +426,15 @@ export default function LegalModal({
 
                 <div>
                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
-                    La Casa del Pollazo
+                    {t('legal.hero.kicker')}
                   </p>
 
                   <h3 className="text-2xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                    Compra fácil, con reglas claras
+                    {t('legal.hero.title')}
                   </h3>
 
                   <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
-                    Aquí explicamos cómo funcionan pedidos, pagos, entregas, datos personales, beneficios, puntos, notificaciones y ayuda.
+                    {t('legal.hero.text')}
                   </p>
                 </div>
               </div>
@@ -239,20 +442,20 @@ export default function LegalModal({
               <div className="grid grid-cols-3 gap-2 mt-5">
                 <MiniLegalCard
                   icon={<FileText size={18} />}
-                  title="Pedidos"
-                  text="Estados, cambios y confirmación."
+                  title={t('legal.category.orders')}
+                  text={t('legal.category.orders_text')}
                 />
 
                 <MiniLegalCard
                   icon={<CreditCard size={18} />}
-                  title="Pagos"
-                  text="Efectivo, Deuna, transferencia y tarjeta."
+                  title={t('legal.category.payments')}
+                  text={t('legal.category.payments_text')}
                 />
 
                 <MiniLegalCard
                   icon={<Lock size={18} />}
-                  title="Datos"
-                  text="Privacidad, ubicación y seguridad."
+                  title={t('legal.category.data')}
+                  text={t('legal.category.data_text')}
                 />
               </div>
             </div>
@@ -260,180 +463,63 @@ export default function LegalModal({
 
           <div className="px-1">
             <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
-              Información legal
+              {t('legal.info_title')}
             </p>
           </div>
 
-          <Section icon={<ClipboardList size={20} />} title="1. Uso de la app">
-            <p>
-              La app permite ver productos, armar pedidos, registrar datos de entrega, revisar historial, participar en dinámicas de puntos cuando estén activas, recibir avisos importantes y contactar al negocio.
-            </p>
-            <p>
-              El cliente debe ingresar información real y suficiente para coordinar la atención: nombre, WhatsApp, ubicación y referencia de entrega.
-            </p>
-          </Section>
-
-          <Section icon={<BadgeCheck size={20} />} title="2. Confirmación de pedidos">
-            <p>
-              Todo pedido puede entrar inicialmente como <b>Por Confirmar</b>. Esto significa que el negocio debe revisar disponibilidad, ubicación, método de pago y cualquier detalle necesario antes de preparar.
-            </p>
-            <p>
-              El pedido se considera aceptado cuando cambia a estados como <b>Recibido</b>, <b>Preparando</b>, <b>Enviado</b> o <b>Entregado</b>.
-            </p>
-            <p>
-              El negocio puede cancelar pedidos por falta de stock, datos incompletos, ubicación no atendida, pago no validado, comportamiento sospechoso o imposibilidad de contacto.
-            </p>
-          </Section>
-
-          <Section icon={<CreditCard size={20} />} title="3. Pagos y comprobantes">
-            <p>
-              Los métodos disponibles pueden incluir efectivo, Deuna, transferencia bancaria y tarjeta, según lo que el negocio tenga activo.
-            </p>
-            <p>
-              En efectivo, el pago se realiza contra entrega. En Deuna, transferencia o tarjeta, el pedido puede requerir validación antes de avanzar.
-            </p>
-            <p>
-              Si el pago, comprobante, monto o referencia no coincide, el pedido puede quedar pendiente, rechazado o cancelado.
-            </p>
-            <p>
-              Si a futuro se activa una pasarela de tarjeta con comisión, la app podrá mostrar el valor adicional antes de confirmar el pedido.
-            </p>
-          </Section>
-
-          <Section icon={<Truck size={20} />} title="4. Entregas y ubicación">
-            <p>
-              El cliente debe marcar una ubicación lo más exacta posible y escribir una referencia clara, como color de casa, entrada, calle, negocio cercano o punto de encuentro.
-            </p>
-            <p>
-              Los tiempos de entrega son estimados. Pueden variar por distancia, clima, tráfico, cantidad de productos, disponibilidad o coordinación con el cliente.
-            </p>
-            <p>
-              Si la ubicación GPS no es exacta o la referencia es insuficiente, el repartidor o el negocio puede llamar o escribir por WhatsApp para coordinar.
-            </p>
-          </Section>
-
-          <Section icon={<RefreshCw size={20} />} title="5. Cambios, cancelaciones y disponibilidad">
-            <p>
-              Los productos están sujetos a disponibilidad. Si un producto se agota, cambia de precio o requiere confirmación, el negocio podrá informarlo antes de preparar.
-            </p>
-            <p>
-              En productos de valor variable, como compras por monto, el valor elegido por el cliente sirve como referencia del pedido.
-            </p>
-            <p>
-              El cliente puede pedir ayuda por WhatsApp si necesita corregir datos o cancelar antes de que el pedido sea preparado o enviado.
-            </p>
-          </Section>
-
-          <Section icon={<Crown size={20} />} title="6. Pollazo Plus">
-            <p>
-              Pollazo Plus es una membresía mensual que puede incluir beneficios como delivery gratis dentro de cobertura, prioridad operativa, avisos importantes y regalos sorpresa cuando el negocio los active.
-            </p>
-            <p>
-              Los beneficios aplican mientras la membresía esté activa. El negocio podrá revisar, pausar o cancelar beneficios si detecta abuso, datos falsos, pagos no válidos o uso indebido.
-            </p>
-            <p>
-              El delivery gratis aplica dentro de las zonas y condiciones operativas del negocio. Algunos pedidos pueden requerir coordinación especial por distancia, horario o disponibilidad.
-            </p>
-          </Section>
-
-          <Section icon={<Gift size={20} />} title="7. Niveles, puntos, ranking y promociones">
-            <p>
-              La app puede mostrar niveles, progreso del cliente, puntos de temporada, rankings, premios o dinámicas promocionales.
-            </p>
-            <p>
-              El <b>nivel del cliente</b> refleja su historial de compras válidas. Los <b>puntos de temporada</b> solo aplican cuando el negocio active una temporada o concurso.
-            </p>
-            <p>
-              Los puntos no son dinero, no son transferibles y no garantizan premio salvo que una temporada activa lo indique claramente.
-            </p>
-            <p>
-              El negocio puede pausar, reiniciar o ajustar temporadas por errores, abuso, pedidos falsos o cambios operativos.
-            </p>
-          </Section>
-
-          <Section icon={<BellRing size={20} />} title="8. Notificaciones y rastreo">
-            <p>
-              La app puede pedir permiso para enviar notificaciones importantes sobre estados del pedido, pago, entrega, regalos Plus, membresía, seguridad o novedades relevantes.
-            </p>
-            <p>
-              Las notificaciones se usan para mejorar la experiencia del cliente, no para enviar spam. El cliente puede administrar permisos desde la configuración de su navegador o celular.
-            </p>
-          </Section>
-
-          <Section icon={<ShieldCheck size={20} />} title="9. Privacidad y datos personales">
-            <p>
-              La app puede guardar datos como nombre, teléfono, avatar, ubicación de entrega, referencia, historial de pedidos, método de pago, estado de pago, opiniones, puntos, membresía y estadísticas de uso.
-            </p>
-            <p>
-              Estos datos se usan para procesar pedidos, coordinar entregas, mejorar la atención, prevenir pedidos falsos, mostrar historial, entregar beneficios y administrar el servicio.
-            </p>
-            <p>
-              No vendemos los datos del cliente a anunciantes. El acceso interno debe limitarse al negocio, administración, soporte técnico o reparto cuando sea necesario para cumplir el pedido.
-            </p>
-            <p>
-              El cliente puede solicitar por WhatsApp corrección, actualización o eliminación de sus datos, salvo información que deba conservarse por control operativo, seguridad, historial comercial o respaldo del negocio.
-            </p>
-          </Section>
-
-          <Section icon={<AlertTriangle size={20} />} title="10. Uso responsable y seguridad">
-            <p>
-              Está prohibido usar números ajenos, ubicaciones falsas, pedidos de broma, abuso de promociones, suplantación de identidad o manipulación del sistema de puntos.
-            </p>
-            <p>
-              Si se detecta abuso, el negocio puede cancelar pedidos, bloquear beneficios, marcar al cliente como riesgoso o restringir atención por la app.
-            </p>
-          </Section>
-
-          <Section icon={<MapPin size={20} />} title="11. Productos o zonas con restricción">
-            <p>
-              Si el catálogo incluye productos con restricción por edad, disponibilidad especial o control operativo, el negocio podrá pedir verificación, limitar la venta o retirarlos de la app.
-            </p>
-            <p>
-              Algunas zonas, horarios o entregas pueden requerir confirmación adicional antes de aceptar el pedido.
-            </p>
-          </Section>
+          {legalSections.map((section, index) => (
+            <Section
+              key={section.title}
+              icon={SECTION_ICONS[index] || <FileText size={20} />}
+              title={section.title}
+            >
+              {section.paragraphs.map(paragraph => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </Section>
+          ))}
 
           <div className="px-1 pt-1">
             <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">
-              Ayuda rápida
+              {t('legal.help_title')}
             </p>
           </div>
 
           <section className="bg-white border border-orange-100 rounded-[32px] p-4 shadow-sm space-y-3">
             <HelpItem
               icon={<ClipboardList size={18} />}
-              title="Problemas con mi pedido"
-              text="Consulta estados, cambios, cancelaciones, productos faltantes o coordinación de entrega."
+              title={t('legal.help.order')}
+              text={t('legal.help.order_text')}
             />
 
             <HelpItem
               icon={<CreditCard size={18} />}
-              title="Problemas con pago"
-              text="Ayuda con comprobantes, Deuna, transferencias, pagos rechazados o pagos pendientes."
+              title={t('legal.help.payment')}
+              text={t('legal.help.payment_text')}
             />
 
             <HelpItem
               icon={<MapPin size={18} />}
-              title="Ubicación o entrega"
-              text="Corrige referencia, punto de entrega, Airbnb, hotel, casa o negocio cercano."
+              title={t('legal.help.location')}
+              text={t('legal.help.location_text')}
             />
 
             <HelpItem
               icon={<BellRing size={18} />}
-              title="Notificaciones y rastreo"
-              text="Revisa avisos del pedido, permisos del celular y seguimiento en vivo."
+              title={t('legal.help.notifications')}
+              text={t('legal.help.notifications_text')}
             />
 
             <HelpItem
               icon={<Smartphone size={18} />}
-              title="Seguridad de mi cuenta"
-              text="Reporta actividad sospechosa, número equivocado o problemas de verificación."
+              title={t('legal.help.security')}
+              text={t('legal.help.security_text')}
             />
 
             <HelpItem
               icon={<UserCheck size={18} />}
-              title="Mis datos"
-              text="Solicita actualizar, corregir o eliminar datos asociados a tu WhatsApp."
+              title={t('legal.help.data')}
+              text={t('legal.help.data_text')}
             />
 
             <a
@@ -443,7 +529,7 @@ export default function LegalModal({
               className="w-full bg-[#25D366] text-white px-4 py-4 rounded-[24px] font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
             >
               <MessageCircle size={16} />
-              Contactar por WhatsApp
+              {t('legal.whatsapp')}
             </a>
           </section>
 
@@ -451,7 +537,7 @@ export default function LegalModal({
             <div className="flex items-start gap-3">
               <Star size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
               <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                Estos términos pueden actualizarse cuando cambien funciones, métodos de pago, promociones, reparto, membresías o requisitos del negocio.
+                {t('legal.update_note')}
               </p>
             </div>
           </div>
@@ -460,8 +546,8 @@ export default function LegalModal({
         <footer className="flex-shrink-0 bg-white/95 border-t border-orange-100 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)]">
           <p className="text-[9px] font-bold text-gray-400 leading-relaxed text-center mb-3">
             {isRequired
-              ? 'Al continuar confirmas que entiendes las reglas de uso, compra, entrega, pagos y privacidad.'
-              : 'Esta sección es solo para consulta. Ya aceptaste las reglas al ingresar por primera vez.'}
+              ? t('legal.footer_required')
+              : t('legal.footer_read')}
           </p>
 
           <button
@@ -470,7 +556,7 @@ export default function LegalModal({
             className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-5 rounded-[26px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-600 flex items-center justify-center gap-2"
           >
             <CheckCircle2 size={17} />
-            {isRequired ? 'Acepto y continuar' : 'Cerrar lectura'}
+            {isRequired ? t('legal.accept') : t('legal.close_reading')}
           </button>
         </footer>
       </section>
