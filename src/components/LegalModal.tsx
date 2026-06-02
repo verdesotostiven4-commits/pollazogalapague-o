@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   X,
   Scale,
@@ -14,6 +14,7 @@ import {
   UserCheck,
   RefreshCw,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Lock,
   BellRing,
@@ -323,14 +324,30 @@ function getLegalSections(language: LanguageCode) {
   }));
 }
 
+function getScrollRequiredText(language: LanguageCode) {
+  if (language === 'en') return 'Scroll to the end to enable continue.';
+  if (language === 'pt') return 'Role até o final para continuar.';
+  if (language === 'fr') return 'Faites défiler jusqu’à la fin pour continuer.';
+  if (language === 'de') return 'Scrolle bis zum Ende, um fortzufahren.';
+  if (language === 'it') return 'Scorri fino alla fine per continuare.';
+  if (language === 'zh') return '请滚动到底部以继续。';
+  if (language === 'ja') return '最後までスクロールして続行してください。';
+  if (language === 'nl') return 'Scroll naar het einde om verder te gaan.';
+  if (language === 'ru') return 'Прокрутите до конца, чтобы продолжить.';
+  return 'Desliza hasta el final para continuar.';
+}
+
 export default function LegalModal({
   isOpen,
   onClose,
   mode = 'auto',
 }: Props) {
   const { language, t } = useLanguage();
-
-  if (!isOpen) return null;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const scrollIdleTimerRef = useRef<number | null>(null);
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
+  const [showScrollArrow, setShowScrollArrow] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   const hasAccepted =
     typeof window !== 'undefined' &&
@@ -340,12 +357,76 @@ export default function LegalModal({
   const isReadOnly = !isRequired;
   const legalSections = getLegalSections(language);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const content = contentRef.current;
+
+    if (!isRequired) {
+      setHasReachedEnd(true);
+      setShowScrollArrow(false);
+      return undefined;
+    }
+
+    if (!content) return undefined;
+
+    const updateProgress = () => {
+      const canScroll = content.scrollHeight > content.clientHeight + 12;
+      const distanceToBottom = content.scrollHeight - content.clientHeight - content.scrollTop;
+      const reachedEnd = !canScroll || distanceToBottom <= 18;
+
+      setHasReachedEnd(reachedEnd);
+      setShowScrollArrow(canScroll && !reachedEnd);
+      setIsScrolling(true);
+
+      if (scrollIdleTimerRef.current) {
+        window.clearTimeout(scrollIdleTimerRef.current);
+      }
+
+      scrollIdleTimerRef.current = window.setTimeout(() => {
+        setIsScrolling(false);
+      }, 760);
+    };
+
+    content.scrollTo({ top: 0, behavior: 'auto' });
+    updateProgress();
+    content.addEventListener('scroll', updateProgress, { passive: true });
+
+    const previewTimer = window.setTimeout(() => {
+      const target = Math.min(76, content.scrollHeight - content.clientHeight);
+      if (target <= 0) return;
+
+      content.scrollTo({ top: target, behavior: 'smooth' });
+
+      window.setTimeout(() => {
+        content.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 850);
+    }, 360);
+
+    return () => {
+      content.removeEventListener('scroll', updateProgress);
+      window.clearTimeout(previewTimer);
+      if (scrollIdleTimerRef.current) window.clearTimeout(scrollIdleTimerRef.current);
+    };
+  }, [isOpen, isRequired, language]);
+
+  if (!isOpen) return null;
+
   const handlePrimaryAction = () => {
+    if (isRequired && !hasReachedEnd) return;
+
     if (isRequired && typeof window !== 'undefined') {
       window.localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
     }
 
     onClose();
+  };
+
+  const scrollToEnd = () => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
   };
 
   const modalTitle = isRequired
@@ -358,6 +439,46 @@ export default function LegalModal({
 
   return (
     <div className="fixed inset-0 z-[12000] flex items-end sm:items-center justify-center bg-orange-950/20 p-0 sm:p-4">
+      <style>{`
+        @keyframes pollazoLegalArrowBounce {
+          0%, 100% { transform: translateY(0); opacity: 0.9; }
+          50% { transform: translateY(8px); opacity: 1; }
+        }
+
+        .pollazo-legal-arrow {
+          animation: pollazoLegalArrowBounce 1.05s ease-in-out infinite;
+        }
+
+        .pollazo-legal-scroll {
+          scrollbar-width: none;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .pollazo-legal-scroll::-webkit-scrollbar {
+          width: 7px;
+        }
+
+        .pollazo-legal-scroll::-webkit-scrollbar-thumb,
+        .pollazo-legal-scroll::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 999px;
+        }
+
+        .pollazo-legal-scroll.is-scrolling {
+          scrollbar-width: thin;
+          scrollbar-color: #fb923c #fff7ed;
+        }
+
+        .pollazo-legal-scroll.is-scrolling::-webkit-scrollbar-thumb {
+          background: #fb923c;
+        }
+
+        .pollazo-legal-scroll.is-scrolling::-webkit-scrollbar-track {
+          background: #fff7ed;
+        }
+      `}</style>
+
       {isReadOnly ? (
         <button
           type="button"
@@ -413,7 +534,10 @@ export default function LegalModal({
           )}
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 hide-scrollbar">
+        <div
+          ref={contentRef}
+          className={`pollazo-legal-scroll flex-1 overflow-y-auto p-4 space-y-4 pb-8 ${isScrolling ? 'is-scrolling' : ''}`}
+        >
           <section className="relative overflow-hidden bg-gradient-to-br from-white via-orange-50 to-yellow-50 border border-orange-100 rounded-[36px] p-5 shadow-sm">
             <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-300/25 rounded-full blur-3xl" />
             <div className="absolute -left-12 -bottom-14 w-36 h-36 bg-yellow-300/25 rounded-full blur-3xl" />
@@ -543,21 +667,41 @@ export default function LegalModal({
           </div>
         </div>
 
-        <footer className="flex-shrink-0 bg-white/95 border-t border-orange-100 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)]">
-          <p className="text-[9px] font-bold text-gray-400 leading-relaxed text-center mb-3">
-            {isRequired
-              ? t('legal.footer_required')
-              : t('legal.footer_read')}
-          </p>
-
+        {isRequired && showScrollArrow && (
           <button
             type="button"
-            onClick={handlePrimaryAction}
-            className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-5 rounded-[26px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-600 flex items-center justify-center gap-2"
+            onClick={scrollToEnd}
+            className="absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 z-20 -translate-x-1/2 text-orange-500 drop-shadow-[0_2px_6px_rgba(124,45,18,0.35)] active:scale-90 transition-transform"
+            aria-label="Ir al final de términos y condiciones"
           >
-            <CheckCircle2 size={17} />
-            {isRequired ? t('legal.accept') : t('legal.close_reading')}
+            <ChevronDown className="pollazo-legal-arrow" size={30} strokeWidth={4} />
           </button>
+        )}
+
+        <footer className="flex-shrink-0 bg-white/95 border-t border-orange-100 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)]">
+          {isRequired && !hasReachedEnd ? (
+            <div className="flex items-center justify-center gap-2 py-3 text-center text-[9px] font-black uppercase tracking-widest text-orange-500">
+              <ChevronDown size={15} className="animate-bounce" />
+              {getScrollRequiredText(language)}
+            </div>
+          ) : (
+            <>
+              <p className="text-[9px] font-bold text-gray-400 leading-relaxed text-center mb-3">
+                {isRequired
+                  ? t('legal.footer_required')
+                  : t('legal.footer_read')}
+              </p>
+
+              <button
+                type="button"
+                onClick={handlePrimaryAction}
+                className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-5 rounded-[26px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-600 flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 size={17} />
+                {isRequired ? t('legal.accept') : t('legal.close_reading')}
+              </button>
+            </>
+          )}
         </footer>
       </section>
     </div>
