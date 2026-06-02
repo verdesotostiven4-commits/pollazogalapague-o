@@ -835,6 +835,30 @@ function NotificationInfoCard({
     };
   }, []);
 
+  useEffect(() => {
+    if (!supported || !hasPhone || permission !== 'granted') return;
+
+    const key = `pollazo_push_auto_synced_${customerPhone}`;
+
+    if (sessionStorage.getItem(key) === '1') return;
+
+    sessionStorage.setItem(key, '1');
+
+    registerPushNotifications(customerPhone, { forceRefresh: true })
+      .then(result => {
+        setPermission(getPushPermission());
+
+        if (result.ok) {
+          setNotice('Avisos sincronizados en este dispositivo.');
+        } else if (result.reason) {
+          setNotice(result.reason);
+        }
+      })
+      .catch(error => {
+        console.warn('No se pudo sincronizar avisos automáticamente:', error);
+      });
+  }, [customerPhone, hasPhone, permission, supported]);
+
   const handleActivate = async () => {
     setNotice('');
 
@@ -849,18 +873,22 @@ function NotificationInfoCard({
       return;
     }
 
-    if (enabled || blocked) {
+    if (blocked) {
+      setNotice('Los avisos están bloqueados. Debes permitirlos desde ajustes del celular o del sitio.');
       return;
     }
 
     try {
       setLoading(true);
 
-      const result = await registerPushNotifications(customerPhone);
+      const result = await registerPushNotifications(customerPhone, {
+        forceRefresh: true,
+      });
+
       setPermission(getPushPermission());
 
       if (result.ok) {
-        setNotice('Listo. Te avisaremos cambios importantes de pedidos, entrega y beneficios.');
+        setNotice('Listo. Este celular quedó sincronizado para recibir avisos del pedido.');
       } else {
         setNotice(result.reason || 'No se pudo activar avisos en este dispositivo.');
       }
@@ -889,12 +917,14 @@ function NotificationInfoCard({
     ? 'No disponible'
     : !hasPhone
       ? 'Registrar datos'
-      : enabled
-        ? 'Avisos activos'
-        : blocked
-          ? 'Revisar permisos'
-          : loading
-            ? 'Activando...'
+      : blocked
+        ? 'Revisar permisos'
+        : loading
+          ? enabled
+            ? 'Sincronizando...'
+            : 'Activando...'
+          : enabled
+            ? 'Sincronizar avisos'
             : 'Activar avisos';
 
   return (
@@ -944,12 +974,12 @@ function NotificationInfoCard({
           <div className="mt-4 bg-green-50 border border-green-100 rounded-[24px] p-3 flex items-start gap-2">
             <ShieldCheck size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
-              Tus avisos están activos en este dispositivo.
+              Los avisos están permitidos. Si cambiaste de celular, reinstalaste la app o se borró el registro, toca sincronizar avisos.
             </p>
           </div>
         )}
 
-        {notice && !blocked && !enabled && (
+        {notice && !blocked && (
           <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3">
             <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
               {notice}
@@ -960,7 +990,7 @@ function NotificationInfoCard({
         <button
           type="button"
           onClick={handleActivate}
-          disabled={loading || !supported || enabled || blocked}
+          disabled={loading || !supported || blocked}
           className={`mt-4 w-full rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform ${
             enabled
               ? 'bg-green-50 text-green-600 border border-green-100'
