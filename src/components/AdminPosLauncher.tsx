@@ -131,7 +131,10 @@ export default function AdminPosLauncher() {
     return register.openingBalance + register.expectedCashSales;
   }, [register]);
 
-  const closeDifference = useMemo(() => parseMoney(closingCash) - expectedCash, [closingCash, expectedCash]);
+  const closeDifference = useMemo(() => {
+    if (!closingCash.trim()) return 0;
+    return parseMoney(closingCash) - expectedCash;
+  }, [closingCash, expectedCash]);
 
   const loadProducts = async () => {
     if (!isSupabaseConfigured) {
@@ -220,7 +223,7 @@ export default function AdminPosLauncher() {
         openingBalance: cleanOpeningBalance,
         expectedCashSales: 0,
       });
-      setClosingCash('');
+      setClosingCash(money(cleanOpeningBalance));
       setLastSaleId(null);
       setLastTicket(null);
     } else {
@@ -419,17 +422,19 @@ export default function AdminPosLauncher() {
         cashReceived: soldCashReceived,
         change: soldChange,
       });
-      setRegister(current =>
-        current
-          ? {
-              ...current,
-              expectedCashSales:
-                soldPaymentMethod === 'cash'
-                  ? current.expectedCashSales + soldTotal
-                  : current.expectedCashSales,
-            }
-          : current
-      );
+      setRegister(current => {
+        if (!current) return current;
+        const nextExpectedCashSales =
+          soldPaymentMethod === 'cash'
+            ? current.expectedCashSales + soldTotal
+            : current.expectedCashSales;
+        const nextExpectedCash = current.openingBalance + nextExpectedCashSales;
+        setClosingCash(money(nextExpectedCash));
+        return {
+          ...current,
+          expectedCashSales: nextExpectedCashSales,
+        };
+      });
       setItems([]);
       setCashReceived('');
       setPaymentReference('');
@@ -548,7 +553,11 @@ export default function AdminPosLauncher() {
 
                     <section className="rounded-[28px] bg-white border border-red-100 p-4 shadow-sm">
                       <p className="text-xs font-black uppercase text-gray-900">Cerrar caja</p>
-                      <p className="text-[10px] font-bold text-gray-400 mt-1">Cuenta el efectivo físico y registra el valor real.</p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-1">Cuenta el efectivo físico. El campo se actualiza con el valor esperado para evitar errores.</p>
+                      <div className="grid grid-cols-3 gap-2 mt-3 mb-3">
+                        <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><p className="text-[8px] font-black uppercase text-slate-500">Esperado</p><p className="text-sm font-black text-gray-900">${money(expectedCash)}</p></div>
+                        <div className="rounded-2xl bg-white border border-gray-100 p-3 col-span-2"><p className="text-[8px] font-black uppercase text-gray-400">Efectivo contado</p><p className="text-sm font-black text-gray-900">${money(closingCash || expectedCash)}</p></div>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-3">
                         <input value={closingCash} onChange={event => setClosingCash(event.target.value)} inputMode="decimal" placeholder={money(expectedCash)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-lg font-black outline-none focus:border-red-300" />
                         <button type="button" onClick={closeCashRegister} disabled={closing || !register} className="rounded-2xl bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 active:scale-[0.98] transition-transform">{closing ? 'Cerrando...' : 'Cerrar caja'}</button>
