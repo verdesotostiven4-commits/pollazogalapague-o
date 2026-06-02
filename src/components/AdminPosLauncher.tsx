@@ -8,6 +8,7 @@ import {
   Minus,
   PackageSearch,
   Plus,
+  Printer,
   QrCode,
   ReceiptText,
   Search,
@@ -36,6 +37,19 @@ type PosProduct = Product & {
 type ActiveRegister = {
   id: string;
   openingBalance: number;
+  expectedCashSales: number;
+  manualIncome: number;
+  manualExpense: number;
+};
+
+type LastTicket = {
+  saleId: string;
+  date: string;
+  items: PosItem[];
+  total: number;
+  paymentMethod: PaymentMethod;
+  cashReceived: number;
+  change: number;
 };
 
 const POS_OPERATOR = 'admin';
@@ -85,14 +99,17 @@ export default function AdminPosLauncher() {
   const [productsLoaded, setProductsLoaded] = useState(false);
   const [register, setRegister] = useState<ActiveRegister | null>(null);
   const [openingBalance, setOpeningBalance] = useState('50.00');
+  const [closingCash, setClosingCash] = useState('');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<PosItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [lastTicket, setLastTicket] = useState<LastTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,6 +127,15 @@ export default function AdminPosLauncher() {
       window.clearInterval(interval);
     };
   }, []);
+
+  const expectedCash = useMemo(() => {
+    if (!register) return 0;
+    return register.openingBalance + register.expectedCashSales + register.manualIncome - register.manualExpense;
+  }, [register]);
+
+  const closeDifference = useMemo(() => {
+    return parseMoney(closingCash) - expectedCash;
+  }, [closingCash, expectedCash]);
 
   const loadProducts = async () => {
     if (!isSupabaseConfigured) {
@@ -134,6 +160,39 @@ export default function AdminPosLauncher() {
     }
 
     setLoadingProducts(false);
+  };
+
+  const loadRegisterById = async (registerId: string, fallbackOpeningBalance = 0) => {
+    const { data, error: registerError } = await supabase
+      .from('cash_registers')
+      .select('id, opening_balance, expected_cash_sales, manual_income, manual_expense, status')
+      .eq('id', registerId)
+      .maybeSingle();
+
+    if (registerError) {
+      console.error(registerError);
+      setRegister({
+        id: registerId,
+        openingBalance: fallbackOpeningBalance,
+        expectedCashSales: 0,
+        manualIncome: 0,
+        manualExpense: 0,
+      });
+      return;
+    }
+
+    if (!data || data.status !== 'open') {
+      setRegister(null);
+      return;
+    }
+
+    setRegister({
+      id: String(data.id),
+      openingBalance: parseMoney(data.opening_balance),
+      expectedCashSales: parseMoney(data.expected_cash_sales),
+      manualIncome: parseMoney(data.manual_income),
+      manualExpense: parseMoney(data.manual_expense),
+    });
   };
 
   useEffect(() => {
@@ -193,11 +252,49 @@ export default function AdminPosLauncher() {
       setError(rpcError.message || 'No se pudo abrir caja.');
       console.error(rpcError);
     } else if (data) {
-      setRegister({ id: String(data), openingBalance: cleanOpeningBalance });
+      await loadRegisterById(String(data), cleanOpeningBalance);
+      setClosingCash('');
       setLastSaleId(null);
     }
 
     setSaving(false);
+  };
+
+  const closeCashRegister = async () => {
+    if (!register) return;
+
+    if (items.length > 0) {
+      setError('Vacía o confirma el carrito antes de cerrar caja.');
+      return;
+    }
+
+    if (!window.confirm(`Cerrar caja con efectivo real de $${money(closingCash)}?`)) {
+      return;
+    }
+
+    setClosing(true);
+    setError(null);
+
+    const { error: closeError } = await supabase.rpc('close_cash_register_v1', {
+      p_cash_register_id: register.id,
+      p_real_balance_cash: parseMoney(closingCash),
+      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Diferencia $${money(closeDifference)}`,
+    });
+
+    if (closeError) {
+      setError(closeError.message || 'No se pudo cerrar caja.');
+      console.error(closeError);
+    } else {
+      setRegister(null);
+      setItems([]);
+      setCashReceived('');
+      setPaymentReference('');
+      setClosingCash('');
+      setLastSaleId(null);
+      window.alert('Caja cerrada correctamente.');
+    }
+
+    setClosing(false);
   };
 
   const addProduct = (product: PosProduct) => {
@@ -245,6 +342,69 @@ export default function AdminPosLauncher() {
     setItems(current => current.filter(item => item.product.id !== productId));
   };
 
+  const printLastTicket = () => {
+    if (!lastTicket) {
+      window.alert('Todavía no hay un ticket para imprimir.');
+      return;
+    }
+
+    const ticketRows = lastTicket.items
+      .map(item => {
+        const lineTotal = item.quantity * item.unitPrice;
+        return `
+          <tr>
+            <td>${item.quantity}x</td>
+            <td>${item.product.name}</td>
+            <td style="text-align:right">$${money(lineTotal)}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const popup = window.open('', 'pollazo-ticket', 'width=380,height=640');
+    if (!popup) {
+      window.alert('El navegador bloqueó la ventana de impresión.');
+      return;
+    }
+
+    popup.document.write(`
+      <html>
+        <head>
+          <title>Ticket Pollazo</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 18px; color: #111827; }
+            .ticket { max-width: 320px; margin: 0 auto; }
+            h1 { font-size: 18px; text-align: center; margin: 0; font-weight: 900; }
+            .sub { text-align: center; font-size: 11px; color: #6b7280; margin: 4px 0 12px; }
+            .meta { font-size: 11px; border-top: 1px dashed #aaa; border-bottom: 1px dashed #aaa; padding: 8px 0; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            td { padding: 5px 0; vertical-align: top; border-bottom: 1px solid #eee; }
+            .total { margin-top: 12px; border-top: 2px solid #111; padding-top: 10px; font-size: 15px; font-weight: 900; display: flex; justify-content: space-between; }
+            .note { margin-top: 14px; text-align: center; font-size: 10px; color: #6b7280; }
+            @media print { button { display: none; } body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <h1>LA CASA DEL POLLAZO</h1>
+            <p class="sub">Ticket interno de venta · No tributario</p>
+            <div class="meta">
+              <strong>Venta:</strong> ${lastTicket.saleId.slice(0, 8)}<br />
+              <strong>Fecha:</strong> ${lastTicket.date}<br />
+              <strong>Pago:</strong> ${paymentLabel(lastTicket.paymentMethod)}
+            </div>
+            <table>${ticketRows}</table>
+            <div class="total"><span>Total</span><span>$${money(lastTicket.total)}</span></div>
+            ${lastTicket.paymentMethod === 'cash' ? `<div class="meta" style="margin-top:10px"><strong>Recibido:</strong> $${money(lastTicket.cashReceived)}<br /><strong>Cambio:</strong> $${money(lastTicket.change)}</div>` : ''}
+            <p class="note">Gracias por tu compra. Pollazo Galapagueño.</p>
+            <button onclick="window.print()" style="width:100%;margin-top:16px;padding:12px;border-radius:12px;border:0;background:#f97316;color:white;font-weight:900">IMPRIMIR</button>
+          </div>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+  };
+
   const completeSale = async () => {
     if (!register) {
       setError('Primero abre caja.');
@@ -256,7 +416,9 @@ export default function AdminPosLauncher() {
       return;
     }
 
-    if (paymentMethod === 'cash' && parseMoney(cashReceived) < total) {
+    const cleanCashReceived = parseMoney(cashReceived);
+
+    if (paymentMethod === 'cash' && cleanCashReceived < total) {
       setError('El efectivo recibido no cubre el total.');
       return;
     }
@@ -285,6 +447,12 @@ export default function AdminPosLauncher() {
       },
     ];
 
+    const soldItemsSnapshot = items.map(item => ({ ...item }));
+    const soldTotal = Number(total.toFixed(2));
+    const soldPaymentMethod = paymentMethod;
+    const soldCashReceived = paymentMethod === 'cash' ? cleanCashReceived : soldTotal;
+    const soldChange = paymentMethod === 'cash' ? Math.max(0, cleanCashReceived - soldTotal) : 0;
+
     const { data, error: rpcError } = await supabase.rpc('create_pos_sale_v1', {
       p_cash_register_id: register.id,
       p_customer_id: null,
@@ -301,7 +469,27 @@ export default function AdminPosLauncher() {
       setError(rpcError.message || 'No se pudo guardar la venta.');
       console.error(rpcError);
     } else {
-      setLastSaleId(String(data));
+      const saleId = String(data);
+      setLastSaleId(saleId);
+      setLastTicket({
+        saleId,
+        date: new Date().toLocaleString('es-EC'),
+        items: soldItemsSnapshot,
+        total: soldTotal,
+        paymentMethod: soldPaymentMethod,
+        cashReceived: soldCashReceived,
+        change: soldChange,
+      });
+      setRegister(current => {
+        if (!current) return current;
+        return {
+          ...current,
+          expectedCashSales:
+            soldPaymentMethod === 'cash'
+              ? current.expectedCashSales + soldTotal
+              : current.expectedCashSales,
+        };
+      });
       setItems([]);
       setCashReceived('');
       setPaymentReference('');
@@ -316,14 +504,16 @@ export default function AdminPosLauncher() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-[9998] flex items-center gap-2 rounded-[24px] bg-slate-950 px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-2xl shadow-orange-300/60 ring-4 ring-orange-200 active:scale-95 transition-transform"
-      >
-        <Calculator size={18} className="text-orange-300" />
-        POS
-      </button>
+      {!open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-5 right-5 z-[9998] flex items-center gap-2 rounded-[24px] bg-slate-950 px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-2xl shadow-orange-300/60 ring-4 ring-orange-200 active:scale-95 transition-transform"
+        >
+          <Calculator size={18} className="text-orange-300" />
+          POS
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[9999] bg-slate-950/72 backdrop-blur-sm p-3 sm:p-5 overflow-y-auto">
@@ -357,12 +547,22 @@ export default function AdminPosLauncher() {
               )}
 
               {lastSaleId && (
-                <div className="rounded-3xl border border-green-100 bg-green-50 p-4 flex items-center gap-3 text-green-700">
-                  <CheckCircle2 size={22} />
-                  <div>
-                    <p className="text-xs font-black uppercase">Venta guardada</p>
-                    <p className="text-[10px] font-bold opacity-75">ID: {lastSaleId}</p>
+                <div className="rounded-3xl border border-green-100 bg-green-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-green-700">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 size={22} />
+                    <div>
+                      <p className="text-xs font-black uppercase">Venta guardada</p>
+                      <p className="text-[10px] font-bold opacity-75">ID: {lastSaleId}</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={printLastTicket}
+                    className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 border border-green-100 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} />
+                    Ticket
+                  </button>
                 </div>
               )}
 
@@ -402,12 +602,27 @@ export default function AdminPosLauncher() {
                 <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
                   <section className="space-y-4">
                     <div className="rounded-[28px] bg-white border border-gray-100 p-4 shadow-sm">
-                      <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest text-green-600">Caja activa</p>
-                          <p className="text-xs font-bold text-gray-400">Inicial ${money(register.openingBalance)} · ID {register.id.slice(0, 8)}</p>
+                          <p className="text-xs font-bold text-gray-400">Inicial ${money(register.openingBalance)} · Efectivo ventas ${money(register.expectedCashSales)} · ID {register.id.slice(0, 8)}</p>
                         </div>
                         <Wallet size={22} className="text-green-500" />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3">
+                          <p className="text-[8px] font-black uppercase text-orange-500">Inicial</p>
+                          <p className="text-sm font-black text-gray-900">${money(register.openingBalance)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-green-50 border border-green-100 p-3">
+                          <p className="text-[8px] font-black uppercase text-green-600">Ventas efectivo</p>
+                          <p className="text-sm font-black text-gray-900">${money(register.expectedCashSales)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                          <p className="text-[8px] font-black uppercase text-slate-500">Esperado</p>
+                          <p className="text-sm font-black text-gray-900">${money(expectedCash)}</p>
+                        </div>
                       </div>
 
                       <div className="relative">
@@ -449,6 +664,31 @@ export default function AdminPosLauncher() {
                         )}
                       </div>
                     )}
+
+                    <section className="rounded-[28px] bg-white border border-red-100 p-4 shadow-sm">
+                      <p className="text-xs font-black uppercase text-gray-900">Cerrar caja</p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-1">Cuenta el efectivo físico y registra el valor real.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-3">
+                        <input
+                          value={closingCash}
+                          onChange={event => setClosingCash(event.target.value)}
+                          inputMode="decimal"
+                          placeholder={money(expectedCash)}
+                          className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-lg font-black outline-none focus:border-red-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={closeCashRegister}
+                          disabled={closing || !register}
+                          className="rounded-2xl bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 active:scale-[0.98] transition-transform"
+                        >
+                          {closing ? 'Cerrando...' : 'Cerrar caja'}
+                        </button>
+                      </div>
+                      <p className={`mt-2 text-[10px] font-black uppercase ${closeDifference < 0 ? 'text-red-500' : closeDifference > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        Diferencia: ${money(closeDifference)}
+                      </p>
+                    </section>
                   </section>
 
                   <aside className="rounded-[32px] bg-white border border-gray-100 shadow-sm overflow-hidden">
