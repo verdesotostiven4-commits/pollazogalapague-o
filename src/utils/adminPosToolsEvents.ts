@@ -1,4 +1,4 @@
-export type AdminPosToolKey = 'pos' | 'inventory' | 'reports' | 'corrections';
+export type AdminPosToolKey = 'pos' | 'inventory' | 'reports' | 'corrections' | 'catalog';
 
 export const ADMIN_POS_TOOL_EVENT = 'pollazo:admin-pos-tool-open';
 
