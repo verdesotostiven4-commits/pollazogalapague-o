@@ -8,7 +8,7 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import { openAdminPosTool, type AdminPosToolKey } from '../utils/adminPosToolsEvents';
+import type { AdminPosToolKey } from '../utils/adminPosToolsEvents';
 
 type ToolOption = {
   key: AdminPosToolKey;
@@ -21,6 +21,16 @@ type ToolOption = {
 const isAdminPath = () => {
   if (typeof window === 'undefined') return false;
   return window.location.pathname.toLowerCase() === '/admin';
+};
+
+const normalizeText = (value: string | null | undefined) =>
+  String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+const toolButtonLabel: Record<AdminPosToolKey, string> = {
+  pos: 'pos',
+  inventory: 'inventario',
+  reports: 'reportes pos',
+  corrections: 'correcciones pos',
 };
 
 const tools: ToolOption[] = [
@@ -74,8 +84,17 @@ export default function AdminPosToolsDock() {
   }, []);
 
   const openTool = (tool: ToolOption) => {
+    const expectedLabel = toolButtonLabel[tool.key];
+    const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
+    const target = buttons.find(button => normalizeText(button.textContent) === expectedLabel);
+
+    if (!target) {
+      window.alert(`No encontré la herramienta ${tool.label}. Refresca la página e intenta otra vez.`);
+      return;
+    }
+
     setOpen(false);
-    openAdminPosTool(tool.key);
+    target.click();
   };
 
   if (!visibleInAdmin) return null;
