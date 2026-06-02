@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { openAdminPosTool } from '../utils/adminPosToolsEvents';
 
 const normalizeText = (value: string | null | undefined) =>
   String(value || '')
@@ -13,28 +14,12 @@ const isAdminPath = () => {
   return window.location.pathname.toLowerCase() === '/admin';
 };
 
-const findCatalogMasterButton = () => {
-  const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
-  return buttons.find(button => normalizeText(button.textContent) === 'catalogo maestro') || null;
-};
-
 const isAdminMenuButton = (button: HTMLButtonElement) => {
   const label = normalizeText(button.textContent);
   if (label !== 'menu' && label !== 'catalogo') return false;
 
   const containerText = normalizeText(button.parentElement?.textContent || '');
   return containerText.includes('inicio') && containerText.includes('pedidos') && containerText.includes('caja');
-};
-
-const openCatalogMaster = () => {
-  const catalogButton = findCatalogMasterButton();
-
-  if (catalogButton) {
-    catalogButton.click();
-    return;
-  }
-
-  window.alert('El catálogo está cargando. Refresca la página e intenta nuevamente.');
 };
 
 const renameMenuButton = () => {
@@ -72,7 +57,7 @@ export default function AdminCatalogMenuBridge() {
       event.stopPropagation();
       event.stopImmediatePropagation();
 
-      openCatalogMaster();
+      openAdminPosTool('catalog');
     };
 
     renameMenuButton();
