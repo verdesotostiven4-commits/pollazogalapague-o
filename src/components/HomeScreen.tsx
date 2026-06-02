@@ -306,28 +306,68 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
         </div>
       </div>
 
-      <div className="px-6 pt-8 pb-5 bg-gray-50 relative z-10">
-        <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.28em] leading-none">
-          {hasCustomerName ? 'Bienvenido de nuevo,' : 'Bienvenido,'}
-        </p>
+      <div className="relative z-10 -mt-8 px-5 pb-5">
+        <section className="rounded-[34px] border border-white/70 bg-white/95 p-5 shadow-2xl shadow-orange-100/80 backdrop-blur-xl">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.24em] leading-none">
+            {hasCustomerName ? 'Bienvenido de nuevo' : 'Bienvenido'}
+          </p>
 
-        <h2 className="text-[38px] leading-none font-black tracking-tight mt-2">
-          <span className="text-slate-950">Hola</span>
-          {hasCustomerName && <span className="text-orange-500">, {cleanCustomerName}</span>}
-          <span className="not-italic text-[32px] ml-1">👋</span>
-        </h2>
+          <h2 className="text-[36px] leading-none font-black tracking-tight mt-2">
+            <span className="text-slate-950">Hola</span>
+            {hasCustomerName && <span className="text-orange-500">, {cleanCustomerName}</span>}
+            <span className="not-italic text-[30px] ml-1">👋</span>
+          </h2>
 
-        <button
-          type="button"
-          onClick={scrollToCategories}
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white border border-orange-100 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-orange-500 shadow-sm active:scale-95 transition-transform"
-        >
-          Desliza para ver categorías
-          <ChevronDown size={14} className="animate-bounce" />
-        </button>
+          <div className="mt-5 grid grid-cols-3 gap-2.5">
+            <button
+              type="button"
+              onClick={() => onNavigate('catalog')}
+              className="group rounded-[24px] bg-gradient-to-br from-orange-500 to-yellow-400 p-3 text-left text-white shadow-lg shadow-orange-100 active:scale-[0.98] transition-transform"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 border border-white/20">
+                <Store size={18} />
+              </div>
+              <p className="text-[10px] font-black uppercase leading-tight">Comprar</p>
+              <p className="mt-1 text-[8px] font-bold uppercase tracking-wide text-white/75">Catálogo</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('orders')}
+              className="rounded-[24px] border border-orange-100 bg-orange-50 p-3 text-left text-orange-700 shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-white border border-orange-100">
+                <PackageCheck size={18} />
+              </div>
+              <p className="text-[10px] font-black uppercase leading-tight">Mi pedido</p>
+              <p className="mt-1 text-[8px] font-bold uppercase tracking-wide text-orange-400">Rastreo</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('info')}
+              className="rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-left text-white shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/10">
+                <MapPin size={18} />
+              </div>
+              <p className="text-[10px] font-black uppercase leading-tight">Info</p>
+              <p className="mt-1 text-[8px] font-bold uppercase tracking-wide text-white/55">Ubicación</p>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={scrollToCategories}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-white border border-orange-100 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-orange-500 shadow-sm active:scale-95 transition-transform"
+          >
+            Ver categorías
+            <ChevronDown size={14} className="animate-bounce" />
+          </button>
+        </section>
       </div>
 
-      <div id="home-categories" className="px-6 pt-9 pb-2 scroll-mt-20">
+      <div id="home-categories" className="px-6 pt-5 pb-2 scroll-mt-20">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] leading-none">
           Compra rápido
         </p>
