@@ -97,7 +97,7 @@ class ErrorBoundary extends Component<
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
 const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
-const FINAL_TRACKING_MINUTES = 20;
+const FINAL_TRACKING_MINUTES = 3;
 const FINAL_TRACKING_AUTO_CLOSE_MS = 12000;
 const TRACKING_DEEP_LINK_WAIT_MS = 8500;
 
@@ -459,6 +459,9 @@ function AppShell() {
   }, [customerPhone, orders]);
 
   const hasTrackableOrder = Boolean(latestTrackableOrder);
+  const shouldShowTrackingButton = Boolean(
+    latestTrackableOrder && ACTIVE_TRACKING_STATUSES.includes(latestTrackableOrder.status)
+  );
   const shouldShowTrackingWake = showTracking && trackingLaunchSource === 'notification' && !hasTrackableOrder;
 
   const openTrackingFromNotification = useCallback(() => {
@@ -886,7 +889,6 @@ function AppShell() {
         customerLat,
         customerLng,
         deliveryType: 'domicilio',
-        hasPollazoPlus,
       }
     );
 
@@ -979,7 +981,7 @@ function AppShell() {
         {screen === 'ranking' && <Ranking />}
       </main>
 
-      {screen !== 'ranking' && hasTrackableOrder && (
+      {screen !== 'ranking' && shouldShowTrackingButton && (
         <button
           type="button"
           onClick={openTrackingManually}
