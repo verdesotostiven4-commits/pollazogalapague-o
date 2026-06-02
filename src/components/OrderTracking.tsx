@@ -17,8 +17,6 @@ import {
   PackageSearch,
   QrCode,
   ReceiptText,
-  RefreshCw,
-  Route,
   ShieldCheck,
   ShoppingBag,
   TimerReset,
@@ -443,19 +441,19 @@ const getPaymentHelpText = (order: Order) => {
 
 const getPendingPaymentText = (order: Order) => {
   if (order.payment_method === 'efectivo') {
-    return 'Tu pedido espera confirmación del negocio antes de prepararse. El pago será contra entrega.';
+    return 'El negocio confirmará tu pedido y luego aparecerá el tiempo estimado.';
   }
 
   if (order.payment_method === 'deuna') {
-    return 'Tu pedido espera validación del pago por Deuna antes de activar el tiempo estimado.';
+    return 'Se validará el pago y luego aparecerá el tiempo estimado.';
   }
 
   if (order.payment_method === 'transferencia') {
-    return 'Tu pedido espera validación de transferencia antes de activar el tiempo estimado.';
+    return 'Se validará la transferencia y luego aparecerá el tiempo estimado.';
   }
 
   if (order.payment_method === 'tarjeta') {
-    return 'Tu pedido espera aprobación del pago con tarjeta antes de activar el tiempo estimado.';
+    return 'Se aprobará el pago y luego aparecerá el tiempo estimado.';
   }
 
   return 'Cuando el negocio confirme tu pedido, aquí aparecerá el tiempo estimado de entrega.';
@@ -471,7 +469,7 @@ const getHeaderIcon = (status?: OrderStatus) => {
 };
 
 const getStatusTitle = (status?: OrderStatus) => {
-  if (status === 'Por Confirmar') return 'Pedido recibido';
+  if (status === 'Por Confirmar') return 'Por confirmar';
   if (status === 'Recibido') return 'Pedido confirmado';
   if (status === 'Preparando') return 'Empacando tu pedido';
   if (status === 'Enviado') return 'Tu pedido va en camino';
@@ -1321,15 +1319,15 @@ export default function OrderTracking({
         aria-label="Cerrar rastreo"
       />
 
-      <section className="relative z-10 w-full sm:max-w-md max-h-[94dvh] bg-white rounded-t-[42px] sm:rounded-[42px] shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300 border border-white/80 overflow-hidden flex flex-col">
-        <header className={`relative overflow-hidden bg-gradient-to-br ${heroTone.hero} text-white px-5 pt-[calc(env(safe-area-inset-top)+18px)] sm:pt-5 pb-5 flex-shrink-0`}>
+      <section className="relative z-10 w-full sm:max-w-md max-h-[88dvh] bg-white rounded-t-[36px] sm:rounded-[36px] shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300 border border-white/80 overflow-hidden flex flex-col">
+        <header className={`relative overflow-hidden bg-gradient-to-br ${heroTone.hero} text-white px-5 pt-[calc(env(safe-area-inset-top)+14px)] sm:pt-4 pb-4 flex-shrink-0`}>
           <div className={`absolute -right-16 -top-16 w-52 h-52 ${heroTone.glow} rounded-full blur-3xl`} />
           <div className="absolute -left-16 -bottom-16 w-52 h-52 bg-white/15 rounded-full blur-3xl" />
 
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-[calc(env(safe-area-inset-top)+16px)] sm:top-4 right-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform z-10 border border-white/20"
+            className="absolute top-[calc(env(safe-area-inset-top)+14px)] sm:top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform z-10 border border-white/20"
             aria-label="Cerrar rastreo"
           >
             <X size={20} />
@@ -1337,8 +1335,8 @@ export default function OrderTracking({
 
           <div className="relative pr-12">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-[26px] flex items-center justify-center shadow-xl border bg-white/20 text-white border-white/25">
-                <HeaderIcon size={34} />
+              <div className="w-14 h-14 rounded-[22px] flex items-center justify-center shadow-xl border bg-white/20 text-white border-white/25">
+                <HeaderIcon size={28} />
               </div>
 
               <div className="min-w-0 flex-1">
@@ -1346,48 +1344,23 @@ export default function OrderTracking({
                   Rastreo Pollazo
                 </p>
 
-                <h2 className="text-2xl font-black uppercase italic leading-none mt-2">
+                <h2 className="text-xl font-black uppercase italic leading-none mt-1.5">
                   {hasActiveOrder ? getStatusTitle(currentStatus) : 'Rastreo en vivo'}
                 </h2>
 
                 <p className="text-[12px] font-bold text-white/80 leading-relaxed mt-2 line-clamp-2">
                   {hasActiveOrder && activeOrder
-                    ? `${activeOrder.order_code || 'Pedido'} · ${getOrderPreviewText(activeOrder)}`
-                    : 'Sigue tu compra paso a paso cuando tengas un pedido activo.'}
+                    ? currentStatus === 'Por Confirmar'
+                      ? `${activeOrder.order_code || 'Pedido'}`
+                      : `${activeOrder.order_code || 'Pedido'} · ${getOrderItemCount(activeOrder)} producto${getOrderItemCount(activeOrder) === 1 ? '' : 's'}`
+                    : 'Sigue tu compra paso a paso.'}
                 </p>
               </div>
             </div>
-
-            {hasActiveOrder && (
-              <div className="mt-5 flex items-center justify-between gap-3">
-                <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 border bg-white/20 border-white/25 text-white">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-70 animate-ping" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-                  </span>
-
-                  <span className="text-[9px] font-black uppercase tracking-widest">
-                    En vivo
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={refreshTracking}
-                  className="inline-flex items-center gap-2 bg-white/20 text-white border border-white/25 rounded-full px-3 py-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
-                >
-                  <RefreshCw
-                    size={12}
-                    className={isRefreshing ? 'animate-spin' : ''}
-                  />
-                  Actualizar
-                </button>
-              </div>
-            )}
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+18px)] space-y-4 bg-gradient-to-b from-orange-50/45 via-white to-white">
+        <div className="flex-1 overflow-y-auto px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)] space-y-3 bg-gradient-to-b from-orange-50/45 via-white to-white">
           {renderTrackingNotice(false)}
 
           {hasActiveOrder && currentStatus && activeOrder ? (
@@ -1398,9 +1371,6 @@ export default function OrderTracking({
                     <div>
                       <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
                         Progreso del pedido
-                      </p>
-                      <p className="text-xs font-bold text-gray-400 mt-1">
-                        Actualización automática desde el negocio.
                       </p>
                     </div>
 
@@ -1518,7 +1488,7 @@ export default function OrderTracking({
 
               {renderPushCard()}
 
-              {paymentTone && (
+              {paymentTone && currentStatus !== 'Por Confirmar' && (
                 <section className={`rounded-[30px] border p-4 shadow-sm ${paymentTone.wrapper}`}>
                   <div className="flex items-start gap-3">
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${paymentTone.icon}`}>
@@ -1530,8 +1500,8 @@ export default function OrderTracking({
                         {getPaymentMethodLabel(activeOrder.payment_method)} · {getPaymentStatusLabel(activeOrder.payment_status)}
                       </p>
 
-                      <p className={`text-[11px] font-bold leading-relaxed mt-1.5 ${paymentTone.text}`}>
-                        {getPaymentHelpText(activeOrder)}
+                      <p className={`text-[10px] font-bold leading-relaxed mt-1 ${paymentTone.text}`}>
+                        {getPaymentStatusLabel(activeOrder.payment_status)}
                       </p>
                     </div>
                   </div>
@@ -1539,9 +1509,9 @@ export default function OrderTracking({
               )}
 
               {currentStatus === 'Por Confirmar' && (
-                <section className="bg-yellow-50 border border-yellow-100 rounded-[30px] p-4 shadow-sm">
+                <section className="bg-yellow-50 border border-yellow-100 rounded-[26px] p-3 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
+                    <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-yellow-600 shadow-sm flex-shrink-0">
                       <ShieldCheck size={21} />
                     </div>
 
@@ -1611,7 +1581,7 @@ export default function OrderTracking({
                 <div className="flex items-center gap-2 mb-3">
                   <ReceiptText size={16} className="text-orange-500" />
                   <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">
-                    Resumen del pedido
+                    Pedido
                   </p>
                 </div>
 
@@ -1639,11 +1609,6 @@ export default function OrderTracking({
                   <div className="flex justify-between text-[11px] font-bold text-gray-500">
                     <span>Subtotal</span>
                     <span>{moneyText(activeOrder.subtotal)}</span>
-                  </div>
-
-                  <div className="flex justify-between text-[11px] font-bold text-gray-500">
-                    <span>Pago</span>
-                    <span>{getPaymentMethodLabel(activeOrder.payment_method)}</span>
                   </div>
 
                   <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
@@ -1705,33 +1670,15 @@ export default function OrderTracking({
                     </p>
                   </section>
                 )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <a
-                  href={activeHelpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-500 text-white rounded-[24px] py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-green-100"
-                >
-                  <MessageCircle size={16} />
-                  Ayuda
-                </a>
-
-                <button
-                  type="button"
-                  onClick={refreshTracking}
-                  className="bg-orange-50 text-orange-600 border border-orange-100 rounded-[24px] py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                >
-                  <Route size={16} />
-                  Actualizar
-                </button>
-              </div>
-
-              {activeOrder.created_at && (
-                <p className="text-center text-[9px] text-gray-300 font-black uppercase leading-relaxed">
-                  Se actualiza automáticamente cuando admin o repartidor cambian el estado.
-                </p>
-              )}
+              <a
+                href={activeHelpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-green-500 text-white rounded-[24px] py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-green-100"
+              >
+                <MessageCircle size={16} />
+                Ayuda por WhatsApp
+              </a>
             </>
           ) : (
             <div className="space-y-4">
