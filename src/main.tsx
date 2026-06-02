@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import FirstRunWelcome from './components/FirstRunWelcome';
-import AdminPosLauncher from './components/AdminPosLauncher';
+import AdminPosSmartLauncher from './components/AdminPosSmartLauncher';
 import AdminInventoryLauncher from './components/AdminInventoryLauncher';
 import AdminPosReportsLauncher from './components/AdminPosReportsLauncher';
 import AdminPosCorrectionsLauncher from './components/AdminPosCorrectionsLauncher';
@@ -19,7 +19,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <App />
-      <AdminPosLauncher />
+      <AdminPosSmartLauncher />
       <AdminInventoryLauncher />
       <AdminPosReportsLauncher />
       <AdminPosCorrectionsLauncher />
