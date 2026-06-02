@@ -8,6 +8,7 @@ import AdminPosReportsLauncher from './components/AdminPosReportsLauncher';
 import AdminPosCorrectionsLauncher from './components/AdminPosCorrectionsLauncher';
 import AdminCatalogMasterLauncher from './components/AdminCatalogMasterLauncher';
 import AdminCatalogMenuBridge from './components/AdminCatalogMenuBridge';
+import CustomerCatalogVisibilityFilter from './components/CustomerCatalogVisibilityFilter';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
 import './index.css';
 import './styles/landing-install-lock.css';
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <App />
+      <CustomerCatalogVisibilityFilter />
       <AdminPosSmartLauncher />
       <AdminInventoryLauncher />
       <AdminPosReportsLauncher />
