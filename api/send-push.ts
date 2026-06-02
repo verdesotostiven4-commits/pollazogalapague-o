@@ -10,6 +10,10 @@ type PushPayload = {
   title?: string;
   body?: string;
   url?: string;
+  tag?: string;
+  notificationType?: 'tracking' | 'plus';
+  membershipId?: string | null;
+  membershipReminder?: string | null;
 };
 
 const DEFAULT_ICON = '/logo-final.png';
@@ -212,9 +216,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const notificationIcon = getNotificationIcon(payload);
 
   const targetUrl =
-    payload.url && payload.url !== '/'
-      ? payload.url
+    payload.notificationType === 'plus'
+      ? payload.url || '/?plus=1'
       : buildTrackingUrl(payload);
+
+  const uniqueTag =
+    payload.tag ||
+    `pollazo-${payload.orderCode || cleanCustomerTail}-${payload.status || payload.paymentStatus || 'update'}-${Date.now()}`;
 
   const notificationPayload = JSON.stringify({
     title: text.title,
@@ -222,10 +230,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     url: targetUrl,
     icon: notificationIcon,
     badge: notificationIcon,
-    tag: `pollazo-${payload.orderCode || cleanCustomerTail}`,
+    tag: uniqueTag,
     orderCode: payload.orderCode || null,
     status: payload.status || null,
     paymentStatus: payload.paymentStatus || null,
+    notificationType: payload.notificationType || null,
+    membershipId: payload.membershipId || null,
+    membershipReminder: payload.membershipReminder || null,
+    timestamp: Date.now(),
   });
 
   let sent = 0;
@@ -237,7 +249,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         await webPush.sendNotification(
           row.subscription,
-          notificationPayload
+          notificationPayload,
+          {
+            TTL: 60 * 60,
+            headers: {
+              Urgency: 'high',
+            },
+          }
         );
 
         sent += 1;
@@ -271,5 +289,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     failed,
     expiredDeleted: expiredSubscriptionIds.length,
     icon: notificationIcon,
+    tag: uniqueTag,
   });
 }
