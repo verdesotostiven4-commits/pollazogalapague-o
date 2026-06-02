@@ -10,6 +10,7 @@ import {
 import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useUser } from '../context/UserContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { Screen } from '../types';
 
 interface Props {
@@ -21,15 +22,6 @@ interface Props {
 
 const LOGO_URL =
   'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
-
-const screenTitles: Record<Screen, string> = {
-  home: '',
-  catalog: 'Catálogo',
-  orders: 'Mis pedidos',
-  cart: 'Carrito',
-  info: 'Información',
-  ranking: 'Ranking VIP',
-};
 
 export default function AppHeader({
   screen,
@@ -43,6 +35,16 @@ export default function AppHeader({
     customerAvatar: storedAvatar,
     customerName,
   } = useUser();
+  const { t } = useLanguage();
+
+  const screenTitles: Record<Screen, string> = {
+    home: '',
+    catalog: t('header.catalog'),
+    orders: t('header.orders'),
+    cart: t('header.cart'),
+    info: t('header.info'),
+    ranking: t('header.ranking'),
+  };
 
   const cartBtnRef = useRef<HTMLButtonElement>(null);
   const avatarUrl = customerAvatar || storedAvatar;
@@ -96,7 +98,7 @@ export default function AppHeader({
                 La Casa del Pollazo
               </span>
               <span className="font-black text-[9px] text-orange-500 uppercase tracking-widest mt-1.5 truncate">
-                El #1 del mercado
+                {t('header.home_subtitle')}
               </span>
             </div>
           </button>
@@ -105,10 +107,10 @@ export default function AppHeader({
             type="button"
             onClick={() => onNavigate('home')}
             className="flex items-center gap-1 text-orange-500 font-black text-sm active:scale-95 transition-transform min-w-[78px]"
-            aria-label="Volver al inicio"
+            aria-label={t('header.back_home')}
           >
             <ChevronLeft size={21} strokeWidth={3} />
-            Inicio
+            {t('header.back_home')}
           </button>
         )}
 
@@ -127,7 +129,7 @@ export default function AppHeader({
                 ? 'bg-gradient-to-br from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-200'
                 : 'bg-gray-100 text-gray-400 hover:bg-orange-50 hover:text-orange-500'
             }`}
-            aria-label="Ir al ranking VIP"
+            aria-label={t('header.open_ranking')}
           >
             {screen === 'ranking' ? (
               <Crown size={18} className="drop-shadow-sm" />
@@ -146,7 +148,7 @@ export default function AppHeader({
             type="button"
             onClick={onOpenProfile}
             className="relative w-10 h-10 rounded-2xl bg-orange-50 overflow-hidden border border-orange-100 flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-            aria-label={customerName ? `Perfil de ${customerName}` : 'Abrir perfil'}
+            aria-label={customerName ? `Perfil de ${customerName}` : t('header.open_profile')}
           >
             {avatarUrl ? (
               <img
@@ -170,7 +172,7 @@ export default function AppHeader({
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
                 : 'bg-orange-50 text-orange-500 hover:bg-orange-100'
             } ${cartPop ? 'scale-110 ring-4 ring-orange-200' : ''}`}
-            aria-label="Abrir carrito"
+            aria-label={t('header.open_cart')}
           >
             <ShoppingCart size={19} />
 
