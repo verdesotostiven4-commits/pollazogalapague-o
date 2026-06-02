@@ -132,6 +132,26 @@ const mergeCatalogProducts = (remoteProducts: CatalogProduct[]) => {
   return Array.from(map.values());
 };
 
+const buildInsertPayloadFromBaseProduct = (product: CatalogProduct, now: string) => ({
+  id: product.id,
+  name: product.name,
+  category: product.category,
+  subcategory: product.subcategory || null,
+  price: product.price || (product.is_variable ? 'Consultar precio' : '$0.00'),
+  image: product.image || null,
+  description: product.description || null,
+  unit: product.unit || null,
+  barcode: product.barcode || null,
+  cost_price: n(product.cost_price),
+  current_stock: Math.max(0, n(product.current_stock)),
+  stock_minimum: Math.max(0, n(product.stock_minimum)),
+  track_stock: Boolean(product.track_stock),
+  is_variable: Boolean(product.is_variable),
+  available: product.available !== false,
+  created_at: now,
+  updated_at: now,
+});
+
 export default function AdminCatalogMasterLauncher() {
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
@@ -141,6 +161,7 @@ export default function AdminCatalogMasterLauncher() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,6 +219,7 @@ export default function AdminCatalogMasterLauncher() {
     noPrice: products.filter(p => !hasPrice(p)).length,
     stock: products.filter(p => p.track_stock).length,
     low: products.filter(lowStock).length,
+    pending: products.filter(p => p.source === 'base').length,
   }), [products]);
 
   const filtered = useMemo(() => {
@@ -208,6 +230,42 @@ export default function AdminCatalogMasterLauncher() {
   }, [products, query]);
 
   const selected = products.find(product => product.id === selectedId) || null;
+
+  const activateFullCatalog = async () => {
+    if (!isSupabaseConfigured) {
+      setError('No hay conexión con el sistema de productos. Intenta nuevamente en unos segundos.');
+      return;
+    }
+
+    const pendingProducts = products.filter(product => product.source === 'base');
+
+    if (pendingProducts.length === 0) {
+      setMessage('Catálogo completo listo. No hay productos pendientes.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Se activarán ${pendingProducts.length} productos para que aparezcan en caja e inventario. No se tocarán productos que ya fueron editados. ¿Continuar?`);
+    if (!confirmed) return;
+
+    setSyncingCatalog(true);
+    setError(null);
+    setMessage(null);
+
+    const now = new Date().toISOString();
+    const payload = pendingProducts.map(product => buildInsertPayloadFromBaseProduct(product, now));
+
+    const { error: syncError } = await supabase.from('products').upsert(payload);
+
+    if (syncError) {
+      console.error(syncError);
+      setError(syncError.message || 'No pude activar el catálogo completo.');
+    } else {
+      setMessage(`Catálogo completo activado. ${pendingProducts.length} productos quedaron listos para clientes, caja e inventario.`);
+      await loadProducts();
+    }
+
+    setSyncingCatalog(false);
+  };
 
   const selectProduct = (product: CatalogProduct) => {
     const category = (product.category || 'Abarrotes y básicos') as Category;
@@ -369,11 +427,23 @@ export default function AdminCatalogMasterLauncher() {
             </header>
 
             <main className="flex-1 min-h-0 p-3 sm:p-4 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden">
-              <section className="shrink-0 rounded-[24px] bg-orange-50 border border-orange-100 px-4 py-3 flex items-start gap-3 text-orange-900">
-                <Sparkles size={20} className="flex-shrink-0 text-orange-500" />
-                <p className="text-[11px] font-bold leading-relaxed">
-                  <b>Automático:</b> revisa, corrige y guarda productos desde aquí. Cada cambio queda listo para la app, la caja y el inventario.
-                </p>
+              <section className="shrink-0 rounded-[24px] bg-orange-50 border border-orange-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-orange-900">
+                <div className="flex items-start gap-3">
+                  <Sparkles size={20} className="flex-shrink-0 text-orange-500" />
+                  <p className="text-[11px] font-bold leading-relaxed">
+                    <b>Automático:</b> revisa, corrige y guarda productos desde aquí. Cada cambio queda listo para la app, la caja y el inventario.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={activateFullCatalog}
+                  disabled={syncingCatalog || loading || stats.pending === 0}
+                  className="shrink-0 rounded-2xl bg-slate-950 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                >
+                  {syncingCatalog ? <Loader2 size={15} className="animate-spin" /> : <PackageCheck size={15} />}
+                  {stats.pending > 0 ? `Activar catálogo (${stats.pending})` : 'Catálogo listo'}
+                </button>
               </section>
 
               {(error || message) && (
@@ -383,10 +453,11 @@ export default function AdminCatalogMasterLauncher() {
                 </section>
               )}
 
-              <section className="shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              <section className="shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 {[
                   ['Catálogo', stats.total],
                   ['Activos', stats.active],
+                  ['Pendientes', stats.pending],
                   ['Ocultos', stats.hidden],
                   ['Sin imagen', stats.noImage],
                   ['Sin precio', stats.noPrice],
@@ -444,7 +515,7 @@ export default function AdminCatalogMasterLauncher() {
                             <div className="flex items-center gap-2">
                               <p className="text-xs font-black uppercase text-slate-950 truncate">{product.name}</p>
                               {ready ? <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" /> : <AlertTriangle size={14} className="text-orange-500 flex-shrink-0" />}
-                              {product.source === 'base' && <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-700 border border-yellow-100 flex-shrink-0">Por guardar</span>}
+                              {product.source === 'base' && <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-700 border border-yellow-100 flex-shrink-0">Pendiente</span>}
                             </div>
                             <p className="mt-1 text-[10px] font-bold text-gray-400 truncate">
                               {product.category} · {product.subcategory || 'Sin subcategoría'} · {product.is_variable ? 'Variable' : `$${money(product.price)}`}
