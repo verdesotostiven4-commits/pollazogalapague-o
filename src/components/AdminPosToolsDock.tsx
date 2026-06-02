@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Archive,
   BarChart3,
@@ -8,14 +8,12 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-
-type ToolKey = 'pos' | 'inventory' | 'reports' | 'corrections';
+import { openAdminPosTool, type AdminPosToolKey } from '../utils/adminPosToolsEvents';
 
 type ToolOption = {
-  key: ToolKey;
+  key: AdminPosToolKey;
   label: string;
   helper: string;
-  match: string;
   icon: typeof Calculator;
   tone: string;
 };
@@ -25,15 +23,11 @@ const isAdminPath = () => {
   return window.location.pathname.toLowerCase() === '/admin';
 };
 
-const normalizeText = (value: string | null | undefined) =>
-  String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-
 const tools: ToolOption[] = [
   {
     key: 'pos',
     label: 'Vender / POS',
     helper: 'Ventas rápidas de mostrador',
-    match: 'pos',
     icon: Calculator,
     tone: 'bg-slate-950 text-white border-slate-900',
   },
@@ -41,7 +35,6 @@ const tools: ToolOption[] = [
     key: 'inventory',
     label: 'Inventario',
     helper: 'Stock, costos y mínimos',
-    match: 'inventario',
     icon: Archive,
     tone: 'bg-white text-slate-950 border-orange-100',
   },
@@ -49,7 +42,6 @@ const tools: ToolOption[] = [
     key: 'reports',
     label: 'Reportes POS',
     helper: 'Ventas, caja y productos',
-    match: 'reportes pos',
     icon: BarChart3,
     tone: 'bg-orange-500 text-white border-orange-500',
   },
@@ -57,7 +49,6 @@ const tools: ToolOption[] = [
     key: 'corrections',
     label: 'Correcciones POS',
     helper: 'Corregir ventas de caja abierta',
-    match: 'correcciones pos',
     icon: RotateCcw,
     tone: 'bg-red-500 text-white border-red-500',
   },
@@ -82,51 +73,9 @@ export default function AdminPosToolsDock() {
     };
   }, []);
 
-  const matches = useMemo(() => tools.map(tool => tool.match), []);
-
-  const getLegacyLauncherButtons = () => {
-    const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
-
-    return buttons.filter(button => {
-      const text = normalizeText(button.textContent);
-      const style = window.getComputedStyle(button);
-      return style.position === 'fixed' && matches.some(match => text === match);
-    });
-  };
-
-  useEffect(() => {
-    if (!visibleInAdmin) return;
-
-    const hideLegacyLaunchers = () => {
-      getLegacyLauncherButtons().forEach(button => {
-        button.dataset.pollazoLegacyToolButton = 'true';
-        button.style.display = 'none';
-      });
-    };
-
-    hideLegacyLaunchers();
-    const interval = window.setInterval(hideLegacyLaunchers, 600);
-
-    return () => {
-      window.clearInterval(interval);
-      const buttons = Array.from(document.querySelectorAll('[data-pollazo-legacy-tool-button="true"]')) as HTMLButtonElement[];
-      buttons.forEach(button => {
-        button.style.display = '';
-        delete button.dataset.pollazoLegacyToolButton;
-      });
-    };
-  }, [visibleInAdmin, matches]);
-
   const openTool = (tool: ToolOption) => {
-    const target = getLegacyLauncherButtons().find(button => normalizeText(button.textContent) === tool.match);
-
-    if (!target) {
-      window.alert(`No encontré la herramienta ${tool.label}. Refresca la página e intenta otra vez.`);
-      return;
-    }
-
     setOpen(false);
-    target.click();
+    openAdminPosTool(tool.key);
   };
 
   if (!visibleInAdmin) return null;
