@@ -12,6 +12,8 @@ import type { Product } from '../types';
 import { useCart } from '../context/CartContext';
 import { useFlyToCart } from '../context/FlyToCartContext';
 import { useAdmin } from '../context/AdminContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getProductDisplay, productUi } from '../utils/productI18n';
 
 const BUDGET_LIMITS: Record<string, { min: number; max: number; presets: number[] }> = {
   'pollo-entero': { min: 7, max: 60, presets: [8, 10, 15] },
@@ -40,10 +42,7 @@ const toMoney = (value: number) => {
 };
 
 const parseMoneyInput = (value: string) => {
-  const normalized = value
-    .replace(',', '.')
-    .replace(/[^0-9.]/g, '');
-
+  const normalized = value.replace(',', '.').replace(/[^0-9.]/g, '');
   const parts = normalized.split('.');
 
   if (parts.length > 2) {
@@ -85,6 +84,7 @@ export default function ProductCard({
   const { addItem } = useCart();
   const { triggerFly } = useFlyToCart();
   const { overrides } = useAdmin();
+  const { language } = useLanguage();
 
   const [added, setAdded] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -93,12 +93,13 @@ export default function ProductCard({
 
   const btnRef = useRef<HTMLButtonElement>(null);
 
+  const translated = useMemo(() => getProductDisplay(product, language), [product, language]);
+
   const config = useMemo(() => {
     return BUDGET_LIMITS[getBaseProductId(product.id)] || BUDGET_LIMITS.default;
   }, [product.id]);
 
   const override = overrides[product.id];
-
   const available = override?.available ?? product.available !== false;
   const displayPrice = override?.price ?? product.price ?? null;
 
@@ -114,7 +115,6 @@ export default function ProductCard({
 
   const minText = `$${config.min.toFixed(2)}`;
   const maxText = `$${config.max.toFixed(2)}`;
-
   const productImage = !imageFailed && product.image ? product.image : '/logo-final.png';
 
   const runFlyAnimation = () => {
@@ -131,21 +131,15 @@ export default function ProductCard({
 
   const markAdded = () => {
     setAdded(true);
-
-    window.setTimeout(() => {
-      setAdded(false);
-    }, 1200);
+    window.setTimeout(() => setAdded(false), 1200);
   };
 
   const executeAddVariable = (priceOverride?: number) => {
     if (added || !available) return;
 
-    const valueToUse =
-      typeof priceOverride === 'number' ? toMoney(priceOverride) : currentNum;
+    const valueToUse = typeof priceOverride === 'number' ? toMoney(priceOverride) : currentNum;
 
-    if (valueToUse < config.min || valueToUse > config.max) {
-      return;
-    }
+    if (valueToUse < config.min || valueToUse > config.max) return;
 
     triggerHaptic();
     runFlyAnimation();
@@ -171,7 +165,6 @@ export default function ProductCard({
 
     triggerHaptic();
     runFlyAnimation();
-
     addItem(effectiveProduct);
     markAdded();
   };
@@ -198,7 +191,7 @@ export default function ProductCard({
         <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-orange-50/30">
           <img
             src={productImage}
-            alt={product.name}
+            alt={translated.name}
             className="w-full h-full object-contain p-2.5 group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
             decoding="async"
@@ -208,26 +201,26 @@ export default function ProductCard({
           {!available && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
               <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg uppercase tracking-widest">
-                Agotado
+                {productUi('product.soldOut', language)}
               </span>
             </div>
           )}
 
           {available && product.badge && (
             <span className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              {product.badge}
+              {translated.badge || product.badge}
             </span>
           )}
 
           {available && product.is_variable && (
             <span className="absolute top-2 right-2 bg-white/95 border border-orange-200 text-orange-500 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm uppercase">
-              Por valor
+              {productUi('product.byValue', language)}
             </span>
           )}
 
           {available && consult && !product.is_variable && !compact && (
             <span className="absolute top-2.5 right-2.5 bg-white/95 border border-orange-200 text-orange-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
-              A consultar
+              {productUi('product.consult', language)}
             </span>
           )}
         </div>
@@ -235,7 +228,7 @@ export default function ProductCard({
         <div className={`flex flex-col flex-1 ${compact ? 'p-3 gap-1.5' : 'p-3.5'}`}>
           {!compact && (
             <p className="text-[9px] text-orange-500 font-black uppercase tracking-widest mb-1 truncate">
-              {product.subcategory || product.category}
+              {translated.subcategory || translated.category}
             </p>
           )}
 
@@ -243,13 +236,14 @@ export default function ProductCard({
             className={`text-gray-900 font-black leading-snug line-clamp-2 ${
               compact ? 'text-[13px] min-h-[34px]' : 'text-[14px] min-h-[39px]'
             }`}
+            title={language === 'es' ? product.name : `${translated.name} · ${product.name}`}
           >
-            {product.name}
+            {translated.name}
           </h3>
 
           {!compact && (
             <p className="text-gray-400 text-[11px] leading-relaxed mt-1 line-clamp-2 min-h-[32px]">
-              {product.description || 'Producto disponible para agregar al carrito.'}
+              {translated.description}
             </p>
           )}
 
@@ -258,19 +252,19 @@ export default function ProductCard({
               {product.is_variable ? (
                 <div className="flex flex-col">
                   <span className={`text-orange-600 font-black ${compact ? 'text-[15px]' : 'text-[16px] leading-none'}`}>
-                    Elige el valor
+                    {productUi('product.chooseValue', language)}
                   </span>
 
                   {!compact && (
                     <span className="text-[9px] font-bold text-gray-400 uppercase mt-1">
-                      Mínimo {minText}
+                      {productUi('product.minimum', language, { min: minText })}
                     </span>
                   )}
                 </div>
               ) : consult ? (
                 <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 font-bold flex items-center gap-1`}>
                   {!compact && <MessageCircle size={12} className="text-orange-400" />}
-                  A consultar
+                  {productUi('product.consult', language)}
                 </span>
               ) : (
                 <div className="flex items-baseline gap-1">
@@ -280,7 +274,7 @@ export default function ProductCard({
 
                   {product.unit && !compact && (
                     <span className="text-gray-400 text-[11px]">
-                      / {product.unit}
+                      / {translated.unit || product.unit}
                     </span>
                   )}
                 </div>
@@ -303,16 +297,16 @@ export default function ProductCard({
               }`}
             >
               {!available ? (
-                <>{compact ? 'Agotado' : 'Sin stock'}</>
+                <>{compact ? productUi('product.soldOut', language) : productUi('product.noStock', language)}</>
               ) : added ? (
                 <>
                   <Check size={compact ? 13 : 14} strokeWidth={3} />
-                  Agregado
+                  {productUi('product.added', language)}
                 </>
               ) : (
                 <>
                   <Plus size={compact ? 13 : 14} />
-                  {product.is_variable ? 'Elegir' : 'Agregar'}
+                  {product.is_variable ? productUi('product.choose', language) : productUi('product.add', language)}
                 </>
               )}
             </button>
@@ -324,7 +318,7 @@ export default function ProductCard({
         <div className="fixed inset-0 z-[11000] flex items-end sm:items-center justify-center p-4">
           <button
             type="button"
-            aria-label="Cerrar selector de valor"
+            aria-label={productUi('common.close', language)}
             className="absolute inset-0 bg-black/45 backdrop-blur-sm"
             onClick={handleCloseModal}
           />
@@ -339,12 +333,12 @@ export default function ProductCard({
                   <div className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-100 px-3 py-1 rounded-full mb-2">
                     <Sparkles size={11} className="text-orange-500" />
                     <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">
-                      Compra por valor
+                      {productUi('product.variableKicker', language)}
                     </span>
                   </div>
 
                   <h4 className="font-black text-slate-800 uppercase italic leading-tight">
-                    ¿De cuánto quieres comprar?
+                    {productUi('product.variableTitle', language)}
                   </h4>
                 </div>
 
@@ -352,7 +346,7 @@ export default function ProductCard({
                   type="button"
                   onClick={handleCloseModal}
                   className="p-2 bg-slate-100 rounded-full text-slate-400 active:scale-90 transition-all"
-                  aria-label="Cerrar"
+                  aria-label={productUi('common.close', language)}
                 >
                   <X size={18} />
                 </button>
@@ -362,15 +356,15 @@ export default function ProductCard({
                 <img
                   src={productImage}
                   className="w-12 h-12 object-contain rounded-lg bg-white border border-orange-100 p-1"
-                  alt={product.name}
+                  alt={translated.name}
                 />
 
                 <div className="min-w-0">
                   <p className="text-xs font-black text-slate-800 truncate">
-                    {product.name}
+                    {translated.name}
                   </p>
                   <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tighter">
-                    Mínimo {minText} · Máximo {maxText}
+                    {productUi('product.range', language, { min: minText, max: maxText })}
                   </p>
                 </div>
               </div>
@@ -407,7 +401,7 @@ export default function ProductCard({
                   inputMode="decimal"
                   value={customValue}
                   onChange={event => handleCustomChange(event.target.value)}
-                  placeholder={`Mínimo ${minText}`}
+                  placeholder={productUi('product.minimum', language, { min: minText })}
                   className={`w-full h-14 pl-12 pr-4 bg-slate-50 border rounded-2xl outline-none font-bold text-slate-700 transition-all ${
                     customValue !== '' && !isValidCustomValue
                       ? 'border-red-400 bg-red-50'
@@ -420,7 +414,7 @@ export default function ProductCard({
                 <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-2xl p-3 mb-4">
                   <AlertCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
                   <p className="text-[10px] text-red-500 font-black uppercase leading-relaxed">
-                    El valor permitido para este producto es entre {minText} y {maxText}.
+                    {productUi('product.rangeError', language, { min: minText, max: maxText })}
                   </p>
                 </div>
               )}
@@ -431,7 +425,7 @@ export default function ProductCard({
                 disabled={!isValidCustomValue || added}
                 className="w-full h-14 bg-orange-500 rounded-2xl font-black text-white shadow-lg shadow-orange-200 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-widest"
               >
-                Agregar al carrito 🚀
+                {productUi('product.addToCart', language)}
               </button>
             </div>
           </div>
