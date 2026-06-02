@@ -1,0 +1,11 @@
+/*
+  La landing inicial debe funcionar como puerta de instalación.
+  Ocultamos el botón de "continuar en web" sin tocar el flujo principal de App.tsx.
+*/
+#root > div.fixed.inset-0.bg-white button[class*="bg-black/10"][class*="border-white/15"][class*="tracking-widest"] {
+  display: none !important;
+}
+
+#root > div.fixed.inset-0.bg-white button[class*="bg-black/10"][class*="border-white/15"] + * {
+  margin-top: 0 !important;
+}
