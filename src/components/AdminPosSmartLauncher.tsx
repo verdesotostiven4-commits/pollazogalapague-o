@@ -9,6 +9,7 @@ import {
   Minus,
   PackageSearch,
   Plus,
+  Printer,
   QrCode,
   ReceiptText,
   Search,
@@ -47,6 +48,16 @@ type SessionSale = {
   paymentMethod: PaymentMethod;
   date: string;
   itemsCount: number;
+};
+
+type LastTicket = {
+  saleId: string;
+  date: string;
+  items: PosItem[];
+  total: number;
+  paymentMethod: PaymentMethod;
+  cashReceived: number;
+  change: number;
 };
 
 const POS_OPERATOR = 'admin';
@@ -112,6 +123,7 @@ export default function AdminPosSmartLauncher() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [closing, setClosing] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [lastTicket, setLastTicket] = useState<LastTicket | null>(null);
   const [sessionSales, setSessionSales] = useState<SessionSale[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -271,6 +283,7 @@ export default function AdminPosSmartLauncher() {
       await loadRegisterById(String(data), cleanOpeningBalance);
       setSessionSales([]);
       setLastSaleId(null);
+      setLastTicket(null);
     } else {
       setError('No se recibió ID de caja.');
     }
@@ -318,6 +331,7 @@ export default function AdminPosSmartLauncher() {
       setPaymentReference('');
       setClosingCash('');
       setLastSaleId(null);
+      setLastTicket(null);
       window.alert('Turno de caja cerrado correctamente.');
     }
 
@@ -340,6 +354,7 @@ export default function AdminPosSmartLauncher() {
 
     setError(null);
     setLastSaleId(null);
+    setLastTicket(null);
     setItems(current => {
       const exists = current.find(item => item.product.id === product.id);
       if (exists) {
@@ -381,6 +396,47 @@ export default function AdminPosSmartLauncher() {
 
   const removeItem = (productId: string) => setItems(current => current.filter(item => item.product.id !== productId));
 
+  const clearLastSaleNotice = () => {
+    setLastSaleId(null);
+    setLastTicket(null);
+    setError(null);
+    setQuery('');
+  };
+
+  const printLastTicket = () => {
+    if (!lastTicket) {
+      window.alert('Todavía no hay un ticket para imprimir.');
+      return;
+    }
+
+    const ticketRows = lastTicket.items
+      .map(item => {
+        const lineTotal = item.quantity * item.unitPrice;
+        return `<tr><td>${item.quantity}x</td><td>${item.product.name}</td><td style="text-align:right">$${money(lineTotal)}</td></tr>`;
+      })
+      .join('');
+
+    const popup = window.open('', 'pollazo-ticket', 'width=380,height=640');
+    if (!popup) {
+      window.alert('El navegador bloqueó la ventana de impresión.');
+      return;
+    }
+
+    popup.document.write(`
+      <html><head><title>Ticket Pollazo</title><style>
+      body{font-family:Arial,sans-serif;margin:0;padding:18px;color:#111827}.ticket{max-width:320px;margin:0 auto}h1{font-size:18px;text-align:center;margin:0;font-weight:900}.sub{text-align:center;font-size:11px;color:#6b7280;margin:4px 0 12px}.meta{font-size:11px;border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;padding:8px 0;margin-bottom:10px}table{width:100%;border-collapse:collapse;font-size:12px}td{padding:5px 0;vertical-align:top;border-bottom:1px solid #eee}.total{margin-top:12px;border-top:2px solid #111;padding-top:10px;font-size:15px;font-weight:900;display:flex;justify-content:space-between}.note{margin-top:14px;text-align:center;font-size:10px;color:#6b7280}@media print{button{display:none}body{padding:0}}
+      </style></head><body><div class="ticket">
+      <h1>LA CASA DEL POLLAZO</h1><p class="sub">Ticket interno de venta · No tributario</p>
+      <div class="meta"><strong>Venta:</strong> ${lastTicket.saleId.slice(0, 8)}<br/><strong>Fecha:</strong> ${lastTicket.date}<br/><strong>Pago:</strong> ${paymentLabel(lastTicket.paymentMethod)}</div>
+      <table>${ticketRows}</table><div class="total"><span>Total</span><span>$${money(lastTicket.total)}</span></div>
+      ${lastTicket.paymentMethod === 'cash' ? `<div class="meta" style="margin-top:10px"><strong>Recibido:</strong> $${money(lastTicket.cashReceived)}<br/><strong>Cambio:</strong> $${money(lastTicket.change)}</div>` : ''}
+      <p class="note">Gracias por tu compra. Pollazo Galapagueño.</p>
+      <button onclick="window.print()" style="width:100%;margin-top:16px;padding:12px;border-radius:12px;border:0;background:#f97316;color:white;font-weight:900">IMPRIMIR</button>
+      </div></body></html>
+    `);
+    popup.document.close();
+  };
+
   const completeSale = async () => {
     if (!register) {
       setError('Primero abre caja.');
@@ -402,6 +458,7 @@ export default function AdminPosSmartLauncher() {
     setSaving(true);
     setError(null);
     setLastSaleId(null);
+    setLastTicket(null);
 
     const payloadItems = items.map(item => ({
       product_id: item.product.id,
@@ -418,8 +475,11 @@ export default function AdminPosSmartLauncher() {
       },
     ];
 
+    const soldItemsSnapshot = items.map(item => ({ ...item }));
     const soldTotal = Number(total.toFixed(2));
     const soldPaymentMethod = paymentMethod;
+    const soldCashReceived = paymentMethod === 'cash' ? cleanCashReceived : soldTotal;
+    const soldChange = paymentMethod === 'cash' ? Math.max(0, cleanCashReceived - soldTotal) : 0;
 
     const { data, error: rpcError } = await supabase.rpc('create_pos_sale_v1', {
       p_cash_register_id: register.id,
@@ -441,13 +501,22 @@ export default function AdminPosSmartLauncher() {
       const saleDate = new Date().toLocaleString('es-EC');
 
       setLastSaleId(saleId);
+      setLastTicket({
+        saleId,
+        date: saleDate,
+        items: soldItemsSnapshot,
+        total: soldTotal,
+        paymentMethod: soldPaymentMethod,
+        cashReceived: soldCashReceived,
+        change: soldChange,
+      });
       setSessionSales(current => [
         {
           saleId,
           total: soldTotal,
           paymentMethod: soldPaymentMethod,
           date: saleDate,
-          itemsCount: items.reduce((sum, item) => sum + item.quantity, 0),
+          itemsCount: soldItemsSnapshot.reduce((sum, item) => sum + item.quantity, 0),
         },
         ...current,
       ].slice(0, 6));
@@ -513,12 +582,17 @@ export default function AdminPosSmartLauncher() {
                     <CheckCircle2 size={22} />
                     <div>
                       <p className="text-xs font-black uppercase">Venta guardada</p>
-                      <p className="text-[10px] font-bold opacity-75">Venta {lastSaleId.slice(0, 8)} registrada correctamente.</p>
+                      <p className="text-[10px] font-bold opacity-75">Venta {lastSaleId.slice(0, 8)} registrada correctamente. Puedes imprimir ticket o seguir vendiendo.</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setLastSaleId(null)} className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-700 border border-green-100">
-                    Nueva venta
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button type="button" onClick={clearLastSaleNotice} className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-700 border border-green-100">
+                      Nueva venta
+                    </button>
+                    <button type="button" onClick={printLastTicket} className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 border border-green-100 flex items-center justify-center gap-2">
+                      <Printer size={14} /> Ticket
+                    </button>
+                  </div>
                 </div>
               )}
 
