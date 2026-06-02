@@ -16,7 +16,6 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { useAdmin } from '../context/AdminContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Product } from '../types';
 
@@ -28,15 +27,15 @@ type PosItem = {
   unitPrice: number;
 };
 
-type CashRegister = {
+type PosProduct = Product & {
+  barcode?: string | null;
+  current_stock?: number | string | null;
+  track_stock?: boolean | null;
+};
+
+type ActiveRegister = {
   id: string;
-  opened_by: string;
-  opened_at: string;
-  opening_balance: number;
-  expected_cash_sales: number;
-  manual_income: number;
-  manual_expense: number;
-  status: 'open' | 'closed';
+  openingBalance: number;
 };
 
 const POS_OPERATOR = 'admin';
@@ -76,14 +75,15 @@ const paymentIcon = (method: PaymentMethod) => {
 
 const isAdminPath = () => {
   if (typeof window === 'undefined') return false;
-  return window.location.pathname.toLowerCase().includes('admin');
+  return window.location.pathname.toLowerCase() === '/admin';
 };
 
 export default function AdminPosLauncher() {
-  const context = useAdmin();
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
-  const [register, setRegister] = useState<CashRegister | null>(null);
+  const [products, setProducts] = useState<PosProduct[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
+  const [register, setRegister] = useState<ActiveRegister | null>(null);
   const [openingBalance, setOpeningBalance] = useState('50.00');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<PosItem[]>([]);
@@ -91,7 +91,7 @@ export default function AdminPosLauncher() {
   const [cashReceived, setCashReceived] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [saving, setSaving] = useState(false);
-  const [loadingRegister, setLoadingRegister] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,7 +102,7 @@ export default function AdminPosLauncher() {
     window.addEventListener('popstate', refresh);
     window.addEventListener('hashchange', refresh);
 
-    const interval = window.setInterval(refresh, 800);
+    const interval = window.setInterval(refresh, 900);
 
     return () => {
       window.removeEventListener('popstate', refresh);
@@ -111,12 +111,43 @@ export default function AdminPosLauncher() {
     };
   }, []);
 
+  const loadProducts = async () => {
+    if (!isSupabaseConfigured) {
+      setError('Supabase no está configurado.');
+      return;
+    }
+
+    setLoadingProducts(true);
+    setError(null);
+
+    const { data, error: productsError } = await supabase
+      .from('products')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (productsError) {
+      setError('No pude cargar productos para el POS. Revisa políticas RLS de products.');
+      console.error(productsError);
+    } else {
+      setProducts((data || []) as PosProduct[]);
+      setProductsLoaded(true);
+    }
+
+    setLoadingProducts(false);
+  };
+
+  useEffect(() => {
+    if (open && !productsLoaded) {
+      loadProducts();
+    }
+  }, [open, productsLoaded]);
+
   const availableProducts = useMemo(() => {
-    return context.products
+    return products
       .filter(product => product.available !== false)
       .filter(product => !product.is_variable || getProductPrice(product) > 0)
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [context.products]);
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     const clean = query.trim().toLowerCase();
@@ -124,7 +155,7 @@ export default function AdminPosLauncher() {
 
     return availableProducts
       .filter(product => {
-        const barcode = (product as Product & { barcode?: string | null }).barcode || '';
+        const barcode = product.barcode || '';
         return `${product.name} ${product.category} ${product.subcategory || ''} ${product.id} ${barcode}`
           .toLowerCase()
           .includes(clean);
@@ -141,37 +172,6 @@ export default function AdminPosLauncher() {
     return Math.max(0, parseMoney(cashReceived) - total);
   }, [cashReceived, paymentMethod, total]);
 
-  const loadOpenRegister = async () => {
-    if (!isSupabaseConfigured) return;
-
-    setLoadingRegister(true);
-    setError(null);
-
-    const { data, error: registerError } = await supabase
-      .from('cash_registers')
-      .select('*')
-      .eq('opened_by', POS_OPERATOR)
-      .eq('status', 'open')
-      .order('opened_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (registerError) {
-      setError('No pude revisar la caja abierta. Verifica RLS/políticas o la conexión.');
-      console.error(registerError);
-    } else {
-      setRegister(data as CashRegister | null);
-    }
-
-    setLoadingRegister(false);
-  };
-
-  useEffect(() => {
-    if (open) {
-      loadOpenRegister();
-    }
-  }, [open]);
-
   const openCashRegister = async () => {
     if (!isSupabaseConfigured) {
       setError('Supabase no está configurado.');
@@ -181,8 +181,10 @@ export default function AdminPosLauncher() {
     setSaving(true);
     setError(null);
 
+    const cleanOpeningBalance = parseMoney(openingBalance);
+
     const { data, error: rpcError } = await supabase.rpc('open_cash_register_v1', {
-      p_opening_balance: parseMoney(openingBalance),
+      p_opening_balance: cleanOpeningBalance,
       p_opened_by: POS_OPERATOR,
       p_notes: 'Caja abierta desde POS flotante del admin',
     });
@@ -190,20 +192,25 @@ export default function AdminPosLauncher() {
     if (rpcError) {
       setError(rpcError.message || 'No se pudo abrir caja.');
       console.error(rpcError);
-    } else {
-      await loadOpenRegister();
+    } else if (data) {
+      setRegister({ id: String(data), openingBalance: cleanOpeningBalance });
       setLastSaleId(null);
-      console.log('Caja abierta:', data);
     }
 
     setSaving(false);
   };
 
-  const addProduct = (product: Product) => {
+  const addProduct = (product: PosProduct) => {
     const unitPrice = getProductPrice(product);
 
     if (unitPrice <= 0) {
-      setError('Este producto es variable o no tiene precio fijo. Configura un precio antes de venderlo por POS.');
+      setError('Este producto es variable o no tiene precio fijo. Configura precio antes de venderlo por POS.');
+      return;
+    }
+
+    const currentStock = parseMoney(product.current_stock);
+    if (product.track_stock && currentStock <= 0) {
+      setError(`Sin stock disponible para ${product.name}.`);
       return;
     }
 
@@ -263,6 +270,13 @@ export default function AdminPosLauncher() {
     setError(null);
     setLastSaleId(null);
 
+    const payloadItems = items.map(item => ({
+      product_id: item.product.id,
+      product_name: item.product.name,
+      quantity: item.quantity,
+      unit_price: Number(item.unitPrice.toFixed(2)),
+    }));
+
     const payments = [
       {
         method: paymentMethod,
@@ -270,13 +284,6 @@ export default function AdminPosLauncher() {
         reference: paymentReference || null,
       },
     ];
-
-    const payloadItems = items.map(item => ({
-      product_id: item.product.id,
-      product_name: item.product.name,
-      quantity: item.quantity,
-      unit_price: Number(item.unitPrice.toFixed(2)),
-    }));
 
     const { data, error: rpcError } = await supabase.rpc('create_pos_sale_v1', {
       p_cash_register_id: register.id,
@@ -298,7 +305,8 @@ export default function AdminPosLauncher() {
       setItems([]);
       setCashReceived('');
       setPaymentReference('');
-      await loadOpenRegister();
+      setProductsLoaded(false);
+      loadProducts();
     }
 
     setSaving(false);
@@ -384,10 +392,10 @@ export default function AdminPosLauncher() {
                   <button
                     type="button"
                     onClick={openCashRegister}
-                    disabled={saving || loadingRegister}
+                    disabled={saving}
                     className="mt-4 w-full rounded-2xl bg-orange-500 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200 disabled:opacity-60 active:scale-[0.98] transition-transform"
                   >
-                    {saving || loadingRegister ? 'Abriendo...' : 'Abrir caja y empezar'}
+                    {saving ? 'Abriendo...' : 'Abrir caja y empezar'}
                   </button>
                 </section>
               ) : (
@@ -396,8 +404,8 @@ export default function AdminPosLauncher() {
                     <div className="rounded-[28px] bg-white border border-gray-100 p-4 shadow-sm">
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-green-600">Caja abierta</p>
-                          <p className="text-xs font-bold text-gray-400">Inicial ${money(register.opening_balance)} · Efectivo ventas ${money(register.expected_cash_sales)}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-green-600">Caja activa</p>
+                          <p className="text-xs font-bold text-gray-400">Inicial ${money(register.openingBalance)} · ID {register.id.slice(0, 8)}</p>
                         </div>
                         <Wallet size={22} className="text-green-500" />
                       </div>
@@ -414,27 +422,33 @@ export default function AdminPosLauncher() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {filteredProducts.map(product => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => addProduct(product)}
-                          className="rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm active:scale-[0.98] transition-transform"
-                        >
-                          <p className="text-xs font-black uppercase text-gray-900 leading-tight line-clamp-2">{product.name}</p>
-                          <p className="mt-1 text-[10px] font-bold text-gray-400">{product.category}</p>
-                          <p className="mt-3 text-lg font-black text-orange-600">${money(getProductPrice(product))}</p>
-                        </button>
-                      ))}
+                    {loadingProducts ? (
+                      <div className="rounded-3xl bg-white border border-gray-100 p-8 text-center text-orange-500 font-black uppercase animate-pulse">
+                        Cargando productos...
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {filteredProducts.map(product => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => addProduct(product)}
+                            className="rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm active:scale-[0.98] transition-transform"
+                          >
+                            <p className="text-xs font-black uppercase text-gray-900 leading-tight line-clamp-2">{product.name}</p>
+                            <p className="mt-1 text-[10px] font-bold text-gray-400">{product.category}</p>
+                            <p className="mt-3 text-lg font-black text-orange-600">${money(getProductPrice(product))}</p>
+                          </button>
+                        ))}
 
-                      {filteredProducts.length === 0 && (
-                        <div className="sm:col-span-2 rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-400">
-                          <PackageSearch size={32} className="mx-auto mb-2 text-orange-300" />
-                          <p className="text-xs font-black uppercase">No encontré productos</p>
-                        </div>
-                      )}
-                    </div>
+                        {filteredProducts.length === 0 && (
+                          <div className="sm:col-span-2 rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-400">
+                            <PackageSearch size={32} className="mx-auto mb-2 text-orange-300" />
+                            <p className="text-xs font-black uppercase">No encontré productos</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </section>
 
                   <aside className="rounded-[32px] bg-white border border-gray-100 shadow-sm overflow-hidden">
