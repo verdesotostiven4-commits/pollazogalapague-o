@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  ShoppingBag,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -24,6 +25,8 @@ type CatalogProduct = Product & {
   current_stock?: number | string | null;
   stock_minimum?: number | string | null;
   track_stock?: boolean | null;
+  show_in_app?: boolean | null;
+  show_in_pos?: boolean | null;
   source?: 'base' | 'supabase';
 };
 
@@ -41,6 +44,8 @@ type Draft = {
   current_stock: string;
   stock_minimum: string;
   available: boolean;
+  show_in_app: boolean;
+  show_in_pos: boolean;
   is_variable: boolean;
   track_stock: boolean;
 };
@@ -73,6 +78,8 @@ const blankDraft = (): Draft => ({
   current_stock: '0',
   stock_minimum: '0',
   available: true,
+  show_in_app: true,
+  show_in_pos: true,
   is_variable: false,
   track_stock: false,
 });
@@ -112,6 +119,8 @@ const mergeCatalogProducts = (remoteProducts: CatalogProduct[]) => {
     map.set(product.id, {
       ...product,
       available: product.available !== false,
+      show_in_app: product.show_in_app !== false,
+      show_in_pos: product.show_in_pos !== false,
       cost_price: 0,
       current_stock: 0,
       stock_minimum: 0,
@@ -125,6 +134,8 @@ const mergeCatalogProducts = (remoteProducts: CatalogProduct[]) => {
       ...map.get(product.id),
       ...product,
       available: product.available !== false,
+      show_in_app: product.show_in_app !== false,
+      show_in_pos: product.show_in_pos !== false,
       source: 'supabase',
     });
   });
@@ -148,6 +159,8 @@ const buildInsertPayloadFromBaseProduct = (product: CatalogProduct, now: string)
   track_stock: Boolean(product.track_stock),
   is_variable: Boolean(product.is_variable),
   available: product.available !== false,
+  show_in_app: product.show_in_app !== false,
+  show_in_pos: product.show_in_pos !== false,
   created_at: now,
   updated_at: now,
 });
@@ -214,6 +227,8 @@ export default function AdminCatalogMasterLauncher() {
   const stats = useMemo(() => ({
     total: products.length,
     active: products.filter(p => p.available !== false).length,
+    inApp: products.filter(p => p.show_in_app !== false).length,
+    inPos: products.filter(p => p.show_in_pos !== false).length,
     hidden: products.filter(p => p.available === false).length,
     noImage: products.filter(p => !hasImage(p)).length,
     noPrice: products.filter(p => !hasPrice(p)).length,
@@ -226,7 +241,11 @@ export default function AdminCatalogMasterLauncher() {
     const q = normalized(query).trim();
     return [...products]
       .filter(p => !q || normalized(`${p.name} ${p.category} ${p.subcategory || ''} ${p.barcode || ''} ${p.id}`).includes(q))
-      .sort((a, b) => (a.category === b.category ? a.name.localeCompare(b.name) : a.category.localeCompare(b.category)));
+      .sort((a, b) => {
+        if ((a.source === 'base') !== (b.source === 'base')) return a.source === 'base' ? -1 : 1;
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
+        return a.name.localeCompare(b.name);
+      });
   }, [products, query]);
 
   const selected = products.find(product => product.id === selectedId) || null;
@@ -244,7 +263,7 @@ export default function AdminCatalogMasterLauncher() {
       return;
     }
 
-    const confirmed = window.confirm(`Se activarán ${pendingProducts.length} productos para que aparezcan en caja e inventario. No se tocarán productos que ya fueron editados. ¿Continuar?`);
+    const confirmed = window.confirm(`Se activarán ${pendingProducts.length} productos para que aparezcan en el sistema del local. No se tocarán productos que ya fueron editados. ¿Continuar?`);
     if (!confirmed) return;
 
     setSyncingCatalog(true);
@@ -284,6 +303,8 @@ export default function AdminCatalogMasterLauncher() {
       current_stock: String(product.current_stock ?? '0'),
       stock_minimum: String(product.stock_minimum ?? '0'),
       available: product.available !== false,
+      show_in_app: product.show_in_app !== false,
+      show_in_pos: product.show_in_pos !== false,
       is_variable: Boolean(product.is_variable),
       track_stock: Boolean(product.track_stock),
     });
@@ -327,6 +348,8 @@ export default function AdminCatalogMasterLauncher() {
       current_stock: Math.max(0, n(draft.current_stock)),
       stock_minimum: Math.max(0, n(draft.stock_minimum)),
       available: draft.available,
+      show_in_app: draft.show_in_app,
+      show_in_pos: draft.show_in_pos,
       is_variable: draft.is_variable,
       track_stock: draft.track_stock,
       updated_at: now,
@@ -376,6 +399,8 @@ export default function AdminCatalogMasterLauncher() {
       track_stock: Boolean(selected.track_stock),
       is_variable: Boolean(selected.is_variable),
       available: next,
+      show_in_app: selected.show_in_app !== false,
+      show_in_pos: selected.show_in_pos !== false,
       updated_at: now,
       created_at: selected.created_at || now,
     };
@@ -431,7 +456,7 @@ export default function AdminCatalogMasterLauncher() {
                 <div className="flex items-start gap-3">
                   <Sparkles size={20} className="flex-shrink-0 text-orange-500" />
                   <p className="text-[11px] font-bold leading-relaxed">
-                    <b>Automático:</b> revisa, corrige y guarda productos desde aquí. Cada cambio queda listo para la app, la caja y el inventario.
+                    <b>Automático:</b> controla si cada producto aparece en clientes, caja y si descuenta inventario.
                   </p>
                 </div>
 
@@ -453,10 +478,12 @@ export default function AdminCatalogMasterLauncher() {
                 </section>
               )}
 
-              <section className="shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              <section className="shrink-0 grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2">
                 {[
                   ['Catálogo', stats.total],
                   ['Activos', stats.active],
+                  ['En app', stats.inApp],
+                  ['En caja', stats.inPos],
                   ['Pendientes', stats.pending],
                   ['Ocultos', stats.hidden],
                   ['Sin imagen', stats.noImage],
@@ -512,10 +539,12 @@ export default function AdminCatalogMasterLauncher() {
                         >
                           <img src={product.image || '/logo-final.png'} alt={product.name} className="h-14 w-14 rounded-2xl object-cover border border-gray-100 bg-gray-50 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs font-black uppercase text-slate-950 truncate">{product.name}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs font-black uppercase text-slate-950 truncate max-w-[170px]">{product.name}</p>
                               {ready ? <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" /> : <AlertTriangle size={14} className="text-orange-500 flex-shrink-0" />}
                               {product.source === 'base' && <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-700 border border-yellow-100 flex-shrink-0">Pendiente</span>}
+                              {product.show_in_app === false && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-black uppercase text-slate-500">No app</span>}
+                              {product.show_in_pos === false && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-black uppercase text-slate-500">No caja</span>}
                             </div>
                             <p className="mt-1 text-[10px] font-bold text-gray-400 truncate">
                               {product.category} · {product.subcategory || 'Sin subcategoría'} · {product.is_variable ? 'Variable' : `$${money(product.price)}`}
@@ -565,10 +594,18 @@ export default function AdminCatalogMasterLauncher() {
                       <input value={draft.stock_minimum} onChange={e => setDraft({ ...draft, stock_minimum: e.target.value })} placeholder="Stock mínimo" className="rounded-2xl bg-white border border-orange-100 px-4 py-3.5 text-sm font-bold outline-none" />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                      <button type="button" onClick={() => setDraft({ ...draft, show_in_app: !draft.show_in_app })} className={`rounded-2xl border p-3 text-left ${draft.show_in_app ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+                        <Eye size={17} />
+                        <p className="mt-2 text-[10px] font-black uppercase">{draft.show_in_app ? 'En app' : 'No app'}</p>
+                      </button>
+                      <button type="button" onClick={() => setDraft({ ...draft, show_in_pos: !draft.show_in_pos })} className={`rounded-2xl border p-3 text-left ${draft.show_in_pos ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+                        <ShoppingBag size={17} />
+                        <p className="mt-2 text-[10px] font-black uppercase">{draft.show_in_pos ? 'En caja' : 'No caja'}</p>
+                      </button>
                       <button type="button" onClick={() => setDraft({ ...draft, available: !draft.available })} className={`rounded-2xl border p-3 text-left ${draft.available ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
                         {draft.available ? <Eye size={17} /> : <EyeOff size={17} />}
-                        <p className="mt-2 text-[10px] font-black uppercase">{draft.available ? 'Visible' : 'Oculto'}</p>
+                        <p className="mt-2 text-[10px] font-black uppercase">{draft.available ? 'Disponible' : 'Agotado'}</p>
                       </button>
                       <button type="button" onClick={() => setDraft({ ...draft, is_variable: !draft.is_variable })} className="rounded-2xl border p-3 text-left bg-gray-50 text-gray-600 border-gray-100">
                         <Sparkles size={17} />
@@ -584,7 +621,7 @@ export default function AdminCatalogMasterLauncher() {
                   <div className="shrink-0 bg-white/95 backdrop-blur border-t border-gray-100 p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {selected && (
                       <button type="button" onClick={toggleAvailability} className="rounded-2xl bg-gray-100 px-5 py-4 text-[10px] font-black uppercase text-gray-600 active:scale-95">
-                        {selected.available === false ? 'Mostrar producto' : 'Ocultar producto'}
+                        {selected.available === false ? 'Mostrar producto' : 'Marcar agotado'}
                       </button>
                     )}
                     <button type="button" onClick={save} disabled={saving} className="rounded-2xl bg-slate-950 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-white active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2">
