@@ -22,24 +22,22 @@ import type { Product } from '../types';
 
 type PaymentMethod = 'cash' | 'deuna' | 'transfer' | 'card';
 
-type PosItem = {
-  product: Product;
-  quantity: number;
-  unitPrice: number;
-};
-
 type PosProduct = Product & {
   barcode?: string | null;
   current_stock?: number | string | null;
   track_stock?: boolean | null;
 };
 
+type PosItem = {
+  product: PosProduct;
+  quantity: number;
+  unitPrice: number;
+};
+
 type ActiveRegister = {
   id: string;
   openingBalance: number;
   expectedCashSales: number;
-  manualIncome: number;
-  manualExpense: number;
 };
 
 type LastTicket = {
@@ -130,12 +128,10 @@ export default function AdminPosLauncher() {
 
   const expectedCash = useMemo(() => {
     if (!register) return 0;
-    return register.openingBalance + register.expectedCashSales + register.manualIncome - register.manualExpense;
+    return register.openingBalance + register.expectedCashSales;
   }, [register]);
 
-  const closeDifference = useMemo(() => {
-    return parseMoney(closingCash) - expectedCash;
-  }, [closingCash, expectedCash]);
+  const closeDifference = useMemo(() => parseMoney(closingCash) - expectedCash, [closingCash, expectedCash]);
 
   const loadProducts = async () => {
     if (!isSupabaseConfigured) {
@@ -160,39 +156,6 @@ export default function AdminPosLauncher() {
     }
 
     setLoadingProducts(false);
-  };
-
-  const loadRegisterById = async (registerId: string, fallbackOpeningBalance = 0) => {
-    const { data, error: registerError } = await supabase
-      .from('cash_registers')
-      .select('id, opening_balance, expected_cash_sales, manual_income, manual_expense, status')
-      .eq('id', registerId)
-      .maybeSingle();
-
-    if (registerError) {
-      console.error(registerError);
-      setRegister({
-        id: registerId,
-        openingBalance: fallbackOpeningBalance,
-        expectedCashSales: 0,
-        manualIncome: 0,
-        manualExpense: 0,
-      });
-      return;
-    }
-
-    if (!data || data.status !== 'open') {
-      setRegister(null);
-      return;
-    }
-
-    setRegister({
-      id: String(data.id),
-      openingBalance: parseMoney(data.opening_balance),
-      expectedCashSales: parseMoney(data.expected_cash_sales),
-      manualIncome: parseMoney(data.manual_income),
-      manualExpense: parseMoney(data.manual_expense),
-    });
   };
 
   useEffect(() => {
@@ -252,9 +215,16 @@ export default function AdminPosLauncher() {
       setError(rpcError.message || 'No se pudo abrir caja.');
       console.error(rpcError);
     } else if (data) {
-      await loadRegisterById(String(data), cleanOpeningBalance);
+      setRegister({
+        id: String(data),
+        openingBalance: cleanOpeningBalance,
+        expectedCashSales: 0,
+      });
       setClosingCash('');
       setLastSaleId(null);
+      setLastTicket(null);
+    } else {
+      setError('Supabase no devolvió ID de caja.');
     }
 
     setSaving(false);
@@ -268,17 +238,17 @@ export default function AdminPosLauncher() {
       return;
     }
 
-    if (!window.confirm(`Cerrar caja con efectivo real de $${money(closingCash)}?`)) {
-      return;
-    }
+    const realCash = parseMoney(closingCash || expectedCash);
+
+    if (!window.confirm(`Cerrar caja con efectivo real de $${money(realCash)}?`)) return;
 
     setClosing(true);
     setError(null);
 
     const { error: closeError } = await supabase.rpc('close_cash_register_v1', {
       p_cash_register_id: register.id,
-      p_real_balance_cash: parseMoney(closingCash),
-      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Diferencia $${money(closeDifference)}`,
+      p_real_balance_cash: realCash,
+      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Diferencia $${money(realCash - expectedCash)}`,
     });
 
     if (closeError) {
@@ -338,9 +308,7 @@ export default function AdminPosLauncher() {
     );
   };
 
-  const removeItem = (productId: string) => {
-    setItems(current => current.filter(item => item.product.id !== productId));
-  };
+  const removeItem = (productId: string) => setItems(current => current.filter(item => item.product.id !== productId));
 
   const printLastTicket = () => {
     if (!lastTicket) {
@@ -351,13 +319,7 @@ export default function AdminPosLauncher() {
     const ticketRows = lastTicket.items
       .map(item => {
         const lineTotal = item.quantity * item.unitPrice;
-        return `
-          <tr>
-            <td>${item.quantity}x</td>
-            <td>${item.product.name}</td>
-            <td style="text-align:right">$${money(lineTotal)}</td>
-          </tr>
-        `;
+        return `<tr><td>${item.quantity}x</td><td>${item.product.name}</td><td style="text-align:right">$${money(lineTotal)}</td></tr>`;
       })
       .join('');
 
@@ -368,39 +330,16 @@ export default function AdminPosLauncher() {
     }
 
     popup.document.write(`
-      <html>
-        <head>
-          <title>Ticket Pollazo</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 18px; color: #111827; }
-            .ticket { max-width: 320px; margin: 0 auto; }
-            h1 { font-size: 18px; text-align: center; margin: 0; font-weight: 900; }
-            .sub { text-align: center; font-size: 11px; color: #6b7280; margin: 4px 0 12px; }
-            .meta { font-size: 11px; border-top: 1px dashed #aaa; border-bottom: 1px dashed #aaa; padding: 8px 0; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            td { padding: 5px 0; vertical-align: top; border-bottom: 1px solid #eee; }
-            .total { margin-top: 12px; border-top: 2px solid #111; padding-top: 10px; font-size: 15px; font-weight: 900; display: flex; justify-content: space-between; }
-            .note { margin-top: 14px; text-align: center; font-size: 10px; color: #6b7280; }
-            @media print { button { display: none; } body { padding: 0; } }
-          </style>
-        </head>
-        <body>
-          <div class="ticket">
-            <h1>LA CASA DEL POLLAZO</h1>
-            <p class="sub">Ticket interno de venta · No tributario</p>
-            <div class="meta">
-              <strong>Venta:</strong> ${lastTicket.saleId.slice(0, 8)}<br />
-              <strong>Fecha:</strong> ${lastTicket.date}<br />
-              <strong>Pago:</strong> ${paymentLabel(lastTicket.paymentMethod)}
-            </div>
-            <table>${ticketRows}</table>
-            <div class="total"><span>Total</span><span>$${money(lastTicket.total)}</span></div>
-            ${lastTicket.paymentMethod === 'cash' ? `<div class="meta" style="margin-top:10px"><strong>Recibido:</strong> $${money(lastTicket.cashReceived)}<br /><strong>Cambio:</strong> $${money(lastTicket.change)}</div>` : ''}
-            <p class="note">Gracias por tu compra. Pollazo Galapagueño.</p>
-            <button onclick="window.print()" style="width:100%;margin-top:16px;padding:12px;border-radius:12px;border:0;background:#f97316;color:white;font-weight:900">IMPRIMIR</button>
-          </div>
-        </body>
-      </html>
+      <html><head><title>Ticket Pollazo</title><style>
+      body{font-family:Arial,sans-serif;margin:0;padding:18px;color:#111827}.ticket{max-width:320px;margin:0 auto}h1{font-size:18px;text-align:center;margin:0;font-weight:900}.sub{text-align:center;font-size:11px;color:#6b7280;margin:4px 0 12px}.meta{font-size:11px;border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;padding:8px 0;margin-bottom:10px}table{width:100%;border-collapse:collapse;font-size:12px}td{padding:5px 0;vertical-align:top;border-bottom:1px solid #eee}.total{margin-top:12px;border-top:2px solid #111;padding-top:10px;font-size:15px;font-weight:900;display:flex;justify-content:space-between}.note{margin-top:14px;text-align:center;font-size:10px;color:#6b7280}@media print{button{display:none}body{padding:0}}
+      </style></head><body><div class="ticket">
+      <h1>LA CASA DEL POLLAZO</h1><p class="sub">Ticket interno de venta · No tributario</p>
+      <div class="meta"><strong>Venta:</strong> ${lastTicket.saleId.slice(0, 8)}<br/><strong>Fecha:</strong> ${lastTicket.date}<br/><strong>Pago:</strong> ${paymentLabel(lastTicket.paymentMethod)}</div>
+      <table>${ticketRows}</table><div class="total"><span>Total</span><span>$${money(lastTicket.total)}</span></div>
+      ${lastTicket.paymentMethod === 'cash' ? `<div class="meta" style="margin-top:10px"><strong>Recibido:</strong> $${money(lastTicket.cashReceived)}<br/><strong>Cambio:</strong> $${money(lastTicket.change)}</div>` : ''}
+      <p class="note">Gracias por tu compra. Pollazo Galapagueño.</p>
+      <button onclick="window.print()" style="width:100%;margin-top:16px;padding:12px;border-radius:12px;border:0;background:#f97316;color:white;font-weight:900">IMPRIMIR</button>
+      </div></body></html>
     `);
     popup.document.close();
   };
@@ -480,16 +419,17 @@ export default function AdminPosLauncher() {
         cashReceived: soldCashReceived,
         change: soldChange,
       });
-      setRegister(current => {
-        if (!current) return current;
-        return {
-          ...current,
-          expectedCashSales:
-            soldPaymentMethod === 'cash'
-              ? current.expectedCashSales + soldTotal
-              : current.expectedCashSales,
-        };
-      });
+      setRegister(current =>
+        current
+          ? {
+              ...current,
+              expectedCashSales:
+                soldPaymentMethod === 'cash'
+                  ? current.expectedCashSales + soldTotal
+                  : current.expectedCashSales,
+            }
+          : current
+      );
       setItems([]);
       setCashReceived('');
       setPaymentReference('');
@@ -529,22 +469,13 @@ export default function AdminPosLauncher() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="h-11 w-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
-                aria-label="Cerrar POS"
-              >
+              <button type="button" onClick={() => setOpen(false)} className="h-11 w-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center active:scale-90 transition-transform" aria-label="Cerrar POS">
                 <X size={20} />
               </button>
             </header>
 
             <main className="p-4 sm:p-5 space-y-4">
-              {error && (
-                <div className="rounded-3xl border border-red-100 bg-red-50 p-4 text-xs font-black uppercase tracking-wide text-red-600">
-                  {error}
-                </div>
-              )}
+              {error && <div className="rounded-3xl border border-red-100 bg-red-50 p-4 text-xs font-black uppercase tracking-wide text-red-600">{error}</div>}
 
               {lastSaleId && (
                 <div className="rounded-3xl border border-green-100 bg-green-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-green-700">
@@ -555,13 +486,8 @@ export default function AdminPosLauncher() {
                       <p className="text-[10px] font-bold opacity-75">ID: {lastSaleId}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={printLastTicket}
-                    className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 border border-green-100 flex items-center justify-center gap-2"
-                  >
-                    <Printer size={14} />
-                    Ticket
+                  <button type="button" onClick={printLastTicket} className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 border border-green-100 flex items-center justify-center gap-2">
+                    <Printer size={14} /> Ticket
                   </button>
                 </div>
               )}
@@ -569,32 +495,15 @@ export default function AdminPosLauncher() {
               {!register ? (
                 <section className="rounded-[32px] bg-white border border-orange-100 p-5 shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="h-12 w-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center">
-                      <Banknote size={24} />
-                    </div>
+                    <div className="h-12 w-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center"><Banknote size={24} /></div>
                     <div>
                       <p className="text-xs font-black uppercase text-gray-900">Abrir caja</p>
                       <p className="text-[10px] font-bold text-gray-400">Necesario antes de vender en mostrador.</p>
                     </div>
                   </div>
-
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
-                    Efectivo inicial para cambio
-                  </label>
-                  <input
-                    value={openingBalance}
-                    onChange={event => setOpeningBalance(event.target.value)}
-                    inputMode="decimal"
-                    className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-2xl font-black outline-none focus:border-orange-300"
-                    placeholder="50.00"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={openCashRegister}
-                    disabled={saving}
-                    className="mt-4 w-full rounded-2xl bg-orange-500 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200 disabled:opacity-60 active:scale-[0.98] transition-transform"
-                  >
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Efectivo inicial para cambio</label>
+                  <input value={openingBalance} onChange={event => setOpeningBalance(event.target.value)} inputMode="decimal" className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-2xl font-black outline-none focus:border-orange-300" placeholder="50.00" />
+                  <button type="button" onClick={openCashRegister} disabled={saving} className="mt-4 w-full rounded-2xl bg-orange-500 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200 disabled:opacity-60 active:scale-[0.98] transition-transform">
                     {saving ? 'Abriendo...' : 'Abrir caja y empezar'}
                   </button>
                 </section>
@@ -611,57 +520,29 @@ export default function AdminPosLauncher() {
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3">
-                          <p className="text-[8px] font-black uppercase text-orange-500">Inicial</p>
-                          <p className="text-sm font-black text-gray-900">${money(register.openingBalance)}</p>
-                        </div>
-                        <div className="rounded-2xl bg-green-50 border border-green-100 p-3">
-                          <p className="text-[8px] font-black uppercase text-green-600">Ventas efectivo</p>
-                          <p className="text-sm font-black text-gray-900">${money(register.expectedCashSales)}</p>
-                        </div>
-                        <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
-                          <p className="text-[8px] font-black uppercase text-slate-500">Esperado</p>
-                          <p className="text-sm font-black text-gray-900">${money(expectedCash)}</p>
-                        </div>
+                        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3"><p className="text-[8px] font-black uppercase text-orange-500">Inicial</p><p className="text-sm font-black text-gray-900">${money(register.openingBalance)}</p></div>
+                        <div className="rounded-2xl bg-green-50 border border-green-100 p-3"><p className="text-[8px] font-black uppercase text-green-600">Ventas efectivo</p><p className="text-sm font-black text-gray-900">${money(register.expectedCashSales)}</p></div>
+                        <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><p className="text-[8px] font-black uppercase text-slate-500">Esperado</p><p className="text-sm font-black text-gray-900">${money(expectedCash)}</p></div>
                       </div>
 
                       <div className="relative">
                         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input
-                          value={query}
-                          onChange={event => setQuery(event.target.value)}
-                          placeholder="Buscar producto o código..."
-                          className="w-full rounded-2xl border border-gray-100 bg-gray-50 py-4 pl-12 pr-4 text-sm font-bold outline-none focus:border-orange-300"
-                          autoFocus
-                        />
+                        <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar producto o código..." className="w-full rounded-2xl border border-gray-100 bg-gray-50 py-4 pl-12 pr-4 text-sm font-bold outline-none focus:border-orange-300" autoFocus />
                       </div>
                     </div>
 
                     {loadingProducts ? (
-                      <div className="rounded-3xl bg-white border border-gray-100 p-8 text-center text-orange-500 font-black uppercase animate-pulse">
-                        Cargando productos...
-                      </div>
+                      <div className="rounded-3xl bg-white border border-gray-100 p-8 text-center text-orange-500 font-black uppercase animate-pulse">Cargando productos...</div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {filteredProducts.map(product => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => addProduct(product)}
-                            className="rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm active:scale-[0.98] transition-transform"
-                          >
+                          <button key={product.id} type="button" onClick={() => addProduct(product)} className="rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm active:scale-[0.98] transition-transform">
                             <p className="text-xs font-black uppercase text-gray-900 leading-tight line-clamp-2">{product.name}</p>
                             <p className="mt-1 text-[10px] font-bold text-gray-400">{product.category}</p>
                             <p className="mt-3 text-lg font-black text-orange-600">${money(getProductPrice(product))}</p>
                           </button>
                         ))}
-
-                        {filteredProducts.length === 0 && (
-                          <div className="sm:col-span-2 rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-400">
-                            <PackageSearch size={32} className="mx-auto mb-2 text-orange-300" />
-                            <p className="text-xs font-black uppercase">No encontré productos</p>
-                          </div>
-                        )}
+                        {filteredProducts.length === 0 && <div className="sm:col-span-2 rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-400"><PackageSearch size={32} className="mx-auto mb-2 text-orange-300" /><p className="text-xs font-black uppercase">No encontré productos</p></div>}
                       </div>
                     )}
 
@@ -669,139 +550,42 @@ export default function AdminPosLauncher() {
                       <p className="text-xs font-black uppercase text-gray-900">Cerrar caja</p>
                       <p className="text-[10px] font-bold text-gray-400 mt-1">Cuenta el efectivo físico y registra el valor real.</p>
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-3">
-                        <input
-                          value={closingCash}
-                          onChange={event => setClosingCash(event.target.value)}
-                          inputMode="decimal"
-                          placeholder={money(expectedCash)}
-                          className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-lg font-black outline-none focus:border-red-300"
-                        />
-                        <button
-                          type="button"
-                          onClick={closeCashRegister}
-                          disabled={closing || !register}
-                          className="rounded-2xl bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 active:scale-[0.98] transition-transform"
-                        >
-                          {closing ? 'Cerrando...' : 'Cerrar caja'}
-                        </button>
+                        <input value={closingCash} onChange={event => setClosingCash(event.target.value)} inputMode="decimal" placeholder={money(expectedCash)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-lg font-black outline-none focus:border-red-300" />
+                        <button type="button" onClick={closeCashRegister} disabled={closing || !register} className="rounded-2xl bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 active:scale-[0.98] transition-transform">{closing ? 'Cerrando...' : 'Cerrar caja'}</button>
                       </div>
-                      <p className={`mt-2 text-[10px] font-black uppercase ${closeDifference < 0 ? 'text-red-500' : closeDifference > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        Diferencia: ${money(closeDifference)}
-                      </p>
+                      <p className={`mt-2 text-[10px] font-black uppercase ${closeDifference < 0 ? 'text-red-500' : closeDifference > 0 ? 'text-green-600' : 'text-gray-400'}`}>Diferencia: ${money(closeDifference)}</p>
                     </section>
                   </section>
 
                   <aside className="rounded-[32px] bg-white border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="bg-slate-950 text-white p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <ShoppingCart size={19} className="text-orange-300" />
-                        <p className="text-xs font-black uppercase tracking-widest">Carrito</p>
-                      </div>
-                      <p className="text-xs font-black text-orange-300">{items.length}</p>
-                    </div>
-
+                    <div className="bg-slate-950 text-white p-4 flex items-center justify-between"><div className="flex items-center gap-2"><ShoppingCart size={19} className="text-orange-300" /><p className="text-xs font-black uppercase tracking-widest">Carrito</p></div><p className="text-xs font-black text-orange-300">{items.length}</p></div>
                     <div className="p-4 space-y-3 max-h-[44vh] overflow-y-auto">
                       {items.length === 0 ? (
-                        <div className="rounded-3xl bg-gray-50 border border-gray-100 p-7 text-center text-gray-400">
-                          <ShoppingCart size={34} className="mx-auto mb-2 text-orange-200" />
-                          <p className="text-xs font-black uppercase">Agrega productos</p>
-                        </div>
+                        <div className="rounded-3xl bg-gray-50 border border-gray-100 p-7 text-center text-gray-400"><ShoppingCart size={34} className="mx-auto mb-2 text-orange-200" /><p className="text-xs font-black uppercase">Agrega productos</p></div>
                       ) : (
                         items.map(item => (
                           <div key={item.product.id} className="rounded-3xl border border-gray-100 bg-gray-50 p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-xs font-black uppercase text-gray-900 line-clamp-2">{item.product.name}</p>
-                                <p className="text-[10px] font-bold text-gray-400 mt-1">${money(item.unitPrice)} c/u</p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeItem(item.product.id)}
-                                className="h-9 w-9 rounded-xl bg-white text-red-500 flex items-center justify-center border border-red-50"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => updateQuantity(item.product.id, -1)} className="h-9 w-9 rounded-xl bg-white border flex items-center justify-center">
-                                  <Minus size={14} />
-                                </button>
-                                <span className="min-w-10 text-center text-sm font-black">{item.quantity}</span>
-                                <button type="button" onClick={() => updateQuantity(item.product.id, 1)} className="h-9 w-9 rounded-xl bg-white border flex items-center justify-center">
-                                  <Plus size={14} />
-                                </button>
-                              </div>
-                              <p className="text-sm font-black text-gray-900">${money(item.quantity * item.unitPrice)}</p>
-                            </div>
+                            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black uppercase text-gray-900 line-clamp-2">{item.product.name}</p><p className="text-[10px] font-bold text-gray-400 mt-1">${money(item.unitPrice)} c/u</p></div><button type="button" onClick={() => removeItem(item.product.id)} className="h-9 w-9 rounded-xl bg-white text-red-500 flex items-center justify-center border border-red-50"><Trash2 size={15} /></button></div>
+                            <div className="mt-3 flex items-center justify-between gap-2"><div className="flex items-center gap-2"><button type="button" onClick={() => updateQuantity(item.product.id, -1)} className="h-9 w-9 rounded-xl bg-white border flex items-center justify-center"><Minus size={14} /></button><span className="min-w-10 text-center text-sm font-black">{item.quantity}</span><button type="button" onClick={() => updateQuantity(item.product.id, 1)} className="h-9 w-9 rounded-xl bg-white border flex items-center justify-center"><Plus size={14} /></button></div><p className="text-sm font-black text-gray-900">${money(item.quantity * item.unitPrice)}</p></div>
                           </div>
                         ))
                       )}
                     </div>
-
                     <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase text-gray-400">Total</span>
-                        <span className="text-3xl font-black text-gray-950">${money(total)}</span>
-                      </div>
-
+                      <div className="flex items-center justify-between"><span className="text-xs font-black uppercase text-gray-400">Total</span><span className="text-3xl font-black text-gray-950">${money(total)}</span></div>
                       <div className="grid grid-cols-2 gap-2">
                         {(['cash', 'deuna', 'transfer', 'card'] as PaymentMethod[]).map(method => {
                           const Icon = paymentIcon(method);
                           const active = paymentMethod === method;
-
-                          return (
-                            <button
-                              key={method}
-                              type="button"
-                              onClick={() => setPaymentMethod(method)}
-                              className={`rounded-2xl border px-3 py-3 text-[10px] font-black uppercase flex items-center justify-center gap-2 ${
-                                active
-                                  ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-100'
-                                  : 'bg-white text-gray-500 border-gray-100'
-                              }`}
-                            >
-                              <Icon size={14} />
-                              {paymentLabel(method)}
-                            </button>
-                          );
+                          return <button key={method} type="button" onClick={() => setPaymentMethod(method)} className={`rounded-2xl border px-3 py-3 text-[10px] font-black uppercase flex items-center justify-center gap-2 ${active ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-100' : 'bg-white text-gray-500 border-gray-100'}`}><Icon size={14} />{paymentLabel(method)}</button>;
                         })}
                       </div>
-
                       {paymentMethod === 'cash' ? (
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Recibido</label>
-                          <input
-                            value={cashReceived}
-                            onChange={event => setCashReceived(event.target.value)}
-                            inputMode="decimal"
-                            placeholder={money(total)}
-                            className="mt-1 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-lg font-black outline-none focus:border-orange-300"
-                          />
-                          <p className="mt-1 text-xs font-black text-green-600">Cambio: ${money(change)}</p>
-                        </div>
+                        <div><label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Recibido</label><input value={cashReceived} onChange={event => setCashReceived(event.target.value)} inputMode="decimal" placeholder={money(total)} className="mt-1 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-lg font-black outline-none focus:border-orange-300" /><p className="mt-1 text-xs font-black text-green-600">Cambio: ${money(change)}</p></div>
                       ) : (
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Referencia opcional</label>
-                          <input
-                            value={paymentReference}
-                            onChange={event => setPaymentReference(event.target.value)}
-                            placeholder="N° comprobante / autorización"
-                            className="mt-1 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-orange-300"
-                          />
-                        </div>
+                        <div><label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Referencia opcional</label><input value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="N° comprobante / autorización" className="mt-1 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-orange-300" /></div>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={completeSale}
-                        disabled={saving || items.length === 0 || total <= 0}
-                        className="w-full rounded-2xl bg-slate-950 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-                      >
-                        {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                        Confirmar venta
-                      </button>
+                      <button type="button" onClick={completeSale} disabled={saving || items.length === 0 || total <= 0} className="w-full rounded-2xl bg-slate-950 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">{saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}Confirmar venta</button>
                     </div>
                   </aside>
                 </div>
