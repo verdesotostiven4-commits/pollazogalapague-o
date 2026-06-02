@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   Banknote,
   Calculator,
   CheckCircle2,
@@ -98,6 +99,12 @@ const isAdminPath = () => {
   return window.location.pathname.toLowerCase() === '/admin';
 };
 
+const differenceLabel = (difference: number) => {
+  if (difference < -0.01) return `Faltante de $${money(Math.abs(difference))}`;
+  if (difference > 0.01) return `Sobrante de $${money(difference)}`;
+  return 'Caja cuadrada';
+};
+
 export default function AdminPosLauncher() {
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
@@ -125,7 +132,6 @@ export default function AdminPosLauncher() {
 
     window.addEventListener('popstate', refresh);
     window.addEventListener('hashchange', refresh);
-
     const interval = window.setInterval(refresh, 900);
 
     return () => {
@@ -141,13 +147,12 @@ export default function AdminPosLauncher() {
   }, [register]);
 
   const closeDifference = useMemo(() => {
-    if (!closingCash.trim()) return 0;
-    return parseMoney(closingCash) - expectedCash;
-  }, [closingCash, expectedCash]);
+    if (!register) return 0;
+    const countedCash = parseMoney(closingCash || expectedCash);
+    return countedCash - expectedCash;
+  }, [closingCash, expectedCash, register]);
 
-  const shiftTotal = useMemo(() => {
-    return sessionSales.reduce((sum, sale) => sum + sale.total, 0);
-  }, [sessionSales]);
+  const shiftTotal = useMemo(() => sessionSales.reduce((sum, sale) => sum + sale.total, 0), [sessionSales]);
 
   const loadProducts = async () => {
     if (!isSupabaseConfigured) {
@@ -174,11 +179,61 @@ export default function AdminPosLauncher() {
     setLoadingProducts(false);
   };
 
-  useEffect(() => {
-    if (open && !productsLoaded) {
-      loadProducts();
+  const loadRegisterById = async (registerId: string, fallbackOpeningBalance = 0) => {
+    const { data, error: registerError } = await supabase
+      .from('cash_registers')
+      .select('id, opening_balance, expected_cash_sales')
+      .eq('id', registerId)
+      .maybeSingle();
+
+    if (registerError || !data) {
+      const fallback = {
+        id: registerId,
+        openingBalance: fallbackOpeningBalance,
+        expectedCashSales: 0,
+      };
+      setRegister(fallback);
+      setClosingCash(money(fallback.openingBalance));
+      return;
     }
-  }, [open, productsLoaded]);
+
+    const nextRegister = {
+      id: String(data.id),
+      openingBalance: parseMoney(data.opening_balance),
+      expectedCashSales: parseMoney(data.expected_cash_sales),
+    };
+
+    setRegister(nextRegister);
+    setClosingCash(money(nextRegister.openingBalance + nextRegister.expectedCashSales));
+  };
+
+  const loadCurrentOpenRegister = async () => {
+    if (!isSupabaseConfigured) return;
+
+    const { data, error: registerError } = await supabase
+      .from('cash_registers')
+      .select('id, opening_balance, expected_cash_sales')
+      .eq('opened_by', POS_OPERATOR)
+      .eq('status', 'open')
+      .maybeSingle();
+
+    if (registerError || !data) return;
+
+    const nextRegister = {
+      id: String(data.id),
+      openingBalance: parseMoney(data.opening_balance),
+      expectedCashSales: parseMoney(data.expected_cash_sales),
+    };
+
+    setRegister(nextRegister);
+    setClosingCash(money(nextRegister.openingBalance + nextRegister.expectedCashSales));
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (!productsLoaded) loadProducts();
+    if (!register) loadCurrentOpenRegister();
+  }, [open, productsLoaded, register]);
 
   const availableProducts = useMemo(() => {
     return products
@@ -201,9 +256,7 @@ export default function AdminPosLauncher() {
       .slice(0, 16);
   }, [availableProducts, query]);
 
-  const total = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  }, [items]);
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0), [items]);
 
   const change = useMemo(() => {
     if (paymentMethod !== 'cash') return 0;
@@ -238,12 +291,7 @@ export default function AdminPosLauncher() {
       setError(rpcError.message || 'No se pudo abrir caja.');
       console.error(rpcError);
     } else if (data) {
-      setRegister({
-        id: String(data),
-        openingBalance: cleanOpeningBalance,
-        expectedCashSales: 0,
-      });
-      setClosingCash(money(cleanOpeningBalance));
+      await loadRegisterById(String(data), cleanOpeningBalance);
       setLastSaleId(null);
       setLastTicket(null);
       setSessionSales([]);
@@ -263,8 +311,24 @@ export default function AdminPosLauncher() {
     }
 
     const realCash = parseMoney(closingCash || expectedCash);
+    const difference = realCash - expectedCash;
 
-    if (!window.confirm(`Cerrar turno de caja con $${money(realCash)} contados físicamente?`)) return;
+    if (Math.abs(difference) > 0.01) {
+      setError(`Atención: hay ${differenceLabel(difference)}. Revisa el efectivo antes de cerrar.`);
+      const firstConfirmation = window.confirm(
+        `⚠️ ATENCIÓN: la caja NO cuadra.\n\nDebe haber: $${money(expectedCash)}\nContado físicamente: $${money(realCash)}\nDiferencia: ${difference < 0 ? '-' : '+'}$${money(Math.abs(difference))}\n\nRevisa el efectivo antes de cerrar. ¿Quieres continuar de todas formas?`
+      );
+
+      if (!firstConfirmation) return;
+
+      const finalConfirmation = window.confirm(
+        `Última confirmación:\n\nSe guardará el cierre con ${differenceLabel(difference)}.\nEste faltante/sobrante aparecerá en Reportes POS.\n\n¿Confirmas cerrar el turno?`
+      );
+
+      if (!finalConfirmation) return;
+    } else if (!window.confirm(`Cerrar turno de caja con $${money(realCash)} contados físicamente?`)) {
+      return;
+    }
 
     setClosing(true);
     setError(null);
@@ -272,7 +336,7 @@ export default function AdminPosLauncher() {
     const { error: closeError } = await supabase.rpc('close_cash_register_v1', {
       p_cash_register_id: register.id,
       p_real_balance_cash: realCash,
-      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Diferencia $${money(realCash - expectedCash)}`,
+      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Contado $${money(realCash)}. Diferencia $${money(difference)}`,
     });
 
     if (closeError) {
@@ -312,6 +376,11 @@ export default function AdminPosLauncher() {
     setItems(current => {
       const exists = current.find(item => item.product.id === product.id);
       if (exists) {
+        if (product.track_stock && exists.quantity >= currentStock) {
+          setError(`Solo quedan ${currentStock} unidades de ${product.name}.`);
+          return current;
+        }
+
         return current.map(item =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -326,11 +395,19 @@ export default function AdminPosLauncher() {
   const updateQuantity = (productId: string, delta: number) => {
     setItems(current =>
       current
-        .map(item =>
-          item.product.id === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
+        .map(item => {
+          if (item.product.id !== productId) return item;
+
+          const nextQuantity = Math.max(0, item.quantity + delta);
+          const currentStock = parseMoney(item.product.current_stock);
+
+          if (item.product.track_stock && nextQuantity > currentStock) {
+            setError(`Solo quedan ${currentStock} unidades de ${item.product.name}.`);
+            return item;
+          }
+
+          return { ...item, quantity: nextQuantity };
+        })
         .filter(item => item.quantity > 0)
     );
   };
@@ -585,6 +662,7 @@ export default function AdminPosLauncher() {
                             <p className="text-xs font-black uppercase text-gray-900 leading-tight line-clamp-2">{product.name}</p>
                             <p className="mt-1 text-[10px] font-bold text-gray-400">{product.category}</p>
                             <p className="mt-3 text-lg font-black text-orange-600">${money(getProductPrice(product))}</p>
+                            {product.track_stock && <p className="mt-1 text-[9px] font-black uppercase text-green-600">Stock: {parseMoney(product.current_stock)}</p>}
                           </button>
                         ))}
                         {filteredProducts.length === 0 && <div className="sm:col-span-2 rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-400"><PackageSearch size={32} className="mx-auto mb-2 text-orange-300" /><p className="text-xs font-black uppercase">No encontré productos</p></div>}
@@ -627,6 +705,17 @@ export default function AdminPosLauncher() {
                         <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><p className="text-[8px] font-black uppercase text-slate-500">Debe haber</p><p className="text-sm font-black text-gray-900">${money(expectedCash)}</p></div>
                         <div className="rounded-2xl bg-white border border-gray-100 p-3 col-span-2"><p className="text-[8px] font-black uppercase text-gray-400">Dinero contado físicamente</p><p className="text-sm font-black text-gray-900">${money(closingCash || expectedCash)}</p></div>
                       </div>
+
+                      {Math.abs(closeDifference) > 0.01 && (
+                        <div className={`mb-3 rounded-2xl border p-3 flex items-start gap-2 ${closeDifference < 0 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-yellow-50 border-yellow-100 text-yellow-700'}`}>
+                          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-[10px] font-black uppercase">La caja no cuadra: {differenceLabel(closeDifference)}</p>
+                            <p className="mt-1 text-[9px] font-bold opacity-80">Revisa billetes, monedas, cambios entregados y ventas antes de cerrar. Si cierras así, aparecerá en Reportes POS.</p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-3">
                         <input value={closingCash} onChange={event => setClosingCash(event.target.value)} inputMode="decimal" placeholder={money(expectedCash)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-lg font-black outline-none focus:border-red-300" />
                         <button type="button" onClick={closeCashRegister} disabled={closing || !register} className="rounded-2xl bg-red-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 active:scale-[0.98] transition-transform">{closing ? 'Cerrando...' : 'Cerrar turno'}</button>
