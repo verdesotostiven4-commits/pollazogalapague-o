@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import FirstRunWelcome from './components/FirstRunWelcome';
-import PollazoBrandPolish from './components/PollazoBrandPolish';
 import AdminPosSmartLauncher from './components/AdminPosSmartLauncher';
 import AdminInventoryLauncher from './components/AdminInventoryLauncher';
 import AdminPosReportsLauncher from './components/AdminPosReportsLauncher';
@@ -21,7 +20,6 @@ installHomeVisualTranslator();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PollazoBrandPolish />
     <FirstRunWelcome>
       <App />
       <CustomerCatalogVisibilityFilter />
