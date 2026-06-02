@@ -4,6 +4,7 @@ import {
   Archive,
   CheckCircle2,
   ClipboardList,
+  History,
   Loader2,
   Minus,
   PackageCheck,
@@ -26,6 +27,20 @@ type InventoryProduct = Product & {
   tax_rate?: number | string | null;
 };
 
+type StockMovement = {
+  id: string;
+  product_id: string;
+  type: string;
+  quantity: number | string;
+  stock_before: number | string;
+  stock_after: number | string;
+  reference_table?: string | null;
+  reference_id?: string | null;
+  description?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+};
+
 type InventoryMode = 'add' | 'remove';
 
 const parseNumber = (value: unknown) => {
@@ -42,11 +57,31 @@ const isAdminPath = () => {
   return window.location.pathname.toLowerCase() === '/admin';
 };
 
+const movementLabel = (type: string) => {
+  if (type === 'pos_sale') return 'Venta POS';
+  if (type === 'online_order') return 'Pedido online';
+  if (type === 'purchase') return 'Compra/entrada';
+  if (type === 'adjustment_add') return 'Entrada manual';
+  if (type === 'adjustment_remove') return 'Salida manual';
+  if (type === 'initial_stock') return 'Stock inicial';
+  return type || 'Movimiento';
+};
+
+const movementTone = (type: string) => {
+  if (type === 'pos_sale' || type === 'adjustment_remove' || type === 'online_order') {
+    return 'text-red-500 bg-red-50 border-red-100';
+  }
+
+  return 'text-green-600 bg-green-50 border-green-100';
+};
+
 export default function AdminInventoryLauncher() {
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
   const [products, setProducts] = useState<InventoryProduct[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMovements, setLoadingMovements] = useState(false);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -99,6 +134,26 @@ export default function AdminInventoryLauncher() {
     setLoading(false);
   };
 
+  const loadMovements = async (productId: string) => {
+    if (!isSupabaseConfigured) return;
+
+    setLoadingMovements(true);
+
+    const { data, error: movementsError } = await supabase.rpc('get_product_stock_movements_v1', {
+      p_product_id: productId,
+      p_limit: 12,
+    });
+
+    if (movementsError) {
+      console.error(movementsError);
+      setMovements([]);
+    } else {
+      setMovements((data || []) as StockMovement[]);
+    }
+
+    setLoadingMovements(false);
+  };
+
   useEffect(() => {
     if (open) loadProducts();
   }, [open]);
@@ -117,6 +172,10 @@ export default function AdminInventoryLauncher() {
         return haystack.includes(clean);
       })
       .sort((a, b) => {
+        const aLow = a.track_stock && parseNumber(a.stock_minimum) > 0 && parseNumber(a.current_stock) <= parseNumber(a.stock_minimum) ? 0 : 1;
+        const bLow = b.track_stock && parseNumber(b.stock_minimum) > 0 && parseNumber(b.current_stock) <= parseNumber(b.stock_minimum) ? 0 : 1;
+        if (aLow !== bLow) return aLow - bLow;
+
         const aTracked = a.track_stock ? 0 : 1;
         const bTracked = b.track_stock ? 0 : 1;
         if (aTracked !== bTracked) return aTracked - bTracked;
@@ -141,6 +200,12 @@ export default function AdminInventoryLauncher() {
     setEditTrackStock(Boolean(product.track_stock));
     setMessage(null);
     setError(null);
+    loadMovements(product.id);
+  };
+
+  const refreshSelectedProduct = async (productId: string) => {
+    await loadProducts();
+    await loadMovements(productId);
   };
 
   const saveProductInventorySettings = async () => {
@@ -165,7 +230,7 @@ export default function AdminInventoryLauncher() {
       setError('No pude guardar configuración de inventario.');
     } else {
       setMessage('Configuración de inventario guardada.');
-      await loadProducts();
+      await refreshSelectedProduct(selectedProduct.id);
     }
 
     setSaving(false);
@@ -199,7 +264,7 @@ export default function AdminInventoryLauncher() {
     } else {
       setMessage(`Stock actualizado. Nuevo stock: ${qty(data)}.`);
       setAmount('1');
-      await loadProducts();
+      await refreshSelectedProduct(selectedProduct.id);
     }
 
     setSaving(false);
@@ -258,6 +323,18 @@ export default function AdminInventoryLauncher() {
                 </div>
               )}
 
+              {lowStockProducts.length > 0 && (
+                <section className="rounded-[28px] bg-red-50 border border-red-100 p-4 text-red-600 flex items-start gap-3">
+                  <AlertTriangle size={22} className="flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-black uppercase">Atención: productos con stock bajo</p>
+                    <p className="mt-1 text-[10px] font-bold text-red-500/80">
+                      {lowStockProducts.map(product => `${product.name} (${qty(product.current_stock)})`).join(' · ')}
+                    </p>
+                  </div>
+                </section>
+              )}
+
               <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="rounded-[28px] bg-white border border-gray-100 p-4 shadow-sm">
                   <PackageCheck size={22} className="text-green-500 mb-2" />
@@ -311,7 +388,11 @@ export default function AdminInventoryLauncher() {
                             type="button"
                             onClick={() => selectProduct(product)}
                             className={`w-full rounded-3xl border p-4 text-left shadow-sm transition-transform active:scale-[0.99] ${
-                              selected ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-100' : 'bg-white border-gray-100'
+                              selected
+                                ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-100'
+                                : isLow
+                                  ? 'bg-red-50 border-red-100'
+                                  : 'bg-white border-gray-100'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -325,7 +406,7 @@ export default function AdminInventoryLauncher() {
                                     <span className="rounded-full bg-gray-50 border border-gray-100 px-2 py-1 text-[8px] font-black uppercase text-gray-400">Sin control</span>
                                   )}
                                   {isLow && (
-                                    <span className="rounded-full bg-red-50 border border-red-100 px-2 py-1 text-[8px] font-black uppercase text-red-500">Stock bajo</span>
+                                    <span className="rounded-full bg-red-100 border border-red-200 px-2 py-1 text-[8px] font-black uppercase text-red-600">Stock bajo</span>
                                   )}
                                 </div>
                               </div>
@@ -411,6 +492,42 @@ export default function AdminInventoryLauncher() {
                           {saving ? <Loader2 size={15} className="animate-spin" /> : mode === 'add' ? <Plus size={15} /> : <Minus size={15} />}
                           {mode === 'add' ? 'Sumar stock' : 'Restar stock'}
                         </button>
+                      </section>
+
+                      <section className="rounded-3xl border border-gray-100 bg-white p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <History size={18} className="text-orange-500" />
+                            <p className="text-xs font-black uppercase text-gray-900">Historial de movimientos</p>
+                          </div>
+                          <button type="button" onClick={() => loadMovements(selectedProduct.id)} className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-[9px] font-black uppercase text-gray-500">Actualizar</button>
+                        </div>
+
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {loadingMovements ? (
+                            <div className="rounded-2xl bg-gray-50 p-4 text-center text-[10px] font-black uppercase text-orange-500 animate-pulse">Cargando historial...</div>
+                          ) : movements.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-[10px] font-black uppercase text-gray-400">Aún no hay movimientos para este producto.</div>
+                          ) : (
+                            movements.map(movement => (
+                              <div key={movement.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <span className={`inline-block rounded-full border px-2 py-1 text-[8px] font-black uppercase ${movementTone(movement.type)}`}>{movementLabel(movement.type)}</span>
+                                    <p className="mt-2 text-[10px] font-black uppercase text-gray-800">{movement.description || 'Movimiento de inventario'}</p>
+                                    <p className="mt-1 text-[9px] font-bold text-gray-400">
+                                      {movement.created_at ? new Date(movement.created_at).toLocaleString('es-EC') : 'Sin fecha'} · {movement.created_by || 'admin'}
+                                    </p>
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <p className="text-sm font-black text-gray-950">{qty(movement.stock_before)} → {qty(movement.stock_after)}</p>
+                                    <p className="text-[9px] font-black uppercase text-gray-400">Cant. {qty(movement.quantity)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </section>
                     </>
                   )}
