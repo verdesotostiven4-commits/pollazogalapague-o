@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Globe2, Languages, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Globe2, Languages, Sparkles } from 'lucide-react';
 import type { LanguageCode } from '../types';
 
 const WELCOME_DONE_KEY = 'pollazo_welcome_completed';
@@ -38,7 +38,6 @@ const COPY: Record<LanguageCode, {
   selected: string;
   more: string;
   less: string;
-  scrollHint: string;
 }> = {
   es: {
     kicker: 'Bienvenido al sabor de Galápagos',
@@ -46,11 +45,10 @@ const COPY: Record<LanguageCode, {
     subtitle: 'Compra fácil, rápido y con atención directa desde tu celular.',
     choose: 'Elige tu idioma',
     ready: 'Entrar a la app',
-    note: 'Puedes cambiarlo después desde Info.',
+    note: 'Podrás cambiarlo después desde Info.',
     selected: 'Seleccionado',
     more: 'Más idiomas',
     less: 'Mostrar menos',
-    scrollHint: 'Desliza solo esta lista para ver más idiomas',
   },
   en: {
     kicker: 'Welcome to Galápagos flavor',
@@ -62,7 +60,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Selected',
     more: 'More languages',
     less: 'Show less',
-    scrollHint: 'Scroll only this list to see more languages',
   },
   pt: {
     kicker: 'Bem-vindo ao sabor de Galápagos',
@@ -74,7 +71,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Selecionado',
     more: 'Mais idiomas',
     less: 'Mostrar menos',
-    scrollHint: 'Role apenas esta lista para ver mais idiomas',
   },
   fr: {
     kicker: 'Bienvenue au goût des Galápagos',
@@ -86,7 +82,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Sélectionné',
     more: 'Plus de langues',
     less: 'Afficher moins',
-    scrollHint: 'Faites défiler seulement cette liste',
   },
   de: {
     kicker: 'Willkommen beim Geschmack der Galápagos',
@@ -98,7 +93,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Ausgewählt',
     more: 'Mehr Sprachen',
     less: 'Weniger anzeigen',
-    scrollHint: 'Scrolle nur diese Liste für mehr Sprachen',
   },
   it: {
     kicker: 'Benvenuto nel sapore delle Galápagos',
@@ -110,7 +104,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Selezionato',
     more: 'Più lingue',
     less: 'Mostra meno',
-    scrollHint: 'Scorri solo questa lista per altre lingue',
   },
   zh: {
     kicker: '欢迎来到加拉帕戈斯风味',
@@ -122,7 +115,6 @@ const COPY: Record<LanguageCode, {
     selected: '已选择',
     more: '更多语言',
     less: '显示较少',
-    scrollHint: '仅滚动此列表查看更多语言',
   },
   ja: {
     kicker: 'ガラパゴスの味へようこそ',
@@ -134,7 +126,6 @@ const COPY: Record<LanguageCode, {
     selected: '選択済み',
     more: 'その他の言語',
     less: '少なく表示',
-    scrollHint: 'このリストだけをスクロールしてください',
   },
   nl: {
     kicker: 'Welkom bij de smaak van Galápagos',
@@ -146,7 +137,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Geselecteerd',
     more: 'Meer talen',
     less: 'Minder tonen',
-    scrollHint: 'Scroll alleen deze lijst voor meer talen',
   },
   ru: {
     kicker: 'Добро пожаловать во вкус Галапагосов',
@@ -158,7 +148,6 @@ const COPY: Record<LanguageCode, {
     selected: 'Выбрано',
     more: 'Больше языков',
     less: 'Показать меньше',
-    scrollHint: 'Прокрутите только этот список',
   },
 };
 
@@ -200,10 +189,39 @@ const shouldSkipWelcome = () => {
   return !isPWA || window.localStorage.getItem(WELCOME_DONE_KEY) === '1';
 };
 
+const playWelcomeChime = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const context = new AudioContextClass();
+    const now = context.currentTime;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.13, now + 0.035);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+    gain.connect(context.destination);
+
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, now + index * 0.07);
+      oscillator.connect(gain);
+      oscillator.start(now + index * 0.07);
+      oscillator.stop(now + 0.54 + index * 0.04);
+    });
+  } catch {
+    // Sonido opcional.
+  }
+};
+
 export default function FirstRunWelcome({ children }: { children: React.ReactNode }) {
   const [showWelcome, setShowWelcome] = useState(() => !shouldSkipWelcome());
   const [language, setLanguage] = useState<LanguageCode>(() => detectInitialLanguage());
   const [showAllLanguages, setShowAllLanguages] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [showScrollArrow, setShowScrollArrow] = useState(false);
+  const languageScrollRef = useRef<HTMLDivElement | null>(null);
   const text = COPY[language] || COPY.es;
 
   const visibleLanguages = useMemo(() => {
@@ -217,17 +235,59 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
     document.documentElement.lang = language;
   }, [language, showWelcome]);
 
+  useEffect(() => {
+    if (!showAllLanguages) {
+      setShowScrollArrow(false);
+      return;
+    }
+
+    const list = languageScrollRef.current;
+    if (!list) return;
+
+    const updateArrow = () => {
+      const distanceToBottom = list.scrollHeight - list.clientHeight - list.scrollTop;
+      setShowScrollArrow(distanceToBottom > 18);
+    };
+
+    updateArrow();
+    list.addEventListener('scroll', updateArrow, { passive: true });
+
+    const previewTimer = window.setTimeout(() => {
+      if (!languageScrollRef.current) return;
+      const target = Math.min(74, languageScrollRef.current.scrollHeight - languageScrollRef.current.clientHeight);
+      if (target <= 0) return;
+
+      languageScrollRef.current.scrollTo({ top: target, behavior: 'smooth' });
+
+      window.setTimeout(() => {
+        languageScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 420);
+    }, 160);
+
+    return () => {
+      list.removeEventListener('scroll', updateArrow);
+      window.clearTimeout(previewTimer);
+    };
+  }, [showAllLanguages]);
+
   const handleContinue = () => {
+    if (isLeaving) return;
+
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     window.localStorage.setItem(WELCOME_DONE_KEY, '1');
     document.documentElement.lang = language;
-    setShowWelcome(false);
+    playWelcomeChime();
+    setIsLeaving(true);
+
+    window.setTimeout(() => {
+      setShowWelcome(false);
+    }, 980);
   };
 
   if (!showWelcome) return <>{children}</>;
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-hidden bg-gradient-to-br from-orange-500 via-[#f39763] to-yellow-300 text-gray-950 selection:bg-yellow-200">
+    <div className={`fixed inset-0 z-[9999] overflow-hidden bg-gradient-to-br from-orange-500 via-[#f39763] to-yellow-300 text-gray-950 selection:bg-yellow-200 transition-opacity duration-500 ${isLeaving ? 'opacity-0' : 'opacity-100'}`}>
       <style>
         {`
           @keyframes pollazoWelcomeFloat {
@@ -239,6 +299,26 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
             0% { transform: translateX(-120%) rotate(18deg); opacity: 0; }
             35% { opacity: 0.42; }
             100% { transform: translateX(180%) rotate(18deg); opacity: 0; }
+          }
+
+          @keyframes pollazoArrowBounce {
+            0%, 100% { transform: translateY(0); opacity: 0.86; }
+            50% { transform: translateY(8px); opacity: 1; }
+          }
+
+          @keyframes pollazoCardEnter {
+            0% { transform: translateY(20px) scale(0.965); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+          }
+
+          @keyframes pollazoExitGlow {
+            0% { transform: scale(0.7); opacity: 0; }
+            45% { transform: scale(1.25); opacity: 0.9; }
+            100% { transform: scale(2.8); opacity: 0; }
+          }
+
+          .pollazo-welcome-card {
+            animation: pollazoCardEnter 0.56s cubic-bezier(0.34, 1.56, 0.64, 1) both;
           }
 
           .pollazo-welcome-logo {
@@ -277,19 +357,27 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
             border-radius: 999px;
           }
 
+          .pollazo-scroll-arrow {
+            animation: pollazoArrowBounce 1.05s ease-in-out infinite;
+          }
+
+          .pollazo-exit-glow {
+            animation: pollazoExitGlow 0.94s ease-out both;
+          }
+
           @media (max-height: 720px) {
             .pollazo-welcome-hero-logo {
-              width: 5.7rem !important;
-              height: 5.7rem !important;
+              width: 5.65rem !important;
+              height: 5.65rem !important;
             }
 
             .pollazo-welcome-hero-title {
-              font-size: 2.05rem !important;
+              font-size: 2.02rem !important;
             }
 
             .pollazo-welcome-hero-copy {
               font-size: 0.78rem !important;
-              line-height: 1.35rem !important;
+              line-height: 1.32rem !important;
             }
           }
         `}
@@ -300,11 +388,22 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
           <div className="absolute -top-28 -left-28 h-72 w-72 rounded-full bg-white/25 blur-3xl" />
           <div className="absolute top-1/3 -right-28 h-80 w-80 rounded-full bg-yellow-100/35 blur-3xl" />
           <div className="absolute -bottom-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-orange-900/15 blur-3xl" />
+          <div className="absolute inset-x-8 top-10 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+          <div className="absolute inset-x-12 bottom-10 h-px bg-gradient-to-r from-transparent via-orange-900/20 to-transparent" />
         </div>
 
-        <section className="relative flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col overflow-hidden rounded-[34px] border border-white/45 bg-white/90 p-4 shadow-2xl shadow-orange-900/20 backdrop-blur-xl sm:p-5">
-          <div className="pollazo-welcome-shine relative shrink-0 overflow-hidden rounded-[28px] bg-gradient-to-br from-orange-50 via-white to-yellow-50 border border-orange-100 px-4 pt-4 pb-4 text-center shadow-inner">
-            <div className="mx-auto mb-2 flex h-24 w-24 items-center justify-center rounded-[30px] bg-transparent">
+        {isLeaving && (
+          <div className="pollazo-exit-glow pointer-events-none absolute h-48 w-48 rounded-full bg-white/80 blur-xl" />
+        )}
+
+        <section className={`pollazo-welcome-card relative flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col overflow-hidden rounded-[36px] border border-white/55 bg-white/92 p-4 shadow-2xl shadow-orange-900/25 backdrop-blur-2xl ring-1 ring-orange-100/40 sm:p-5 ${isLeaving ? 'scale-[1.035] blur-[1px] transition-all duration-700' : ''}`}>
+          <div className="pointer-events-none absolute inset-0 rounded-[36px] bg-[radial-gradient(circle_at_50%_0%,rgba(251,191,36,0.28),transparent_44%),linear-gradient(180deg,rgba(255,255,255,0.72),transparent_32%)]" />
+
+          <div className="pollazo-welcome-shine relative shrink-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-orange-50 via-white to-yellow-50 border border-orange-100 px-4 pt-4 pb-4 text-center shadow-inner">
+            <div className="absolute -top-16 -right-14 h-32 w-32 rounded-full bg-yellow-200/35 blur-2xl" />
+            <div className="absolute -bottom-16 -left-14 h-32 w-32 rounded-full bg-orange-200/40 blur-2xl" />
+
+            <div className="relative mx-auto mb-2 flex h-24 w-24 items-center justify-center rounded-[30px] bg-transparent">
               <img
                 src={LOGO_OFFICIAL}
                 alt="Logo La Casa del Pollazo"
@@ -312,25 +411,25 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
               />
             </div>
 
-            <div className="mx-auto mb-2 flex w-fit items-center gap-2 rounded-full bg-orange-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-orange-200">
+            <div className="relative mx-auto mb-2 flex w-fit items-center gap-2 rounded-full bg-orange-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-orange-200">
               <Sparkles size={12} />
               Galápagos · Ecuador
             </div>
 
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">
+            <p className="relative text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">
               {text.kicker}
             </p>
 
-            <h1 className="pollazo-welcome-hero-title mt-1.5 text-[2.45rem] font-black leading-[0.9] tracking-tighter text-gray-950">
+            <h1 className="pollazo-welcome-hero-title relative mt-1.5 text-[2.45rem] font-black leading-[0.9] tracking-tighter text-gray-950">
               {text.title}
             </h1>
 
-            <p className="pollazo-welcome-hero-copy mx-auto mt-2 max-w-xs text-[13px] font-bold leading-relaxed text-gray-600">
+            <p className="pollazo-welcome-hero-copy relative mx-auto mt-2 max-w-xs text-[13px] font-bold leading-relaxed text-gray-600">
               {text.subtitle}
             </p>
           </div>
 
-          <div className="mt-3 flex min-h-0 flex-1 flex-col rounded-[28px] border border-orange-100 bg-white p-3 shadow-lg shadow-orange-100/70">
+          <div className="relative mt-3 flex min-h-0 flex-1 flex-col rounded-[28px] border border-orange-100 bg-white p-3 shadow-lg shadow-orange-100/70">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
@@ -350,8 +449,9 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
 
             <div className="relative min-h-0 flex-1">
               <div
-                className="pollazo-language-scroll grid max-h-full gap-2 overflow-y-auto pr-1"
-                style={{ maxHeight: showAllLanguages ? 'min(270px, 34dvh)' : 'auto' }}
+                ref={languageScrollRef}
+                className="pollazo-language-scroll grid max-h-full gap-2 overflow-y-auto pr-1 pb-2"
+                style={{ maxHeight: showAllLanguages ? 'min(272px, 34dvh)' : 'auto' }}
               >
                 {visibleLanguages.map(option => {
                   const active = option.code === language;
@@ -383,11 +483,9 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
                 })}
               </div>
 
-              {showAllLanguages && (
-                <div className="pointer-events-none absolute bottom-0 left-0 right-1 bg-gradient-to-t from-white via-white/92 to-transparent px-2 pb-1 pt-8">
-                  <p className="mx-auto w-fit rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-orange-600 shadow-sm">
-                    ↓ {text.scrollHint}
-                  </p>
+              {showAllLanguages && showScrollArrow && (
+                <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 p-2 text-white shadow-xl shadow-orange-200 ring-4 ring-white/80 transition-opacity duration-300">
+                  <ChevronDown className="pollazo-scroll-arrow" size={18} strokeWidth={3} />
                 </div>
               )}
             </div>
@@ -404,13 +502,15 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
           <button
             type="button"
             onClick={handleContinue}
-            className="mt-3 flex shrink-0 w-full items-center justify-center gap-2 rounded-[26px] bg-gray-950 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-orange-900/20 active:scale-[0.98] transition-transform"
+            className="relative mt-3 flex shrink-0 w-full items-center justify-center gap-2 overflow-hidden rounded-[26px] bg-gray-950 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-orange-900/20 active:scale-[0.98] transition-transform disabled:opacity-70"
+            disabled={isLeaving}
           >
-            {text.ready}
-            <ChevronRight size={18} strokeWidth={3} />
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <span className="relative">{text.ready}</span>
+            <ChevronRight className="relative" size={18} strokeWidth={3} />
           </button>
 
-          <p className="mt-2 shrink-0 text-center text-[10px] font-bold uppercase tracking-widest text-white/90 drop-shadow-sm">
+          <p className="relative mt-2 shrink-0 rounded-full border border-orange-100 bg-orange-50 px-3 py-2 text-center text-[9px] font-black uppercase tracking-widest text-orange-700 shadow-sm">
             {text.note}
           </p>
         </section>
