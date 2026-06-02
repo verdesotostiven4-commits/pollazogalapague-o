@@ -1,8 +1,21 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 
 type ReminderKind = '3d' | '1d' | 'expired';
+
+type ApiQueryValue = string | string[] | undefined;
+
+type ApiRequest = {
+  method?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  query?: Record<string, ApiQueryValue>;
+};
+
+type ApiResponse = {
+  status: (code: number) => {
+    json: (payload: unknown) => void;
+  };
+};
 
 type MembershipRow = {
   id: string;
@@ -23,7 +36,6 @@ type PushSubscriptionRow = {
   subscription: any;
 };
 
-const DEFAULT_ICON = '/logo-final.png';
 const PLUS_ICON = '/logo-final.png';
 
 const MS_HOUR = 1000 * 60 * 60;
@@ -31,6 +43,32 @@ const MS_DAY = MS_HOUR * 24;
 
 const cleanPhoneTail = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '').slice(-9);
+};
+
+const getQueryString = (
+  query: Record<string, ApiQueryValue> | undefined,
+  key: string
+) => {
+  const value = query?.[key];
+
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+
+  return value || '';
+};
+
+const getHeaderString = (
+  headers: Record<string, string | string[] | undefined> | undefined,
+  key: string
+) => {
+  const value = headers?.[key] || headers?.[key.toLowerCase()];
+
+  if (Array.isArray(value)) {
+    return value.join(', ');
+  }
+
+  return value || '';
 };
 
 const getEnv = () => {
@@ -63,19 +101,22 @@ const getEnv = () => {
   };
 };
 
-const isAuthorizedCron = (req: VercelRequest, cronSecret: string) => {
+const isAuthorizedCron = (req: ApiRequest, cronSecret: string) => {
   if (!cronSecret) return true;
 
-  const authHeader = String(req.headers.authorization || '');
-  const querySecret =
-    typeof req.query.secret === 'string'
-      ? req.query.secret
-      : '';
+  const authHeader = getHeaderString(req.headers, 'authorization');
+  const querySecret = getQueryString(req.query, 'secret');
 
   return (
     authHeader === `Bearer ${cronSecret}` ||
     querySecret === cronSecret
   );
+};
+
+const isDryRun = (req: ApiRequest) => {
+  const dry = getQueryString(req.query, 'dry');
+
+  return dry === '1' || dry === 'true';
 };
 
 const getReminderKind = (
@@ -136,6 +177,7 @@ const buildReminderText = (
 const getReminderColumn = (kind: ReminderKind) => {
   if (kind === '3d') return 'reminder_3d_sent_at';
   if (kind === '1d') return 'reminder_1d_sent_at';
+
   return 'reminder_expired_sent_at';
 };
 
@@ -151,12 +193,14 @@ const buildNotificationPayload = (
     url: '/?plus=1',
     icon: PLUS_ICON,
     badge: PLUS_ICON,
-    tag: `pollazo-plus-${kind}-${membership.id}`,
+    tag: `pollazo-plus-${kind}-${membership.id}-${Date.now()}`,
+    notificationType: 'plus',
     orderCode: null,
     status: null,
     paymentStatus: null,
     membershipId: membership.id,
     membershipReminder: kind,
+    timestamp: Date.now(),
   });
 };
 
@@ -195,7 +239,13 @@ const sendPushToCustomer = async ({
       try {
         await webPush.sendNotification(
           row.subscription,
-          notificationPayload
+          notificationPayload,
+          {
+            TTL: 60 * 60,
+            headers: {
+              Urgency: 'high',
+            },
+          }
         );
 
         sent += 1;
@@ -227,7 +277,7 @@ const sendPushToCustomer = async ({
   };
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({
       ok: false,
@@ -281,10 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const nowIso = now.toISOString();
   const nowMs = now.getTime();
   const upperLimitIso = new Date(nowMs + MS_DAY * 4).toISOString();
-
-  const dryRun =
-    req.query.dry === '1' ||
-    req.query.dry === 'true';
+  const dryRun = isDryRun(req);
 
   const { data: membershipsData, error: membershipsError } = await supabase
     .from('customer_memberships')
@@ -315,7 +362,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const memberships = (membershipsData || []) as MembershipRow[];
+  const memberships = (membershipsData || []) as unknown as MembershipRow[];
 
   const reminders = memberships
     .map(membership => ({
@@ -353,7 +400,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const subscriptions = (subscriptionsData || []) as PushSubscriptionRow[];
+  const subscriptions = (subscriptionsData || []) as unknown as PushSubscriptionRow[];
 
   let totalSent = 0;
   let totalFailed = 0;
