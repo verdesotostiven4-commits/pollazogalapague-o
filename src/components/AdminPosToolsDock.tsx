@@ -28,13 +28,13 @@ const tools: ToolOption[] = [
   {
     key: 'catalog',
     label: 'Catálogo Maestro',
-    helper: 'Productos listos para app, POS e inventario',
+    helper: 'Productos listos para app, caja e inventario',
     icon: ClipboardList,
     tone: 'bg-white text-slate-950 border-orange-100',
   },
   {
     key: 'pos',
-    label: 'Vender / POS',
+    label: 'Vender / Caja',
     helper: 'Ventas rápidas de mostrador',
     icon: Calculator,
     tone: 'bg-slate-950 text-white border-slate-900',
@@ -48,15 +48,15 @@ const tools: ToolOption[] = [
   },
   {
     key: 'reports',
-    label: 'Reportes POS',
-    helper: 'Ventas, caja y productos',
+    label: 'Reportes de caja',
+    helper: 'Ventas, turnos y productos',
     icon: BarChart3,
     tone: 'bg-orange-500 text-white border-orange-500',
   },
   {
     key: 'corrections',
-    label: 'Correcciones POS',
-    helper: 'Corregir ventas de caja abierta',
+    label: 'Correcciones',
+    helper: 'Anular o revisar ventas recientes',
     icon: RotateCcw,
     tone: 'bg-red-500 text-white border-red-500',
   },
@@ -95,13 +95,13 @@ export default function AdminPosToolsDock() {
           <div className="flex items-center justify-between gap-3 px-2 py-2">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-500">Admin rápido</p>
-              <h3 className="text-lg font-black uppercase italic text-slate-950 leading-none">Herramientas POS</h3>
+              <h3 className="text-lg font-black uppercase italic text-slate-950 leading-none">Panel del local</h3>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="h-10 w-10 rounded-2xl bg-slate-950 text-white flex items-center justify-center active:scale-95 transition-transform"
-              aria-label="Cerrar herramientas POS"
+              aria-label="Cerrar panel del local"
             >
               <X size={18} />
             </button>
@@ -140,7 +140,7 @@ export default function AdminPosToolsDock() {
         className="rounded-[26px] bg-gradient-to-r from-slate-950 via-slate-900 to-orange-950 px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-2xl shadow-orange-300/70 ring-4 ring-orange-200 active:scale-95 transition-transform flex items-center gap-3"
       >
         <PackageSearch size={19} className="text-orange-300" />
-        Herramientas POS
+        Panel local
         <ChevronUp size={17} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
     </div>
