@@ -6,7 +6,7 @@ const WELCOME_DONE_KEY = 'pollazo_welcome_completed';
 const LANGUAGE_STORAGE_KEY = 'pollazo_language';
 
 const LOGO_OFFICIAL =
-  'https://blogger.googleusercontent.com/img/a/AVvXsEjjZyWBEfS2-yN9AffqCBbrsiquVeUUQYsQPGLI31cI5B5mVzSowezui2lHQ6gpXGKpU5x6Uuuy_YtDfGm72-81dSiCAYnAfNRqcWavKUNO0LMmpeI_bh80Tb1CcAUqM21cn-YPji0ZHyuDq_6CcKs4-kIJmzsEqwFYeXxkMD9SlSrjmhOylKISX_CwHY0';
+  'https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o';
 
 type LanguageOption = {
   code: LanguageCode;
@@ -37,6 +37,8 @@ const COPY: Record<LanguageCode, {
   note: string;
   selected: string;
   more: string;
+  less: string;
+  scrollHint: string;
 }> = {
   es: {
     kicker: 'Bienvenido al sabor de Galápagos',
@@ -47,6 +49,8 @@ const COPY: Record<LanguageCode, {
     note: 'Puedes cambiarlo después desde Info.',
     selected: 'Seleccionado',
     more: 'Más idiomas',
+    less: 'Mostrar menos',
+    scrollHint: 'Desliza solo esta lista para ver más idiomas',
   },
   en: {
     kicker: 'Welcome to Galápagos flavor',
@@ -57,6 +61,8 @@ const COPY: Record<LanguageCode, {
     note: 'You can change it later in Info.',
     selected: 'Selected',
     more: 'More languages',
+    less: 'Show less',
+    scrollHint: 'Scroll only this list to see more languages',
   },
   pt: {
     kicker: 'Bem-vindo ao sabor de Galápagos',
@@ -67,6 +73,8 @@ const COPY: Record<LanguageCode, {
     note: 'Você pode alterar depois em Info.',
     selected: 'Selecionado',
     more: 'Mais idiomas',
+    less: 'Mostrar menos',
+    scrollHint: 'Role apenas esta lista para ver mais idiomas',
   },
   fr: {
     kicker: 'Bienvenue au goût des Galápagos',
@@ -77,6 +85,8 @@ const COPY: Record<LanguageCode, {
     note: 'Vous pourrez la changer plus tard dans Info.',
     selected: 'Sélectionné',
     more: 'Plus de langues',
+    less: 'Afficher moins',
+    scrollHint: 'Faites défiler seulement cette liste',
   },
   de: {
     kicker: 'Willkommen beim Geschmack der Galápagos',
@@ -87,6 +97,8 @@ const COPY: Record<LanguageCode, {
     note: 'Du kannst sie später unter Info ändern.',
     selected: 'Ausgewählt',
     more: 'Mehr Sprachen',
+    less: 'Weniger anzeigen',
+    scrollHint: 'Scrolle nur diese Liste für mehr Sprachen',
   },
   it: {
     kicker: 'Benvenuto nel sapore delle Galápagos',
@@ -97,6 +109,8 @@ const COPY: Record<LanguageCode, {
     note: 'Puoi cambiarla dopo da Info.',
     selected: 'Selezionato',
     more: 'Più lingue',
+    less: 'Mostra meno',
+    scrollHint: 'Scorri solo questa lista per altre lingue',
   },
   zh: {
     kicker: '欢迎来到加拉帕戈斯风味',
@@ -107,6 +121,8 @@ const COPY: Record<LanguageCode, {
     note: '之后可以在 Info 中更改。',
     selected: '已选择',
     more: '更多语言',
+    less: '显示较少',
+    scrollHint: '仅滚动此列表查看更多语言',
   },
   ja: {
     kicker: 'ガラパゴスの味へようこそ',
@@ -117,6 +133,8 @@ const COPY: Record<LanguageCode, {
     note: 'あとで Info から変更できます。',
     selected: '選択済み',
     more: 'その他の言語',
+    less: '少なく表示',
+    scrollHint: 'このリストだけをスクロールしてください',
   },
   nl: {
     kicker: 'Welkom bij de smaak van Galápagos',
@@ -127,6 +145,8 @@ const COPY: Record<LanguageCode, {
     note: 'Je kunt dit later wijzigen via Info.',
     selected: 'Geselecteerd',
     more: 'Meer talen',
+    less: 'Minder tonen',
+    scrollHint: 'Scroll alleen deze lijst voor meer talen',
   },
   ru: {
     kicker: 'Добро пожаловать во вкус Галапагосов',
@@ -137,6 +157,8 @@ const COPY: Record<LanguageCode, {
     note: 'Позже можно изменить в Info.',
     selected: 'Выбрано',
     more: 'Больше языков',
+    less: 'Показать меньше',
+    scrollHint: 'Прокрутите только этот список',
   },
 };
 
@@ -205,140 +227,190 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
   if (!showWelcome) return <>{children}</>;
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-y-auto bg-gradient-to-br from-orange-500 via-[#f39763] to-yellow-300 text-gray-950 selection:bg-yellow-200">
+    <div className="fixed inset-0 z-[9999] overflow-hidden bg-gradient-to-br from-orange-500 via-[#f39763] to-yellow-300 text-gray-950 selection:bg-yellow-200">
       <style>
         {`
           @keyframes pollazoWelcomeFloat {
             0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-8px) scale(1.015); }
+            50% { transform: translateY(-7px) scale(1.012); }
           }
 
           @keyframes pollazoWelcomeShine {
             0% { transform: translateX(-120%) rotate(18deg); opacity: 0; }
-            35% { opacity: 0.5; }
+            35% { opacity: 0.42; }
             100% { transform: translateX(180%) rotate(18deg); opacity: 0; }
           }
 
           .pollazo-welcome-logo {
             animation: pollazoWelcomeFloat 5.5s ease-in-out infinite;
+            filter: drop-shadow(0 14px 20px rgba(124, 45, 18, 0.24));
           }
 
           .pollazo-welcome-shine::after {
             content: '';
             position: absolute;
             inset: -40%;
-            width: 40%;
+            width: 42%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
-            animation: pollazoWelcomeShine 4.8s ease-in-out infinite;
+            animation: pollazoWelcomeShine 5.4s ease-in-out infinite;
+            pointer-events: none;
+          }
+
+          .pollazo-language-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #fb923c #fff7ed;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .pollazo-language-scroll::-webkit-scrollbar {
+            width: 7px;
+          }
+
+          .pollazo-language-scroll::-webkit-scrollbar-thumb {
+            background: #fb923c;
+            border-radius: 999px;
+          }
+
+          .pollazo-language-scroll::-webkit-scrollbar-track {
+            background: #fff7ed;
+            border-radius: 999px;
+          }
+
+          @media (max-height: 720px) {
+            .pollazo-welcome-hero-logo {
+              width: 5.7rem !important;
+              height: 5.7rem !important;
+            }
+
+            .pollazo-welcome-hero-title {
+              font-size: 2.05rem !important;
+            }
+
+            .pollazo-welcome-hero-copy {
+              font-size: 0.78rem !important;
+              line-height: 1.35rem !important;
+            }
           }
         `}
       </style>
 
-      <div className="min-h-[100dvh] relative flex items-center justify-center px-4 py-8">
+      <div className="relative flex h-[100dvh] items-center justify-center overflow-hidden px-3 py-3 sm:px-4 sm:py-5">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-28 -left-28 h-72 w-72 rounded-full bg-white/25 blur-3xl" />
           <div className="absolute top-1/3 -right-28 h-80 w-80 rounded-full bg-yellow-100/35 blur-3xl" />
           <div className="absolute -bottom-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-orange-900/15 blur-3xl" />
         </div>
 
-        <section className="relative w-full max-w-md rounded-[36px] border border-white/45 bg-white/88 p-5 shadow-2xl shadow-orange-900/20 backdrop-blur-xl">
-          <div className="pollazo-welcome-shine relative overflow-hidden rounded-[30px] bg-gradient-to-br from-orange-50 via-white to-yellow-50 border border-orange-100 px-5 pt-6 pb-5 text-center shadow-inner">
-            <div className="mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-[34px] bg-white shadow-xl shadow-orange-100 ring-1 ring-orange-100">
+        <section className="relative flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col overflow-hidden rounded-[34px] border border-white/45 bg-white/90 p-4 shadow-2xl shadow-orange-900/20 backdrop-blur-xl sm:p-5">
+          <div className="pollazo-welcome-shine relative shrink-0 overflow-hidden rounded-[28px] bg-gradient-to-br from-orange-50 via-white to-yellow-50 border border-orange-100 px-4 pt-4 pb-4 text-center shadow-inner">
+            <div className="mx-auto mb-2 flex h-24 w-24 items-center justify-center rounded-[30px] bg-transparent">
               <img
                 src={LOGO_OFFICIAL}
                 alt="Logo La Casa del Pollazo"
-                className="pollazo-welcome-logo h-24 w-24 object-contain"
+                className="pollazo-welcome-logo pollazo-welcome-hero-logo h-24 w-24 object-contain"
               />
             </div>
 
-            <div className="mx-auto mb-3 flex w-fit items-center gap-2 rounded-full bg-orange-500 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-white shadow-lg shadow-orange-200">
-              <Sparkles size={13} />
+            <div className="mx-auto mb-2 flex w-fit items-center gap-2 rounded-full bg-orange-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-orange-200">
+              <Sparkles size={12} />
               Galápagos · Ecuador
             </div>
 
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-orange-500">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">
               {text.kicker}
             </p>
 
-            <h1 className="mt-2 text-4xl font-black leading-none tracking-tighter text-gray-950">
+            <h1 className="pollazo-welcome-hero-title mt-1.5 text-[2.45rem] font-black leading-[0.9] tracking-tighter text-gray-950">
               {text.title}
             </h1>
 
-            <p className="mx-auto mt-3 max-w-xs text-sm font-bold leading-relaxed text-gray-600">
+            <p className="pollazo-welcome-hero-copy mx-auto mt-2 max-w-xs text-[13px] font-bold leading-relaxed text-gray-600">
               {text.subtitle}
             </p>
           </div>
 
-          <div className="mt-4 rounded-[30px] border border-orange-100 bg-white p-4 shadow-lg shadow-orange-100/70">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col rounded-[28px] border border-orange-100 bg-white p-3 shadow-lg shadow-orange-100/70">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                   <Languages size={20} />
                 </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">
                     Idioma · Language
                   </p>
-                  <h2 className="text-xl font-black leading-none text-gray-950">
+                  <h2 className="truncate text-lg font-black leading-none text-gray-950">
                     {text.choose}
                   </h2>
                 </div>
               </div>
-              <Globe2 className="text-orange-400" size={22} />
+              <Globe2 className="shrink-0 text-orange-400" size={21} />
             </div>
 
-            <div className="grid gap-2">
-              {visibleLanguages.map(option => {
-                const active = option.code === language;
-
-                return (
-                  <button
-                    key={option.code}
-                    type="button"
-                    onClick={() => setLanguage(option.code)}
-                    className={`flex w-full items-center gap-3 rounded-[22px] border p-3 text-left transition-all active:scale-[0.98] ${
-                      active
-                        ? 'border-orange-300 bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-100'
-                        : 'border-orange-100 bg-orange-50/60 text-gray-900 hover:bg-orange-50'
-                    }`}
-                    aria-label={`Seleccionar ${option.nativeName}`}
-                  >
-                    <span className="text-3xl leading-none">{option.flag}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-black uppercase tracking-tight">
-                        {option.nativeName}
-                      </span>
-                      <span className={`block text-[10px] font-bold uppercase tracking-widest ${active ? 'text-white/80' : 'text-gray-400'}`}>
-                        {active ? text.selected : option.helper}
-                      </span>
-                    </span>
-                    {active && <Check size={20} strokeWidth={3} />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {!showAllLanguages && (
-              <button
-                type="button"
-                onClick={() => setShowAllLanguages(true)}
-                className="mt-2 w-full rounded-[22px] border border-dashed border-orange-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-orange-600 active:scale-[0.98] transition-transform"
+            <div className="relative min-h-0 flex-1">
+              <div
+                className="pollazo-language-scroll grid max-h-full gap-2 overflow-y-auto pr-1"
+                style={{ maxHeight: showAllLanguages ? 'min(270px, 34dvh)' : 'auto' }}
               >
-                {text.more}
-              </button>
-            )}
+                {visibleLanguages.map(option => {
+                  const active = option.code === language;
+
+                  return (
+                    <button
+                      key={option.code}
+                      type="button"
+                      onClick={() => setLanguage(option.code)}
+                      className={`flex w-full items-center gap-3 rounded-[21px] border p-3 text-left transition-all active:scale-[0.98] ${
+                        active
+                          ? 'border-orange-300 bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-100'
+                          : 'border-orange-100 bg-orange-50/60 text-gray-900 hover:bg-orange-50'
+                      }`}
+                      aria-label={`Seleccionar ${option.nativeName}`}
+                    >
+                      <span className="text-3xl leading-none">{option.flag}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-black uppercase tracking-tight">
+                          {option.nativeName}
+                        </span>
+                        <span className={`block truncate text-[10px] font-bold uppercase tracking-widest ${active ? 'text-white/80' : 'text-gray-400'}`}>
+                          {active ? text.selected : option.helper}
+                        </span>
+                      </span>
+                      {active && <Check size={20} strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {showAllLanguages && (
+                <div className="pointer-events-none absolute bottom-0 left-0 right-1 bg-gradient-to-t from-white via-white/92 to-transparent px-2 pb-1 pt-8">
+                  <p className="mx-auto w-fit rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-orange-600 shadow-sm">
+                    ↓ {text.scrollHint}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAllLanguages(current => !current)}
+              className="mt-2 shrink-0 w-full rounded-[21px] border border-dashed border-orange-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-orange-600 active:scale-[0.98] transition-transform"
+            >
+              {showAllLanguages ? text.less : text.more}
+            </button>
           </div>
 
           <button
             type="button"
             onClick={handleContinue}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[28px] bg-gray-950 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-orange-900/20 active:scale-[0.98] transition-transform"
+            className="mt-3 flex shrink-0 w-full items-center justify-center gap-2 rounded-[26px] bg-gray-950 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-orange-900/20 active:scale-[0.98] transition-transform"
           >
             {text.ready}
             <ChevronRight size={18} strokeWidth={3} />
           </button>
 
-          <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-widest text-white/90 drop-shadow-sm">
+          <p className="mt-2 shrink-0 text-center text-[10px] font-bold uppercase tracking-widest text-white/90 drop-shadow-sm">
             {text.note}
           </p>
         </section>
