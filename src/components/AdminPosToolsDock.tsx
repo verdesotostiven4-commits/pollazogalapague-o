@@ -4,6 +4,7 @@ import {
   BarChart3,
   Calculator,
   ChevronUp,
+  ClipboardList,
   PackageSearch,
   RotateCcw,
   X,
@@ -31,9 +32,17 @@ const toolButtonLabel: Record<AdminPosToolKey, string> = {
   inventory: 'inventario',
   reports: 'reportes pos',
   corrections: 'correcciones pos',
+  catalog: 'catálogo maestro',
 };
 
 const tools: ToolOption[] = [
+  {
+    key: 'catalog',
+    label: 'Catálogo Maestro',
+    helper: 'Productos listos para app, POS e inventario',
+    icon: ClipboardList,
+    tone: 'bg-white text-slate-950 border-orange-100',
+  },
   {
     key: 'pos',
     label: 'Vender / POS',
@@ -128,7 +137,7 @@ export default function AdminPosToolsDock() {
   return (
     <div className="fixed bottom-5 right-5 z-[9998] flex flex-col items-end gap-3">
       {open && (
-        <div className="w-[min(92vw,360px)] rounded-[30px] bg-white/95 backdrop-blur-xl border border-white shadow-2xl shadow-orange-200/70 p-3 animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="w-[min(92vw,380px)] rounded-[30px] bg-white/95 backdrop-blur-xl border border-white shadow-2xl shadow-orange-200/70 p-3 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <div className="flex items-center justify-between gap-3 px-2 py-2">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-500">Admin rápido</p>
