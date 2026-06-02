@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { Screen } from '../types';
 
 type BottomTab = Exclude<Screen, 'ranking'>;
@@ -20,17 +21,18 @@ interface Props {
 const tabs: Array<{
   id: BottomTab;
   icon: LucideIcon;
-  label: string;
+  labelKey: string;
 }> = [
-  { id: 'home', icon: Home, label: 'Inicio' },
-  { id: 'catalog', icon: Grid3X3, label: 'Catálogo' },
-  { id: 'orders', icon: ClipboardList, label: 'Pedidos' },
-  { id: 'cart', icon: ShoppingCart, label: 'Carrito' },
-  { id: 'info', icon: Info, label: 'Info' },
+  { id: 'home', icon: Home, labelKey: 'nav.home' },
+  { id: 'catalog', icon: Grid3X3, labelKey: 'nav.catalog' },
+  { id: 'orders', icon: ClipboardList, labelKey: 'nav.orders' },
+  { id: 'cart', icon: ShoppingCart, labelKey: 'nav.cart' },
+  { id: 'info', icon: Info, labelKey: 'nav.info' },
 ];
 
 export default function BottomNav({ current, onNavigate }: Props) {
   const { cartCount } = useCart();
+  const { t } = useLanguage();
 
   return (
     <nav
@@ -41,7 +43,8 @@ export default function BottomNav({ current, onNavigate }: Props) {
 
       <div className="relative mx-2 mb-2 rounded-[30px] bg-white/94 backdrop-blur-xl border border-orange-100 shadow-[0_-10px_35px_rgba(249,115,22,0.14)] overflow-visible pointer-events-auto">
         <div className="flex h-[68px] overflow-visible">
-          {tabs.map(({ id, icon: Icon, label }) => {
+          {tabs.map(({ id, icon: Icon, labelKey }) => {
+            const label = t(labelKey);
             const isActive = current === id;
             const isCart = id === 'cart';
             const hasItems = isCart && cartCount > 0;
@@ -65,7 +68,7 @@ export default function BottomNav({ current, onNavigate }: Props) {
                   }`}
                 >
                   <Icon
-                    size={isCart ? 20 : 20}
+                    size={20}
                     strokeWidth={isActive ? 2.7 : 2.2}
                     className={isActive ? 'drop-shadow-sm' : ''}
                   />
