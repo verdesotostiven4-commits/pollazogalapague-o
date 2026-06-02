@@ -11,6 +11,18 @@ type PushRegisterOptions = {
   forceRefresh?: boolean;
 };
 
+type RegisterPushApiResponse = {
+  ok: boolean;
+  error?: string;
+  details?: unknown;
+  subscription?: {
+    id?: string;
+    customer_phone?: string;
+    endpoint?: string;
+    last_seen_at?: string;
+  };
+};
+
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 const cleanPhone = (phone?: string | null) => {
@@ -55,27 +67,52 @@ export const getPushPermission = (): NotificationPermission => {
   return Notification.permission;
 };
 
-const saveSubscriptionToSupabase = async (
-  customerPhone: string,
-  subscription: PushSubscription
-) => {
-  const subscriptionJson = subscriptionToJson(subscription);
+const saveSubscriptionWithApi = async ({
+  customerPhone,
+  subscription,
+  oldEndpoint,
+}: {
+  customerPhone: string;
+  subscription: PushSubscription;
+  oldEndpoint?: string;
+}) => {
+  const response = await fetch('/api/register-push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      customerPhone,
+      endpoint: subscription.endpoint,
+      oldEndpoint: oldEndpoint || null,
+      subscription: subscriptionToJson(subscription),
+      userAgent: navigator.userAgent,
+    }),
+  });
 
-  return supabase
-    .from('push_subscriptions')
-    .upsert(
-      {
-        customer_phone: customerPhone,
-        endpoint: subscription.endpoint,
-        subscription: subscriptionJson,
-        user_agent: navigator.userAgent,
-        last_seen_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'endpoint',
-      }
-    );
+  let result: RegisterPushApiResponse;
+
+  try {
+    result = await response.json();
+  } catch {
+    result = {
+      ok: false,
+      error: 'La API no devolvió una respuesta válida.',
+    };
+  }
+
+  if (!response.ok || !result.ok) {
+    return {
+      ok: false,
+      error: result.error || `No se pudo guardar la suscripción. HTTP ${response.status}`,
+      details: result.details,
+    };
+  }
+
+  return {
+    ok: true,
+    data: result.subscription,
+  };
 };
 
 const deleteSubscriptionFromSupabase = async (endpoint: string) => {
@@ -85,7 +122,7 @@ const deleteSubscriptionFromSupabase = async (endpoint: string) => {
       .delete()
       .eq('endpoint', endpoint);
   } catch (error) {
-    console.warn('No se pudo borrar suscripción vieja:', error);
+    console.warn('No se pudo borrar suscripción vieja desde cliente:', error);
   }
 };
 
@@ -161,9 +198,10 @@ export const registerPushNotifications = async (
     await navigator.serviceWorker.ready;
 
     let subscription = await registration.pushManager.getSubscription();
+    let oldEndpoint = '';
 
     if (subscription && forceRefresh) {
-      const oldEndpoint = subscription.endpoint;
+      oldEndpoint = subscription.endpoint;
 
       try {
         await deleteSubscriptionFromSupabase(oldEndpoint);
@@ -179,31 +217,42 @@ export const registerPushNotifications = async (
       subscription = await createFreshSubscription(registration);
     }
 
-    let saveResult = await saveSubscriptionToSupabase(phone, subscription);
+    let saveResult = await saveSubscriptionWithApi({
+      customerPhone: phone,
+      subscription,
+      oldEndpoint,
+    });
 
-    if (saveResult.error) {
+    if (!saveResult.ok) {
       console.warn('Primer intento guardando push falló:', saveResult.error);
 
+      const failedEndpoint = subscription.endpoint;
+
       try {
-        await deleteSubscriptionFromSupabase(subscription.endpoint);
+        await deleteSubscriptionFromSupabase(failedEndpoint);
         await subscription.unsubscribe();
       } catch (unsubscribeError) {
         console.warn('No se pudo limpiar suscripción vieja:', unsubscribeError);
       }
 
       subscription = await createFreshSubscription(registration);
-      saveResult = await saveSubscriptionToSupabase(phone, subscription);
+
+      saveResult = await saveSubscriptionWithApi({
+        customerPhone: phone,
+        subscription,
+        oldEndpoint: failedEndpoint,
+      });
     }
 
-    if (saveResult.error) {
-      console.error('Error guardando push subscription:', saveResult.error);
+    if (!saveResult.ok) {
+      console.error('Error guardando push subscription:', saveResult.error, saveResult.details);
 
       localStorage.removeItem('pollazo_push_enabled');
 
       return {
         ok: false,
         permission,
-        reason: `No se pudo guardar este dispositivo para notificaciones: ${saveResult.error.message}`,
+        reason: `No se pudo guardar este dispositivo para notificaciones: ${saveResult.error}`,
       };
     }
 
