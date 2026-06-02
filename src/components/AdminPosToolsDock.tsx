@@ -24,17 +24,6 @@ const isAdminPath = () => {
   return window.location.pathname.toLowerCase() === '/admin';
 };
 
-const normalizeText = (value: string | null | undefined) =>
-  String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-const toolButtonLabel: Record<AdminPosToolKey, string> = {
-  pos: 'caja pos',
-  inventory: 'inventario',
-  reports: 'reportes pos',
-  corrections: 'correcciones pos',
-  catalog: 'catálogo maestro',
-};
-
 const tools: ToolOption[] = [
   {
     key: 'catalog',
@@ -73,18 +62,6 @@ const tools: ToolOption[] = [
   },
 ];
 
-const hiddenToolButtonLabels = Object.values(toolButtonLabel);
-
-const getStandaloneToolButtons = () => {
-  const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
-
-  return buttons.filter(button => {
-    const text = normalizeText(button.textContent);
-    const position = window.getComputedStyle(button).position;
-    return position === 'fixed' && hiddenToolButtonLabels.includes(text);
-  });
-};
-
 export default function AdminPosToolsDock() {
   const [visibleInAdmin, setVisibleInAdmin] = useState(() => isAdminPath());
   const [open, setOpen] = useState(false);
@@ -104,36 +81,9 @@ export default function AdminPosToolsDock() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!visibleInAdmin) return;
-
-    const hideStandaloneButtons = () => {
-      getStandaloneToolButtons().forEach(button => {
-        button.style.display = 'none';
-      });
-    };
-
-    hideStandaloneButtons();
-    const interval = window.setInterval(hideStandaloneButtons, 500);
-
-    return () => window.clearInterval(interval);
-  }, [visibleInAdmin]);
-
   const openTool = (tool: ToolOption) => {
     setOpen(false);
     openAdminPosTool(tool.key);
-
-    window.setTimeout(() => {
-      const expectedLabel = toolButtonLabel[tool.key];
-      const target = getStandaloneToolButtons().find(button => normalizeText(button.textContent) === expectedLabel);
-
-      if (target) {
-        target.click();
-        return;
-      }
-
-      window.alert(`No encontré la herramienta ${tool.label}. Refresca la página e intenta otra vez.`);
-    }, 40);
   };
 
   if (!visibleInAdmin) return null;
