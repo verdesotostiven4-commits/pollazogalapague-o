@@ -547,7 +547,7 @@ export default function FirstRunWelcome({ children }: { children: React.ReactNod
             <ChevronRight className="relative" size={18} strokeWidth={3} />
           </button>
 
-          <p className="relative mt-2 shrink-0 text-center text-[10px] font-black uppercase tracking-widest text-orange-500">
+          <p className="relative mt-2 shrink-0 text-center text-[10px] font-black uppercase tracking-widest text-white/90 drop-shadow-sm">
             {text.note}
           </p>
         </section>
