@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v38';
+const CACHE_VERSION = 'pollazo-cache-clean-v39';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
@@ -161,6 +161,7 @@ self.addEventListener('push', event => {
     notificationType: null,
     membershipId: null,
     membershipReminder: null,
+    timestamp: Date.now(),
   };
 
   try {
@@ -199,8 +200,8 @@ self.addEventListener('push', event => {
     tag:
       payload.tag ||
       (kind === 'plus'
-        ? `pollazo-plus-${payload.membershipReminder || payload.membershipId || 'update'}`
-        : 'pollazo-order-update'),
+        ? `pollazo-plus-${payload.membershipReminder || payload.membershipId || 'update'}-${payload.timestamp || Date.now()}`
+        : `pollazo-order-${payload.orderCode || 'update'}-${payload.status || payload.paymentStatus || 'changed'}-${payload.timestamp || Date.now()}`),
     data: {
       url: targetUrl,
       kind,
@@ -213,6 +214,8 @@ self.addEventListener('push', event => {
     vibrate: kind === 'plus' ? [90, 45, 90, 45, 160] : [120, 60, 120, 60, 180],
     requireInteraction: false,
     renotify: true,
+    silent: false,
+    timestamp: payload.timestamp || Date.now(),
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
