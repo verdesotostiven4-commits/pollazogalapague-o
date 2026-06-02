@@ -28,7 +28,7 @@ const normalizeText = (value: string | null | undefined) =>
   String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 const toolButtonLabel: Record<AdminPosToolKey, string> = {
-  pos: 'pos',
+  pos: 'caja pos',
   inventory: 'inventario',
   reports: 'reportes pos',
   corrections: 'correcciones pos',
