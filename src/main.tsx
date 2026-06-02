@@ -10,6 +10,7 @@ import AdminCatalogMasterLauncher from './components/AdminCatalogMasterLauncher'
 import AdminCatalogMenuBridge from './components/AdminCatalogMenuBridge';
 import CustomerCatalogVisibilityFilter from './components/CustomerCatalogVisibilityFilter';
 import CustomerCatalogSoldOutPositionFix from './components/CustomerCatalogSoldOutPositionFix';
+import OnlineOrderStockSyncBridge from './components/OnlineOrderStockSyncBridge';
 import AdminPosToolEventBridge from './components/AdminPosToolEventBridge';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
 import './index.css';
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
       <App />
       <CustomerCatalogVisibilityFilter />
       <CustomerCatalogSoldOutPositionFix />
+      <OnlineOrderStockSyncBridge />
       <AdminPosSmartLauncher />
       <AdminInventoryLauncher />
       <AdminPosReportsLauncher />
