@@ -813,6 +813,7 @@ function NotificationInfoCard({
   const [permission, setPermission] = useState<NotificationPermission>(() => getPushPermission());
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [showPermissionHelp, setShowPermissionHelp] = useState(false);
 
   const supported = isPushSupported();
   const hasPhone = customerPhone.trim().length > 0;
@@ -836,27 +837,45 @@ function NotificationInfoCard({
   }, []);
 
   useEffect(() => {
-    if (!supported || !hasPhone || permission !== 'granted') return;
+    if (!supported || !hasPhone || permission !== 'granted') return undefined;
 
-    const key = `pollazo_push_auto_synced_${customerPhone}`;
+    const syncKey = `pollazo_push_auto_synced_${customerPhone}`;
 
-    if (sessionStorage.getItem(key) === '1') return;
+    if (sessionStorage.getItem(syncKey) === '1') return undefined;
 
-    sessionStorage.setItem(key, '1');
+    sessionStorage.setItem(syncKey, '1');
 
-    registerPushNotifications(customerPhone, { forceRefresh: true })
-      .then(result => {
+    let cancelled = false;
+
+    const syncDevice = async () => {
+      try {
+        setLoading(true);
+
+        const result = await registerPushNotifications(customerPhone, {
+          forceRefresh: true,
+        });
+
+        if (cancelled) return;
+
         setPermission(getPushPermission());
 
         if (result.ok) {
-          setNotice('Avisos sincronizados en este dispositivo.');
-        } else if (result.reason) {
-          setNotice(result.reason);
+          setNotice('Avisos sincronizados. Este celular quedó registrado para recibir notificaciones.');
+        } else {
+          setNotice(result.reason || 'No se pudo sincronizar este dispositivo.');
         }
-      })
-      .catch(error => {
-        console.warn('No se pudo sincronizar avisos automáticamente:', error);
-      });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    syncDevice();
+
+    return () => {
+      cancelled = true;
+    };
   }, [customerPhone, hasPhone, permission, supported]);
 
   const handleActivate = async () => {
@@ -874,7 +893,8 @@ function NotificationInfoCard({
     }
 
     if (blocked) {
-      setNotice('Los avisos están bloqueados. Debes permitirlos desde ajustes del celular o del sitio.');
+      setShowPermissionHelp(true);
+      setNotice('Los avisos están bloqueados. Debes permitirlos manualmente desde ajustes del celular o navegador.');
       return;
     }
 
@@ -900,7 +920,7 @@ function NotificationInfoCard({
   const statusLabel = !supported
     ? 'No disponible'
     : enabled
-      ? 'Activas'
+      ? 'Permitidas'
       : blocked
         ? 'Bloqueadas'
         : 'Recomendado';
@@ -918,7 +938,7 @@ function NotificationInfoCard({
     : !hasPhone
       ? 'Registrar datos'
       : blocked
-        ? 'Revisar permisos'
+        ? 'Ver cómo permitir'
         : loading
           ? enabled
             ? 'Sincronizando...'
@@ -928,82 +948,163 @@ function NotificationInfoCard({
             : 'Activar avisos';
 
   return (
-    <section className="relative overflow-hidden bg-white rounded-[32px] border border-orange-50 shadow-sm">
-      <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-200/30 rounded-full blur-3xl" />
-      <div className="absolute -left-12 -bottom-12 w-36 h-36 bg-yellow-200/25 rounded-full blur-3xl" />
+    <>
+      <section className="relative overflow-hidden bg-white rounded-[32px] border border-orange-50 shadow-sm">
+        <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-200/30 rounded-full blur-3xl" />
+        <div className="absolute -left-12 -bottom-12 w-36 h-36 bg-yellow-200/25 rounded-full blur-3xl" />
 
-      <div className="relative p-5">
-        <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-100 flex-shrink-0">
-            <BellRing size={24} />
+        <div className="relative p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-100 flex-shrink-0">
+              <BellRing size={24} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
+                    Avisos importantes
+                  </p>
+
+                  <h3 className="text-base font-black text-gray-950 uppercase italic leading-none mt-1">
+                    Notificaciones Pollazo
+                  </h3>
+                </div>
+
+                <span className={`text-[8px] font-black uppercase px-2.5 py-1.5 rounded-full flex-shrink-0 ${statusClass}`}>
+                  {statusLabel}
+                </span>
+              </div>
+
+              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
+                Actívalas para enterarte del estado de tu pedido, regalos Plus, cambios de entrega y recordatorios útiles. No las usamos para molestar.
+              </p>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
-                  Avisos importantes
+          {blocked && (
+            <div className="mt-4 bg-red-50 border border-red-100 rounded-[24px] p-3 flex items-start gap-2">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] font-black text-red-600 uppercase leading-relaxed">
+                Tu celular o navegador bloqueó los avisos. Por seguridad, el permiso debe cambiarse manualmente desde ajustes.
+              </p>
+            </div>
+          )}
+
+          {enabled && (
+            <div className="mt-4 bg-green-50 border border-green-100 rounded-[24px] p-3 flex items-start gap-2">
+              <ShieldCheck size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
+                Los avisos están permitidos. Si Supabase quedó vacío o cambiaste de celular, toca sincronizar avisos.
+              </p>
+            </div>
+          )}
+
+          {notice && (
+            <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3">
+              <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
+                {notice}
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleActivate}
+            disabled={loading || !supported}
+            className={`mt-4 w-full rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform ${
+              enabled
+                ? 'bg-green-50 text-green-600 border border-green-100'
+                : blocked || !supported
+                  ? 'bg-gray-100 text-gray-500'
+                  : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-100'
+            }`}
+          >
+            <BellRing size={15} className={loading ? 'animate-pulse' : ''} />
+            {buttonLabel}
+          </button>
+        </div>
+      </section>
+
+      {showPermissionHelp && (
+        <div className="fixed inset-0 z-[13080] flex items-end justify-center">
+          <button
+            type="button"
+            aria-label="Cerrar ayuda de permisos"
+            onClick={() => setShowPermissionHelp(false)}
+            className="absolute inset-0 bg-orange-950/25"
+          />
+
+          <section className="relative w-full max-w-md bg-white rounded-t-[34px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
+            <div className="px-5 py-4 border-b border-orange-50 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
+                  Permisos del celular
                 </p>
 
-                <h3 className="text-base font-black text-gray-950 uppercase italic leading-none mt-1">
-                  Notificaciones Pollazo
+                <h3 className="text-xl font-black text-gray-950 uppercase italic leading-none mt-1">
+                  Activa notificaciones
                 </h3>
               </div>
 
-              <span className={`text-[8px] font-black uppercase px-2.5 py-1.5 rounded-full flex-shrink-0 ${statusClass}`}>
-                {statusLabel}
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowPermissionHelp(false)}
+                className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+                aria-label="Cerrar"
+              >
+                <X size={19} />
+              </button>
             </div>
 
-            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
-              Actívalas para enterarte del estado de tu pedido, regalos Plus, cambios de entrega y recordatorios útiles. No las usamos para molestar.
-            </p>
-          </div>
+            <div className="p-5 space-y-3">
+              <div className="bg-red-50 border border-red-100 rounded-[26px] p-4 flex gap-3">
+                <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] font-bold text-red-700 leading-relaxed">
+                  Cuando una notificación queda bloqueada, la app no puede abrir otra vez el permiso automático. Debes permitirlo desde los ajustes del celular o del navegador.
+                </p>
+              </div>
+
+              <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4">
+                <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-3">
+                  Android / app instalada
+                </p>
+
+                <div className="space-y-2 text-[11px] font-bold text-orange-800 leading-relaxed">
+                  <p>1. Mantén presionado el ícono de La Casa del Pollazo.</p>
+                  <p>2. Toca Información de la app.</p>
+                  <p>3. Entra a Notificaciones.</p>
+                  <p>4. Activa Permitir notificaciones.</p>
+                  <p>5. Vuelve a Info y toca Sincronizar avisos.</p>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-100 rounded-[26px] p-4">
+                <p className="text-[10px] font-black text-yellow-700 uppercase tracking-widest mb-3">
+                  Chrome
+                </p>
+
+                <div className="space-y-2 text-[11px] font-bold text-yellow-800 leading-relaxed">
+                  <p>1. Abre Chrome.</p>
+                  <p>2. Entra a Configuración del sitio.</p>
+                  <p>3. Busca pollazogalapague-o-psi.vercel.app.</p>
+                  <p>4. Cambia Notificaciones a Permitir.</p>
+                  <p>5. Vuelve a la app y toca Sincronizar avisos.</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPermissionHelp(false)}
+                className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-100"
+              >
+                Entendido
+              </button>
+            </div>
+          </section>
         </div>
-
-        {blocked && (
-          <div className="mt-4 bg-red-50 border border-red-100 rounded-[24px] p-3 flex items-start gap-2">
-            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-[10px] font-black text-red-600 uppercase leading-relaxed">
-              Tu celular o navegador bloqueó los avisos. Debes permitirlos desde la configuración del sitio o de la app instalada.
-            </p>
-          </div>
-        )}
-
-        {enabled && (
-          <div className="mt-4 bg-green-50 border border-green-100 rounded-[24px] p-3 flex items-start gap-2">
-            <ShieldCheck size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
-            <p className="text-[10px] font-black text-green-700 uppercase leading-relaxed">
-              Los avisos están permitidos. Si cambiaste de celular, reinstalaste la app o se borró el registro, toca sincronizar avisos.
-            </p>
-          </div>
-        )}
-
-        {notice && !blocked && (
-          <div className="mt-4 bg-orange-50 border border-orange-100 rounded-[24px] p-3">
-            <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed text-center">
-              {notice}
-            </p>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleActivate}
-          disabled={loading || !supported || blocked}
-          className={`mt-4 w-full rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform ${
-            enabled
-              ? 'bg-green-50 text-green-600 border border-green-100'
-              : blocked || !supported
-                ? 'bg-gray-100 text-gray-400'
-                : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-lg shadow-orange-100'
-          }`}
-        >
-          <BellRing size={15} className={loading ? 'animate-pulse' : ''} />
-          {buttonLabel}
-        </button>
-      </div>
-    </section>
+      )}
+    </>
   );
 }
 
