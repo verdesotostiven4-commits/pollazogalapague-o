@@ -5,7 +5,7 @@ function polishCartText() {
 
   nodes.forEach(node => {
     const text = (node.innerText || '').trim();
-    const match = text.match(/^(\d+)\s+unidad(?:es)?\s+en\s+el\s+carrito$/i);
+    const match = text.match(/^(\d+)\s+unidad(?:s|es)?\s+en\s+el\s+carrito$/i);
 
     if (!match) return;
 
@@ -21,7 +21,7 @@ export default function CartTextPolish() {
     const observer = new MutationObserver(refresh);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 
-    const interval = window.setInterval(refresh, 250);
+    const interval = window.setInterval(refresh, 120);
     refresh();
 
     return () => {
