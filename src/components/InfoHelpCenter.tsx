@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
+  BadgePercent,
   ChevronDown,
   CreditCard,
   HelpCircle,
+  Lock,
   MapPin,
   MessageCircle,
   PackageSearch,
+  RefreshCw,
   Search,
+  ShieldCheck,
   Star,
   X,
 } from 'lucide-react';
@@ -14,13 +18,13 @@ import {
 const WHATSAPP = '593989795628';
 const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 
-type HelpAction = 'whatsapp' | 'orders' | 'location' | 'plus';
+type HelpAction = 'whatsapp' | 'orders' | 'location' | 'plus' | 'none';
 
 type HelpItem = {
   title: string;
   text: string;
-  actionLabel: string;
-  action: HelpAction;
+  actionLabel?: string;
+  action?: HelpAction;
 };
 
 type HelpTopic = {
@@ -33,33 +37,71 @@ type HelpTopic = {
 
 const topics: HelpTopic[] = [
   {
-    id: 'pedido',
+    id: 'pedidos',
     icon: <PackageSearch size={20} />,
-    title: 'Problemas con mi pedido',
-    subtitle: 'Estado, demora, cambios o pedido incompleto.',
+    title: 'Pedidos',
+    subtitle: 'Estado, preparación, cambios y seguimiento.',
     items: [
       {
+        title: '¿Cómo sé si mi pedido fue recibido?',
+        text: 'Cuando haces un pedido puede entrar como Por Confirmar. El local revisa productos, ubicación y pago. Luego el estado puede cambiar a Recibido, Preparando, Enviado o Entregado.',
+        actionLabel: 'Ver mis pedidos',
+        action: 'orders',
+      },
+      {
         title: 'Mi pedido no llegó',
-        text: 'Revisa el estado del pedido. Si está enviado y ya pasó mucho tiempo, escribe al local con tu nombre y código de pedido para revisar con el repartidor.',
+        text: 'Revisa el estado en Mis pedidos. Si ya aparece como Enviado y pasó más tiempo de lo normal, escribe al local con tu nombre y código de pedido para revisar con el repartidor.',
         actionLabel: 'Ver mis pedidos',
         action: 'orders',
       },
       {
         title: 'Mi pedido llegó incompleto',
-        text: 'Toma una foto de lo recibido y envía el código del pedido. El local revisará si corresponde completar el producto, corregir el cobro o coordinar una solución.',
+        text: 'Toma una foto de lo recibido y envía el código del pedido. El local revisará si corresponde completar el producto, corregir el cobro o coordinar otra solución.',
         actionLabel: 'Reportar por WhatsApp',
         action: 'whatsapp',
       },
       {
-        title: 'Quiero cambiar o cancelar mi pedido',
-        text: 'Si aún no está en preparación o enviado, se puede intentar cambiar. Si ya está avanzado, depende del tiempo, disponibilidad y coordinación del local.',
+        title: 'Quiero cambiar algo de mi pedido',
+        text: 'Si el pedido aún no está en preparación o enviado, se puede intentar cambiar. Si ya está avanzado, depende del tiempo, stock y operación del local.',
         actionLabel: 'Escribir al local',
         action: 'whatsapp',
       },
       {
         title: 'No veo mi pedido en la app',
-        text: 'Asegúrate de usar el mismo número de WhatsApp con el que hiciste el pedido. Si igual no aparece, el local puede buscarlo con tu nombre o comprobante.',
+        text: 'Asegúrate de usar el mismo número de WhatsApp con el que hiciste el pedido. Si igual no aparece, el local puede buscarlo con tu nombre, comprobante o código.',
         actionLabel: 'Contactar soporte',
+        action: 'whatsapp',
+      },
+    ],
+  },
+  {
+    id: 'cancelaciones',
+    icon: <RefreshCw size={20} />,
+    title: 'Cancelaciones y devoluciones',
+    subtitle: 'Cambios, productos agotados y ajustes.',
+    items: [
+      {
+        title: '¿Puedo cancelar un pedido?',
+        text: 'Puedes solicitar cancelación mientras el pedido aún no esté en preparación o enviado. Si ya fue preparado o va en camino, el local revisará si todavía es posible.',
+        actionLabel: 'Solicitar ayuda',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Qué pasa si un producto se agotó?',
+        text: 'Si un producto se agota, el local puede avisarte para cambiarlo, quitarlo del pedido o ajustar el total antes de preparar.',
+        actionLabel: 'Consultar pedido',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Por qué cambió el precio de mi pedido?',
+        text: 'Puede cambiar si se agrega o quita un producto, si hay un producto de valor variable, si se corrige disponibilidad o si se aplica delivery/beneficio. El local debe confirmarlo antes de finalizar.',
+        actionLabel: 'Revisar precio',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Cuándo aplica una devolución?',
+        text: 'Aplica cuando hubo cobro incorrecto, pago duplicado confirmado, producto no entregado o una corrección aprobada por el local. El tiempo depende del método de pago.',
+        actionLabel: 'Reportar devolución',
         action: 'whatsapp',
       },
     ],
@@ -67,13 +109,25 @@ const topics: HelpTopic[] = [
   {
     id: 'pagos',
     icon: <CreditCard size={20} />,
-    title: 'Problemas con pagos',
-    subtitle: 'Comprobantes, Deuna, transferencia o validación.',
+    title: 'Pagos',
+    subtitle: 'Efectivo, Deuna, transferencia y comprobantes.',
     items: [
       {
+        title: '¿Qué medios de pago aceptan?',
+        text: 'La app puede manejar efectivo contra entrega y pagos digitales como Deuna, transferencia o tarjeta si están activos. Los métodos disponibles pueden cambiar según operación del local.',
+        actionLabel: 'Preguntar métodos',
+        action: 'whatsapp',
+      },
+      {
         title: 'Pagué pero sigue pendiente',
-        text: 'Algunos pagos necesitan revisión manual. Ten listo tu comprobante, valor pagado y código del pedido para validar más rápido.',
+        text: 'Algunos pagos digitales necesitan revisión manual. Ten listo tu comprobante, valor pagado y código del pedido para validar más rápido.',
         actionLabel: 'Enviar comprobante',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Cuánto tarda la validación?',
+        text: 'Normalmente se revisa lo antes posible durante horario de atención. Puede tardar más si hay muchos pedidos, mala señal, comprobante borroso o datos incompletos.',
+        actionLabel: 'Consultar validación',
         action: 'whatsapp',
       },
       {
@@ -84,47 +138,73 @@ const topics: HelpTopic[] = [
       },
       {
         title: 'Creo que me cobraron mal',
-        text: 'Envía captura del movimiento o recibo. El local revisará monto, método de pago, productos y delivery aplicado.',
+        text: 'Envía captura del movimiento o recibo. El local revisará monto, método de pago, productos, delivery aplicado y beneficios activos.',
         actionLabel: 'Consultar pago',
-        action: 'whatsapp',
-      },
-      {
-        title: '¿Puedo pagar en efectivo?',
-        text: 'Sí, si el método está activo. En efectivo se paga contra entrega. Para pagos digitales, el local puede validar antes de preparar.',
-        actionLabel: 'Preguntar métodos',
         action: 'whatsapp',
       },
     ],
   },
   {
-    id: 'entrega',
+    id: 'promos',
+    icon: <BadgePercent size={20} />,
+    title: 'Cupones y promociones',
+    subtitle: 'Descuentos, puntos, premios y campañas.',
+    items: [
+      {
+        title: '¿Hay cupones activos?',
+        text: 'Cuando existan cupones o promociones, la app podrá mostrarlos en Inicio, catálogo, ranking o campañas especiales. Si no aparece nada, puede que no haya promoción activa.',
+        actionLabel: 'Consultar promoción',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Cómo funcionan los puntos?',
+        text: 'Los puntos o rankings pueden usarse para temporadas, premios o dinámicas especiales. No son dinero y no siempre garantizan premio, salvo que la campaña lo indique claramente.',
+        actionLabel: 'Preguntar por puntos',
+        action: 'whatsapp',
+      },
+      {
+        title: 'No se aplicó una promoción',
+        text: 'Revisa si la promoción seguía activa, si aplicaba al producto y si cumplías las condiciones. El local puede revisar el caso si envías captura o detalle del pedido.',
+        actionLabel: 'Revisar promo',
+        action: 'whatsapp',
+      },
+    ],
+  },
+  {
+    id: 'entregas',
     icon: <MapPin size={20} />,
-    title: 'Entrega y ubicación',
-    subtitle: 'Dirección, referencia, cobertura y repartidor.',
+    title: 'Entregas y cobertura',
+    subtitle: 'Dirección, referencia, zonas y tiempos.',
     items: [
       {
         title: '¿A dónde hacen envíos?',
-        text: 'Por ahora los envíos están pensados principalmente dentro de Puerto Ayora y el sector El Mirador. Más adelante se podrán confirmar zonas como Bellavista, Santa Rosa o El Cascajo según operación del local.',
+        text: 'Por ahora los envíos se manejan principalmente dentro de Puerto Ayora y el sector El Mirador. Zonas como Bellavista, Santa Rosa o El Cascajo podrían confirmarse a futuro o revisarse según operación del local.',
         actionLabel: 'Consultar cobertura',
         action: 'whatsapp',
       },
       {
         title: 'No encuentran mi casa',
-        text: 'Agrega una referencia clara: color de casa, entrada, calle, local cercano o punto conocido. En la isla una buena referencia evita demoras.',
+        text: 'Agrega una referencia clara: color de casa, entrada, calle, tienda cercana o punto conocido. En la isla una buena referencia ayuda muchísimo al repartidor.',
         actionLabel: 'Editar ubicación',
         action: 'location',
       },
       {
         title: 'Quiero cambiar mi ubicación',
-        text: 'Guarda otra dirección desde Info y selecciónala antes de hacer el pedido. Si el pedido ya fue enviado, consulta por WhatsApp.',
+        text: 'Puedes guardar otra ubicación desde Info y seleccionarla antes de hacer tu pedido. Si el pedido ya fue enviado, consulta por WhatsApp.',
         actionLabel: 'Cambiar ubicación',
         action: 'location',
       },
       {
         title: '¿Cuánto tarda la entrega?',
-        text: 'El tiempo depende de distancia, clima, tráfico, cantidad de pedidos y disponibilidad del repartidor. El estado del pedido te ayuda a saber si ya va en camino.',
+        text: 'El tiempo depende de distancia, clima, tráfico, cantidad de pedidos, disponibilidad de productos y repartidor. El estado del pedido te ayuda a saber si ya va en camino.',
         actionLabel: 'Ver mis pedidos',
         action: 'orders',
+      },
+      {
+        title: '¿Puedo pedir para recoger?',
+        text: 'Por ahora el flujo principal está pensado para domicilio. Si deseas recoger en el local, consúltalo antes por WhatsApp para coordinar.',
+        actionLabel: 'Coordinar retiro',
+        action: 'whatsapp',
       },
     ],
   },
@@ -132,8 +212,14 @@ const topics: HelpTopic[] = [
     id: 'plus',
     icon: <Star size={20} />,
     title: 'Pollazo Plus',
-    subtitle: 'Membresía, beneficios y delivery.',
+    subtitle: 'Membresía, beneficios, regalos y delivery.',
     items: [
+      {
+        title: '¿Qué es Pollazo Plus?',
+        text: 'Es una membresía mensual de beneficios. Puede incluir delivery gratis dentro de cobertura, prioridad operativa, avisos importantes y regalos o sorpresas cuando el local los active.',
+        actionLabel: 'Ver Plus',
+        action: 'plus',
+      },
       {
         title: 'No se aplicó mi beneficio',
         text: 'Revisa que tu membresía esté activa y que el pedido esté dentro de cobertura. Si algo no cuadra, el local puede revisar manualmente.',
@@ -141,16 +227,81 @@ const topics: HelpTopic[] = [
         action: 'whatsapp',
       },
       {
-        title: 'Quiero ver Pollazo Plus',
-        text: 'Puedes revisar la tarjeta de Pollazo Plus en Info para ver beneficios activos y detalles de la membresía.',
-        actionLabel: 'Ver Plus',
-        action: 'plus',
-      },
-      {
         title: '¿El delivery gratis aplica siempre?',
         text: 'Aplica según cobertura, estado de membresía y reglas activas del local. Si estás fuera de cobertura o hay una condición especial, el negocio puede confirmarlo antes.',
         actionLabel: 'Consultar beneficio',
         action: 'whatsapp',
+      },
+      {
+        title: '¿Puedo cancelar Pollazo Plus?',
+        text: 'Cuando la suscripción esté completamente activa, se podrá definir el proceso de cancelación. Por ahora, cualquier duda se revisa directo con el local.',
+        actionLabel: 'Contactar soporte',
+        action: 'whatsapp',
+      },
+    ],
+  },
+  {
+    id: 'cuenta',
+    icon: <Lock size={20} />,
+    title: 'Cuenta y seguridad',
+    subtitle: 'Datos, WhatsApp, ubicación y notificaciones.',
+    items: [
+      {
+        title: '¿Por qué piden mi WhatsApp?',
+        text: 'Se usa para identificar tus pedidos, coordinar entrega, validar pagos y contactarte si falta información. Es importante usar tu número real.',
+        actionLabel: 'Contactar soporte',
+        action: 'whatsapp',
+      },
+      {
+        title: 'Quiero cambiar mis datos',
+        text: 'Puedes actualizar ubicación y referencia desde Info. Si necesitas cambiar nombre o número, escribe al local para evitar confusión con pedidos anteriores.',
+        actionLabel: 'Pedir cambio',
+        action: 'whatsapp',
+      },
+      {
+        title: 'No me llegan notificaciones',
+        text: 'Revisa permisos del navegador o celular. También puede influir si la app no está instalada o si el sistema bloqueó avisos.',
+        actionLabel: 'Pedir ayuda',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Mis datos están protegidos?',
+        text: 'Los datos se usan para pedidos, entregas, historial, beneficios y seguridad operativa. No deben venderse a terceros ni usarse para publicidad externa.',
+        actionLabel: 'Consultar privacidad',
+        action: 'whatsapp',
+      },
+    ],
+  },
+  {
+    id: 'faq',
+    icon: <ShieldCheck size={20} />,
+    title: 'Preguntas frecuentes',
+    subtitle: 'Dudas rápidas sobre la app y el local.',
+    items: [
+      {
+        title: '¿Los productos agotados desaparecen?',
+        text: 'Lo ideal es que sigan visibles como Agotado para que el cliente entienda que existen, pero no pueda comprarlos hasta que vuelvan a estar disponibles.',
+        action: 'none',
+      },
+      {
+        title: '¿Los precios pueden cambiar?',
+        text: 'Sí. Algunos precios pueden cambiar por stock, promociones, proveedor, productos variables o correcciones del local. Antes de preparar, el negocio puede confirmar si hay cambios importantes.',
+        action: 'none',
+      },
+      {
+        title: '¿Puedo hacer pedido fuera de horario?',
+        text: 'La app puede permitir dejar pedidos como preventa o por confirmar. El local los revisará cuando esté operativo.',
+        action: 'none',
+      },
+      {
+        title: '¿Qué pasa si no respondo al repartidor?',
+        text: 'Si no se puede contactar al cliente o no se encuentra la ubicación, el pedido puede demorarse, pausarse o cancelarse según el caso.',
+        action: 'none',
+      },
+      {
+        title: '¿Esta ayuda cambiará después?',
+        text: 'Sí. Esta sección es una base inicial. Cuando la app esté completa y el local defina reglas finales, se actualizarán respuestas, cobertura, pagos, promociones y beneficios.',
+        action: 'none',
       },
     ],
   },
@@ -168,7 +319,7 @@ function clickMainNav(words: string[]) {
   const found = buttons.find(button => {
     const aria = (button.getAttribute('aria-label') || '').toLowerCase();
     const text = (button.innerText || '').toLowerCase();
-    return words.some(word => aria.includes(word) || text === word);
+    return words.some(word => aria.includes(word) || text === word || text.includes(word));
   });
 
   found?.click();
@@ -191,8 +342,8 @@ function clickInfoAction(words: string[]) {
 
 export default function InfoHelpCenter() {
   const [open, setOpen] = useState(false);
-  const [openTopic, setOpenTopic] = useState('pedido');
-  const [openItem, setOpenItem] = useState('Mi pedido no llegó');
+  const [openTopic, setOpenTopic] = useState('pedidos');
+  const [openItem, setOpenItem] = useState('¿Cómo sé si mi pedido fue recibido?');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -211,6 +362,8 @@ export default function InfoHelpCenter() {
   }, [open]);
 
   const runAction = (topic: HelpTopic, item: HelpItem) => {
+    if (!item.action || item.action === 'none') return;
+
     if (item.action === 'orders') {
       setOpen(false);
       window.setTimeout(() => {
@@ -257,7 +410,7 @@ export default function InfoHelpCenter() {
         <div className="flex-1 min-w-0">
           <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">Soporte local</p>
           <h3 className="text-base font-black text-gray-950 uppercase italic leading-none mt-1">Centro de ayuda</h3>
-          <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">Pedidos, pagos, entregas y Pollazo Plus.</p>
+          <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">Pedidos, pagos, entregas, promociones y cuenta.</p>
         </div>
 
         <div className="w-9 h-9 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
@@ -284,7 +437,7 @@ export default function InfoHelpCenter() {
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/75">Soporte local</p>
                     <h3 className="text-xl font-black uppercase italic leading-none mt-1">Centro de ayuda</h3>
-                    <p className="text-[11px] font-bold text-white/80 leading-relaxed mt-2">Respuestas rápidas y acciones útiles.</p>
+                    <p className="text-[11px] font-bold text-white/80 leading-relaxed mt-2">Elige una categoría y encuentra una respuesta rápida.</p>
                   </div>
                 </div>
 
@@ -300,13 +453,6 @@ export default function InfoHelpCenter() {
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-orange-50/40 overscroll-contain">
-              <div className="rounded-[26px] border border-orange-100 bg-white p-4 shadow-sm">
-                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Cobertura actual</p>
-                <p className="mt-2 text-[11px] font-bold leading-relaxed text-gray-500">
-                  Por ahora los envíos se manejan principalmente dentro de Puerto Ayora y el sector El Mirador. Otras zonas pueden requerir confirmación del local.
-                </p>
-              </div>
-
               {topics.map(topic => {
                 const activeTopic = openTopic === topic.id;
 
@@ -349,14 +495,17 @@ export default function InfoHelpCenter() {
                               {activeItem && (
                                 <div className="px-4 pb-4">
                                   <p className="text-[11px] font-bold text-gray-500 leading-relaxed">{item.text}</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => runAction(topic, item)}
-                                    className="mt-3 w-full rounded-[20px] bg-gradient-to-r from-orange-500 to-yellow-400 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
-                                  >
-                                    <MessageCircle size={15} />
-                                    {item.actionLabel}
-                                  </button>
+
+                                  {item.action && item.action !== 'none' && item.actionLabel && (
+                                    <button
+                                      type="button"
+                                      onClick={() => runAction(topic, item)}
+                                      className="mt-3 w-full rounded-[20px] bg-gradient-to-r from-orange-500 to-yellow-400 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                                    >
+                                      <MessageCircle size={15} />
+                                      {item.actionLabel}
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
