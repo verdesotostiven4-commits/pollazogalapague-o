@@ -12,7 +12,6 @@ import CustomerCatalogVisibilityFilter from './components/CustomerCatalogVisibil
 import OnlineOrderStockSyncBridge from './components/OnlineOrderStockSyncBridge';
 import AdminPosToolEventBridge from './components/AdminPosToolEventBridge';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
-import LegalModalScrollFix from './components/LegalModalScrollFix';
 import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
@@ -23,7 +22,6 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <App />
-      <LegalModalScrollFix />
       <CustomerCatalogVisibilityFilter />
       <OnlineOrderStockSyncBridge />
       <AdminPosSmartLauncher />
