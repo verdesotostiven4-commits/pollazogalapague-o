@@ -361,11 +361,16 @@ function clickInfoAction(words: string[]) {
   return Boolean(found);
 }
 
+function getItemKey(topicId: string, itemTitle: string) {
+  return `${topicId}:${itemTitle}`;
+}
+
 export default function InfoHelpCenter() {
   const [open, setOpen] = useState(false);
   const [openTopic, setOpenTopic] = useState('pedidos');
   const [openItem, setOpenItem] = useState('');
   const topicRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (!open) return undefined;
@@ -391,6 +396,18 @@ export default function InfoHelpCenter() {
     if (!activeTopic) {
       window.setTimeout(() => {
         topicRefs.current[topic.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 90);
+    }
+  };
+
+  const openQuestionOnly = (topic: HelpTopic, item: HelpItem, activeItem: boolean) => {
+    const nextItem = activeItem ? '' : item.title;
+    setOpenItem(nextItem);
+
+    if (!activeItem) {
+      const key = getItemKey(topic.id, item.title);
+      window.setTimeout(() => {
+        itemRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 90);
     }
   };
@@ -515,12 +532,17 @@ export default function InfoHelpCenter() {
                       <div className="px-3 pb-3 space-y-2">
                         {topic.items.map(item => {
                           const activeItem = openItem === item.title;
+                          const key = getItemKey(topic.id, item.title);
 
                           return (
-                            <div key={item.title} className="rounded-[24px] bg-orange-50/70 border border-orange-100 overflow-hidden">
+                            <div
+                              key={item.title}
+                              ref={element => { itemRefs.current[key] = element; }}
+                              className="rounded-[24px] bg-orange-50/70 border border-orange-100 overflow-hidden scroll-mt-4"
+                            >
                               <button
                                 type="button"
-                                onClick={() => setOpenItem(activeItem ? '' : item.title)}
+                                onClick={() => openQuestionOnly(topic, item, activeItem)}
                                 className="w-full px-4 py-3 flex items-center gap-2 text-left active:bg-orange-50 transition-colors"
                               >
                                 <span className="flex-1 text-[11px] font-black text-gray-900 uppercase leading-tight">{item.title}</span>
