@@ -267,11 +267,11 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
   const { language, t } = useLanguage();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const previewingRef = useRef(false);
+  const previewCompletedRef = useRef(false);
   const scrollIdleTimerRef = useRef<number | null>(null);
   const [hasUnlockedAccept, setHasUnlockedAccept] = useState(false);
   const [showScrollArrow, setShowScrollArrow] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  const [arrowDismissed, setArrowDismissed] = useState(false);
 
   const hasAccepted =
     typeof window !== 'undefined' && window.localStorage.getItem(LEGAL_ACCEPTED_KEY) === '1';
@@ -288,12 +288,11 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
     if (!isRequired) {
       setHasUnlockedAccept(true);
       setShowScrollArrow(false);
-      setArrowDismissed(true);
       return undefined;
     }
 
     setHasUnlockedAccept(false);
-    setArrowDismissed(false);
+    previewCompletedRef.current = false;
 
     if (!content) return undefined;
 
@@ -301,14 +300,13 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
       const canScroll = content.scrollHeight > content.clientHeight + 12;
       const distanceToBottom = content.scrollHeight - content.clientHeight - content.scrollTop;
       const reachedEnd = !canScroll || distanceToBottom <= 18;
+      const isAtTop = content.scrollTop < 8;
 
       if (reachedEnd) {
         setHasUnlockedAccept(true);
         setShowScrollArrow(false);
-      } else if (!previewingRef.current) {
-        setShowScrollArrow(canScroll && !arrowDismissed && content.scrollTop < 8);
       } else {
-        setShowScrollArrow(canScroll && !arrowDismissed);
+        setShowScrollArrow(canScroll && isAtTop);
       }
 
       setIsScrolling(true);
@@ -321,10 +319,12 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
     content.addEventListener('scroll', updateProgress, { passive: true });
 
     const previewTimer = window.setTimeout(() => {
+      if (previewCompletedRef.current) return;
       const target = Math.min(76, content.scrollHeight - content.clientHeight);
       if (target <= 0) return;
 
       previewingRef.current = true;
+      previewCompletedRef.current = true;
       content.scrollTo({ top: target, behavior: 'smooth' });
       window.setTimeout(() => content.scrollTo({ top: 0, behavior: 'smooth' }), 850);
       window.setTimeout(() => {
@@ -339,21 +339,14 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
       if (scrollIdleTimerRef.current) window.clearTimeout(scrollIdleTimerRef.current);
       previewingRef.current = false;
     };
-  }, [isOpen, isRequired, language, arrowDismissed]);
+  }, [isOpen, isRequired, language]);
 
   if (!isOpen) return null;
-
-  const dismissArrow = () => {
-    if (previewingRef.current) return;
-    setArrowDismissed(true);
-    setShowScrollArrow(false);
-  };
 
   const scrollToEnd = () => {
     const content = contentRef.current;
     if (!content) return;
 
-    setArrowDismissed(true);
     setShowScrollArrow(false);
     content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
   };
@@ -425,10 +418,7 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
 
         <div
           ref={contentRef}
-          onWheel={dismissArrow}
-          onTouchStart={dismissArrow}
-          onPointerDown={dismissArrow}
-          className={`pollazo-legal-scroll flex-1 overflow-y-auto p-4 space-y-4 pb-32 ${isScrolling ? 'is-scrolling' : ''}`}
+          className={`pollazo-legal-scroll flex-1 overflow-y-auto p-4 space-y-4 pb-6 ${isScrolling ? 'is-scrolling' : ''}`}
         >
           <section className="relative overflow-hidden bg-gradient-to-br from-white via-orange-50 to-yellow-50 border border-orange-100 rounded-[36px] p-5 shadow-sm">
             <div className="absolute -right-12 -top-12 w-36 h-36 bg-orange-300/25 rounded-full blur-3xl" />
@@ -491,7 +481,7 @@ export default function LegalModal({ isOpen, onClose, mode = 'auto' }: Props) {
             </a>
           </section>
 
-          <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 mb-4">
+          <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 mb-1">
             <div className="flex items-start gap-3">
               <Star size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
               <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">{t('legal.update_note')}</p>
