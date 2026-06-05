@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ChevronDown,
   CreditCard,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 const WHATSAPP = '593989795628';
+const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 
 type HelpAction = 'whatsapp' | 'orders' | 'location' | 'plus';
 
@@ -55,6 +56,12 @@ const topics: HelpTopic[] = [
         actionLabel: 'Escribir al local',
         action: 'whatsapp',
       },
+      {
+        title: 'No veo mi pedido en la app',
+        text: 'Asegúrate de usar el mismo número de WhatsApp con el que hiciste el pedido. Si igual no aparece, el local puede buscarlo con tu nombre o comprobante.',
+        actionLabel: 'Contactar soporte',
+        action: 'whatsapp',
+      },
     ],
   },
   {
@@ -81,6 +88,12 @@ const topics: HelpTopic[] = [
         actionLabel: 'Consultar pago',
         action: 'whatsapp',
       },
+      {
+        title: '¿Puedo pagar en efectivo?',
+        text: 'Sí, si el método está activo. En efectivo se paga contra entrega. Para pagos digitales, el local puede validar antes de preparar.',
+        actionLabel: 'Preguntar métodos',
+        action: 'whatsapp',
+      },
     ],
   },
   {
@@ -89,6 +102,12 @@ const topics: HelpTopic[] = [
     title: 'Entrega y ubicación',
     subtitle: 'Dirección, referencia, cobertura y repartidor.',
     items: [
+      {
+        title: '¿A dónde hacen envíos?',
+        text: 'Por ahora los envíos están pensados principalmente dentro de Puerto Ayora y el sector El Mirador. Más adelante se podrán confirmar zonas como Bellavista, Santa Rosa o El Cascajo según operación del local.',
+        actionLabel: 'Consultar cobertura',
+        action: 'whatsapp',
+      },
       {
         title: 'No encuentran mi casa',
         text: 'Agrega una referencia clara: color de casa, entrada, calle, local cercano o punto conocido. En la isla una buena referencia evita demoras.',
@@ -102,10 +121,10 @@ const topics: HelpTopic[] = [
         action: 'location',
       },
       {
-        title: '¿Llegan a mi zona?',
-        text: 'Algunas zonas pueden requerir confirmación por distancia, horario, clima o disponibilidad de reparto.',
-        actionLabel: 'Consultar cobertura',
-        action: 'whatsapp',
+        title: '¿Cuánto tarda la entrega?',
+        text: 'El tiempo depende de distancia, clima, tráfico, cantidad de pedidos y disponibilidad del repartidor. El estado del pedido te ayuda a saber si ya va en camino.',
+        actionLabel: 'Ver mis pedidos',
+        action: 'orders',
       },
     ],
   },
@@ -127,6 +146,12 @@ const topics: HelpTopic[] = [
         actionLabel: 'Ver Plus',
         action: 'plus',
       },
+      {
+        title: '¿El delivery gratis aplica siempre?',
+        text: 'Aplica según cobertura, estado de membresía y reglas activas del local. Si estás fuera de cobertura o hay una condición especial, el negocio puede confirmarlo antes.',
+        actionLabel: 'Consultar beneficio',
+        action: 'whatsapp',
+      },
     ],
   },
 ];
@@ -136,11 +161,28 @@ function buildWhatsApp(topic: string, item: string) {
   return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
 }
 
-function clickByText(words: string[]) {
-  const buttons = Array.from(document.querySelectorAll('button, a')) as HTMLElement[];
+function clickMainNav(words: string[]) {
+  const nav = document.querySelector('nav[aria-label="Navegación principal"]');
+  const buttons = Array.from(nav?.querySelectorAll('button') || []) as HTMLButtonElement[];
+
+  const found = buttons.find(button => {
+    const aria = (button.getAttribute('aria-label') || '').toLowerCase();
+    const text = (button.innerText || '').toLowerCase();
+    return words.some(word => aria.includes(word) || text === word);
+  });
+
+  found?.click();
+  return Boolean(found);
+}
+
+function clickInfoAction(words: string[]) {
+  const main = document.querySelector('main');
+  const buttons = Array.from(main?.querySelectorAll('button') || []) as HTMLButtonElement[];
+
   const found = buttons.find(button => {
     const text = (button.innerText || '').toLowerCase();
-    return words.some(word => text.includes(word));
+    const isHelpButton = text.includes('centro de ayuda');
+    return !isHelpButton && words.some(word => text.includes(word));
   });
 
   found?.click();
@@ -152,34 +194,49 @@ export default function InfoHelpCenter() {
   const [openTopic, setOpenTopic] = useState('pedido');
   const [openItem, setOpenItem] = useState('Mi pedido no llegó');
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const main = document.querySelector('main') as HTMLElement | null;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousMainOverflow = main?.style.overflowY || '';
+
+    document.body.style.overflow = 'hidden';
+    if (main) main.style.overflowY = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      if (main) main.style.overflowY = previousMainOverflow;
+    };
+  }, [open]);
+
   const runAction = (topic: HelpTopic, item: HelpItem) => {
     if (item.action === 'orders') {
       setOpen(false);
       window.setTimeout(() => {
-        if (!clickByText(['pedidos', 'orders'])) {
+        if (!clickMainNav(['pedidos', 'orders'])) {
           window.open(buildWhatsApp(topic.title, item.title), '_blank');
         }
-      }, 80);
+      }, 120);
       return;
     }
 
     if (item.action === 'location') {
       setOpen(false);
       window.setTimeout(() => {
-        if (!clickByText(['agregar nueva', 'cambiar ubicación', 'editar ubicación', 'add new'])) {
+        if (!clickInfoAction(['agregar nueva', 'editar', 'cambiar ubicación', 'add new', 'edit'])) {
           window.open(buildWhatsApp(topic.title, item.title), '_blank');
         }
-      }, 80);
+      }, 120);
       return;
     }
 
     if (item.action === 'plus') {
       setOpen(false);
+      sessionStorage.setItem(PLUS_OPEN_SIGNAL_KEY, '1');
       window.setTimeout(() => {
-        if (!clickByText(['pollazo plus', 'plus'])) {
-          window.open(buildWhatsApp(topic.title, item.title), '_blank');
-        }
-      }, 80);
+        window.dispatchEvent(new CustomEvent('pollazo:open-plus'));
+      }, 120);
       return;
     }
 
@@ -209,7 +266,7 @@ export default function InfoHelpCenter() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[13090] flex items-end justify-center">
+        <div className="fixed inset-0 z-[13090] flex items-end justify-center overscroll-contain" onWheel={event => event.stopPropagation()} onTouchMove={event => event.stopPropagation()}>
           <button
             type="button"
             aria-label="Cerrar centro de ayuda"
@@ -242,7 +299,14 @@ export default function InfoHelpCenter() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-orange-50/40">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-orange-50/40 overscroll-contain">
+              <div className="rounded-[26px] border border-orange-100 bg-white p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Cobertura actual</p>
+                <p className="mt-2 text-[11px] font-bold leading-relaxed text-gray-500">
+                  Por ahora los envíos se manejan principalmente dentro de Puerto Ayora y el sector El Mirador. Otras zonas pueden requerir confirmación del local.
+                </p>
+              </div>
+
               {topics.map(topic => {
                 const activeTopic = openTopic === topic.id;
 
