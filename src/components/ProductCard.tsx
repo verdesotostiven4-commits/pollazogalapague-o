@@ -5,6 +5,7 @@ import {
   DollarSign,
   X,
   Plus,
+  Minus,
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
@@ -81,7 +82,7 @@ export default function ProductCard({
   className = '',
   compact = false,
 }: Props) {
-  const { addItem } = useCart();
+  const { items, addItem, updateQuantity, removeItem } = useCart();
   const { triggerFly } = useFlyToCart();
   const { overrides } = useAdmin();
   const { language } = useLanguage();
@@ -109,6 +110,23 @@ export default function ProductCard({
     available,
   };
 
+  const cartItem = useMemo(() => {
+    if (product.is_variable) return null;
+
+    return (
+      items.find(item => {
+        const itemProductId = String(item.product.id || '');
+        const itemId = String(item.id || '');
+        const productId = String(product.id || '');
+
+        return itemProductId === productId || itemId === productId;
+      }) || null
+    );
+  }, [items, product.id, product.is_variable]);
+
+  const cartQuantity = cartItem?.quantity || 0;
+  const cartProductId = String(cartItem?.product.id || cartItem?.id || product.id);
+
   const consult = isConsultPrice(displayPrice);
   const currentNum = moneyFromInput(customValue);
   const isValidCustomValue = currentNum >= config.min && currentNum <= config.max;
@@ -131,7 +149,35 @@ export default function ProductCard({
 
   const markAdded = () => {
     setAdded(true);
-    window.setTimeout(() => setAdded(false), 1200);
+    window.setTimeout(() => setAdded(false), 900);
+  };
+
+  const handleIncrease = () => {
+    if (!available || product.is_variable) return;
+
+    triggerHaptic();
+    runFlyAnimation();
+
+    if (cartItem) {
+      updateQuantity(cartProductId, cartQuantity + 1);
+    } else {
+      addItem(effectiveProduct);
+    }
+
+    markAdded();
+  };
+
+  const handleDecrease = () => {
+    if (!cartItem || product.is_variable) return;
+
+    triggerHaptic();
+
+    if (cartQuantity <= 1) {
+      removeItem(cartProductId);
+      return;
+    }
+
+    updateQuantity(cartProductId, cartQuantity - 1);
   };
 
   const executeAddVariable = (priceOverride?: number) => {
@@ -163,10 +209,7 @@ export default function ProductCard({
       return;
     }
 
-    triggerHaptic();
-    runFlyAnimation();
-    addItem(effectiveProduct);
-    markAdded();
+    handleIncrease();
   };
 
   const handleCloseModal = () => {
@@ -281,35 +324,63 @@ export default function ProductCard({
               )}
             </div>
 
-            <button
-              ref={btnRef}
-              type="button"
-              onClick={handleAdd}
-              disabled={!available}
-              className={`w-full min-h-[44px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
-                compact ? 'text-[12px] py-2.5' : 'text-[13px] py-3'
-              } ${
-                !available
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : added
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
-              }`}
-            >
-              {!available ? (
-                <>{compact ? productUi('product.soldOut', language) : productUi('product.noStock', language)}</>
-              ) : added ? (
-                <>
-                  <Check size={compact ? 13 : 14} strokeWidth={3} />
-                  {productUi('product.added', language)}
-                </>
-              ) : (
-                <>
-                  <Plus size={compact ? 13 : 14} />
-                  {product.is_variable ? productUi('product.choose', language) : productUi('product.add', language)}
-                </>
-              )}
-            </button>
+            {available && !product.is_variable && cartQuantity > 0 ? (
+              <div className="w-full min-h-[44px] bg-orange-50 border border-orange-200 rounded-2xl flex items-center justify-between px-2 shadow-inner">
+                <button
+                  type="button"
+                  onClick={handleDecrease}
+                  className="w-10 h-10 rounded-xl bg-white text-orange-600 flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                  aria-label="Quitar una unidad"
+                >
+                  <Minus size={compact ? 14 : 16} strokeWidth={3} />
+                </button>
+
+                <div className="flex flex-col items-center leading-none">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-orange-500">Cantidad</span>
+                  <span className="text-lg font-black text-gray-950">{cartQuantity}</span>
+                </div>
+
+                <button
+                  ref={btnRef}
+                  type="button"
+                  onClick={handleIncrease}
+                  className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-sm shadow-orange-200 active:scale-90 transition-transform"
+                  aria-label="Agregar una unidad"
+                >
+                  <Plus size={compact ? 14 : 16} strokeWidth={3} />
+                </button>
+              </div>
+            ) : (
+              <button
+                ref={btnRef}
+                type="button"
+                onClick={handleAdd}
+                disabled={!available}
+                className={`w-full min-h-[44px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
+                  compact ? 'text-[12px] py-2.5' : 'text-[13px] py-3'
+                } ${
+                  !available
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : added
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gradient-to-r from-orange-500 to-yellow-400 text-white active:scale-95 shadow-sm shadow-orange-200'
+                }`}
+              >
+                {!available ? (
+                  <>{compact ? productUi('product.soldOut', language) : productUi('product.noStock', language)}</>
+                ) : added ? (
+                  <>
+                    <Check size={compact ? 13 : 14} strokeWidth={3} />
+                    {productUi('product.added', language)}
+                  </>
+                ) : (
+                  <>
+                    <Plus size={compact ? 13 : 14} />
+                    {product.is_variable ? productUi('product.choose', language) : productUi('product.add', language)}
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
