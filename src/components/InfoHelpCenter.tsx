@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BadgePercent,
   ChevronDown,
@@ -44,7 +44,7 @@ const topics: HelpTopic[] = [
     items: [
       {
         title: '¿Cómo sé si mi pedido fue recibido?',
-        text: 'Cuando haces un pedido puede entrar como Por Confirmar. El local revisa productos, ubicación y pago. Luego el estado puede cambiar a Recibido, Preparando, Enviado o Entregado.',
+        text: 'Cuando haces un pedido puede entrar como Por Confirmar. El local revisa disponibilidad, ubicación y datos necesarios. Luego el estado puede cambiar a Recibido, Preparando, Enviado o Entregado.',
         actionLabel: 'Ver mis pedidos',
         action: 'orders',
       },
@@ -56,7 +56,7 @@ const topics: HelpTopic[] = [
       },
       {
         title: 'Mi pedido llegó incompleto',
-        text: 'Toma una foto de lo recibido y envía el código del pedido. El local revisará si corresponde completar el producto, corregir el cobro o coordinar otra solución.',
+        text: 'Toma una foto de lo recibido y envía el código del pedido. El local revisará qué ocurrió y coordinará la solución correspondiente.',
         actionLabel: 'Reportar por WhatsApp',
         action: 'whatsapp',
       },
@@ -68,7 +68,7 @@ const topics: HelpTopic[] = [
       },
       {
         title: 'No veo mi pedido en la app',
-        text: 'Asegúrate de usar el mismo número de WhatsApp con el que hiciste el pedido. Si igual no aparece, el local puede buscarlo con tu nombre, comprobante o código.',
+        text: 'Asegúrate de usar el mismo número de WhatsApp con el que hiciste el pedido. Si igual no aparece, el local puede ayudarte a revisarlo con tu nombre o código.',
         actionLabel: 'Contactar soporte',
         action: 'whatsapp',
       },
@@ -78,7 +78,7 @@ const topics: HelpTopic[] = [
     id: 'cancelaciones',
     icon: <RefreshCw size={20} />,
     title: 'Cancelaciones y devoluciones',
-    subtitle: 'Cambios, productos agotados y ajustes.',
+    subtitle: 'Cambios, productos agotados y soluciones.',
     items: [
       {
         title: '¿Puedo cancelar un pedido?',
@@ -88,20 +88,20 @@ const topics: HelpTopic[] = [
       },
       {
         title: '¿Qué pasa si un producto se agotó?',
-        text: 'Si un producto se agota, el local puede avisarte para cambiarlo, quitarlo del pedido o ajustar el total antes de preparar.',
+        text: 'Si un producto se agota, el local puede avisarte para cambiarlo, quitarlo del pedido o coordinar una alternativa antes de preparar.',
         actionLabel: 'Consultar pedido',
         action: 'whatsapp',
       },
       {
-        title: '¿Por qué cambió el precio de mi pedido?',
-        text: 'Puede cambiar si se agrega o quita un producto, si hay un producto de valor variable, si se corrige disponibilidad o si se aplica delivery/beneficio. El local debe confirmarlo antes de finalizar.',
-        actionLabel: 'Revisar precio',
+        title: '¿Cuándo aplica una devolución?',
+        text: 'Puede aplicar cuando hubo pago duplicado confirmado, producto no entregado o una corrección aprobada por el local. El tiempo depende del método de pago y del caso.',
+        actionLabel: 'Reportar devolución',
         action: 'whatsapp',
       },
       {
-        title: '¿Cuándo aplica una devolución?',
-        text: 'Aplica cuando hubo cobro incorrecto, pago duplicado confirmado, producto no entregado o una corrección aprobada por el local. El tiempo depende del método de pago.',
-        actionLabel: 'Reportar devolución',
+        title: 'Recibí otro producto por error',
+        text: 'Guarda el producto recibido y envía una foto al local. Así se puede revisar el caso y coordinar el cambio o la solución más conveniente.',
+        actionLabel: 'Reportar error',
         action: 'whatsapp',
       },
     ],
@@ -110,7 +110,7 @@ const topics: HelpTopic[] = [
     id: 'pagos',
     icon: <CreditCard size={20} />,
     title: 'Pagos',
-    subtitle: 'Efectivo, Deuna, transferencia y comprobantes.',
+    subtitle: 'Efectivo, Deuna, transferencia y confirmación.',
     items: [
       {
         title: '¿Qué medios de pago aceptan?',
@@ -120,26 +120,26 @@ const topics: HelpTopic[] = [
       },
       {
         title: 'Pagué pero sigue pendiente',
-        text: 'Algunos pagos digitales necesitan revisión manual. Ten listo tu comprobante, valor pagado y código del pedido para validar más rápido.',
-        actionLabel: 'Enviar comprobante',
-        action: 'whatsapp',
-      },
-      {
-        title: '¿Cuánto tarda la validación?',
-        text: 'Normalmente se revisa lo antes posible durante horario de atención. Puede tardar más si hay muchos pedidos, mala señal, comprobante borroso o datos incompletos.',
-        actionLabel: 'Consultar validación',
-        action: 'whatsapp',
-      },
-      {
-        title: 'Me equivoqué en el comprobante',
-        text: 'Envía el comprobante correcto y explica el error. Si el pedido aún no se prepara, el local puede corregir la validación.',
-        actionLabel: 'Corregir comprobante',
-        action: 'whatsapp',
-      },
-      {
-        title: 'Creo que me cobraron mal',
-        text: 'Envía captura del movimiento o recibo. El local revisará monto, método de pago, productos, delivery aplicado y beneficios activos.',
+        text: 'Si un pago no se confirma al momento o notas algo raro, espera unos minutos y revisa el estado. Si continúa pendiente, contacta al local para ayudarte con el pedido.',
         actionLabel: 'Consultar pago',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Cuánto tarda en confirmarse un pago?',
+        text: 'Normalmente la confirmación debe ser rápida cuando el método está funcionando bien. Puede tardar más si hay mala señal, datos incompletos o un problema externo del método de pago.',
+        actionLabel: 'Consultar estado',
+        action: 'whatsapp',
+      },
+      {
+        title: 'Me equivoqué al pagar',
+        text: 'Si escribiste mal un dato, pagaste otro valor o seleccionaste otro método, contacta al local lo antes posible para revisar el caso antes de preparar el pedido.',
+        actionLabel: 'Pedir ayuda',
+        action: 'whatsapp',
+      },
+      {
+        title: 'Creo que me cobraron dos veces',
+        text: 'Revisa tus movimientos y contacta al local con la información del pedido. Se revisará el caso para confirmar si hubo duplicado y coordinar la solución.',
+        actionLabel: 'Reportar cobro',
         action: 'whatsapp',
       },
     ],
@@ -166,6 +166,12 @@ const topics: HelpTopic[] = [
         title: 'No se aplicó una promoción',
         text: 'Revisa si la promoción seguía activa, si aplicaba al producto y si cumplías las condiciones. El local puede revisar el caso si envías captura o detalle del pedido.',
         actionLabel: 'Revisar promo',
+        action: 'whatsapp',
+      },
+      {
+        title: '¿Las promociones se acumulan?',
+        text: 'Depende de la campaña activa. Algunas promociones pueden ser únicas por pedido, por cliente o por temporada. Cuando haya reglas finales, se mostrarán en la app.',
+        actionLabel: 'Consultar reglas',
         action: 'whatsapp',
       },
     ],
@@ -222,7 +228,7 @@ const topics: HelpTopic[] = [
       },
       {
         title: 'No se aplicó mi beneficio',
-        text: 'Revisa que tu membresía esté activa y que el pedido esté dentro de cobertura. Si algo no cuadra, el local puede revisar manualmente.',
+        text: 'Revisa que tu membresía esté activa y que el pedido esté dentro de cobertura. Si algo no cuadra, el local puede revisar el caso.',
         actionLabel: 'Consultar Plus',
         action: 'whatsapp',
       },
@@ -248,7 +254,7 @@ const topics: HelpTopic[] = [
     items: [
       {
         title: '¿Por qué piden mi WhatsApp?',
-        text: 'Se usa para identificar tus pedidos, coordinar entrega, validar pagos y contactarte si falta información. Es importante usar tu número real.',
+        text: 'Se usa para identificar tus pedidos, coordinar entrega, confirmar novedades del pedido y contactarte si falta información. Es importante usar tu número real.',
         actionLabel: 'Contactar soporte',
         action: 'whatsapp',
       },
@@ -280,12 +286,7 @@ const topics: HelpTopic[] = [
     items: [
       {
         title: '¿Los productos agotados desaparecen?',
-        text: 'Lo ideal es que sigan visibles como Agotado para que el cliente entienda que existen, pero no pueda comprarlos hasta que vuelvan a estar disponibles.',
-        action: 'none',
-      },
-      {
-        title: '¿Los precios pueden cambiar?',
-        text: 'Sí. Algunos precios pueden cambiar por stock, promociones, proveedor, productos variables o correcciones del local. Antes de preparar, el negocio puede confirmar si hay cambios importantes.',
+        text: 'Lo ideal es que sigan visibles como Agotado para que el cliente sepa que existen, pero no pueda comprarlos hasta que vuelvan a estar disponibles.',
         action: 'none',
       },
       {
@@ -296,6 +297,26 @@ const topics: HelpTopic[] = [
       {
         title: '¿Qué pasa si no respondo al repartidor?',
         text: 'Si no se puede contactar al cliente o no se encuentra la ubicación, el pedido puede demorarse, pausarse o cancelarse según el caso.',
+        action: 'none',
+      },
+      {
+        title: '¿Puedo guardar más de una ubicación?',
+        text: 'La idea es que puedas actualizar tu ubicación y referencia desde Info. Más adelante se puede mejorar para manejar varias direcciones guardadas si el flujo lo necesita.',
+        action: 'none',
+      },
+      {
+        title: '¿Qué hago si la app no carga bien?',
+        text: 'Prueba cerrar y abrir la app, revisar conexión o actualizar la página. Si sigue igual, contacta al local y describe qué estabas intentando hacer.',
+        action: 'none',
+      },
+      {
+        title: '¿Necesito instalar la app?',
+        text: 'No siempre es obligatorio, pero instalarla puede mejorar el acceso rápido, la experiencia tipo app y las notificaciones cuando estén disponibles.',
+        action: 'none',
+      },
+      {
+        title: '¿Puedo comprar productos agotados?',
+        text: 'No. Si un producto aparece como agotado, debes esperar a que el local lo vuelva a habilitar o consultar si hay una alternativa disponible.',
         action: 'none',
       },
       {
@@ -343,7 +364,8 @@ function clickInfoAction(words: string[]) {
 export default function InfoHelpCenter() {
   const [open, setOpen] = useState(false);
   const [openTopic, setOpenTopic] = useState('pedidos');
-  const [openItem, setOpenItem] = useState('¿Cómo sé si mi pedido fue recibido?');
+  const [openItem, setOpenItem] = useState('');
+  const topicRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (!open) return undefined;
@@ -360,6 +382,18 @@ export default function InfoHelpCenter() {
       if (main) main.style.overflowY = previousMainOverflow;
     };
   }, [open]);
+
+  const openTopicOnly = (topic: HelpTopic, activeTopic: boolean) => {
+    const nextTopic = activeTopic ? '' : topic.id;
+    setOpenTopic(nextTopic);
+    setOpenItem('');
+
+    if (!activeTopic) {
+      window.setTimeout(() => {
+        topicRefs.current[topic.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 90);
+    }
+  };
 
   const runAction = (topic: HelpTopic, item: HelpItem) => {
     if (!item.action || item.action === 'none') return;
@@ -437,7 +471,7 @@ export default function InfoHelpCenter() {
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/75">Soporte local</p>
                     <h3 className="text-xl font-black uppercase italic leading-none mt-1">Centro de ayuda</h3>
-                    <p className="text-[11px] font-bold text-white/80 leading-relaxed mt-2">Elige una categoría y encuentra una respuesta rápida.</p>
+                    <p className="text-[11px] font-bold text-white/80 leading-relaxed mt-2">Elige una categoría y abre solo la pregunta que quieras leer.</p>
                   </div>
                 </div>
 
@@ -457,13 +491,14 @@ export default function InfoHelpCenter() {
                 const activeTopic = openTopic === topic.id;
 
                 return (
-                  <div key={topic.id} className="rounded-[28px] border border-orange-100 bg-white overflow-hidden shadow-sm">
+                  <div
+                    key={topic.id}
+                    ref={element => { topicRefs.current[topic.id] = element; }}
+                    className="rounded-[28px] border border-orange-100 bg-white overflow-hidden shadow-sm scroll-mt-4"
+                  >
                     <button
                       type="button"
-                      onClick={() => {
-                        setOpenTopic(activeTopic ? '' : topic.id);
-                        if (!activeTopic) setOpenItem(topic.items[0]?.title || '');
-                      }}
+                      onClick={() => openTopicOnly(topic, activeTopic)}
                       className="w-full p-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
                     >
                       <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${activeTopic ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-500 border border-orange-100'}`}>
