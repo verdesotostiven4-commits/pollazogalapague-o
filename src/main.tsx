@@ -17,6 +17,7 @@ import InfoHelpCenterMount from './components/InfoHelpCenterMount';
 import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
 import CartTextPolish from './components/CartTextPolish';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
+import SafeOrdersOverlay from './components/SafeOrdersOverlay';
 import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
@@ -27,6 +28,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <App />
+      <SafeOrdersOverlay />
       <LegalModalNoAutoScroll />
       <InfoHelpCenterMount />
       <InfoScreenVisualPolish />
