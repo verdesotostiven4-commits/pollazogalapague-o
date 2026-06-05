@@ -14,6 +14,7 @@ import AdminPosToolEventBridge from './components/AdminPosToolEventBridge';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
 import LegalModalNoAutoScroll from './components/LegalModalNoAutoScroll';
 import InfoHelpCenterMount from './components/InfoHelpCenterMount';
+import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
 import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
       <App />
       <LegalModalNoAutoScroll />
       <InfoHelpCenterMount />
+      <InfoScreenVisualPolish />
       <CustomerCatalogVisibilityFilter />
       <OnlineOrderStockSyncBridge />
       <AdminPosSmartLauncher />
