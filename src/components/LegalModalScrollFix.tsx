@@ -24,7 +24,6 @@ function getEndNote(scroll: HTMLElement | null): HTMLElement | null {
     candidates.find(element =>
       element.innerText?.toLowerCase().includes('terms may be updated')
     ) ||
-    candidates[candidates.length - 1] ||
     null
   );
 }
@@ -56,6 +55,34 @@ function hideOriginalLegalControls() {
   }
 }
 
+function hideEndUpdateNote() {
+  const scroll = getLegalScroll();
+  const endNote = getEndNote(scroll);
+
+  if (endNote) {
+    endNote.style.display = 'none';
+  }
+}
+
+function cancelOriginalPreviewScroll() {
+  const scroll = getLegalScroll();
+  if (!scroll) return;
+
+  const now = Date.now();
+  const mountedAt = Number(scroll.dataset.pollazoLegalMountedAt || now);
+
+  if (!scroll.dataset.pollazoLegalMountedAt) {
+    scroll.dataset.pollazoLegalMountedAt = String(now);
+  }
+
+  const recentlyMounted = now - mountedAt < 2600;
+  const userTouched = scroll.dataset.pollazoLegalUserTouched === '1';
+
+  if (recentlyMounted && !userTouched && scroll.scrollTop > 0 && scroll.scrollTop < 140) {
+    scroll.scrollTop = 0;
+  }
+}
+
 export default function LegalModalScrollFix() {
   const [mounted, setMounted] = useState(false);
   const [showArrow, setShowArrow] = useState(false);
@@ -67,6 +94,8 @@ export default function LegalModalScrollFix() {
       const footer = getLegalFooter(scroll);
 
       hideOriginalLegalControls();
+      hideEndUpdateNote();
+      cancelOriginalPreviewScroll();
       setMounted(Boolean(scroll));
 
       if (!scroll) {
@@ -79,25 +108,44 @@ export default function LegalModalScrollFix() {
       const isAtTop = scroll.scrollTop < 8;
       const originalAcceptExists = Boolean(footer || getOriginalAcceptButton());
 
-      setAcceptReady(originalAcceptExists);
-      setShowArrow(canScroll && isAtTop && !originalAcceptExists);
+      if (originalAcceptExists || acceptReady) {
+        scroll.style.paddingBottom = '150px';
+      }
+
+      setAcceptReady(originalAcceptExists || acceptReady);
+      setShowArrow(canScroll && isAtTop && !originalAcceptExists && !acceptReady);
+    };
+
+    const markTouched = () => {
+      const scroll = getLegalScroll();
+      if (scroll) {
+        scroll.dataset.pollazoLegalUserTouched = '1';
+      }
     };
 
     const observer = new MutationObserver(refresh);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-    const interval = window.setInterval(refresh, 220);
+    const interval = window.setInterval(refresh, 120);
 
     const bindScroll = () => {
       const scroll = getLegalScroll();
       if (!scroll) return;
+
       scroll.addEventListener('scroll', refresh, { passive: true });
+      scroll.addEventListener('wheel', markTouched, { passive: true });
+      scroll.addEventListener('touchstart', markTouched, { passive: true });
+      scroll.addEventListener('pointerdown', markTouched, { passive: true });
     };
 
     const unbindScroll = () => {
       const scroll = getLegalScroll();
       if (!scroll) return;
+
       scroll.removeEventListener('scroll', refresh);
+      scroll.removeEventListener('wheel', markTouched);
+      scroll.removeEventListener('touchstart', markTouched);
+      scroll.removeEventListener('pointerdown', markTouched);
     };
 
     const bindTimer = window.setInterval(bindScroll, 400);
@@ -110,22 +158,18 @@ export default function LegalModalScrollFix() {
       window.clearInterval(bindTimer);
       unbindScroll();
     };
-  }, []);
+  }, [acceptReady]);
 
   const handleArrowClick = () => {
     const scroll = getLegalScroll();
-    const endNote = getEndNote(scroll);
 
     if (!scroll) return;
 
+    scroll.dataset.pollazoLegalUserTouched = '1';
     setShowArrow(false);
-
+    setAcceptReady(true);
+    scroll.style.paddingBottom = '150px';
     scroll.scrollTo({ top: scroll.scrollHeight, behavior: 'smooth' });
-
-    window.setTimeout(() => {
-      endNote?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      setAcceptReady(true);
-    }, 520);
   };
 
   const handleAccept = () => {
