@@ -9,12 +9,20 @@ function polishCartText() {
 
   nodes.forEach(node => {
     const text = textOf(node);
-    const match = text.match(/^(\d+)\s+unidad(?:s|es)?\s+en\s+el\s+carrito$/i);
+    const cartMatch = text.match(/^(\d+)\s+unidad(?:s|es)?\s+en\s+el\s+carrito$/i);
 
-    if (!match) return;
+    if (cartMatch) {
+      const count = Number(cartMatch[1]);
+      node.textContent = count === 1 ? '1 producto en el carrito' : `${count} productos en el carrito`;
+      return;
+    }
 
-    const count = Number(match[1]);
-    node.textContent = count === 1 ? '1 producto en el carrito' : `${count} productos en el carrito`;
+    const orderMoreMatch = text.match(/^toca\s+detalle\s+para\s+ver\s+(\d+)\s+producto(?:s)?\s+m[aá]s$/i);
+
+    if (orderMoreMatch) {
+      const count = Number(orderMoreMatch[1]);
+      node.textContent = count === 1 ? '1 producto más' : `${count} productos más`;
+    }
   });
 
   const sections = Array.from(document.querySelectorAll('section')) as HTMLElement[];
@@ -57,7 +65,7 @@ export default function CartTextPolish() {
     const observer = new MutationObserver(refresh);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
 
-    const interval = window.setInterval(refresh, 120);
+    const interval = window.setInterval(refresh, 420);
     refresh();
 
     return () => {
