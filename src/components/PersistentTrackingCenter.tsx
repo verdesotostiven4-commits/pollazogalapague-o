@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
-  ChevronDown,
   Clock3,
   ClipboardList,
   PackageSearch,
@@ -145,11 +144,21 @@ function readTrackingIntent() {
   }
 }
 
+function isHomeScreenActive() {
+  if (typeof document === 'undefined') return false;
+
+  const activeNav = document.querySelector('nav[aria-label="Navegación principal"] button[aria-current="page"]') as HTMLElement | null;
+  const text = `${activeNav?.innerText || ''} ${activeNav?.getAttribute('aria-label') || ''}`.toLowerCase();
+
+  return text.includes('inicio') || text.includes('home');
+}
+
 export default function PersistentTrackingCenter() {
   const [open, setOpen] = useState(() => hasTrackingQuery());
   const [orders, setOrders] = useState<TrackingOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastNotificationCode, setLastNotificationCode] = useState<string | null>(null);
+  const [isHomeScreen, setIsHomeScreen] = useState(() => isHomeScreenActive());
 
   const customerPhone = useMemo(() => {
     try {
@@ -213,7 +222,24 @@ export default function PersistentTrackingCenter() {
   const status = normalizeStatus(trackedOrder?.status);
   const Icon = statusIcon(status);
   const isActive = Boolean(trackedOrder && ACTIVE_STATUSES.includes(status));
-  const shouldShowFloating = Boolean(trackedOrder && isActive);
+  const shouldShowFloating = Boolean(trackedOrder && isActive && isHomeScreen);
+
+  useEffect(() => {
+    const updateScreen = () => setIsHomeScreen(isHomeScreenActive());
+
+    updateScreen();
+    const observer = new MutationObserver(updateScreen);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-current', 'class'] });
+
+    window.addEventListener('click', updateScreen, true);
+    const interval = window.setInterval(updateScreen, 700);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('click', updateScreen, true);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (hasTrackingQuery()) {
@@ -297,17 +323,14 @@ export default function PersistentTrackingCenter() {
             setOpen(true);
             refreshOrders();
           }}
-          className="fixed right-4 bottom-[92px] z-[12050] flex items-center gap-2 rounded-full bg-white/95 backdrop-blur-md border border-orange-100 px-4 py-3 shadow-2xl shadow-orange-100 text-orange-600 active:scale-95 transition-all"
+          className="fixed right-4 bottom-[94px] z-[12050] h-11 rounded-full bg-orange-500 px-3.5 text-white shadow-xl shadow-orange-200 active:scale-95 transition-all flex items-center gap-2 border border-white/40"
           aria-label="Abrir rastreo del pedido activo"
         >
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg shadow-orange-200">
-            <PackageSearch size={18} />
-            <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-green-400 border-2 border-white" />
+          <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
+            <PackageSearch size={15} />
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-orange-500" />
           </span>
-          <span className="text-left leading-none">
-            <span className="block text-[9px] font-black uppercase tracking-widest text-gray-400">Pedido activo</span>
-            <span className="block text-[11px] font-black uppercase">Rastrear</span>
-          </span>
+          <span className="text-[10px] font-black uppercase tracking-widest leading-none">Rastrear</span>
         </button>
       )}
 
@@ -334,7 +357,7 @@ export default function PersistentTrackingCenter() {
                       {trackedOrder?.order_code || 'Pedido activo'}
                     </h2>
                     <p className="text-[11px] font-bold text-white/80 mt-2">
-                      {safeDate(trackedOrder?.created_at || trackedOrder?.updated_at)}
+                      {safeDate(trackedOrder?.created_at || trackedOrder?.updated_at)} · Se actualiza solo
                     </p>
                   </div>
                 </div>
@@ -403,17 +426,6 @@ export default function PersistentTrackingCenter() {
                         );
                       })}
                     </div>
-                  </section>
-
-                  <section className="rounded-[30px] bg-white border border-orange-100 p-4 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={refreshOrders}
-                      className="w-full rounded-[22px] bg-orange-50 border border-orange-100 text-orange-600 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
-                      <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                      Actualizar rastreo
-                    </button>
                   </section>
                 </>
               ) : (
