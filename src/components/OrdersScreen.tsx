@@ -26,8 +26,8 @@ interface Props {
   onOpenTracking: () => void;
 }
 
-type StatusFilter = 'active' | 'delivered' | 'cancelled' | 'all';
-type RangeFilter = '7d' | '15d' | '30d' | '3m' | '6m' | 'all';
+type StatusFilter = 'active' | 'delivered' | 'all';
+type NoticeTone = 'success' | 'warning' | 'info';
 
 const WHATSAPP_NUMBER = '593989795628';
 const ACTIVE_STATUSES: OrderStatus[] = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'];
@@ -46,6 +46,19 @@ const VALID_CATEGORIES: Category[] = [
 
 function cleanPhone(phone?: string | null) {
   return String(phone || '').replace(/\D/g, '').slice(-9);
+}
+
+function cleanId(value: unknown) {
+  return String(value || '').trim();
+}
+
+function normalizeText(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 }
 
 function toNumber(value: unknown) {
@@ -101,7 +114,8 @@ function safeStatus(value?: string | null): OrderStatus {
 }
 
 function statusText(status: OrderStatus) {
-  return status === 'Por Confirmar' ? 'Por confirmar' : status;
+  if (status === 'Por Confirmar') return 'Por confirmar';
+  return status;
 }
 
 function statusTone(status: OrderStatus) {
@@ -161,12 +175,26 @@ function orderItemCount(order: Order) {
   return safeItems(order).reduce((sum, item) => sum + itemQuantity(item), 0);
 }
 
+function orderSubtotal(order: Order) {
+  return safeItems(order).reduce((sum, item) => sum + itemSubtotal(item), 0);
+}
+
+function orderDelivery(order: Order) {
+  return toNumber((order as any).delivery_fee);
+}
+
+function orderTotal(order: Order) {
+  const total = toNumber(order.total);
+  if (total > 0) return total;
+  return orderSubtotal(order) + orderDelivery(order);
+}
+
 function normalizeCategory(value: unknown): Category {
   const category = String(value || '').trim();
   return VALID_CATEGORIES.includes(category as Category) ? (category as Category) : 'Abarrotes y básicos';
 }
 
-function productFromOrderItem(item: any, order: Order, index: number): Product {
+function productFromOrderItem(item: any, order: Order, index: number, available = true): Product {
   const snapshot = item?.product || {};
   const price = itemUnitPrice(item);
 
@@ -182,26 +210,37 @@ function productFromOrderItem(item: any, order: Order, index: number): Product {
     price: price > 0 ? `$${price.toFixed(2)}` : item?.price_text || snapshot?.price || 'Consultar precio',
     image: itemImage(item),
     custom_price: toNumber(item?.custom_price || snapshot?.custom_price) || undefined,
-    available: true,
+    available,
   };
 }
 
-function rangeLabel(range: RangeFilter) {
-  if (range === '7d') return '7 días';
-  if (range === '15d') return '15 días';
-  if (range === '30d') return '30 días';
-  if (range === '3m') return '3 meses';
-  if (range === '6m') return '6 meses';
-  return 'Todos';
+function findCurrentProduct(item: any, products: Product[]) {
+  const itemIds = [
+    item?.product_id,
+    item?.cart_item_id,
+    item?.product?.id,
+    item?.id,
+  ].map(cleanId).filter(Boolean);
+  const name = normalizeText(itemName(item));
+
+  return products.find(product => {
+    const productId = cleanId(product.id);
+    const productName = normalizeText(product.name);
+    return itemIds.includes(productId) || itemIds.some(id => id.startsWith(`${productId}-`)) || productName === name;
+  }) || null;
 }
 
-function rangeDays(range: RangeFilter) {
-  if (range === '7d') return 7;
-  if (range === '15d') return 15;
-  if (range === '30d') return 30;
-  if (range === '3m') return 90;
-  if (range === '6m') return 180;
-  return Infinity;
+function itemUnavailable(item: any, products: Product[], overrides: Record<string, { available?: boolean | null }>) {
+  const currentProduct = findCurrentProduct(item, products);
+  if (!currentProduct) return false;
+
+  const override = overrides[currentProduct.id];
+  const available = override?.available ?? currentProduct.available;
+  const rawCurrent = currentProduct as any;
+  const stockTracked = Boolean(rawCurrent.track_stock);
+  const stock = toNumber(rawCurrent.current_stock);
+
+  return available === false || (stockTracked && stock <= 0);
 }
 
 function GuestOrders({ onOpenProfile, onNavigate }: Pick<Props, 'onOpenProfile' | 'onNavigate'>) {
@@ -214,7 +253,7 @@ function GuestOrders({ onOpenProfile, onNavigate }: Pick<Props, 'onOpenProfile' 
         <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-500">Mis pedidos</p>
         <h1 className="text-3xl font-black uppercase italic leading-none mt-2 text-gray-950">Tu historial empieza aquí</h1>
         <p className="text-sm font-bold text-gray-500 leading-relaxed mt-4">
-          Registra tu WhatsApp para guardar tus pedidos, revisar estados y repetir compras fácilmente.
+          Registra tu WhatsApp para guardar tus compras, ver el estado y repetir pedidos fácilmente.
         </p>
         <button
           type="button"
@@ -228,9 +267,9 @@ function GuestOrders({ onOpenProfile, onNavigate }: Pick<Props, 'onOpenProfile' 
       </section>
 
       <section className="bg-orange-50/70 rounded-[30px] border border-orange-100 p-5">
-        <h2 className="text-sm font-black text-gray-950 uppercase italic leading-none">Primero arma tu pedido</h2>
+        <h2 className="text-sm font-black text-gray-950 uppercase italic leading-none">Aún no tienes pedidos</h2>
         <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
-          Puedes mirar el catálogo, agregar productos y registrarte al confirmar.
+          Explora el catálogo, agrega productos y confirma tu primera compra cuando quieras.
         </p>
         <button
           type="button"
@@ -240,6 +279,49 @@ function GuestOrders({ onOpenProfile, onNavigate }: Pick<Props, 'onOpenProfile' 
           Ver catálogo
           <ArrowRight size={15} />
         </button>
+      </section>
+    </div>
+  );
+}
+
+function RepeatCartChoice({
+  order,
+  currentCount,
+  onClose,
+  onReplace,
+  onAdd,
+}: {
+  order: Order | null;
+  currentCount: number;
+  onClose: () => void;
+  onReplace: () => void;
+  onAdd: () => void;
+}) {
+  if (!order) return null;
+
+  return (
+    <div className="fixed inset-0 z-[12500] flex items-end justify-center">
+      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-orange-950/25" />
+      <section className="relative w-full max-w-md bg-white rounded-t-[36px] shadow-2xl p-5 animate-in slide-in-from-bottom-6 duration-300">
+        <div className="w-14 h-14 rounded-[24px] bg-orange-50 text-orange-500 flex items-center justify-center border border-orange-100 mb-4">
+          <Repeat2 size={28} />
+        </div>
+        <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.24em]">Repetir pedido</p>
+        <h2 className="text-2xl font-black text-gray-950 uppercase italic leading-none mt-2">Ya tienes productos en carrito</h2>
+        <p className="text-sm font-bold text-gray-500 leading-relaxed mt-3">
+          Tienes {currentCount} producto{currentCount === 1 ? '' : 's'} en el carrito. Puedes reemplazarlos por este pedido o agregar este pedido a lo que ya tienes.
+        </p>
+        <div className="grid grid-cols-1 gap-2 mt-5">
+          <button type="button" onClick={onReplace} className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform">
+            Reemplazar carrito
+          </button>
+          <button type="button" onClick={onAdd} className="w-full bg-orange-50 text-orange-600 border border-orange-100 rounded-[24px] py-4 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform">
+            Agregar al carrito
+          </button>
+          <button type="button" onClick={onClose} className="w-full bg-gray-50 text-gray-400 border border-gray-100 rounded-[24px] py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">
+            Cancelar
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -263,6 +345,9 @@ function OrderDetailModal({
   const status = safeStatus(order.status);
   const active = ACTIVE_STATUSES.includes(status);
   const items = safeItems(order);
+  const subtotal = orderSubtotal(order);
+  const delivery = orderDelivery(order);
+  const total = orderTotal(order);
 
   return (
     <div className="fixed inset-0 z-[12000] flex items-end justify-center">
@@ -288,7 +373,7 @@ function OrderDetailModal({
                 {statusIcon(status)}
                 {statusText(status)}
               </span>
-              <p className="text-xl font-black text-orange-600">${money(order.total)}</p>
+              <p className="text-xl font-black text-orange-600">${money(total)}</p>
             </div>
             <p className="text-[11px] font-bold text-gray-500 leading-relaxed">
               {orderItemCount(order)} producto{orderItemCount(order) === 1 ? '' : 's'} en este pedido.
@@ -315,20 +400,32 @@ function OrderDetailModal({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => onRepeat(order)} className="rounded-2xl bg-orange-50 border border-orange-100 text-orange-600 py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform">
-              <Repeat2 size={14} />
-              Repetir
-            </button>
+          <div className="bg-white rounded-[28px] border border-orange-100 p-4 shadow-sm space-y-2">
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2">Resumen</p>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-bold">Productos</span>
+              <span className="text-gray-900 font-black">${money(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-bold">Delivery</span>
+              <span className={delivery > 0 ? 'text-gray-900 font-black' : 'text-green-600 font-black'}>{delivery > 0 ? `$${money(delivery)}` : 'Gratis'}</span>
+            </div>
+            <div className="flex justify-between text-base pt-2 border-t border-orange-100">
+              <span className="text-gray-900 font-black">Total</span>
+              <span className="text-orange-600 font-black">${money(total)}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             {active ? (
               <button type="button" onClick={onTracking} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-orange-100">
                 <Truck size={14} />
                 Estado
               </button>
             ) : (
-              <button type="button" onClick={() => onNavigateSafe('catalog')} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-orange-100">
-                <ShoppingBag size={14} />
-                Comprar
+              <button type="button" onClick={() => onRepeat(order)} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-orange-100">
+                <Repeat2 size={14} />
+                Repetir pedido
               </button>
             )}
             <button type="button" onClick={() => onHelp(order)} className="rounded-2xl bg-green-50 border border-green-100 text-green-600 py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform">
@@ -342,22 +439,16 @@ function OrderDetailModal({
   );
 }
 
-function onNavigateSafe(screen: Screen) {
-  const buttons = Array.from(document.querySelectorAll('nav button')) as HTMLButtonElement[];
-  const target = buttons.find(button => (button.innerText || '').toLowerCase().includes(screen === 'catalog' ? 'catálogo' : screen));
-  target?.click();
-}
-
 export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking }: Props) {
-  const { orders, loading } = useAdmin();
-  const { addItem, clearCart } = useCart();
+  const { orders, loading, products, overrides } = useAdmin();
+  const { items: cartItems, addItem, clearCart } = useCart();
   const { customerPhone, customerName } = useUser();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
-  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('30d');
   const [search, setSearch] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ text: string; tone: NoticeTone } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [repeatChoiceOrder, setRepeatChoiceOrder] = useState<Order | null>(null);
   const cleanCustomerPhone = cleanPhone(customerPhone);
 
   const customerOrders = useMemo(() => {
@@ -371,25 +462,17 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
   const stats = useMemo(() => {
     const active = customerOrders.filter(order => ACTIVE_STATUSES.includes(safeStatus(order.status))).length;
     const delivered = customerOrders.filter(order => safeStatus(order.status) === 'Entregado');
-    const spent = delivered.reduce((sum, order) => sum + toNumber(order.total), 0);
-    return { active, delivered: delivered.length, spent };
+    const spent = delivered.reduce((sum, order) => sum + orderTotal(order), 0);
+    return { active, delivered: delivered.length, total: customerOrders.length, spent };
   }, [customerOrders]);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const now = Date.now();
-    const days = rangeDays(rangeFilter);
 
     return customerOrders.filter(order => {
       const status = safeStatus(order.status);
       if (statusFilter === 'active' && !ACTIVE_STATUSES.includes(status)) return false;
       if (statusFilter === 'delivered' && status !== 'Entregado') return false;
-      if (statusFilter === 'cancelled' && status !== 'Cancelado') return false;
-
-      if (Number.isFinite(days)) {
-        const time = dateMs(order);
-        if (!time || now - time > days * 24 * 60 * 60 * 1000) return false;
-      }
 
       if (!query) return true;
 
@@ -406,27 +489,61 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
 
       return haystack.includes(query);
     });
-  }, [customerOrders, rangeFilter, search, statusFilter]);
+  }, [customerOrders, search, statusFilter]);
+
+  const showNotice = (text: string, tone: NoticeTone = 'success') => {
+    setNotice({ text, tone });
+    window.setTimeout(() => setNotice(null), 4200);
+  };
+
+  const unavailableItems = (order: Order) => safeItems(order).filter(item => itemUnavailable(item, products, overrides));
+  const availableItems = (order: Order) => safeItems(order).filter(item => !itemUnavailable(item, products, overrides));
+
+  const performRepeatOrder = (order: Order, mode: 'replace' | 'add') => {
+    const readyItems = availableItems(order);
+    const skippedItems = unavailableItems(order);
+
+    if (readyItems.length === 0) {
+      showNotice('No pudimos repetir este pedido porque sus productos no están disponibles por ahora.', 'warning');
+      setRepeatChoiceOrder(null);
+      return;
+    }
+
+    if (mode === 'replace') clearCart();
+
+    readyItems.forEach((item, index) => {
+      addItem(productFromOrderItem(item, order, index, true), itemQuantity(item));
+    });
+
+    setSelectedOrder(null);
+    setRepeatChoiceOrder(null);
+
+    if (skippedItems.length > 0) {
+      const names = skippedItems.map(itemName).join(', ');
+      showNotice(`Agregamos lo disponible. No se agregó: ${names}, porque está agotado o no disponible.`, 'warning');
+    } else {
+      showNotice(mode === 'replace' ? 'Pedido listo en tu carrito.' : 'Pedido agregado a tu carrito.', 'success');
+    }
+
+    window.setTimeout(() => {
+      onNavigate('cart');
+    }, 850);
+  };
 
   const repeatOrder = (order: Order) => {
     const items = safeItems(order);
 
     if (items.length === 0) {
-      setNotice('Este pedido no tiene productos para repetir.');
+      showNotice('Este pedido no tiene productos para repetir.', 'warning');
       return;
     }
 
-    clearCart();
-    items.forEach((item, index) => {
-      addItem(productFromOrderItem(item, order, index), itemQuantity(item));
-    });
+    if (cartItems.length > 0) {
+      setRepeatChoiceOrder(order);
+      return;
+    }
 
-    setNotice('Pedido agregado al carrito.');
-    setSelectedOrder(null);
-    window.setTimeout(() => {
-      setNotice('');
-      onNavigate('cart');
-    }, 700);
+    performRepeatOrder(order, 'replace');
   };
 
   const askHelp = (order: Order) => {
@@ -437,6 +554,12 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
   if (!cleanCustomerPhone) {
     return <GuestOrders onOpenProfile={onOpenProfile} onNavigate={onNavigate} />;
   }
+
+  const noticeClass = notice?.tone === 'warning'
+    ? 'bg-yellow-50 border-yellow-100 text-yellow-700'
+    : notice?.tone === 'info'
+      ? 'bg-blue-50 border-blue-100 text-blue-700'
+      : 'bg-green-50 border-green-100 text-green-700';
 
   return (
     <div className="min-h-full bg-gradient-to-b from-orange-50/70 via-white to-white px-4 pt-4 pb-32 space-y-4">
@@ -457,15 +580,15 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
             <p className="text-[8px] font-black text-green-600 uppercase mt-2">Entregados</p>
           </div>
           <div className="bg-yellow-50 border border-yellow-100 rounded-[20px] p-3">
-            <p className="text-xl font-black text-yellow-700 leading-none">${money(stats.spent)}</p>
-            <p className="text-[8px] font-black text-yellow-700 uppercase mt-2">Comprado</p>
+            <p className="text-xl font-black text-yellow-700 leading-none">{stats.total}</p>
+            <p className="text-[8px] font-black text-yellow-700 uppercase mt-2">Total</p>
           </div>
         </div>
       </section>
 
       {notice && (
-        <div className="bg-green-50 border border-green-100 rounded-[24px] p-4 text-[11px] font-black text-green-700 uppercase leading-relaxed">
-          {notice}
+        <div className={`border rounded-[24px] p-4 text-[11px] font-black uppercase leading-relaxed ${noticeClass}`}>
+          {notice.text}
         </div>
       )}
 
@@ -482,44 +605,23 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
 
         <div>
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Estado</p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-3 gap-2">
             {[
               ['active', 'Activos'],
-              ['delivered', 'Listos'],
-              ['cancelled', 'Cancel.'],
+              ['delivered', 'Entregados'],
               ['all', 'Todos'],
             ].map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setStatusFilter(id as StatusFilter)}
-                className={`py-3 rounded-2xl border text-[8px] font-black uppercase transition-all ${
+                className={`py-3.5 rounded-2xl border text-[10px] font-black uppercase transition-all ${
                   statusFilter === id
                     ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-100'
                     : 'bg-white text-gray-400 border-gray-100'
                 }`}
               >
                 {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Fecha</p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(['7d', '15d', '30d', '3m', '6m', 'all'] as RangeFilter[]).map(range => (
-              <button
-                key={range}
-                type="button"
-                onClick={() => setRangeFilter(range)}
-                className={`py-2.5 rounded-2xl border text-[8px] font-black uppercase transition-all ${
-                  rangeFilter === range
-                    ? 'bg-yellow-400 text-yellow-950 border-yellow-400'
-                    : 'bg-gray-50 text-gray-400 border-gray-100'
-                }`}
-              >
-                {rangeLabel(range)}
               </button>
             ))}
           </div>
@@ -542,11 +644,11 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
           <p className="text-sm font-bold text-gray-400 leading-relaxed mt-3">
             {customerOrders.length === 0
               ? 'Cuando hagas tu primera compra aparecerá aquí con estado, productos y total.'
-              : 'Prueba cambiar el estado, la fecha o buscar otro producto.'}
+              : 'Prueba cambiar el estado o buscar otro producto.'}
           </p>
           <button
             type="button"
-            onClick={customerOrders.length === 0 ? () => onNavigate('catalog') : () => { setStatusFilter('active'); setRangeFilter('30d'); setSearch(''); }}
+            onClick={customerOrders.length === 0 ? () => onNavigate('catalog') : () => { setStatusFilter('active'); setSearch(''); }}
             className="mt-6 bg-gradient-to-r from-orange-500 to-yellow-400 text-white px-6 py-4 rounded-[24px] text-xs font-black uppercase tracking-widest shadow-xl shadow-orange-100 active:scale-95 transition-transform"
           >
             {customerOrders.length === 0 ? 'Ir al catálogo' : 'Limpiar filtros'}
@@ -575,7 +677,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
                         {formatDate(safeDate(order))} · {count} producto{count === 1 ? '' : 's'}
                       </p>
                     </div>
-                    <p className="text-xl font-black text-orange-600 leading-none">${money(order.total)}</p>
+                    <p className="text-xl font-black text-orange-600 leading-none">${money(orderTotal(order))}</p>
                   </div>
 
                   <div className="mt-4 bg-orange-50/60 border border-orange-100/70 rounded-[22px] p-3 space-y-2">
@@ -636,6 +738,14 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
         onRepeat={repeatOrder}
         onHelp={askHelp}
         onTracking={onOpenTracking}
+      />
+
+      <RepeatCartChoice
+        order={repeatChoiceOrder}
+        currentCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+        onClose={() => setRepeatChoiceOrder(null)}
+        onReplace={() => repeatChoiceOrder && performRepeatOrder(repeatChoiceOrder, 'replace')}
+        onAdd={() => repeatChoiceOrder && performRepeatOrder(repeatChoiceOrder, 'add')}
       />
     </div>
   );
