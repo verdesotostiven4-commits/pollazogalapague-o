@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
-
-const VISIBLE_PRODUCTS = 3;
+import { useEffect, useRef } from 'react';
 
 function getText(element: Element | null) {
   return ((element as HTMLElement | null)?.innerText || '').trim();
@@ -17,95 +15,83 @@ function findOrderDetailModal() {
   );
 }
 
-function findProductsCard(modal: HTMLElement) {
-  const titles = Array.from(modal.querySelectorAll('p')) as HTMLElement[];
-  const title = titles.find(element => getText(element).toLowerCase() === 'productos');
+function findOrderCode(modal: HTMLElement) {
+  const headings = Array.from(modal.querySelectorAll('h2')) as HTMLElement[];
 
-  return (title?.closest('div') as HTMLElement | null) || null;
+  return headings.find(heading => {
+    const text = getText(heading);
+    return /^PZ[-\w]+/i.test(text) || text.toLowerCase() === 'pedido';
+  }) || null;
 }
 
-function findRows(card: HTMLElement) {
-  const directChildren = Array.from(card.children) as HTMLElement[];
-  const productList = directChildren.find(child => child.className.includes('space-y-2'));
+function compactHeader(modal: HTMLElement, codeHeading: HTMLElement) {
+  modal.style.maxHeight = '94dvh';
 
-  if (!productList) return [];
+  const header = codeHeading.closest('header') as HTMLElement | null;
+  if (header) {
+    header.style.paddingTop = '1rem';
+    header.style.paddingBottom = '0.95rem';
+    header.style.paddingRight = '4rem';
+  }
 
-  return Array.from(productList.children).filter(child => {
-    const element = child as HTMLElement;
-    return !element.dataset.pollazoOrderToggle && getText(element).length > 0;
-  }) as HTMLElement[];
+  codeHeading.classList.remove('truncate');
+  codeHeading.style.whiteSpace = 'normal';
+  codeHeading.style.overflow = 'visible';
+  codeHeading.style.textOverflow = 'clip';
+  codeHeading.style.fontSize = '25px';
+  codeHeading.style.lineHeight = '0.95';
+  codeHeading.style.wordBreak = 'break-word';
 }
 
-function updateRows(card: HTMLElement) {
-  const rows = findRows(card);
-  const existingButton = card.querySelector('[data-pollazo-order-toggle="1"]') as HTMLButtonElement | null;
-
-  if (rows.length <= VISIBLE_PRODUCTS) {
-    rows.forEach(row => {
-      row.style.display = '';
-    });
-    existingButton?.remove();
-    card.dataset.pollazoExpanded = '1';
-    return;
-  }
-
-  const expanded = card.dataset.pollazoExpanded === '1';
-
-  rows.forEach((row, index) => {
-    row.style.display = expanded || index < VISIBLE_PRODUCTS ? '' : 'none';
-  });
-
-  const hiddenCount = Math.max(0, rows.length - VISIBLE_PRODUCTS);
-  const button = existingButton || document.createElement('button');
-
-  button.type = 'button';
-  button.dataset.pollazoOrderToggle = '1';
-  button.className = 'mt-3 w-full rounded-[20px] bg-orange-50 border border-orange-100 text-orange-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform';
-  button.textContent = expanded ? 'Ver menos' : `Ver todos (${hiddenCount} más)`;
-  button.onclick = () => {
-    card.dataset.pollazoExpanded = expanded ? '0' : '1';
-    window.requestAnimationFrame(() => updateRows(card));
-  };
-
-  if (!existingButton) {
-    card.appendChild(button);
-  }
-}
-
-function applyProductToggle() {
-  const modal = findOrderDetailModal();
-  if (!modal) return;
-
-  const card = findProductsCard(modal);
-  if (!card) return;
-
-  if (!card.dataset.pollazoExpanded) {
-    card.dataset.pollazoExpanded = '0';
-  }
-
-  updateRows(card);
+function removeOldInjectedToggle(modal: HTMLElement) {
+  const oldButton = modal.querySelector('[data-pollazo-order-toggle="1"]');
+  oldButton?.remove();
 }
 
 export default function OrdersDetailProductToggle() {
+  const lastCodeRef = useRef('');
+  const frameRef = useRef<number | null>(null);
+
   useEffect(() => {
-    let frame = 0;
+    const applyFix = () => {
+      const modal = findOrderDetailModal();
+      if (!modal) return;
+
+      removeOldInjectedToggle(modal);
+
+      const codeHeading = findOrderCode(modal);
+      if (!codeHeading) return;
+
+      compactHeader(modal, codeHeading);
+
+      const code = getText(codeHeading);
+      if (!code || code === lastCodeRef.current) return;
+
+      const verMenosButton = Array.from(modal.querySelectorAll('button')).find(button =>
+        getText(button).toLowerCase().includes('ver menos')
+      ) as HTMLButtonElement | undefined;
+
+      if (verMenosButton) {
+        verMenosButton.click();
+      }
+
+      lastCodeRef.current = code;
+    };
 
     const schedule = () => {
-      if (frame) return;
-
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        applyProductToggle();
+      if (frameRef.current !== null) return;
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        applyFix();
       });
     };
 
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true });
-
     schedule();
 
     return () => {
-      if (frame) window.cancelAnimationFrame(frame);
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       observer.disconnect();
     };
   }, []);
