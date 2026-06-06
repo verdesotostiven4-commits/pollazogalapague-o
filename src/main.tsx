@@ -20,6 +20,10 @@ import CartAvailabilityToast from './components/CartAvailabilityToast';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
+import GlobalOrderTrackingBridge from './components/GlobalOrderTrackingBridge';
+import { AdminProvider } from './context/AdminContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { UserProvider } from './context/UserContext';
 import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
@@ -30,6 +34,13 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <App />
+      <AdminProvider>
+        <LanguageProvider>
+          <UserProvider>
+            <GlobalOrderTrackingBridge />
+          </UserProvider>
+        </LanguageProvider>
+      </AdminProvider>
       <LegalModalNoAutoScroll />
       <InfoHelpCenterMount />
       <InfoScreenVisualPolish />
