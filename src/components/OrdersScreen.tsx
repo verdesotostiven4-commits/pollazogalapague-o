@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   MessageCircle,
   PackageCheck,
@@ -245,40 +246,34 @@ function itemUnavailable(item: any, products: Product[], overrides: Record<strin
 
 function GuestOrders({ onOpenProfile, onNavigate }: Pick<Props, 'onOpenProfile' | 'onNavigate'>) {
   return (
-    <div className="min-h-full bg-gradient-to-b from-orange-50/70 via-white to-white px-4 pt-5 pb-32 space-y-4">
-      <section className="bg-white rounded-[38px] border border-orange-100 p-6 shadow-sm text-center">
+    <div className="min-h-full bg-gradient-to-b from-orange-50/70 via-white to-white px-4 pt-5 pb-32 flex items-center">
+      <section className="w-full bg-white rounded-[38px] border border-orange-100 p-6 shadow-sm text-center">
         <div className="mx-auto w-18 h-18 rounded-[30px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-xl shadow-orange-100 mb-5">
           <ReceiptText size={36} />
         </div>
         <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-500">Mis pedidos</p>
         <h1 className="text-3xl font-black uppercase italic leading-none mt-2 text-gray-950">Tu historial empieza aquí</h1>
         <p className="text-sm font-bold text-gray-500 leading-relaxed mt-4">
-          Registra tu WhatsApp para guardar tus compras, ver el estado y repetir pedidos fácilmente.
+          Registra tu WhatsApp para guardar tus compras, ver estados y repetir pedidos fácilmente.
         </p>
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          className="mt-6 w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[26px] px-6 py-4 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-100 flex items-center justify-center gap-2"
-        >
-          <UserCheck size={17} />
-          Activar mi historial
-          <ArrowRight size={16} />
-        </button>
-      </section>
-
-      <section className="bg-orange-50/70 rounded-[30px] border border-orange-100 p-5">
-        <h2 className="text-sm font-black text-gray-950 uppercase italic leading-none">Aún no tienes pedidos</h2>
-        <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
-          Explora el catálogo, agrega productos y confirma tu primera compra cuando quieras.
-        </p>
-        <button
-          type="button"
-          onClick={() => onNavigate('catalog')}
-          className="mt-4 w-full bg-white text-orange-600 border border-orange-100 rounded-[22px] py-3 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
-        >
-          Ver catálogo
-          <ArrowRight size={15} />
-        </button>
+        <div className="grid grid-cols-2 gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] px-4 py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-100 flex items-center justify-center gap-2"
+          >
+            <UserCheck size={16} />
+            Activar
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('catalog')}
+            className="bg-orange-50 text-orange-600 border border-orange-100 rounded-[24px] px-4 py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-2"
+          >
+            Catálogo
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -340,11 +335,15 @@ function OrderDetailModal({
   onHelp: (order: Order) => void;
   onTracking: () => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
+
   if (!order) return null;
 
   const status = safeStatus(order.status);
   const active = ACTIVE_STATUSES.includes(status);
   const items = safeItems(order);
+  const visibleItems = showAll ? items : items.slice(0, 3);
+  const hiddenCount = Math.max(0, items.length - 3);
   const subtotal = orderSubtotal(order);
   const delivery = orderDelivery(order);
   const total = orderTotal(order);
@@ -386,7 +385,7 @@ function OrderDetailModal({
               <p className="text-[11px] font-bold text-gray-400">Este pedido no tiene productos guardados.</p>
             ) : (
               <div className="space-y-2">
-                {items.map((item, index) => (
+                {visibleItems.map((item, index) => (
                   <div key={`${itemName(item)}-${index}`} className="flex items-center gap-3 rounded-2xl bg-orange-50/70 border border-orange-100 p-3">
                     <img src={itemImage(item)} alt={itemName(item)} className="w-12 h-12 object-contain rounded-xl bg-white border border-orange-100 p-1 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
@@ -396,6 +395,17 @@ function OrderDetailModal({
                     <p className="text-xs font-black text-orange-600 flex-shrink-0">${money(itemSubtotal(item))}</p>
                   </div>
                 ))}
+
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(value => !value)}
+                    className="w-full mt-2 rounded-2xl bg-orange-50 border border-orange-100 text-orange-600 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                  >
+                    {showAll ? 'Ver menos' : `Ver todos (${hiddenCount} más)`}
+                    <ChevronDown size={14} className={showAll ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -461,9 +471,9 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
 
   const stats = useMemo(() => {
     const active = customerOrders.filter(order => ACTIVE_STATUSES.includes(safeStatus(order.status))).length;
-    const delivered = customerOrders.filter(order => safeStatus(order.status) === 'Entregado');
-    const spent = delivered.reduce((sum, order) => sum + orderTotal(order), 0);
-    return { active, delivered: delivered.length, total: customerOrders.length, spent };
+    const deliveredOrders = customerOrders.filter(order => safeStatus(order.status) === 'Entregado');
+    const spent = deliveredOrders.reduce((sum, order) => sum + orderTotal(order), 0);
+    return { active, delivered: deliveredOrders.length, total: customerOrders.length, spent };
   }, [customerOrders]);
 
   const filteredOrders = useMemo(() => {
@@ -493,7 +503,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
 
   const showNotice = (text: string, tone: NoticeTone = 'success') => {
     setNotice({ text, tone });
-    window.setTimeout(() => setNotice(null), 4200);
+    window.setTimeout(() => setNotice(null), 5200);
   };
 
   const unavailableItems = (order: Order) => safeItems(order).filter(item => itemUnavailable(item, products, overrides));
@@ -504,7 +514,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
     const skippedItems = unavailableItems(order);
 
     if (readyItems.length === 0) {
-      showNotice('No pudimos repetir este pedido porque sus productos no están disponibles por ahora.', 'warning');
+      showNotice('No pudimos repetir este pedido porque sus productos están agotados o no disponibles por ahora.', 'warning');
       setRepeatChoiceOrder(null);
       return;
     }
@@ -527,7 +537,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
 
     window.setTimeout(() => {
       onNavigate('cart');
-    }, 850);
+    }, skippedItems.length > 0 ? 1250 : 850);
   };
 
   const repeatOrder = (order: Order) => {
@@ -580,8 +590,8 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
             <p className="text-[8px] font-black text-green-600 uppercase mt-2">Entregados</p>
           </div>
           <div className="bg-yellow-50 border border-yellow-100 rounded-[20px] p-3">
-            <p className="text-xl font-black text-yellow-700 leading-none">{stats.total}</p>
-            <p className="text-[8px] font-black text-yellow-700 uppercase mt-2">Total</p>
+            <p className="text-base font-black text-yellow-700 leading-none">${money(stats.spent)}</p>
+            <p className="text-[8px] font-black text-yellow-700 uppercase mt-2">Comprado</p>
           </div>
         </div>
       </section>
@@ -661,6 +671,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
             const active = ACTIVE_STATUSES.includes(status);
             const items = safeItems(order);
             const count = orderItemCount(order);
+            const hiddenCount = Math.max(0, items.length - 3);
 
             return (
               <article key={String(order.id || order.order_code || index)} className="bg-white rounded-[30px] border border-orange-100 p-4 shadow-sm">
@@ -694,8 +705,8 @@ export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking
                         </div>
                       ))
                     )}
-                    {items.length > 3 && (
-                      <p className="text-[9px] font-black text-orange-500 uppercase">Toca detalle para ver {items.length - 3} producto{items.length - 3 === 1 ? '' : 's'} más</p>
+                    {hiddenCount > 0 && (
+                      <p className="text-[9px] font-black text-orange-500 uppercase">{hiddenCount} producto{hiddenCount === 1 ? '' : 's'} más</p>
                     )}
                   </div>
                 </button>
