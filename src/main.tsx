@@ -18,6 +18,7 @@ import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
 import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
+import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
 import './index.css';
 import './styles/landing-install-lock.css';
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')!).render(
       <CartTextPolish />
       <CartAvailabilityToast />
       <OrdersDetailProductToggle />
+      <PlusNonMemberSavingsGuard />
       <ErrorRetryGuard />
       <CustomerCatalogVisibilityFilter />
       <OnlineOrderStockSyncBridge />
