@@ -192,6 +192,16 @@ function isBlockedForCustomer(row: ProductAvailabilityRow | null) {
   return row.available === false || row.show_in_app === false || outByStock;
 }
 
+function notifyCartUnavailable(names: string) {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('pollazo:cart-unavailable', {
+      detail: { names },
+    })
+  );
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => loadStoredItems());
   const [isOpen, setIsOpen] = useState(false);
@@ -230,7 +240,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .join(', ');
 
         window.setTimeout(() => {
-          window.alert(`Un producto de tu carrito ya no está disponible: ${blockedNames}. Lo quitamos para que puedas continuar con tu pedido.`);
+          notifyCartUnavailable(blockedNames);
           setIsOpen(true);
         }, 50);
 
@@ -261,7 +271,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (product: Product, quantity = 1) => {
     if (product.available === false) {
-      window.alert('Este producto está agotado y no se puede agregar al carrito.');
+      notifyCartUnavailable(product.name || 'Producto');
       return;
     }
 
