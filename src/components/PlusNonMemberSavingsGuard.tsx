@@ -12,13 +12,14 @@ function hideNonMemberPlusSavings() {
     const isPlusModal = modalText.includes('pollazo plus') || modalText.includes('plus');
     if (!isPlusModal) return;
 
-    const isActiveMember =
+    const isClearlyActiveMember =
       modalText.includes('tu plus está activo') ||
-      modalText.includes('tus beneficios plus') ||
+      modalText.includes('tu plus esta activo') ||
       modalText.includes('ya eres pollazo plus') ||
-      modalText.includes('activo');
+      modalText.includes('membresía activa') ||
+      modalText.includes('membresia activa');
 
-    if (isActiveMember) return;
+    if (isClearlyActiveMember) return;
 
     const blocks = Array.from(modal.querySelectorAll('div, section')) as HTMLElement[];
 
@@ -27,13 +28,16 @@ function hideNonMemberPlusSavings() {
       const shouldHide =
         text.includes('ahorro plus') ||
         text.includes('ahorro del mes') ||
+        text.includes('ahorro mensual') ||
         text.includes('ahorro acumulado') ||
-        text.includes('gestion') ||
         text.includes('gestionar suscripción') ||
         text.includes('gestionar suscripcion') ||
+        text.includes('gestionar suscripción') ||
         text.includes('visa ****') ||
         text.includes('cambiar método de pago') ||
-        text.includes('cancelar suscripción');
+        text.includes('cambiar metodo de pago') ||
+        text.includes('cancelar suscripción') ||
+        text.includes('cancelar suscripcion');
 
       if (shouldHide) {
         block.style.display = 'none';
