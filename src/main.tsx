@@ -16,6 +16,7 @@ import LegalModalNoAutoScroll from './components/LegalModalNoAutoScroll';
 import InfoHelpCenterMount from './components/InfoHelpCenterMount';
 import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
 import CartTextPolish from './components/CartTextPolish';
+import CartAvailabilityToast from './components/CartAvailabilityToast';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
 import './index.css';
 import './styles/landing-install-lock.css';
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
       <InfoHelpCenterMount />
       <InfoScreenVisualPolish />
       <CartTextPolish />
+      <CartAvailabilityToast />
       <ErrorRetryGuard />
       <CustomerCatalogVisibilityFilter />
       <OnlineOrderStockSyncBridge />
