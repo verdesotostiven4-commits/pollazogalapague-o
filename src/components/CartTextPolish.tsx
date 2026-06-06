@@ -31,6 +31,20 @@ function polishCartText() {
     return text.startsWith('subtotal') || text.startsWith('subtotal parcial');
   });
 
+  const productsRow = rowNodes.find(row => {
+    const text = textOf(row).toLowerCase();
+    return text.startsWith('productos') && text.includes('carrito');
+  });
+
+  const subtotalValue = subtotalRow?.querySelector('span:last-child')?.textContent?.trim();
+  const productsValue = productsRow?.querySelector('span:last-child') as HTMLElement | null;
+
+  if (subtotalValue && productsValue) {
+    productsValue.textContent = subtotalValue;
+    productsValue.style.color = '#ea580c';
+    productsValue.style.fontWeight = '900';
+  }
+
   if (subtotalRow) {
     subtotalRow.style.display = 'none';
   }
