@@ -29,6 +29,7 @@ interface Props {
 
 type StatusFilter = 'active' | 'delivered' | 'all';
 type NoticeTone = 'success' | 'warning' | 'info';
+type RepeatMode = 'replace' | 'add';
 
 const WHATSAPP_NUMBER = '593989795628';
 const ACTIVE_STATUSES: OrderStatus[] = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'];
@@ -49,10 +50,6 @@ function cleanPhone(phone?: string | null) {
   return String(phone || '').replace(/\D/g, '').slice(-9);
 }
 
-function cleanId(value: unknown) {
-  return String(value || '').trim();
-}
-
 function normalizeText(value: unknown) {
   return String(value || '')
     .normalize('NFD')
@@ -60,6 +57,10 @@ function normalizeText(value: unknown) {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+}
+
+function cleanOrderCode(order?: Order | null) {
+  return String(order?.order_code || '').trim().toUpperCase();
 }
 
 function toNumber(value: unknown) {
@@ -135,6 +136,14 @@ function statusIcon(status: OrderStatus) {
   return <Clock3 size={14} />;
 }
 
+function paymentLabel(method?: string | null) {
+  if (method === 'efectivo') return 'Efectivo';
+  if (method === 'deuna') return 'Deuna';
+  if (method === 'transferencia') return 'Transferencia';
+  if (method === 'tarjeta') return 'Tarjeta';
+  return 'No definido';
+}
+
 function safeItems(order: Order): any[] {
   return Array.isArray(order.items) ? order.items.filter(Boolean) : [];
 }
@@ -184,6 +193,10 @@ function orderDelivery(order: Order) {
   return toNumber((order as any).delivery_fee);
 }
 
+function orderOriginalDelivery(order: Order) {
+  return toNumber((order as any).delivery_fee_original || (order as any).delivery_fee);
+}
+
 function orderTotal(order: Order) {
   const total = toNumber(order.total);
   if (total > 0) return total;
@@ -195,7 +208,7 @@ function normalizeCategory(value: unknown): Category {
   return VALID_CATEGORIES.includes(category as Category) ? (category as Category) : 'Abarrotes y básicos';
 }
 
-function productFromOrderItem(item: any, order: Order, index: number, available = true): Product {
+function productFromOrderItem(item: any, order: Order, index: number): Product {
   const snapshot = item?.product || {};
   const price = itemUnitPrice(item);
 
@@ -211,7 +224,7 @@ function productFromOrderItem(item: any, order: Order, index: number, available 
     price: price > 0 ? `$${price.toFixed(2)}` : item?.price_text || snapshot?.price || 'Consultar precio',
     image: itemImage(item),
     custom_price: toNumber(item?.custom_price || snapshot?.custom_price) || undefined,
-    available,
+    available: true,
   };
 }
 
@@ -221,11 +234,11 @@ function findCurrentProduct(item: any, products: Product[]) {
     item?.cart_item_id,
     item?.product?.id,
     item?.id,
-  ].map(cleanId).filter(Boolean);
+  ].map(value => String(value || '').trim()).filter(Boolean);
   const name = normalizeText(itemName(item));
 
   return products.find(product => {
-    const productId = cleanId(product.id);
+    const productId = String(product.id || '').trim();
     const productName = normalizeText(product.name);
     return (
       itemIds.includes(productId) ||
@@ -243,9 +256,7 @@ function itemUnavailable(item: any, products: Product[], overrides: Record<strin
   const snapshotStock = toNumber(item?.current_stock ?? snapshot?.current_stock);
   const snapshotTracked = Boolean(item?.track_stock ?? snapshot?.track_stock);
 
-  if (snapshotAvailable === false || (snapshotTracked && snapshotStock <= 0)) {
-    return true;
-  }
+  if (snapshotAvailable === false || (snapshotTracked && snapshotStock <= 0)) return true;
 
   const currentProduct = findCurrentProduct(item, products);
   if (!currentProduct) return false;
@@ -337,85 +348,6 @@ function RepeatCartChoice({
   );
 }
 
-function OrderStatusModal({ order, onClose, onHelp }: { order: Order | null; onClose: () => void; onHelp: (order: Order) => void }) {
-  if (!order) return null;
-
-  const status = safeStatus(order.status);
-  const currentIndex = ACTIVE_STATUSES.indexOf(status);
-  const activeIndex = currentIndex >= 0 ? currentIndex : ACTIVE_STATUSES.length;
-  const steps = [
-    { status: 'Por Confirmar' as OrderStatus, label: 'Por confirmar', icon: Clock3 },
-    { status: 'Recibido' as OrderStatus, label: 'Confirmado', icon: CheckCircle2 },
-    { status: 'Preparando' as OrderStatus, label: 'Preparando', icon: ShoppingBag },
-    { status: 'Enviado' as OrderStatus, label: 'En camino', icon: Truck },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-[12100] flex items-end justify-center">
-      <button type="button" aria-label="Cerrar estado" onClick={onClose} className="absolute inset-0 bg-orange-950/25" />
-      <section className="relative w-full max-w-md max-h-[88dvh] bg-white rounded-t-[38px] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300">
-        <header className="relative bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 text-white px-5 pt-5 pb-4 overflow-hidden flex-shrink-0">
-          <button type="button" onClick={onClose} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center active:scale-90 transition-transform z-10" aria-label="Cerrar">
-            <X size={19} />
-          </button>
-          <div className="relative pr-12">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/75">Rastreo del pedido</p>
-            <h2 className="text-2xl font-black uppercase italic leading-none mt-2 break-words pr-2">{order.order_code || 'Pedido'}</h2>
-            <p className="text-[11px] font-bold text-white/80 mt-2">{formatDate(safeDate(order))}</p>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-orange-50/40">
-          <div className="bg-white rounded-[28px] border border-orange-100 p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[8px] font-black uppercase ${statusTone(status)}`}>
-                {statusIcon(status)}
-                {statusText(status)}
-              </span>
-              <p className="text-xl font-black text-orange-600">${money(orderTotal(order))}</p>
-            </div>
-            <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-3">
-              Este es el estado actual de tu pedido. Se actualiza cuando el negocio confirma, prepara o envía tu compra.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-[28px] border border-orange-100 p-4 shadow-sm">
-            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-4">Progreso</p>
-            <div className="space-y-3">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                const done = activeIndex >= index;
-                const current = status === step.status;
-                return (
-                  <div key={step.status} className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border-2 transition-all ${done ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-white border-orange-100 text-orange-200'} ${current ? 'ring-4 ring-orange-100' : ''}`}>
-                      <Icon size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <p className={`text-xs font-black uppercase ${done ? 'text-gray-950' : 'text-gray-300'}`}>{step.label}</p>
-                      {current && <p className="text-[10px] font-bold text-orange-500 mt-1">Estado actual</p>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={onClose} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase active:scale-95 transition-transform">
-              Entendido
-            </button>
-            <button type="button" onClick={() => onHelp(order)} className="rounded-2xl bg-green-50 border border-green-100 text-green-600 py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform">
-              <MessageCircle size={14} />
-              Ayuda
-            </button>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function OrderDetailModal({
   order,
   onClose,
@@ -440,6 +372,8 @@ function OrderDetailModal({
   const hiddenCount = Math.max(0, items.length - 3);
   const subtotal = orderSubtotal(order);
   const delivery = orderDelivery(order);
+  const originalDelivery = orderOriginalDelivery(order);
+  const plusApplied = Boolean((order as any).membership_applied) || (originalDelivery > 0 && delivery === 0);
   const total = orderTotal(order);
 
   return (
@@ -469,7 +403,7 @@ function OrderDetailModal({
               <p className="text-xl font-black text-orange-600">${money(total)}</p>
             </div>
             <p className="text-[11px] font-bold text-gray-500 leading-relaxed">
-              {orderItemCount(order)} producto{orderItemCount(order) === 1 ? '' : 's'} en este pedido.
+              {orderItemCount(order)} producto{orderItemCount(order) === 1 ? '' : 's'} · Pago: {paymentLabel((order as any).payment_method)}.
             </p>
           </div>
 
@@ -512,7 +446,13 @@ function OrderDetailModal({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 font-bold">Delivery</span>
-              <span className={delivery > 0 ? 'text-gray-900 font-black' : 'text-green-600 font-black'}>{delivery > 0 ? `$${money(delivery)}` : 'Gratis'}</span>
+              <span className={delivery > 0 ? 'text-gray-900 font-black' : 'text-green-600 font-black'}>
+                {delivery > 0 ? `$${money(delivery)}` : plusApplied ? `Gratis · ahorraste $${money(originalDelivery)}` : 'Gratis'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-bold">Método de pago</span>
+              <span className="text-gray-900 font-black">{paymentLabel((order as any).payment_method)}</span>
             </div>
             <div className="flex justify-between text-base pt-2 border-t border-orange-100">
               <span className="text-gray-900 font-black">Total</span>
@@ -524,7 +464,7 @@ function OrderDetailModal({
             {active ? (
               <button type="button" onClick={() => onTracking(order)} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-orange-100">
                 <Truck size={14} />
-                Estado
+                Rastrear
               </button>
             ) : (
               <button type="button" onClick={() => onRepeat(order)} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-orange-100">
@@ -543,7 +483,7 @@ function OrderDetailModal({
   );
 }
 
-export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
+export default function OrdersScreen({ onNavigate, onOpenProfile, onOpenTracking }: Props) {
   const { orders, loading, products, overrides } = useAdmin();
   const { items: cartItems, addItem, clearCart } = useCart();
   const { customerPhone, customerName } = useUser();
@@ -552,7 +492,6 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
   const [search, setSearch] = useState('');
   const [notice, setNotice] = useState<{ text: string; tone: NoticeTone } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [repeatChoiceOrder, setRepeatChoiceOrder] = useState<Order | null>(null);
   const cleanCustomerPhone = cleanPhone(customerPhone);
 
@@ -572,7 +511,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
   }, [customerOrders]);
 
   const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeText(search);
 
     return customerOrders.filter(order => {
       const status = safeStatus(order.status);
@@ -581,7 +520,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
 
       if (!query) return true;
 
-      const haystack = [
+      const haystack = normalizeText([
         order.order_code,
         status,
         order.total,
@@ -589,8 +528,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
         ...safeItems(order).map(itemName),
       ]
         .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
+        .join(' '));
 
       return haystack.includes(query);
     });
@@ -604,7 +542,19 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
   const unavailableItems = (order: Order) => safeItems(order).filter(item => itemUnavailable(item, products, overrides));
   const availableItems = (order: Order) => safeItems(order).filter(item => !itemUnavailable(item, products, overrides));
 
-  const performRepeatOrder = (order: Order, mode: 'replace' | 'add') => {
+  const openOfficialTracking = (order: Order) => {
+    const code = cleanOrderCode(order);
+
+    if (code) {
+      sessionStorage.setItem('pollazo_tracking_order_code', code);
+    }
+
+    setSelectedOrder(null);
+    setRepeatChoiceOrder(null);
+    onOpenTracking();
+  };
+
+  const performRepeatOrder = (order: Order, mode: RepeatMode) => {
     const readyItems = availableItems(order);
     const skippedItems = unavailableItems(order);
 
@@ -624,7 +574,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
     if (mode === 'replace') clearCart();
 
     readyItems.forEach((item, index) => {
-      addItem(productFromOrderItem(item, order, index, true), itemQuantity(item));
+      addItem(productFromOrderItem(item, order, index), itemQuantity(item));
     });
 
     setSelectedOrder(null);
@@ -833,11 +783,11 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={active ? () => setTrackingOrder(order) : () => repeatOrder(order)}
+                    onClick={active ? () => openOfficialTracking(order) : () => repeatOrder(order)}
                     className="bg-orange-500 text-white rounded-2xl py-3 text-[9px] font-black uppercase active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-lg shadow-orange-100"
                   >
                     {active ? <Truck size={14} /> : <Repeat2 size={14} />}
-                    {active ? 'Estado' : 'Repetir'}
+                    {active ? 'Rastrear' : 'Repetir'}
                   </button>
                   <button
                     type="button"
@@ -859,13 +809,7 @@ export default function OrdersScreen({ onNavigate, onOpenProfile }: Props) {
         onClose={() => setSelectedOrder(null)}
         onRepeat={repeatOrder}
         onHelp={askHelp}
-        onTracking={order => setTrackingOrder(order)}
-      />
-
-      <OrderStatusModal
-        order={trackingOrder}
-        onClose={() => setTrackingOrder(null)}
-        onHelp={askHelp}
+        onTracking={openOfficialTracking}
       />
 
       <RepeatCartChoice
