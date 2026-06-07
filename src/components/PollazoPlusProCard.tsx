@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertCircle,
@@ -15,6 +15,7 @@ import {
   PartyPopper,
   ShieldCheck,
   Sparkles,
+  Star,
   Truck,
   WalletCards,
   X,
