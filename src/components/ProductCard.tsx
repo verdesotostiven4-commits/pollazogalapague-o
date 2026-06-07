@@ -225,13 +225,13 @@ export default function ProductCard({
     <>
       <div
         style={style}
-        className={`group relative flex flex-col h-full min-h-[310px] bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-all duration-300 ${
+        className={`group relative flex flex-col h-auto self-start bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-all duration-300 ${
           compact
-            ? 'active:shadow-md min-h-[285px]'
+            ? 'active:shadow-md'
             : 'hover:shadow-lg hover:shadow-orange-100/60 hover:-translate-y-1'
         } ${className} ${!available ? 'opacity-60 grayscale-[20%]' : ''}`}
       >
-        <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-orange-50/30">
+        <div className={`relative w-full overflow-hidden bg-gradient-to-br from-gray-50 to-orange-50/30 ${compact ? 'h-[132px]' : 'h-[150px]'}`}>
           <img
             src={productImage}
             alt={translated.name}
@@ -268,16 +268,16 @@ export default function ProductCard({
           )}
         </div>
 
-        <div className={`flex flex-col flex-1 ${compact ? 'p-3 gap-1.5' : 'p-3.5'}`}>
+        <div className={`flex flex-col ${compact ? 'p-2.5 gap-1' : 'p-3 gap-1.5'}`}>
           {!compact && (
-            <p className="text-[9px] text-orange-500 font-black uppercase tracking-widest mb-1 truncate">
+            <p className="text-[9px] text-orange-500 font-black uppercase tracking-widest truncate">
               {translated.subcategory || translated.category}
             </p>
           )}
 
           <h3
             className={`text-gray-900 font-black leading-snug line-clamp-2 ${
-              compact ? 'text-[13px] min-h-[34px]' : 'text-[14px] min-h-[39px]'
+              compact ? 'text-[13px]' : 'text-[14px]'
             }`}
             title={language === 'es' ? product.name : `${translated.name} · ${product.name}`}
           >
@@ -285,16 +285,16 @@ export default function ProductCard({
           </h3>
 
           {!compact && (
-            <p className="text-gray-400 text-[11px] leading-relaxed mt-1 line-clamp-2 min-h-[32px]">
+            <p className="text-gray-400 text-[11px] leading-relaxed mt-0.5 line-clamp-2">
               {translated.description}
             </p>
           )}
 
-          <div className="mt-auto pt-3">
-            <div className="flex items-center mb-3 min-h-[34px]">
+          <div className="pt-2.5">
+            <div className="flex items-center mb-2.5 min-h-[28px]">
               {product.is_variable ? (
                 <div className="flex flex-col">
-                  <span className={`text-orange-600 font-black ${compact ? 'text-[15px]' : 'text-[16px] leading-none'}`}>
+                  <span className={`text-orange-600 font-black ${compact ? 'text-[14px]' : 'text-[15px] leading-none'}`}>
                     {productUi('product.chooseValue', language)}
                   </span>
 
@@ -325,28 +325,28 @@ export default function ProductCard({
             </div>
 
             {available && !product.is_variable && cartQuantity > 0 ? (
-              <div className="w-full h-[52px] bg-white border border-orange-100 rounded-[22px] flex items-center justify-between p-1.5 shadow-[0_12px_24px_rgba(249,115,22,0.10)]">
+              <div className="w-full h-[48px] bg-white border border-orange-100 rounded-[20px] flex items-center justify-between p-1.5 shadow-[0_10px_22px_rgba(249,115,22,0.09)]">
                 <button
                   type="button"
                   onClick={handleDecrease}
-                  className="h-10 w-10 rounded-[16px] bg-white border border-orange-100 text-slate-500 flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                  className="h-9 w-9 rounded-[14px] bg-white border border-orange-100 text-slate-500 flex items-center justify-center shadow-sm active:scale-90 transition-transform"
                   aria-label="Quitar una unidad"
                 >
-                  <Minus size={compact ? 15 : 17} strokeWidth={3} />
+                  <Minus size={compact ? 15 : 16} strokeWidth={3} />
                 </button>
 
-                <div className="min-w-[42px] flex items-center justify-center leading-none">
-                  <span className="text-[22px] font-black text-slate-950 tabular-nums">{cartQuantity}</span>
+                <div className="min-w-[36px] flex items-center justify-center leading-none">
+                  <span className="text-[21px] font-black text-slate-950 tabular-nums">{cartQuantity}</span>
                 </div>
 
                 <button
                   ref={btnRef}
                   type="button"
                   onClick={handleIncrease}
-                  className="h-10 w-10 rounded-[16px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200/70 active:scale-90 transition-transform"
+                  className="h-9 w-9 rounded-[14px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200/70 active:scale-90 transition-transform"
                   aria-label="Agregar una unidad"
                 >
-                  <Plus size={compact ? 15 : 17} strokeWidth={3} />
+                  <Plus size={compact ? 15 : 16} strokeWidth={3} />
                 </button>
               </div>
             ) : (
@@ -355,8 +355,8 @@ export default function ProductCard({
                 type="button"
                 onClick={handleAdd}
                 disabled={!available}
-                className={`w-full min-h-[44px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
-                  compact ? 'text-[12px] py-2.5' : 'text-[13px] py-3'
+                className={`w-full min-h-[42px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
+                  compact ? 'text-[12px] py-2.5' : 'text-[13px] py-2.5'
                 } ${
                   !available
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
