@@ -41,6 +41,17 @@ const installLegacyTrackingModalGuard = () => {
           visibility: hidden !important;
         }
       }
+
+      button[aria-label="Cerrar rastreo"] {
+        background: linear-gradient(
+          to bottom,
+          rgba(67, 20, 7, 0.20),
+          rgba(67, 20, 7, 0.10),
+          rgba(67, 20, 7, 0.18)
+        ) !important;
+        -webkit-backdrop-filter: blur(2px) !important;
+        backdrop-filter: blur(2px) !important;
+      }
     `;
 
     document.head.appendChild(style);
