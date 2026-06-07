@@ -58,11 +58,17 @@ const canUseFallback = (
   config: PanelConfig,
   pin: string,
   response?: VerifyPanelPinResponse | null,
-  requestFailed = false
+  requestFailed = false,
+  responseStatus = 0
 ) => {
   if (pin !== config.fallbackPin) return false;
 
-  return requestFailed || response?.missingEnv === true;
+  return (
+    requestFailed ||
+    response?.missingEnv === true ||
+    responseStatus === 404 ||
+    responseStatus >= 500
+  );
 };
 
 export default function SecurePanelGate({ children }: { children: ReactNode }) {
@@ -77,7 +83,6 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fallbackMode, setFallbackMode] = useState(false);
 
   if (!config || authorized) {
     return <>{children}</>;
@@ -85,9 +90,8 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
 
   const Icon = config.Icon;
 
-  const grantAccess = (usedFallback = false) => {
+  const grantAccess = () => {
     sessionStorage.setItem(config.sessionKey, '1');
-    setFallbackMode(usedFallback);
     setAuthorized(true);
   };
 
@@ -114,12 +118,12 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
       const result = (await response.json().catch(() => ({}))) as VerifyPanelPinResponse;
 
       if (response.ok && result.ok) {
-        grantAccess(false);
+        grantAccess();
         return;
       }
 
-      if (canUseFallback(config, safePin, result, false)) {
-        grantAccess(true);
+      if (canUseFallback(config, safePin, result, false, response.status)) {
+        grantAccess();
         return;
       }
 
@@ -131,6 +135,8 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
         );
       } else if (result.remainingAttempts !== undefined) {
         setError(`PIN incorrecto. Intentos restantes: ${result.remainingAttempts}.`);
+      } else if (response.status === 404 || response.status >= 500) {
+        setError('Validación server no disponible. Verifica que api/verify-panel-pin.ts esté desplegado en Vercel.');
       } else {
         setError('PIN incorrecto o no autorizado.');
       }
@@ -138,7 +144,7 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
       setPin('');
     } catch {
       if (canUseFallback(config, safePin, null, true)) {
-        grantAccess(true);
+        grantAccess();
         return;
       }
 
@@ -225,7 +231,7 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
             type="button"
             disabled={loading || pin.length < 4}
             onClick={() => void submitPin()}
-            className="mt-4 w-full h-13 rounded-2xl bg-orange-500 text-white font-black uppercase tracking-[0.18em] text-[11px] shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 flex items-center justify-center gap-2"
+            className="mt-4 w-full h-12 rounded-2xl bg-orange-500 text-white font-black uppercase tracking-[0.18em] text-[11px] shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 size={17} className="animate-spin" /> : <Lock size={16} />}
             {loading ? 'Validando' : 'Entrar seguro'}
@@ -239,12 +245,6 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
               {error}
             </p>
           </div>
-        )}
-
-        {fallbackMode && (
-          <p className="text-[10px] font-bold text-yellow-200/80 leading-relaxed">
-            Acceso temporal por respaldo local. Configura las variables de Vercel para seguridad completa.
-          </p>
         )}
 
         <p className="text-[10px] font-bold text-white/35 leading-relaxed">
