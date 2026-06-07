@@ -19,6 +19,7 @@ import PollazoPlusModalLayerFix from './components/PollazoPlusModalLayerFix';
 import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
 import CartSmartScrollBridge from './components/CartSmartScrollBridge';
+import CatalogCartBarPolish from './components/CatalogCartBarPolish';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
@@ -205,6 +206,7 @@ createRoot(document.getElementById('root')!).render(
         <CartTextPolish />
         <CartAvailabilityToast />
         <CartSmartScrollBridge />
+        <CatalogCartBarPolish />
         <OrdersDetailProductToggle />
         <PlusNonMemberSavingsGuard />
         <ErrorRetryGuard />
