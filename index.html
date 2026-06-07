@@ -23,7 +23,7 @@
     <link rel="manifest" href="/manifest.json" />
 
     <meta name="theme-color" content="#f97316" />
-    <meta name="background-color" content="#fff7ed" />
+    <meta name="background-color" content="#ffffff" />
 
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Pollazo Galapagueño" />
@@ -67,7 +67,7 @@
       body {
         margin: 0;
         min-height: 100%;
-        background: #fff7ed;
+        background: #ffffff;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         -khtml-user-select: none;
@@ -91,236 +91,12 @@
 
       #root {
         min-height: 100dvh;
-        background: #fff7ed;
-      }
-
-      #pollazo-pwa-splash {
-        position: fixed;
-        inset: 0;
-        z-index: 2147483647;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
-        background:
-          radial-gradient(circle at 22% 18%, rgba(255, 213, 128, 0.42), transparent 28%),
-          radial-gradient(circle at 82% 78%, rgba(251, 146, 60, 0.32), transparent 30%),
-          linear-gradient(160deg, #fff7ed 0%, #ffedd5 44%, #fb923c 100%);
-        opacity: 1;
-        visibility: visible;
-        transition: opacity 420ms ease, visibility 420ms ease;
-        overflow: hidden;
-      }
-
-      #pollazo-pwa-splash::before,
-      #pollazo-pwa-splash::after {
-        content: "";
-        position: absolute;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.28);
-        filter: blur(2px);
-      }
-
-      #pollazo-pwa-splash::before {
-        width: 220px;
-        height: 220px;
-        top: -78px;
-        right: -84px;
-      }
-
-      #pollazo-pwa-splash::after {
-        width: 180px;
-        height: 180px;
-        left: -74px;
-        bottom: -64px;
-      }
-
-      #pollazo-pwa-splash.pollazo-pwa-splash--hidden {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
-
-      .pollazo-splash-card {
-        position: relative;
-        width: min(74vw, 260px);
-        min-height: 260px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 18px;
-        border-radius: 42px;
-        background: rgba(255, 255, 255, 0.44);
-        border: 1px solid rgba(255, 255, 255, 0.52);
-        box-shadow: 0 30px 90px rgba(124, 45, 18, 0.22);
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        animation: pollazoSplashCardIn 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
-      }
-
-      .pollazo-splash-logo-wrap {
-        position: relative;
-        width: 132px;
-        height: 132px;
-        display: grid;
-        place-items: center;
-        border-radius: 38px;
-        background: rgba(255, 255, 255, 0.48);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 18px 46px rgba(234, 88, 12, 0.16);
-      }
-
-      .pollazo-splash-logo-wrap::before {
-        content: "";
-        position: absolute;
-        inset: -8px;
-        border-radius: 46px;
-        border: 2px solid rgba(255, 255, 255, 0.36);
-        animation: pollazoSplashPulse 1.55s ease-in-out infinite;
-      }
-
-      .pollazo-splash-logo {
-        width: 112px;
-        height: 112px;
-        object-fit: contain;
-        filter: drop-shadow(0 14px 18px rgba(124, 45, 18, 0.16));
-        animation: pollazoLogoFloat 2.2s ease-in-out infinite;
-      }
-
-      .pollazo-splash-title {
-        margin: 0;
-        color: #431407;
-        font: 900 15px/1.05 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        text-align: center;
-      }
-
-      .pollazo-splash-subtitle {
-        margin: -10px 0 0;
-        color: rgba(124, 45, 18, 0.66);
-        font: 800 10px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        text-align: center;
-      }
-
-      .pollazo-splash-loader {
-        width: 78px;
-        height: 5px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.5);
-        overflow: hidden;
-      }
-
-      .pollazo-splash-loader span {
-        display: block;
-        width: 38%;
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, #f97316, #facc15);
-        animation: pollazoSplashLoading 1.1s ease-in-out infinite;
-      }
-
-      @keyframes pollazoSplashCardIn {
-        from {
-          opacity: 0;
-          transform: translateY(16px) scale(0.96);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-
-      @keyframes pollazoSplashPulse {
-        0%, 100% {
-          opacity: 0.42;
-          transform: scale(0.98);
-        }
-        50% {
-          opacity: 0.9;
-          transform: scale(1.04);
-        }
-      }
-
-      @keyframes pollazoLogoFloat {
-        0%, 100% {
-          transform: translateY(0);
-        }
-        50% {
-          transform: translateY(-5px);
-        }
-      }
-
-      @keyframes pollazoSplashLoading {
-        0% {
-          transform: translateX(-110%);
-        }
-        100% {
-          transform: translateX(280%);
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .pollazo-splash-card,
-        .pollazo-splash-logo,
-        .pollazo-splash-logo-wrap::before,
-        .pollazo-splash-loader span {
-          animation: none !important;
-        }
       }
     </style>
   </head>
 
   <body>
-    <div id="pollazo-pwa-splash" aria-hidden="true">
-      <div class="pollazo-splash-card">
-        <div class="pollazo-splash-logo-wrap">
-          <img
-            class="pollazo-splash-logo"
-            src="https://blogger.googleusercontent.com/img/a/AVvXsEj_z_wFD2fFBMGygHoeaB-BRAJFDaT7VY0VtWUcD2kOgCaXyLb7BCpVGNZC6any7SIqhUX4TL_MW7FGhHvX49fMsU8BULMMQcsO5QT2Ey7J1TDzGJ3gyzdA5cU7qNkB8322cPMt_IbW0hV6Dafp3DGfyGu3kmBnaCEd3QfvComUHLlqvWwXgqXnJBY077o"
-            alt=""
-          />
-        </div>
-        <p class="pollazo-splash-title">Pollazo</p>
-        <p class="pollazo-splash-subtitle">Galápagos Market</p>
-        <div class="pollazo-splash-loader"><span></span></div>
-      </div>
-    </div>
-
     <div id="root"></div>
-
-    <script>
-      (() => {
-        const splash = document.getElementById("pollazo-pwa-splash");
-        const root = document.getElementById("root");
-        let hidden = false;
-
-        const hideSplash = () => {
-          if (hidden || !splash) return;
-          hidden = true;
-          window.setTimeout(() => {
-            splash.classList.add("pollazo-pwa-splash--hidden");
-            window.setTimeout(() => splash.remove(), 520);
-          }, 280);
-        };
-
-        if (root) {
-          const observer = new MutationObserver(() => {
-            if (root.childElementCount > 0 || root.textContent.trim().length > 0) {
-              observer.disconnect();
-              hideSplash();
-            }
-          });
-
-          observer.observe(root, { childList: true, subtree: true, characterData: true });
-        }
-
-        window.addEventListener("load", () => window.setTimeout(hideSplash, 1100), { once: true });
-        window.setTimeout(hideSplash, 4200);
-      })();
-    </script>
 
     <script type="module" src="/src/main.tsx"></script>
 
