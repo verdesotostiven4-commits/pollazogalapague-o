@@ -34,21 +34,100 @@ const installLegacyTrackingModalGuard = () => {
 
   const styleId = 'pollazo-legacy-tracking-modal-guard';
 
-  if (document.getElementById(styleId)) return;
-
-  const style = document.createElement('style');
-  style.id = styleId;
-  style.textContent = `
-    @supports selector(:has(*)) {
-      div.fixed.inset-0:has(> button[aria-label="Cerrar estado"]) {
-        display: none !important;
-        pointer-events: none !important;
-        visibility: hidden !important;
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @supports selector(:has(*)) {
+        div.fixed.inset-0:has(> button[aria-label="Cerrar estado"]) {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
       }
-    }
-  `;
+    `;
 
-  document.head.appendChild(style);
+    document.head.appendChild(style);
+  }
+
+  let redirecting = false;
+
+  const readLegacyOrderCode = (modal: Element) => {
+    const title = modal.querySelector('h2');
+    const rawCode = String(title?.textContent || '')
+      .trim()
+      .toUpperCase();
+
+    if (!rawCode || rawCode === 'PEDIDO') return '';
+
+    return rawCode.slice(0, 80);
+  };
+
+  const closeLegacyModal = (modal: Element) => {
+    const closeButtons = Array.from(
+      modal.querySelectorAll<HTMLButtonElement>('button[aria-label="Cerrar estado"], button[aria-label="Cerrar"]')
+    );
+
+    closeButtons.forEach(button => {
+      try {
+        button.click();
+      } catch {
+        // Cierre opcional.
+      }
+    });
+  };
+
+  const openUnifiedTracking = (orderCode: string) => {
+    try {
+      sessionStorage.setItem('pollazo_tracking_order_code', orderCode);
+      sessionStorage.setItem(
+        'pollazo_tracking_intent',
+        JSON.stringify({ orderCode, at: Date.now() })
+      );
+    } catch {
+      // sessionStorage opcional.
+    }
+
+    const params = new URLSearchParams();
+    params.set('tracking', '1');
+    params.set('orderCode', orderCode);
+
+    window.setTimeout(() => {
+      window.location.assign(`/?${params.toString()}`);
+    }, 60);
+  };
+
+  const handleLegacyTrackingModal = () => {
+    if (redirecting) return;
+
+    const legacyBackdrop = document.querySelector('div.fixed.inset-0 > button[aria-label="Cerrar estado"]');
+    const legacyModal = legacyBackdrop?.parentElement;
+
+    if (!legacyModal || legacyModal.getAttribute('data-pollazo-unified-tracking') === '1') {
+      return;
+    }
+
+    const orderCode = readLegacyOrderCode(legacyModal);
+
+    if (!orderCode) return;
+
+    redirecting = true;
+    legacyModal.setAttribute('data-pollazo-unified-tracking', '1');
+    closeLegacyModal(legacyModal);
+    openUnifiedTracking(orderCode);
+
+    window.setTimeout(() => {
+      redirecting = false;
+    }, 1500);
+  };
+
+  const observer = new MutationObserver(handleLegacyTrackingModal);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+
+  handleLegacyTrackingModal();
 };
 
 installHomeVisualTranslator();
