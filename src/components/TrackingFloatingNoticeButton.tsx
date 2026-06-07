@@ -68,10 +68,33 @@ function isHomeScreenActive() {
   return text.includes('inicio') || text.includes('home');
 }
 
+function installOldGreenButtonGuard() {
+  const styleId = 'pollazo-hide-old-green-tracking-button';
+  let style = document.getElementById(styleId) as HTMLStyleElement | null;
+
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      button[data-pollazo-persistent-tracking="1"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  return () => {
+    style?.remove();
+  };
+}
+
 function hideWrongGreenTrackingButton() {
   const buttons = Array.from(document.querySelectorAll('button[data-pollazo-persistent-tracking="1"]')) as HTMLButtonElement[];
   buttons.forEach(button => {
-    button.style.display = 'none';
+    button.style.setProperty('display', 'none', 'important');
+    button.style.setProperty('visibility', 'hidden', 'important');
     button.setAttribute('aria-hidden', 'true');
     button.tabIndex = -1;
   });
@@ -140,10 +163,16 @@ export default function TrackingFloatingNoticeButton() {
   }, [cleanCustomerPhone]);
 
   useEffect(() => {
+    const removeStyle = installOldGreenButtonGuard();
     hideWrongGreenTrackingButton();
+
     const observer = new MutationObserver(hideWrongGreenTrackingButton);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+
+    return () => {
+      observer.disconnect();
+      removeStyle();
+    };
   }, []);
 
   useEffect(() => {
