@@ -26,6 +26,7 @@ import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
 import SecurePanelGate from './components/SecurePanelGate';
 import './index.css';
+import './styles/homeHeroRestore.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
 
