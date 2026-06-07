@@ -29,7 +29,30 @@ import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
 
+const installLegacyTrackingModalGuard = () => {
+  if (typeof document === 'undefined') return;
+
+  const styleId = 'pollazo-legacy-tracking-modal-guard';
+
+  if (document.getElementById(styleId)) return;
+
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    @supports selector(:has(*)) {
+      div.fixed.inset-0:has(> button[aria-label="Cerrar estado"]) {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+};
+
 installHomeVisualTranslator();
+installLegacyTrackingModalGuard();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
