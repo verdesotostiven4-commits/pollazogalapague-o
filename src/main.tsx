@@ -20,6 +20,7 @@ import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
 import CartSmartScrollBridge from './components/CartSmartScrollBridge';
 import CatalogCartBarPolish from './components/CatalogCartBarPolish';
+import CatalogCompactVisualBridge from './components/CatalogCompactVisualBridge';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
@@ -207,6 +208,7 @@ createRoot(document.getElementById('root')!).render(
         <CartAvailabilityToast />
         <CartSmartScrollBridge />
         <CatalogCartBarPolish />
+        <CatalogCompactVisualBridge />
         <OrdersDetailProductToggle />
         <PlusNonMemberSavingsGuard />
         <ErrorRetryGuard />
