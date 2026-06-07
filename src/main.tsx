@@ -42,7 +42,7 @@ const installLegacyTrackingModalGuard = () => {
           visibility: hidden !important;
         }
 
-        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page")) button[aria-label="Abrir rastreo de pedido"],
+        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page"])) button[aria-label="Abrir rastreo de pedido"],
         body:has(button[aria-label="Cerrar rastreo"]) button[aria-label="Abrir rastreo de pedido"] {
           display: none !important;
           opacity: 0 !important;
@@ -143,8 +143,54 @@ const installLegacyTrackingModalGuard = () => {
   handleLegacyTrackingModal();
 };
 
+const installTrackingButtonHomeOnlyGuard = () => {
+  if (typeof document === 'undefined') return;
+
+  const updateTrackingButtonVisibility = () => {
+    const nav = document.querySelector('nav[aria-label="Navegación principal"]');
+    const navButtons = nav
+      ? Array.from(nav.querySelectorAll<HTMLButtonElement>('button'))
+      : [];
+
+    const activeButton = nav?.querySelector<HTMLButtonElement>('button[aria-current="page"]') || null;
+    const homeButton = navButtons[0] || null;
+    const isHome = Boolean(homeButton && activeButton && activeButton === homeButton);
+    const isTrackingOpen = Boolean(document.querySelector('button[aria-label="Cerrar rastreo"]'));
+
+    const trackingButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button[aria-label="Abrir rastreo de pedido"]')
+    );
+
+    trackingButtons.forEach(button => {
+      const shouldShow = isHome && !isTrackingOpen;
+
+      button.style.setProperty('display', shouldShow ? 'flex' : 'none', 'important');
+      button.style.setProperty('opacity', shouldShow ? '1' : '0', 'important');
+      button.style.setProperty('pointer-events', shouldShow ? 'auto' : 'none', 'important');
+      button.style.setProperty('visibility', shouldShow ? 'visible' : 'hidden', 'important');
+    });
+  };
+
+  const observer = new MutationObserver(updateTrackingButtonVisibility);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['aria-current', 'class', 'style'],
+    childList: true,
+    subtree: true,
+  });
+
+  window.addEventListener('click', () => window.setTimeout(updateTrackingButtonVisibility, 0), true);
+  window.addEventListener('popstate', updateTrackingButtonVisibility);
+  window.addEventListener('pollazo:open-tracking', updateTrackingButtonVisibility as EventListener);
+
+  window.setTimeout(updateTrackingButtonVisibility, 0);
+  window.setTimeout(updateTrackingButtonVisibility, 250);
+  window.setTimeout(updateTrackingButtonVisibility, 900);
+};
+
 installHomeVisualTranslator();
 installLegacyTrackingModalGuard();
+installTrackingButtonHomeOnlyGuard();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
