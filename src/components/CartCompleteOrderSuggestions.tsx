@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Sparkles } from 'lucide-react';
-import { useAdmin } from '../context/AdminContext';
-import { useCart } from '../context/CartContext';
-import { useLanguage } from '../context/LanguageContext';
-import { useUser } from '../context/UserContext';
-import { getProductDisplay } from '../utils/productI18n';
-import type { Product } from '../types';
+import { products as seedProducts } from '../data/products';
+import type { CartItem, Product } from '../types';
 
 const HOST_ID = 'pollazo-cart-complete-order-host';
+const STORAGE_KEY = 'pollazo_cart_items';
+const ADD_EVENT = 'pollazo:add-cart-product';
 
 const toMoney = (value: unknown): number => {
   if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? Number(value.toFixed(2)) : 0;
@@ -31,6 +29,25 @@ const normalized = (value: unknown) =>
 const productPrice = (product: Product) => {
   if (typeof product.custom_price === 'number' && product.custom_price > 0) return Number(product.custom_price.toFixed(2));
   return toMoney(product.price);
+};
+
+const readCartItems = (): CartItem[] => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const hasPlusActive = () => {
+  if (typeof document === 'undefined') return false;
+
+  const body = normalized(document.body.textContent);
+  return body.includes('pollazo plus activo') || body.includes('delivery gratis aplicado') || body.includes('plus activo');
 };
 
 const isGoodSuggestion = (product: Product) => {
@@ -68,7 +85,7 @@ const findHost = () => {
 
   const headings = Array.from(document.querySelectorAll<HTMLElement>('h3, p')).filter(element => {
     const text = normalized(element.textContent);
-    return text.includes('tus productos') || text.includes('your products') || text.includes('商品');
+    return text.includes('tus productos') || text.includes('your products');
   });
 
   const productSection = headings
@@ -85,12 +102,9 @@ const findHost = () => {
 };
 
 export default function CartCompleteOrderSuggestions() {
-  const { products } = useAdmin();
-  const { items, addItem } = useCart();
-  const { language } = useLanguage();
-  const { hasPollazoPlus } = useUser();
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [cartVersion, setCartVersion] = useState(0);
 
   useEffect(() => {
     const syncHost = () => setHost(findHost());
@@ -106,22 +120,30 @@ export default function CartCompleteOrderSuggestions() {
       subtree: true,
     });
 
+    const interval = window.setInterval(() => {
+      setCartVersion(version => version + 1);
+      syncHost();
+    }, 1200);
+
     const timers = [120, 400, 900, 1600].map(delay => window.setTimeout(syncHost, delay));
 
     return () => {
       observer.disconnect();
+      window.clearInterval(interval);
       timers.forEach(timer => window.clearTimeout(timer));
       document.getElementById(HOST_ID)?.remove();
     };
   }, []);
 
+  const cartItems = useMemo(() => readCartItems(), [cartVersion, justAddedId]);
+
   const cartIds = useMemo(
-    () => new Set(items.map(item => String(item.product.id || item.id).split('-')[0])),
-    [items]
+    () => new Set(cartItems.map(item => String(item.product?.id || item.id).split('-')[0])),
+    [cartItems]
   );
 
   const suggestions = useMemo(() => {
-    return products
+    return seedProducts
       .filter(product => !cartIds.has(String(product.id)))
       .filter(isGoodSuggestion)
       .sort((a, b) => {
@@ -133,21 +155,18 @@ export default function CartCompleteOrderSuggestions() {
         return productPrice(a) - productPrice(b);
       })
       .slice(0, 8);
-  }, [cartIds, products]);
+  }, [cartIds]);
 
-  if (!host || suggestions.length === 0 || items.length === 0) return null;
+  if (!host || suggestions.length === 0 || cartItems.length === 0) return null;
 
   const bodyText = normalized(document.body.textContent);
-  if (bodyText.includes('carrito bloqueado') || bodyText.includes('pedido registrado')) return null;
+  const isCartScreen = bodyText.includes('carrito') || bodyText.includes('tus productos');
+  if (!isCartScreen || bodyText.includes('carrito bloqueado') || bodyText.includes('pedido registrado')) return null;
 
-  const title = language === 'en' ? 'Complete your order' : 'Completa tu pedido';
-  const subtitle = hasPollazoPlus
-    ? language === 'en'
-      ? 'You already have free delivery. Add an extra without paying another delivery.'
-      : 'Ya tienes envío gratis. Agrega un extra sin pagar otro delivery.'
-    : language === 'en'
-      ? 'Quick extras customers usually add before confirming.'
-      : 'Extras rápidos que suelen acompañar tu compra.';
+  const title = 'Completa tu pedido';
+  const subtitle = hasPlusActive()
+    ? 'Ya tienes envío gratis. Agrega un extra sin pagar otro delivery.'
+    : 'Extras rápidos que suelen acompañar tu compra.';
 
   return createPortal(
     <section className="bg-white rounded-[28px] border border-orange-100/70 p-3.5 shadow-sm space-y-3 animate-in fade-in duration-300">
@@ -168,7 +187,6 @@ export default function CartCompleteOrderSuggestions() {
 
       <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
         {suggestions.map(product => {
-          const display = getProductDisplay(product, language);
           const price = productPrice(product);
           const added = justAddedId === product.id;
 
@@ -178,22 +196,23 @@ export default function CartCompleteOrderSuggestions() {
               className="w-[132px] flex-shrink-0 rounded-[22px] border border-slate-100 bg-slate-50/60 p-2.5"
             >
               <div className="h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center mb-2 overflow-hidden">
-                <img src={product.image || '/logo-final.png'} alt={display.name} className="w-full h-full object-contain p-1.5" />
+                <img src={product.image || '/logo-final.png'} alt={product.name} className="w-full h-full object-contain p-1.5" />
               </div>
-              <p className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[28px]">{display.name}</p>
+              <p className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[28px]">{product.name}</p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-[12px] font-black text-orange-600">${price.toFixed(2)}</span>
                 <button
                   type="button"
                   onClick={() => {
-                    addItem(product);
+                    window.dispatchEvent(new CustomEvent(ADD_EVENT, { detail: { product, quantity: 1 } }));
                     setJustAddedId(product.id);
+                    setCartVersion(version => version + 1);
                     window.setTimeout(() => setJustAddedId(null), 900);
                   }}
                   className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm active:scale-90 transition-all ${
                     added ? 'bg-green-500' : 'bg-gradient-to-br from-orange-500 to-yellow-400'
                   }`}
-                  aria-label={`Agregar ${display.name}`}
+                  aria-label={`Agregar ${product.name}`}
                 >
                   <Plus size={15} strokeWidth={3} />
                 </button>
