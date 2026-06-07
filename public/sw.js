@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v39';
+const CACHE_VERSION = 'pollazo-cache-clean-v40';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';
@@ -33,38 +33,54 @@ const isPlusUrl = rawUrl => {
   }
 };
 
-const ensureTrackingUrl = rawUrl => {
+const toSameOriginUrl = (rawUrl, fallbackPath) => {
   try {
-    const url = new URL(rawUrl || '/?tracking=1', self.location.origin);
+    const url = new URL(rawUrl || fallbackPath, self.location.origin);
 
     if (url.origin !== self.location.origin) {
-      return `${self.location.origin}/?tracking=1`;
+      return new URL(fallbackPath, self.location.origin);
     }
 
-    if (!url.searchParams.has('tracking')) {
-      url.searchParams.set('tracking', '1');
-    }
-
-    return url.href;
+    return url;
   } catch {
-    return `${self.location.origin}/?tracking=1`;
+    return new URL(fallbackPath, self.location.origin);
   }
 };
 
-const ensurePlusUrl = rawUrl => {
-  try {
-    const url = new URL(rawUrl || '/?plus=1', self.location.origin);
+const ensureTrackingUrl = (rawUrl, payload = {}) => {
+  const url = toSameOriginUrl(rawUrl, '/?tracking=1');
 
-    if (url.origin !== self.location.origin) {
-      return `${self.location.origin}/?plus=1`;
-    }
+  url.searchParams.set('tracking', '1');
 
-    url.searchParams.set('plus', '1');
-
-    return url.href;
-  } catch {
-    return `${self.location.origin}/?plus=1`;
+  if (payload.orderCode && !url.searchParams.has('orderCode')) {
+    url.searchParams.set('orderCode', payload.orderCode);
   }
+
+  if (payload.status && !url.searchParams.has('status')) {
+    url.searchParams.set('status', payload.status);
+  }
+
+  if (payload.paymentStatus && !url.searchParams.has('paymentStatus')) {
+    url.searchParams.set('paymentStatus', payload.paymentStatus);
+  }
+
+  return url.href;
+};
+
+const ensurePlusUrl = (rawUrl, payload = {}) => {
+  const url = toSameOriginUrl(rawUrl, '/?plus=1');
+
+  url.searchParams.set('plus', '1');
+
+  if (payload.membershipId && !url.searchParams.has('membershipId')) {
+    url.searchParams.set('membershipId', payload.membershipId);
+  }
+
+  if (payload.membershipReminder && !url.searchParams.has('membershipReminder')) {
+    url.searchParams.set('membershipReminder', payload.membershipReminder);
+  }
+
+  return url.href;
 };
 
 const getNotificationKind = payload => {
@@ -82,17 +98,21 @@ const getNotificationKind = payload => {
 
 const buildClientMessage = (kind, payload = {}) => {
   if (kind === 'plus') {
+    const url = ensurePlusUrl(payload.url, payload);
+
     return {
       type: 'POLLAZO_OPEN_PLUS',
-      url: payload.url || '/?plus=1',
+      url,
       membershipId: payload.membershipId || null,
       membershipReminder: payload.membershipReminder || null,
     };
   }
 
+  const url = ensureTrackingUrl(payload.url, payload);
+
   return {
     type: 'POLLAZO_OPEN_TRACKING',
-    url: payload.url || '/?tracking=1',
+    url,
     orderCode: payload.orderCode || null,
     status: payload.status || null,
     paymentStatus: payload.paymentStatus || null,
@@ -106,6 +126,82 @@ const sendMessageToClient = (client, kind, payload = {}) => {
     client.postMessage(buildClientMessage(kind, payload));
   } catch {
     // Mensaje opcional.
+  }
+};
+
+const isSameWindowTarget = (clientUrl, targetUrl) => {
+  try {
+    const current = new URL(clientUrl);
+    const target = new URL(targetUrl);
+
+    return (
+      current.origin === target.origin &&
+      current.pathname === target.pathname &&
+      current.search === target.search &&
+      current.hash === target.hash
+    );
+  } catch {
+    return false;
+  }
+};
+
+const focusOrNavigateClient = async (client, targetUrl, kind, payload = {}) => {
+  if (!client) return null;
+
+  try {
+    sendMessageToClient(client, kind, {
+      ...payload,
+      url: targetUrl,
+    });
+
+    const shouldNavigate = !isSameWindowTarget(client.url, targetUrl);
+
+    if (shouldNavigate && 'navigate' in client) {
+      const navigatedClient = await client.navigate(targetUrl);
+
+      if (navigatedClient) {
+        sendMessageToClient(navigatedClient, kind, {
+          ...payload,
+          url: targetUrl,
+        });
+
+        if ('focus' in navigatedClient) {
+          const focused = await navigatedClient.focus();
+
+          sendMessageToClient(focused || navigatedClient, kind, {
+            ...payload,
+            url: targetUrl,
+          });
+
+          return focused || navigatedClient;
+        }
+
+        return navigatedClient;
+      }
+    }
+
+    if ('focus' in client) {
+      const focused = await client.focus();
+
+      sendMessageToClient(focused || client, kind, {
+        ...payload,
+        url: targetUrl,
+      });
+
+      return focused || client;
+    }
+
+    return client;
+  } catch {
+    try {
+      if ('focus' in client) {
+        return await client.focus();
+      }
+    } catch {
+      // Fallback silencioso.
+    }
+
+    return client;
   }
 };
 
@@ -188,8 +284,8 @@ self.addEventListener('push', event => {
 
   const targetUrl =
     kind === 'plus'
-      ? ensurePlusUrl(payload.url)
-      : ensureTrackingUrl(payload.url);
+      ? ensurePlusUrl(payload.url, payload)
+      : ensureTrackingUrl(payload.url, payload);
 
   const title = payload.title || 'La Casa del Pollazo';
 
@@ -227,13 +323,8 @@ self.addEventListener('notificationclick', event => {
   const notificationData = event.notification?.data || {};
   const kind = notificationData.kind === 'plus' ? 'plus' : 'tracking';
 
-  const targetUrl =
-    kind === 'plus'
-      ? ensurePlusUrl(notificationData.url)
-      : ensureTrackingUrl(notificationData.url);
-
   const messagePayload = {
-    url: targetUrl,
+    url: notificationData.url || null,
     orderCode: notificationData.orderCode || null,
     status: notificationData.status || null,
     paymentStatus: notificationData.paymentStatus || null,
@@ -241,13 +332,18 @@ self.addEventListener('notificationclick', event => {
     membershipReminder: notificationData.membershipReminder || null,
   };
 
+  const targetUrl =
+    kind === 'plus'
+      ? ensurePlusUrl(notificationData.url, messagePayload)
+      : ensureTrackingUrl(notificationData.url, messagePayload);
+
   event.waitUntil(
     self.clients
       .matchAll({
         type: 'window',
         includeUncontrolled: true,
       })
-      .then(clientList => {
+      .then(async clientList => {
         const sameOriginClients = clientList.filter(client => {
           try {
             return new URL(client.url).origin === self.location.origin;
@@ -258,23 +354,32 @@ self.addEventListener('notificationclick', event => {
 
         const focusedClient =
           sameOriginClients.find(client => client.focused) ||
+          sameOriginClients.find(client => isSameWindowTarget(client.url, targetUrl)) ||
           sameOriginClients[0];
 
         if (focusedClient) {
-          sendMessageToClient(focusedClient, kind, messagePayload);
-
-          if ('focus' in focusedClient) {
-            return focusedClient.focus().then(client => {
-              sendMessageToClient(client || focusedClient, kind, messagePayload);
-              return client || focusedClient;
-            });
-          }
-
-          return focusedClient;
+          return focusOrNavigateClient(
+            focusedClient,
+            targetUrl,
+            kind,
+            {
+              ...messagePayload,
+              url: targetUrl,
+            }
+          );
         }
 
         if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
+          const openedClient = await self.clients.openWindow(targetUrl);
+
+          if (openedClient) {
+            sendMessageToClient(openedClient, kind, {
+              ...messagePayload,
+              url: targetUrl,
+            });
+          }
+
+          return openedClient;
         }
 
         return null;
