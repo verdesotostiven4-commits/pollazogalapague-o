@@ -10,6 +10,44 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <script>
+      (function lockPollazoMobileViewport() {
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) return;
+
+        var buildContent = function () {
+          var screenWidth = window.screen && window.screen.width ? window.screen.width : 0;
+          var innerWidth = window.innerWidth || 0;
+          var isTouchPhone =
+            (navigator.maxTouchPoints || 0) > 0 &&
+            screenWidth > 0 &&
+            screenWidth <= 540;
+
+          if (isTouchPhone) {
+            var lockedWidth = Math.max(320, Math.min(430, Math.round(screenWidth)));
+            return 'width=' + lockedWidth + ', initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+          }
+
+          if (innerWidth > 0 && innerWidth <= 540) {
+            return 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+          }
+
+          return 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        };
+
+        var apply = function () {
+          meta.setAttribute('content', buildContent());
+          document.documentElement.classList.add('pollazo-mobile-app-shell');
+        };
+
+        apply();
+        window.addEventListener('orientationchange', function () {
+          window.setTimeout(apply, 80);
+          window.setTimeout(apply, 320);
+        });
+        window.addEventListener('resize', apply, { passive: true });
+      })();
+    </script>
 
     <title>Pollazo Galapagueño</title>
     <meta
@@ -91,6 +129,29 @@
 
       #root {
         min-height: 100dvh;
+      }
+
+      @media (hover: hover) and (pointer: fine) and (min-width: 540px) {
+        html.pollazo-mobile-app-shell,
+        html.pollazo-mobile-app-shell body {
+          background:
+            radial-gradient(circle at 20% 0%, rgba(251, 191, 36, 0.18), transparent 34%),
+            radial-gradient(circle at 80% 100%, rgba(249, 115, 22, 0.16), transparent 34%),
+            #fff7ed;
+        }
+
+        html.pollazo-mobile-app-shell #root {
+          width: min(100vw, 430px);
+          max-width: 430px;
+          margin: 0 auto;
+          min-height: 100dvh;
+          background: #ffffff;
+          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.08), 0 30px 90px rgba(124, 45, 18, 0.18);
+          overflow-x: hidden;
+          position: relative;
+          isolation: isolate;
+          transform: translateZ(0);
+        }
       }
     </style>
   </head>
