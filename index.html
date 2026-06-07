@@ -15,37 +15,66 @@
         var meta = document.querySelector('meta[name="viewport"]');
         if (!meta) return;
 
-        var buildContent = function () {
+        var clamp = function (value, min, max) {
+          return Math.max(min, Math.min(max, value));
+        };
+
+        var getEstimatedPhoneWidth = function () {
           var screenWidth = window.screen && window.screen.width ? window.screen.width : 0;
-          var innerWidth = window.innerWidth || 0;
-          var isTouchPhone =
-            (navigator.maxTouchPoints || 0) > 0 &&
-            screenWidth > 0 &&
-            screenWidth <= 540;
+          var screenHeight = window.screen && window.screen.height ? window.screen.height : 0;
+          var smallestScreenSide = Math.min(screenWidth || 0, screenHeight || 0);
+          var dpr = window.devicePixelRatio || 1;
 
-          if (isTouchPhone) {
-            var lockedWidth = Math.max(320, Math.min(430, Math.round(screenWidth)));
-            return 'width=' + lockedWidth + ', initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+          if (smallestScreenSide > 650 && dpr > 1.25) {
+            return clamp(Math.round(smallestScreenSide / dpr), 320, 430);
           }
 
-          if (innerWidth > 0 && innerWidth <= 540) {
-            return 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+          if (smallestScreenSide > 0) {
+            return clamp(Math.round(smallestScreenSide), 320, 430);
           }
 
-          return 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+          return 390;
+        };
+
+        var isMobileDevice = function () {
+          var ua = (navigator.userAgent || '').toLowerCase();
+          var isTouch = (navigator.maxTouchPoints || 0) > 0;
+          var mobileUA = /android|iphone|ipad|ipod|mobile/.test(ua);
+          return isTouch && mobileUA;
         };
 
         var apply = function () {
-          meta.setAttribute('content', buildContent());
+          var phoneWidth = getEstimatedPhoneWidth();
+          var innerWidth = window.innerWidth || phoneWidth;
+          var shouldEmulatePhone = isMobileDevice() && innerWidth > 640;
+          var viewportWidth = shouldEmulatePhone ? phoneWidth : 'device-width';
+
+          meta.setAttribute(
+            'content',
+            'width=' + viewportWidth + ', initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+          );
+
           document.documentElement.classList.add('pollazo-mobile-app-shell');
+          document.documentElement.classList.toggle('pollazo-desktop-mode-mobile', shouldEmulatePhone);
+
+          if (shouldEmulatePhone) {
+            var scale = Math.max(1, innerWidth / phoneWidth);
+            document.documentElement.style.setProperty('--pollazo-phone-width', phoneWidth + 'px');
+            document.documentElement.style.setProperty('--pollazo-phone-scale', String(scale));
+          } else {
+            document.documentElement.style.removeProperty('--pollazo-phone-width');
+            document.documentElement.style.removeProperty('--pollazo-phone-scale');
+          }
         };
 
         apply();
         window.addEventListener('orientationchange', function () {
           window.setTimeout(apply, 80);
           window.setTimeout(apply, 320);
+          window.setTimeout(apply, 720);
         });
         window.addEventListener('resize', apply, { passive: true });
+        document.addEventListener('visibilitychange', apply, { passive: true });
       })();
     </script>
 
@@ -128,22 +157,15 @@
       }
 
       #root {
-        min-height: 100dvh;
-      }
-
-      html.pollazo-mobile-app-shell #root {
-        width: min(100vw, 430px);
-        max-width: 430px;
-        margin: 0 auto;
+        width: 100%;
         min-height: 100dvh;
         background: #ffffff;
         overflow-x: hidden;
         position: relative;
         isolation: isolate;
-        transform: translateZ(0);
       }
 
-      @media (min-width: 540px) {
+      @media (min-width: 720px) and (hover: hover) and (pointer: fine) {
         html.pollazo-mobile-app-shell,
         html.pollazo-mobile-app-shell body {
           background:
@@ -153,7 +175,41 @@
         }
 
         html.pollazo-mobile-app-shell #root {
+          width: min(100vw, 430px);
+          max-width: 430px;
+          margin: 0 auto;
           box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.08), 0 30px 90px rgba(124, 45, 18, 0.18);
+        }
+      }
+
+      html.pollazo-desktop-mode-mobile,
+      html.pollazo-desktop-mode-mobile body {
+        width: 100%;
+        min-height: 100%;
+        overflow-x: hidden;
+        background: #ffffff !important;
+      }
+
+      html.pollazo-desktop-mode-mobile body {
+        width: var(--pollazo-phone-width, 390px);
+        min-width: var(--pollazo-phone-width, 390px);
+        max-width: var(--pollazo-phone-width, 390px);
+        margin: 0;
+        transform-origin: top left;
+        zoom: var(--pollazo-phone-scale, 1);
+      }
+
+      html.pollazo-desktop-mode-mobile #root {
+        width: var(--pollazo-phone-width, 390px);
+        min-width: var(--pollazo-phone-width, 390px);
+        max-width: var(--pollazo-phone-width, 390px);
+        margin: 0;
+        box-shadow: none;
+      }
+
+      @supports not (zoom: 1) {
+        html.pollazo-desktop-mode-mobile body {
+          transform: scale(var(--pollazo-phone-scale, 1));
         }
       }
     </style>
