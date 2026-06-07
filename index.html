@@ -131,7 +131,19 @@
         min-height: 100dvh;
       }
 
-      @media (hover: hover) and (pointer: fine) and (min-width: 540px) {
+      html.pollazo-mobile-app-shell #root {
+        width: min(100vw, 430px);
+        max-width: 430px;
+        margin: 0 auto;
+        min-height: 100dvh;
+        background: #ffffff;
+        overflow-x: hidden;
+        position: relative;
+        isolation: isolate;
+        transform: translateZ(0);
+      }
+
+      @media (min-width: 540px) {
         html.pollazo-mobile-app-shell,
         html.pollazo-mobile-app-shell body {
           background:
@@ -141,16 +153,7 @@
         }
 
         html.pollazo-mobile-app-shell #root {
-          width: min(100vw, 430px);
-          max-width: 430px;
-          margin: 0 auto;
-          min-height: 100dvh;
-          background: #ffffff;
           box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.08), 0 30px 90px rgba(124, 45, 18, 0.18);
-          overflow-x: hidden;
-          position: relative;
-          isolation: isolate;
-          transform: translateZ(0);
         }
       }
     </style>
