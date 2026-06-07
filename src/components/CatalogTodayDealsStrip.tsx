@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Plus, Sparkles } from 'lucide-react';
-import { useAdmin } from '../context/AdminContext';
-import { useCart } from '../context/CartContext';
-import { useLanguage } from '../context/LanguageContext';
-import { getProductDisplay } from '../utils/productI18n';
+import { products as seedProducts } from '../data/products';
 import {
   DEFAULT_PROMOTIONS,
   buildPromotionViews,
   type ProductPromotionView,
 } from '../utils/promoEngine';
-import type { Product } from '../types';
+import type { CartItem, Product } from '../types';
 
 const HOST_ID = 'pollazo-catalog-today-deals-host';
+const STORAGE_KEY = 'pollazo_cart_items';
+const ADD_EVENT = 'pollazo:add-cart-product';
 
 const normalize = (value: unknown) =>
   String(value || '')
@@ -37,6 +36,18 @@ const getPrice = (product: Product) => {
   return toMoney(product.price);
 };
 
+const readCartItems = (): CartItem[] => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const isRecommendationCandidate = (product: Product) => {
   if (product.available === false || product.is_variable) return false;
 
@@ -48,11 +59,17 @@ const isRecommendationCandidate = (product: Product) => {
   return [
     'agua',
     'cola',
+    'sprite',
+    'fanta',
+    'bebida',
+    'gaseosa',
+    'jugo',
     'leche',
     'arroz',
     'azucar',
     'atun',
     'salsa',
+    'aji',
     'chifle',
     'galleta',
     'servilleta',
@@ -66,15 +83,23 @@ const findCatalogHost = () => {
 
   const body = normalize(document.body.textContent);
   if (!body.includes('catalogo') && !body.includes('catálogo')) return null;
+  if (body.includes('carrito') && body.includes('tus productos')) return null;
 
-  const sectionTitle = Array.from(document.querySelectorAll<HTMLElement>('h3')).find(heading => {
+  const sectionTitle = Array.from(document.querySelectorAll<HTMLElement>('h2, h3, p')).find(heading => {
     const text = normalize(heading.textContent);
-    return text.includes('todos') || text.includes('pollos') || text.includes('abarrotes') || text.includes('bebidas') || text.includes('lacteos');
+    return (
+      text.includes('todos') ||
+      text.includes('pollos') ||
+      text.includes('abarrotes') ||
+      text.includes('bebidas') ||
+      text.includes('lacteos') ||
+      text.includes('lácteos')
+    );
   });
 
   const sectionRow = sectionTitle?.closest('div');
   const container = sectionRow?.parentElement;
-  if (!container) return null;
+  if (!sectionRow || !container) return null;
 
   const host = document.createElement('div');
   host.id = HOST_ID;
@@ -84,11 +109,9 @@ const findCatalogHost = () => {
 };
 
 export default function CatalogTodayDealsStrip() {
-  const { products } = useAdmin();
-  const { items, addItem } = useCart();
-  const { language } = useLanguage();
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [cartVersion, setCartVersion] = useState(0);
 
   useEffect(() => {
     const syncHost = () => setHost(findCatalogHost());
@@ -106,63 +129,71 @@ export default function CatalogTodayDealsStrip() {
       attributeFilter: ['aria-current', 'class'],
     });
 
+    const interval = window.setInterval(() => {
+      setCartVersion(version => version + 1);
+      syncHost();
+    }, 1300);
+
     const timers = [120, 400, 900, 1600].map(delay => window.setTimeout(syncHost, delay));
 
     return () => {
       observer.disconnect();
+      window.clearInterval(interval);
       timers.forEach(timer => window.clearTimeout(timer));
       document.getElementById(HOST_ID)?.remove();
     };
   }, []);
 
+  const cartItems = useMemo(() => readCartItems(), [cartVersion, addedId]);
+
   const cartIds = useMemo(
-    () => new Set(items.map(item => String(item.product.id || item.id))),
-    [items]
+    () => new Set(cartItems.map(item => String(item.product?.id || item.id).split('-')[0])),
+    [cartItems]
   );
 
   const promotionViews = useMemo(() => {
-    return buildPromotionViews(products, DEFAULT_PROMOTIONS, {
+    return buildPromotionViews(seedProducts, DEFAULT_PROMOTIONS, {
       includePlusOnly: true,
       applyPromoPrices: false,
       maxItems: 6,
     }).filter(view => !cartIds.has(String(view.product.id)));
-  }, [cartIds, products]);
+  }, [cartIds]);
 
   const recommendations = useMemo(() => {
     const today = new Date().getDay();
 
-    return products
+    return seedProducts
       .filter(product => !cartIds.has(String(product.id)))
       .filter(isRecommendationCandidate)
       .sort((a, b) => {
-        const aScore = (normalize(a.name).length + today + String(a.id).length) % 9;
-        const bScore = (normalize(b.name).length + today + String(b.id).length) % 9;
+        const aName = normalize(a.name);
+        const bName = normalize(b.name);
+        const aDrink = Number(aName.includes('agua') || aName.includes('cola') || aName.includes('sprite') || aName.includes('bebida'));
+        const bDrink = Number(bName.includes('agua') || bName.includes('cola') || bName.includes('sprite') || bName.includes('bebida'));
+        if (aDrink !== bDrink) return bDrink - aDrink;
+
+        const aScore = (aName.length + today + String(a.id).length) % 9;
+        const bScore = (bName.length + today + String(b.id).length) % 9;
         if (aScore !== bScore) return bScore - aScore;
+
         return getPrice(a) - getPrice(b);
       })
       .slice(0, 6);
-  }, [cartIds, products]);
+  }, [cartIds]);
 
   const hasRealPromotions = promotionViews.length > 0;
   const cards: Array<Product | ProductPromotionView> = hasRealPromotions ? promotionViews : recommendations;
 
   if (!host || cards.length < 3) return null;
 
-  const title = hasRealPromotions
-    ? language === 'en'
-      ? 'Today’s deals'
-      : 'Ofertas de hoy'
-    : language === 'en'
-      ? 'Complete your order'
-      : 'Para completar tu pedido';
+  const bodyText = normalize(document.body.textContent);
+  const isCatalogScreen = bodyText.includes('catalogo') || bodyText.includes('catálogo');
+  if (!isCatalogScreen || bodyText.includes('pedido registrado') || bodyText.includes('carrito bloqueado')) return null;
 
+  const title = hasRealPromotions ? 'Ofertas de hoy' : 'Para completar tu pedido';
   const subtitle = hasRealPromotions
-    ? language === 'en'
-      ? 'Real active promotions selected for today.'
-      : 'Promociones reales activas por tiempo limitado.'
-    : language === 'en'
-      ? 'Useful extras that pair well with your cart.'
-      : 'Extras útiles para sumar a tu compra.';
+    ? 'Promociones reales activas por tiempo limitado.'
+    : 'Extras útiles y rápidos para sumar a tu compra.';
 
   const Icon = hasRealPromotions ? Flame : Sparkles;
 
@@ -189,16 +220,15 @@ export default function CatalogTodayDealsStrip() {
         {cards.map(card => {
           const promotionView = 'promotion' in card ? card : null;
           const product = promotionView ? promotionView.product : card;
-          const display = getProductDisplay(product, language);
           const price = getPrice(product);
           const added = addedId === product.id;
 
           return (
             <article key={product.id} className="w-[124px] flex-shrink-0 rounded-[20px] border border-slate-100 bg-slate-50/70 p-2">
               <div className="h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden mb-2">
-                <img src={product.image || '/logo-final.png'} alt={display.name} className="w-full h-full object-contain p-1.5" />
+                <img src={product.image || '/logo-final.png'} alt={product.name} className="w-full h-full object-contain p-1.5" />
               </div>
-              <p className="text-[10.5px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[27px]">{display.name}</p>
+              <p className="text-[10.5px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[27px]">{product.name}</p>
               {promotionView && (
                 <p className="mt-1 text-[8px] font-black uppercase tracking-wide text-orange-500 truncate">
                   {promotionView.promotion.label}
@@ -209,14 +239,15 @@ export default function CatalogTodayDealsStrip() {
                 <button
                   type="button"
                   onClick={() => {
-                    addItem(product);
+                    window.dispatchEvent(new CustomEvent(ADD_EVENT, { detail: { product, quantity: 1 } }));
                     setAddedId(product.id);
+                    setCartVersion(version => version + 1);
                     window.setTimeout(() => setAddedId(null), 800);
                   }}
                   className={`w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm active:scale-90 transition-all ${
                     added ? 'bg-green-500' : 'bg-gradient-to-br from-orange-500 to-yellow-400'
                   }`}
-                  aria-label={`Agregar ${display.name}`}
+                  aria-label={`Agregar ${product.name}`}
                 >
                   <Plus size={14} strokeWidth={3} />
                 </button>
