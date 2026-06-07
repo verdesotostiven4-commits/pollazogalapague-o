@@ -21,6 +21,7 @@ import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
 import GlobalOrderTrackingBridge from './components/GlobalOrderTrackingBridge';
+import SecurePanelGate from './components/SecurePanelGate';
 import { AdminProvider } from './context/AdminContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { UserProvider } from './context/UserContext';
@@ -33,32 +34,34 @@ installHomeVisualTranslator();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
-      <App />
-      <AdminProvider>
-        <LanguageProvider>
-          <UserProvider>
-            <GlobalOrderTrackingBridge />
-          </UserProvider>
-        </LanguageProvider>
-      </AdminProvider>
-      <LegalModalNoAutoScroll />
-      <InfoHelpCenterMount />
-      <InfoScreenVisualPolish />
-      <CartTextPolish />
-      <CartAvailabilityToast />
-      <OrdersDetailProductToggle />
-      <PlusNonMemberSavingsGuard />
-      <ErrorRetryGuard />
-      <CustomerCatalogVisibilityFilter />
-      <OnlineOrderStockSyncBridge />
-      <AdminPosSmartLauncher />
-      <AdminInventoryLauncher />
-      <AdminPosReportsLauncher />
-      <AdminPosCorrectionsLauncher />
-      <AdminCatalogMasterLauncher />
-      <AdminCatalogMenuBridge />
-      <AdminPosToolEventBridge />
-      <AdminPosToolsDock />
+      <SecurePanelGate>
+        <App />
+        <AdminProvider>
+          <LanguageProvider>
+            <UserProvider>
+              <GlobalOrderTrackingBridge />
+            </UserProvider>
+          </LanguageProvider>
+        </AdminProvider>
+        <LegalModalNoAutoScroll />
+        <InfoHelpCenterMount />
+        <InfoScreenVisualPolish />
+        <CartTextPolish />
+        <CartAvailabilityToast />
+        <OrdersDetailProductToggle />
+        <PlusNonMemberSavingsGuard />
+        <ErrorRetryGuard />
+        <CustomerCatalogVisibilityFilter />
+        <OnlineOrderStockSyncBridge />
+        <AdminPosSmartLauncher />
+        <AdminInventoryLauncher />
+        <AdminPosReportsLauncher />
+        <AdminPosCorrectionsLauncher />
+        <AdminCatalogMasterLauncher />
+        <AdminCatalogMenuBridge />
+        <AdminPosToolEventBridge />
+        <AdminPosToolsDock />
+      </SecurePanelGate>
     </FirstRunWelcome>
   </StrictMode>
 );
