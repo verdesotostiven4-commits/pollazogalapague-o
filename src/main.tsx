@@ -18,6 +18,7 @@ import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
 import PollazoPlusModalLayerFix from './components/PollazoPlusModalLayerFix';
 import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
+import CartSmartScrollBridge from './components/CartSmartScrollBridge';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
@@ -203,6 +204,7 @@ createRoot(document.getElementById('root')!).render(
         <PollazoPlusModalLayerFix />
         <CartTextPolish />
         <CartAvailabilityToast />
+        <CartSmartScrollBridge />
         <OrdersDetailProductToggle />
         <PlusNonMemberSavingsGuard />
         <ErrorRetryGuard />
