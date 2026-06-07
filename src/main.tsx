@@ -40,6 +40,14 @@ const installLegacyTrackingModalGuard = () => {
           pointer-events: none !important;
           visibility: hidden !important;
         }
+
+        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page"])) button[aria-label="Abrir rastreo de pedido"],
+        body:has(button[aria-label="Cerrar rastreo"]) button[aria-label="Abrir rastreo de pedido"] {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
       }
 
       button[aria-label="Cerrar rastreo"] {
