@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Flame, Plus } from 'lucide-react';
+import { Flame, Plus, Sparkles } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getProductDisplay } from '../utils/productI18n';
+import {
+  DEFAULT_PROMOTIONS,
+  buildPromotionViews,
+  type ProductPromotionView,
+} from '../utils/promoEngine';
 import type { Product } from '../types';
 
 const HOST_ID = 'pollazo-catalog-today-deals-host';
@@ -32,7 +37,7 @@ const getPrice = (product: Product) => {
   return toMoney(product.price);
 };
 
-const isDealCandidate = (product: Product) => {
+const isRecommendationCandidate = (product: Product) => {
   if (product.available === false || product.is_variable) return false;
 
   const price = getPrice(product);
@@ -41,10 +46,6 @@ const isDealCandidate = (product: Product) => {
   const haystack = normalize(`${product.name} ${product.category} ${product.subcategory || ''} ${product.badge || ''}`);
 
   return [
-    'pollo',
-    'pechuga',
-    'cuarto',
-    'alas',
     'agua',
     'cola',
     'leche',
@@ -53,6 +54,9 @@ const isDealCandidate = (product: Product) => {
     'atun',
     'salsa',
     'chifle',
+    'galleta',
+    'servilleta',
+    'yogurt',
   ].some(keyword => haystack.includes(keyword));
 };
 
@@ -116,12 +120,20 @@ export default function CatalogTodayDealsStrip() {
     [items]
   );
 
-  const deals = useMemo(() => {
+  const promotionViews = useMemo(() => {
+    return buildPromotionViews(products, DEFAULT_PROMOTIONS, {
+      includePlusOnly: true,
+      applyPromoPrices: false,
+      maxItems: 6,
+    }).filter(view => !cartIds.has(String(view.product.id)));
+  }, [cartIds, products]);
+
+  const recommendations = useMemo(() => {
     const today = new Date().getDay();
 
     return products
       .filter(product => !cartIds.has(String(product.id)))
-      .filter(isDealCandidate)
+      .filter(isRecommendationCandidate)
       .sort((a, b) => {
         const aScore = (normalize(a.name).length + today + String(a.id).length) % 9;
         const bScore = (normalize(b.name).length + today + String(b.id).length) % 9;
@@ -131,32 +143,52 @@ export default function CatalogTodayDealsStrip() {
       .slice(0, 6);
   }, [cartIds, products]);
 
-  if (!host || deals.length < 3) return null;
+  const hasRealPromotions = promotionViews.length > 0;
+  const cards: Array<Product | ProductPromotionView> = hasRealPromotions ? promotionViews : recommendations;
 
-  const title = language === 'en' ? 'Today’s picks' : 'Ofertas de hoy';
-  const subtitle = language === 'en'
-    ? 'Selected products to complete your order.'
-    : 'Productos seleccionados para completar tu compra.';
+  if (!host || cards.length < 3) return null;
+
+  const title = hasRealPromotions
+    ? language === 'en'
+      ? 'Today’s deals'
+      : 'Ofertas de hoy'
+    : language === 'en'
+      ? 'Complete your order'
+      : 'Para completar tu pedido';
+
+  const subtitle = hasRealPromotions
+    ? language === 'en'
+      ? 'Real active promotions selected for today.'
+      : 'Promociones reales activas por tiempo limitado.'
+    : language === 'en'
+      ? 'Useful extras that pair well with your cart.'
+      : 'Extras útiles para sumar a tu compra.';
+
+  const Icon = hasRealPromotions ? Flame : Sparkles;
 
   return createPortal(
     <section className="mb-4 rounded-[26px] border border-orange-100 bg-white px-3 py-3 shadow-sm animate-in fade-in duration-300">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center flex-shrink-0">
-            <Flame size={16} />
+            <Icon size={16} />
           </div>
           <div className="min-w-0">
             <h3 className="text-[13px] font-black text-slate-900 uppercase italic leading-tight">{title}</h3>
             <p className="text-[10px] font-bold text-slate-400 leading-snug truncate">{subtitle}</p>
           </div>
         </div>
-        <span className="text-[9px] font-black text-orange-500 bg-orange-50 border border-orange-100 rounded-full px-2.5 py-1 whitespace-nowrap">
-          Hoy
-        </span>
+        {hasRealPromotions && (
+          <span className="text-[9px] font-black text-orange-500 bg-orange-50 border border-orange-100 rounded-full px-2.5 py-1 whitespace-nowrap">
+            Hoy
+          </span>
+        )}
       </div>
 
       <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
-        {deals.map(product => {
+        {cards.map(card => {
+          const promotionView = 'promotion' in card ? card : null;
+          const product = promotionView ? promotionView.product : card;
           const display = getProductDisplay(product, language);
           const price = getPrice(product);
           const added = addedId === product.id;
@@ -167,6 +199,11 @@ export default function CatalogTodayDealsStrip() {
                 <img src={product.image || '/logo-final.png'} alt={display.name} className="w-full h-full object-contain p-1.5" />
               </div>
               <p className="text-[10.5px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[27px]">{display.name}</p>
+              {promotionView && (
+                <p className="mt-1 text-[8px] font-black uppercase tracking-wide text-orange-500 truncate">
+                  {promotionView.promotion.label}
+                </p>
+              )}
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-[11px] font-black text-orange-600">${price.toFixed(2)}</span>
                 <button
