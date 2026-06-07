@@ -1,5 +1,17 @@
 import { useEffect, useMemo } from 'react';
-import { CheckCircle2, Clock3, ClipboardList, Crown, MapPin, PackageSearch, ReceiptText, ShoppingBag, TimerReset, Truck, X } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock3,
+  ClipboardList,
+  Crown,
+  MapPin,
+  PackageSearch,
+  ReceiptText,
+  ShoppingBag,
+  TimerReset,
+  Truck,
+  X,
+} from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 
@@ -14,9 +26,11 @@ type OrderLike = {
   status?: string | null;
   items?: Array<{ quantity?: number }> | null;
   total?: number | string | null;
+  subtotal?: number | string | null;
   delivery_fee?: number | string | null;
   delivery_fee_final?: number | string | null;
   reference?: string | null;
+  payment_method?: string | null;
   membership_applied?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -85,7 +99,7 @@ const clearRequestedOrderCode = () => {
 };
 
 const toNumber = (value: unknown) => {
-  const parsed = typeof value === 'number' ? value : Number(String(value || '0').replace(',', '.'));
+  const parsed = typeof value === 'number' ? value : Number(String(value || '0').replace(',', '.').replace(/[^0-9.-]/g, ''));
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -100,7 +114,12 @@ const isRecent = (order: OrderLike) => {
 const dateText = (order: OrderLike) => {
   const date = new Date(order.created_at || '');
   if (Number.isNaN(date.getTime())) return 'Hoy';
-  return date.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('es-EC', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const titleFor = (status?: string | null) => {
@@ -113,7 +132,7 @@ const titleFor = (status?: string | null) => {
 };
 
 const messageFor = (status?: string | null) => {
-  if (status === 'Recibido') return 'Tu pedido fue confirmado. Ahora el negocio prepara todo para avanzar.';
+  if (status === 'Recibido') return 'Tu pedido fue confirmado. Ahora entra a preparación.';
   if (status === 'Preparando') return 'Estamos empacando tus productos con cuidado.';
   if (status === 'Enviado') return 'Tu pedido ya salió y va en camino.';
   if (status === 'Entregado') return 'Pedido entregado. Gracias por comprar en La Casa del Pollazo.';
@@ -122,13 +141,21 @@ const messageFor = (status?: string | null) => {
 };
 
 const etaFor = (order: OrderLike) => {
-  if (order.status === 'Por Confirmar') return 'Tiempo estimado pendiente';
-  if (order.status === 'Cancelado') return 'Pedido cancelado';
+  if (order.status === 'Por Confirmar') return 'Pendiente';
+  if (order.status === 'Cancelado') return 'Cancelado';
   const manual = order.estimated_time || order.eta;
-  if (manual) return `Tiempo estimado: ${manual}`;
-  if (order.status === 'Enviado') return 'Tiempo estimado: 10-18 min';
-  if (order.status === 'Preparando') return 'Tiempo estimado: 18-30 min';
-  return 'Tiempo estimado: 25-35 min';
+  if (manual) return `${manual}`;
+  if (order.status === 'Enviado') return '10-18 min';
+  if (order.status === 'Preparando') return '18-30 min';
+  return '25-35 min';
+};
+
+const paymentLabel = (method?: string | null) => {
+  if (method === 'efectivo') return 'Efectivo';
+  if (method === 'deuna') return 'Deuna';
+  if (method === 'transferencia') return 'Transferencia';
+  if (method === 'tarjeta') return 'Tarjeta';
+  return 'No definido';
 };
 
 export default function OrderTracking({ isOpen = false, onClose = () => {} }: Props) {
@@ -163,15 +190,31 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
     return () => window.clearInterval(timer);
   }, [isOpen, refreshData]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const currentIndex = activeOrder ? steps.findIndex(step => step.key === activeOrder.status) : -1;
   const itemCount = activeOrder ? countItems(activeOrder) : 0;
+  const deliveryAmount = toNumber(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee);
   const delivery = activeOrder?.membership_applied
-    ? 'Delivery gratis por Plus'
-    : toNumber(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee) > 0
-      ? money(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee)
+    ? 'Gratis Plus'
+    : deliveryAmount > 0
+      ? money(deliveryAmount)
       : 'Gratis';
+  const savingsText = activeOrder?.membership_applied
+    ? `Ahorraste ${money(activeOrder.delivery_fee || deliveryAmount || 0)}`
+    : deliveryAmount > 0
+      ? `Delivery ${money(deliveryAmount)}`
+      : 'Delivery gratis';
 
   const handleClose = () => {
     clearRequestedOrderCode();
@@ -179,95 +222,162 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-end justify-center sm:items-center sm:p-4">
-      <button type="button" onClick={handleClose} className="absolute inset-0 bg-orange-950/25" aria-label="Cerrar" />
-      <section className="relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[36px] bg-white shadow-2xl sm:max-w-md sm:rounded-[36px]">
-        <header className="relative bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 px-5 pb-5 pt-[calc(env(safe-area-inset-top)+14px)] text-white">
-          <button type="button" onClick={handleClose} className="absolute right-4 top-[calc(env(safe-area-inset-top)+14px)] flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white" aria-label="Cerrar">
-            <X size={24} />
+    <div className="fixed inset-0 z-[14000] flex items-end justify-center sm:items-center sm:p-4">
+      <button
+        type="button"
+        onClick={handleClose}
+        className="absolute inset-0 bg-orange-950/25 backdrop-blur-[2px]"
+        aria-label="Cerrar rastreo"
+      />
+
+      <section className="relative z-10 flex max-h-[84dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-md sm:rounded-[28px]">
+        <header className="relative flex-shrink-0 bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 px-4 pb-4 pt-[calc(env(safe-area-inset-top)+10px)] text-white">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="absolute right-3 top-[calc(env(safe-area-inset-top)+10px)] flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white active:scale-90 transition-transform"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
           </button>
-          <div className="pr-14">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/80">Rastreo Pollazo</p>
-            <h2 className="mt-2 text-3xl font-black uppercase italic leading-none">{activeOrder?.order_code || getRequestedOrderCode() || 'Rastreo en vivo'}</h2>
-            <p className="mt-3 text-sm font-black text-white/90">{activeOrder ? `${dateText(activeOrder)} · Se actualiza solo` : 'Sigue tu compra paso a paso.'}</p>
+
+          <div className="pr-12">
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/80">Rastreo Pollazo</p>
+            <h2 className="mt-1 text-2xl font-black uppercase italic leading-none">
+              {activeOrder?.order_code || getRequestedOrderCode() || 'Rastreo en vivo'}
+            </h2>
+            <p className="mt-2 text-[12px] font-black text-white/90">
+              {activeOrder ? `${dateText(activeOrder)} · Se actualiza solo` : 'Sigue tu compra paso a paso.'}
+            </p>
           </div>
         </header>
 
-        <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-orange-50/50 via-white to-white px-4 py-4 pb-28">
+        <div className="flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-orange-50/40 via-white to-white px-3 py-3 pb-24">
           {!activeOrder ? (
-            <section className="rounded-[32px] border border-orange-100 bg-white p-6 text-center shadow-sm">
-              <PackageSearch size={38} className="mx-auto text-orange-500" />
-              <p className="mt-3 text-lg font-black uppercase italic text-slate-950">Aquí verás tu rastreo</p>
-              <p className="mt-2 text-sm font-bold text-slate-500">Cuando tengas un pedido activo, aparecerá aquí.</p>
+            <section className="rounded-[24px] border border-orange-100 bg-white p-5 text-center shadow-sm">
+              <PackageSearch size={32} className="mx-auto text-orange-500" />
+              <p className="mt-3 text-base font-black uppercase italic text-slate-950">Aquí verás tu rastreo</p>
+              <p className="mt-2 text-xs font-bold text-slate-500">Cuando tengas un pedido activo, aparecerá aquí.</p>
             </section>
           ) : (
             <>
-              <section className="rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">Estado actual</p>
-                    <p className="mt-2 text-2xl font-black uppercase italic leading-tight text-slate-950">{titleFor(activeOrder.status)}</p>
-                    <p className="mt-3 text-sm font-bold leading-relaxed text-slate-500">{messageFor(activeOrder.status)}</p>
+              <section className="rounded-[24px] border border-orange-100 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Estado actual</p>
+                    <p className="mt-1 text-xl font-black uppercase italic leading-tight text-slate-950">
+                      {titleFor(activeOrder.status)}
+                    </p>
+                    <p className="mt-2 text-[13px] font-bold leading-relaxed text-slate-500">
+                      {messageFor(activeOrder.status)}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-4xl font-black leading-none text-orange-600">{money(activeOrder.total)}</p>
-                    <p className="mt-2 text-[11px] font-black uppercase text-slate-400">{itemCount} productos</p>
+
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-3xl font-black leading-none text-orange-600">{money(activeOrder.total)}</p>
+                    <p className="mt-1 text-[10px] font-black uppercase text-slate-400">{itemCount} productos</p>
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">
-                <p className="mb-5 text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">Progreso del pedido</p>
-                <div className="space-y-4">
+              <section className="rounded-[24px] border border-orange-100 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Progreso</p>
+                  <p className="rounded-full bg-orange-50 px-2 py-1 text-[10px] font-black uppercase text-orange-600">
+                    Paso {Math.max(1, currentIndex + 1)} de 5
+                  </p>
+                </div>
+
+                <div className="space-y-2.5">
                   {steps.map((step, index) => {
                     const StepIcon = step.icon;
                     const done = currentIndex >= index;
                     const active = activeOrder.status === step.key;
+
                     return (
-                      <div key={step.key} className="flex items-center gap-4">
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-[22px] border ${done ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-100 bg-slate-50 text-slate-300'}`}>
-                          <StepIcon size={24} />
+                      <div key={step.key} className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[16px] border ${done ? 'border-orange-500 bg-orange-500 text-white shadow-md shadow-orange-100' : 'border-slate-100 bg-slate-50 text-slate-300'}`}>
+                          <StepIcon size={18} />
                         </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-black uppercase ${done ? 'text-slate-950' : 'text-slate-400'}`}>{step.label}</p>
-                          {active && <p className="mt-1 text-[11px] font-black uppercase text-orange-500">Ahora</p>}
+
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[12px] font-black uppercase ${done ? 'text-slate-950' : 'text-slate-400'}`}>
+                            {step.label}
+                          </p>
+                          {active && <p className="text-[10px] font-black uppercase text-orange-500">Ahora</p>}
                         </div>
-                        {active && <CheckCircle2 size={22} className="text-green-500" />}
+
+                        {active && <CheckCircle2 size={18} className="text-green-500" />}
                       </div>
                     );
                   })}
                 </div>
               </section>
 
-              <section className="rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">
-                <div className="flex gap-4">
-                  <TimerReset size={28} className="text-orange-500" />
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-900">Tiempo estimado</p>
-                    <p className="mt-2 text-lg font-black uppercase text-slate-950">{etaFor(activeOrder)}</p>
-                    <p className="mt-2 text-sm font-bold text-slate-500">{activeOrder.status === 'Por Confirmar' ? 'El negocio confirmará tu pedido y luego aparecerá el tiempo estimado.' : 'Tiempo aproximado según el pedido.'}</p>
+              <section className="grid grid-cols-2 gap-3">
+                <div className="rounded-[22px] border border-orange-100 bg-white p-4 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    <TimerReset size={18} className="text-orange-500" />
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Tiempo</p>
+                  </div>
+                  <p className="text-base font-black uppercase leading-tight text-slate-950">{etaFor(activeOrder)}</p>
+                  <p className="mt-1 text-[11px] font-bold leading-tight text-slate-400">
+                    {activeOrder.status === 'Por Confirmar' ? 'Aparece al confirmar.' : 'Estimado.'}
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] border border-orange-100 bg-white p-4 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    <ReceiptText size={18} className="text-orange-500" />
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Pago</p>
+                  </div>
+                  <p className="text-base font-black uppercase leading-tight text-slate-950">{paymentLabel(activeOrder.payment_method)}</p>
+                  <p className="mt-1 text-[11px] font-bold leading-tight text-slate-400">{savingsText}</p>
+                </div>
+              </section>
+
+              <section className="rounded-[24px] border border-orange-100 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <ReceiptText size={17} className="text-orange-500" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-900">Resumen</p>
+                </div>
+
+                <div className="space-y-2 rounded-[20px] bg-slate-50 p-3 text-[13px] font-bold text-slate-500">
+                  <div className="flex justify-between gap-3">
+                    <span>Productos</span>
+                    <span className="font-black text-slate-950">{itemCount} unidades</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Delivery</span>
+                    <span className="font-black text-slate-950">{delivery}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>{activeOrder.membership_applied ? 'Plus activo' : 'Sin Plus'}</span>
+                    <span className="text-right font-black text-slate-950">{savingsText}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-slate-200 pt-2">
+                    <span className="font-black uppercase text-slate-950">Total</span>
+                    <span className="text-2xl font-black text-orange-600">{money(activeOrder.total)}</span>
                   </div>
                 </div>
+
+                {activeOrder.membership_applied && (
+                  <div className="mt-2 flex items-center gap-2 rounded-[18px] bg-yellow-50 px-3 py-2 text-yellow-800">
+                    <Crown size={16} />
+                    <p className="text-[10px] font-black uppercase">Plus activo · delivery gratis</p>
+                  </div>
+                )}
               </section>
 
-              <section className="rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center gap-2"><ReceiptText size={18} className="text-orange-500" /><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-900">Resumen</p></div>
-                <div className="space-y-3 rounded-[24px] bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                  <div className="flex justify-between"><span>Productos</span><span className="font-black text-slate-950">{itemCount} unidades</span></div>
-                  <div className="flex justify-between"><span>Delivery</span><span className="font-black text-slate-950">{delivery}</span></div>
-                  <div className="flex justify-between"><span>{activeOrder.membership_applied ? 'Plus activo' : 'Sin Plus'}</span><span className="font-black text-slate-950">{activeOrder.membership_applied ? 'Delivery gratis por Plus' : `Delivery: ${delivery}`}</span></div>
-                  <div className="flex justify-between border-t border-slate-200 pt-3"><span className="font-black uppercase text-slate-950">Total</span><span className="text-3xl font-black text-orange-600">{money(activeOrder.total)}</span></div>
-                </div>
-                {activeOrder.membership_applied && <div className="mt-3 flex items-center gap-2 rounded-[22px] bg-yellow-50 px-4 py-3 text-yellow-800"><Crown size={18} /><p className="text-[11px] font-black uppercase">Plus activo · Delivery gratis por Plus</p></div>}
-              </section>
-
-              <section className="rounded-[32px] border border-blue-100 bg-blue-50 p-5 shadow-sm">
-                <div className="flex gap-4">
-                  <MapPin size={26} className="text-blue-500" />
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700">Entrega</p>
-                    <p className="mt-2 text-sm font-black uppercase text-blue-900">Dirección / referencia</p>
-                    <p className="mt-2 text-sm font-bold text-blue-700/80">{activeOrder.reference?.trim() || 'Sin referencia registrada'}</p>
+              <section className="rounded-[24px] border border-blue-100 bg-blue-50 p-4 shadow-sm">
+                <div className="flex gap-3">
+                  <MapPin size={22} className="flex-shrink-0 text-blue-500" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">Delivery</p>
+                    <p className="mt-1 text-[13px] font-black uppercase text-blue-900">Dirección / referencia</p>
+                    <p className="mt-1 break-words text-[13px] font-bold text-blue-700/80">
+                      {activeOrder.reference?.trim() || 'Sin referencia registrada'}
+                    </p>
                   </div>
                 </div>
               </section>
@@ -275,9 +385,13 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
           )}
         </div>
 
-        <footer className="absolute bottom-0 left-0 right-0 border-t border-orange-100 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
-          <button type="button" onClick={handleClose} className="flex w-full items-center justify-center gap-2 rounded-[26px] bg-gradient-to-r from-orange-500 to-yellow-400 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl">
-            <CheckCircle2 size={20} /> Entendido
+        <footer className="absolute bottom-0 left-0 right-0 border-t border-orange-100 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-gradient-to-r from-orange-500 to-yellow-400 py-3.5 text-[12px] font-black uppercase tracking-widest text-white shadow-xl shadow-orange-100 active:scale-95 transition-transform"
+          >
+            <CheckCircle2 size={18} /> Entendido
           </button>
         </footer>
       </section>
