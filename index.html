@@ -20,34 +20,38 @@
         };
 
         var getEstimatedPhoneWidth = function () {
+          var dpr = window.devicePixelRatio || 1;
+          var innerWidth = window.innerWidth || 390;
           var screenWidth = window.screen && window.screen.width ? window.screen.width : 0;
           var screenHeight = window.screen && window.screen.height ? window.screen.height : 0;
-          var smallestScreenSide = Math.min(screenWidth || 0, screenHeight || 0);
-          var dpr = window.devicePixelRatio || 1;
+          var smallestScreenSide = Math.min(screenWidth || innerWidth, screenHeight || innerWidth);
 
-          if (smallestScreenSide > 650 && dpr > 1.25) {
-            return clamp(Math.round(smallestScreenSide / dpr), 320, 430);
-          }
+          var fromDesktopViewport = innerWidth > 640 && dpr > 1.15 ? Math.round(innerWidth / dpr) : 0;
+          var fromScreenSide = smallestScreenSide > 640 && dpr > 1.15 ? Math.round(smallestScreenSide / dpr) : smallestScreenSide;
+          var bestGuess = fromDesktopViewport || fromScreenSide || 390;
 
-          if (smallestScreenSide > 0) {
-            return clamp(Math.round(smallestScreenSide), 320, 430);
-          }
-
-          return 390;
+          return clamp(Math.round(bestGuess), 360, 430);
         };
 
-        var isMobileDevice = function () {
+        var isTouchPhoneLike = function () {
           var ua = (navigator.userAgent || '').toLowerCase();
-          var isTouch = (navigator.maxTouchPoints || 0) > 0;
+          var isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+          var dpr = window.devicePixelRatio || 1;
+          var innerWidth = window.innerWidth || 0;
+          var innerHeight = window.innerHeight || 0;
+          var biggestSide = Math.max(innerWidth, innerHeight);
           var mobileUA = /android|iphone|ipad|ipod|mobile/.test(ua);
-          return isTouch && mobileUA;
+
+          // En Chrome Android con "sitio para computadora", el user-agent puede parecer desktop.
+          // Touch + DPR alto + viewport inflado siguen delatando que es un celular.
+          return isTouch && (mobileUA || dpr > 1.15 || biggestSide <= 1200);
         };
 
         var apply = function () {
+          var innerWidth = window.innerWidth || 390;
           var phoneWidth = getEstimatedPhoneWidth();
-          var innerWidth = window.innerWidth || phoneWidth;
-          var shouldEmulatePhone = isMobileDevice() && innerWidth > 640;
-          var viewportWidth = shouldEmulatePhone ? phoneWidth : 'device-width';
+          var desktopModeOnPhone = isTouchPhoneLike() && innerWidth > 640;
+          var viewportWidth = desktopModeOnPhone ? phoneWidth : 'device-width';
 
           meta.setAttribute(
             'content',
@@ -55,16 +59,8 @@
           );
 
           document.documentElement.classList.add('pollazo-mobile-app-shell');
-          document.documentElement.classList.toggle('pollazo-desktop-mode-mobile', shouldEmulatePhone);
-
-          if (shouldEmulatePhone) {
-            var scale = Math.max(1, innerWidth / phoneWidth);
-            document.documentElement.style.setProperty('--pollazo-phone-width', phoneWidth + 'px');
-            document.documentElement.style.setProperty('--pollazo-phone-scale', String(scale));
-          } else {
-            document.documentElement.style.removeProperty('--pollazo-phone-width');
-            document.documentElement.style.removeProperty('--pollazo-phone-scale');
-          }
+          document.documentElement.classList.toggle('pollazo-desktop-mode-mobile', desktopModeOnPhone);
+          document.documentElement.style.setProperty('--pollazo-phone-width', phoneWidth + 'px');
         };
 
         apply();
@@ -183,34 +179,17 @@
       }
 
       html.pollazo-desktop-mode-mobile,
-      html.pollazo-desktop-mode-mobile body {
-        width: 100%;
-        min-height: 100%;
-        overflow-x: hidden;
-        background: #ffffff !important;
-      }
-
-      html.pollazo-desktop-mode-mobile body {
-        width: var(--pollazo-phone-width, 390px);
-        min-width: var(--pollazo-phone-width, 390px);
-        max-width: var(--pollazo-phone-width, 390px);
-        margin: 0;
-        transform-origin: top left;
-        zoom: var(--pollazo-phone-scale, 1);
-      }
-
+      html.pollazo-desktop-mode-mobile body,
       html.pollazo-desktop-mode-mobile #root {
-        width: var(--pollazo-phone-width, 390px);
-        min-width: var(--pollazo-phone-width, 390px);
-        max-width: var(--pollazo-phone-width, 390px);
-        margin: 0;
-        box-shadow: none;
-      }
-
-      @supports not (zoom: 1) {
-        html.pollazo-desktop-mode-mobile body {
-          transform: scale(var(--pollazo-phone-scale, 1));
-        }
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        overflow-x: hidden !important;
+        zoom: 1 !important;
+        transform: none !important;
       }
     </style>
   </head>
