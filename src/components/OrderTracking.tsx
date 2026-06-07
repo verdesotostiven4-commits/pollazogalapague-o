@@ -32,12 +32,57 @@ const steps = [
   { key: 'Entregado', label: 'Entregado', icon: CheckCircle2 },
 ];
 
+const TRACKING_ORDER_CODE_KEY = 'pollazo_tracking_order_code';
+
 const digits = (value?: string | null) =>
   (value || '')
     .split('')
     .filter(char => char >= '0' && char <= '9')
     .join('')
     .slice(-9);
+
+const normalizeCode = (value?: string | null) =>
+  String(value || '')
+    .trim()
+    .toUpperCase();
+
+const initialTrackingOrderCode = (() => {
+  try {
+    const code = normalizeCode(new URLSearchParams(window.location.search).get('orderCode'));
+
+    if (code) {
+      sessionStorage.setItem(TRACKING_ORDER_CODE_KEY, code);
+      return code;
+    }
+  } catch {
+    // URL/sessionStorage opcional.
+  }
+
+  return '';
+})();
+
+const getRequestedOrderCode = () => {
+  try {
+    const fromUrl = normalizeCode(new URLSearchParams(window.location.search).get('orderCode'));
+
+    if (fromUrl) {
+      sessionStorage.setItem(TRACKING_ORDER_CODE_KEY, fromUrl);
+      return fromUrl;
+    }
+
+    return normalizeCode(sessionStorage.getItem(TRACKING_ORDER_CODE_KEY)) || initialTrackingOrderCode;
+  } catch {
+    return initialTrackingOrderCode;
+  }
+};
+
+const clearRequestedOrderCode = () => {
+  try {
+    sessionStorage.removeItem(TRACKING_ORDER_CODE_KEY);
+  } catch {
+    // sessionStorage opcional.
+  }
+};
 
 const toNumber = (value: unknown) => {
   const parsed = typeof value === 'number' ? value : Number(String(value || '0').replace(',', '.'));
@@ -63,6 +108,7 @@ const titleFor = (status?: string | null) => {
   if (status === 'Preparando') return 'Empacando tu pedido';
   if (status === 'Enviado') return 'Tu pedido va en camino';
   if (status === 'Entregado') return 'Pedido entregado';
+  if (status === 'Cancelado') return 'Pedido cancelado';
   return 'Pedido por confirmar';
 };
 
@@ -71,11 +117,13 @@ const messageFor = (status?: string | null) => {
   if (status === 'Preparando') return 'Estamos empacando tus productos con cuidado.';
   if (status === 'Enviado') return 'Tu pedido ya salió y va en camino.';
   if (status === 'Entregado') return 'Pedido entregado. Gracias por comprar en La Casa del Pollazo.';
+  if (status === 'Cancelado') return 'Este pedido fue cancelado. Si tienes dudas, escríbenos por WhatsApp.';
   return 'El local está revisando disponibilidad, ubicación y forma de pago.';
 };
 
 const etaFor = (order: OrderLike) => {
   if (order.status === 'Por Confirmar') return 'Tiempo estimado pendiente';
+  if (order.status === 'Cancelado') return 'Pedido cancelado';
   const manual = order.estimated_time || order.eta;
   if (manual) return `Tiempo estimado: ${manual}`;
   if (order.status === 'Enviado') return 'Tiempo estimado: 10-18 min';
@@ -89,9 +137,22 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
 
   const activeOrder = useMemo(() => {
     const phone = digits(customerPhone);
+    const requestedOrderCode = getRequestedOrderCode();
+    const recentOrders = (((orders as OrderLike[]) || []).filter(isRecent));
+
+    if (requestedOrderCode) {
+      const byCode = recentOrders
+        .filter(order => normalizeCode(order.order_code) === requestedOrderCode)
+        .filter(order => !phone || digits(order.customer_phone) === phone)
+        .sort((a, b) => new Date(b.updated_at || b.created_at || '').getTime() - new Date(a.updated_at || a.created_at || '').getTime())[0];
+
+      if (byCode) return byCode;
+    }
+
     if (!phone) return null;
-    return (((orders as OrderLike[]) || [])
-      .filter(order => digits(order.customer_phone) === phone && isRecent(order))
+
+    return (recentOrders
+      .filter(order => digits(order.customer_phone) === phone)
       .sort((a, b) => new Date(b.updated_at || b.created_at || '').getTime() - new Date(a.updated_at || a.created_at || '').getTime())[0] || null);
   }, [customerPhone, orders]);
 
@@ -112,17 +173,22 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
       ? money(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee)
       : 'Gratis';
 
+  const handleClose = () => {
+    clearRequestedOrderCode();
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-[10000] flex items-end justify-center sm:items-center sm:p-4">
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-orange-950/25" aria-label="Cerrar" />
+      <button type="button" onClick={handleClose} className="absolute inset-0 bg-orange-950/25" aria-label="Cerrar" />
       <section className="relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[36px] bg-white shadow-2xl sm:max-w-md sm:rounded-[36px]">
         <header className="relative bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 px-5 pb-5 pt-[calc(env(safe-area-inset-top)+14px)] text-white">
-          <button type="button" onClick={onClose} className="absolute right-4 top-[calc(env(safe-area-inset-top)+14px)] flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white" aria-label="Cerrar">
+          <button type="button" onClick={handleClose} className="absolute right-4 top-[calc(env(safe-area-inset-top)+14px)] flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white" aria-label="Cerrar">
             <X size={24} />
           </button>
           <div className="pr-14">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/80">Rastreo Pollazo</p>
-            <h2 className="mt-2 text-3xl font-black uppercase italic leading-none">{activeOrder?.order_code || 'Rastreo en vivo'}</h2>
+            <h2 className="mt-2 text-3xl font-black uppercase italic leading-none">{activeOrder?.order_code || getRequestedOrderCode() || 'Rastreo en vivo'}</h2>
             <p className="mt-3 text-sm font-black text-white/90">{activeOrder ? `${dateText(activeOrder)} · Se actualiza solo` : 'Sigue tu compra paso a paso.'}</p>
           </div>
         </header>
@@ -210,7 +276,7 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
         </div>
 
         <footer className="absolute bottom-0 left-0 right-0 border-t border-orange-100 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
-          <button type="button" onClick={onClose} className="flex w-full items-center justify-center gap-2 rounded-[26px] bg-gradient-to-r from-orange-500 to-yellow-400 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl">
+          <button type="button" onClick={handleClose} className="flex w-full items-center justify-center gap-2 rounded-[26px] bg-gradient-to-r from-orange-500 to-yellow-400 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl">
             <CheckCircle2 size={20} /> Entendido
           </button>
         </footer>
