@@ -10,99 +10,6 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <script>
-      (function lockPollazoMobileViewport() {
-        var meta = document.querySelector('meta[name="viewport"]');
-        if (!meta) return;
-
-        var clamp = function (value, min, max) {
-          return Math.max(min, Math.min(max, value));
-        };
-
-        var getEstimatedPhoneWidth = function () {
-          var dpr = window.devicePixelRatio || 1;
-          var innerWidth = window.innerWidth || 390;
-          var screenWidth = window.screen && window.screen.width ? window.screen.width : 0;
-          var screenHeight = window.screen && window.screen.height ? window.screen.height : 0;
-          var smallestScreenSide = Math.min(screenWidth || innerWidth, screenHeight || innerWidth);
-
-          var fromDesktopViewport = innerWidth > 640 && dpr > 1.15 ? Math.round(innerWidth / dpr) : 0;
-          var fromScreenSide = smallestScreenSide > 640 && dpr > 1.15 ? Math.round(smallestScreenSide / dpr) : smallestScreenSide;
-          var bestGuess = fromDesktopViewport || fromScreenSide || 390;
-
-          return clamp(Math.round(bestGuess), 360, 430);
-        };
-
-        var isTouchPhoneLike = function () {
-          var ua = (navigator.userAgent || '').toLowerCase();
-          var isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-          var dpr = window.devicePixelRatio || 1;
-          var innerWidth = window.innerWidth || 0;
-          var innerHeight = window.innerHeight || 0;
-          var biggestSide = Math.max(innerWidth, innerHeight);
-          var mobileUA = /android|iphone|ipad|ipod|mobile/.test(ua);
-
-          return isTouch && (mobileUA || dpr > 1.15 || biggestSide <= 1400);
-        };
-
-        var updateDesktopModeHeight = function () {
-          var root = document.getElementById('root');
-          var desktopModeOnPhone = document.documentElement.classList.contains('pollazo-desktop-mode-mobile');
-          if (!root || !desktopModeOnPhone) {
-            document.documentElement.style.removeProperty('--pollazo-scaled-height');
-            return;
-          }
-
-          var scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--pollazo-mobile-scale')) || 1;
-          var contentHeight = Math.max(root.scrollHeight || 0, document.body.scrollHeight || 0, window.innerHeight || 0);
-          var scaledHeight = Math.ceil(contentHeight * scale + 24);
-          document.documentElement.style.setProperty('--pollazo-scaled-height', scaledHeight + 'px');
-        };
-
-        var apply = function () {
-          var innerWidth = window.innerWidth || 390;
-          var phoneWidth = getEstimatedPhoneWidth();
-          var desktopModeOnPhone = isTouchPhoneLike() && innerWidth > 640;
-          var viewportWidth = desktopModeOnPhone ? phoneWidth : 'device-width';
-          var mobileScale = desktopModeOnPhone ? clamp(innerWidth / phoneWidth, 1, 3.2) : 1;
-
-          meta.setAttribute(
-            'content',
-            'width=' + viewportWidth + ', initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
-          );
-
-          document.documentElement.classList.add('pollazo-mobile-app-shell');
-          document.documentElement.classList.toggle('pollazo-desktop-mode-mobile', desktopModeOnPhone);
-          document.documentElement.style.setProperty('--pollazo-phone-width', phoneWidth + 'px');
-          document.documentElement.style.setProperty('--pollazo-mobile-scale', String(mobileScale));
-          document.documentElement.style.setProperty('--pollazo-real-viewport-width', innerWidth + 'px');
-
-          window.requestAnimationFrame(updateDesktopModeHeight);
-          window.setTimeout(updateDesktopModeHeight, 120);
-          window.setTimeout(updateDesktopModeHeight, 420);
-        };
-
-        apply();
-        window.addEventListener('orientationchange', function () {
-          window.setTimeout(apply, 80);
-          window.setTimeout(apply, 320);
-          window.setTimeout(apply, 720);
-        });
-        window.addEventListener('resize', apply, { passive: true });
-        window.addEventListener('scroll', updateDesktopModeHeight, { passive: true });
-        document.addEventListener('visibilitychange', apply, { passive: true });
-        document.addEventListener('DOMContentLoaded', function () {
-          apply();
-          var root = document.getElementById('root');
-          if (root && 'ResizeObserver' in window) {
-            var observer = new ResizeObserver(function () {
-              updateDesktopModeHeight();
-            });
-            observer.observe(root);
-          }
-        });
-      })();
-    </script>
 
     <title>Pollazo Galapagueño</title>
     <meta
@@ -192,15 +99,15 @@
       }
 
       @media (min-width: 720px) and (hover: hover) and (pointer: fine) {
-        html.pollazo-mobile-app-shell,
-        html.pollazo-mobile-app-shell body {
+        html,
+        body {
           background:
             radial-gradient(circle at 20% 0%, rgba(251, 191, 36, 0.18), transparent 34%),
             radial-gradient(circle at 80% 100%, rgba(249, 115, 22, 0.16), transparent 34%),
             #fff7ed;
         }
 
-        html.pollazo-mobile-app-shell #root {
+        #root {
           width: min(100vw, 430px);
           max-width: 430px;
           margin: 0 auto;
@@ -208,39 +115,86 @@
         }
       }
 
-      html.pollazo-desktop-mode-mobile,
-      html.pollazo-desktop-mode-mobile body {
-        width: 100vw !important;
-        min-width: 100vw !important;
-        max-width: 100vw !important;
-        min-height: var(--pollazo-scaled-height, 100vh) !important;
-        margin: 0 !important;
-        background: #ffffff !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        overscroll-behavior-y: contain !important;
+      .pollazo-desktop-mode-warning {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at top, rgba(251, 191, 36, 0.28), transparent 38%),
+          rgba(15, 23, 42, 0.64);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
-      html.pollazo-desktop-mode-mobile #root {
-        width: var(--pollazo-phone-width, 390px) !important;
-        min-width: var(--pollazo-phone-width, 390px) !important;
-        max-width: var(--pollazo-phone-width, 390px) !important;
-        min-height: calc(var(--pollazo-scaled-height, 100vh) / var(--pollazo-mobile-scale, 1)) !important;
-        margin: 0 !important;
-        background: #ffffff !important;
-        box-shadow: none !important;
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        zoom: 1 !important;
-        transform: scale(var(--pollazo-mobile-scale, 1)) !important;
-        transform-origin: top left !important;
-        will-change: transform !important;
+      .pollazo-desktop-mode-warning__card {
+        width: min(100%, 390px);
+        border-radius: 34px;
+        background: #ffffff;
+        padding: 28px;
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.32);
+        text-align: center;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      html.pollazo-desktop-mode-mobile #root [class*="md:grid-cols-"],
-      html.pollazo-desktop-mode-mobile #root [class*="lg:grid-cols-"],
-      html.pollazo-desktop-mode-mobile #root [class*="xl:grid-cols-"] {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      .pollazo-desktop-mode-warning__icon {
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 18px;
+        border-radius: 24px;
+        color: #ffffff;
+        font-size: 34px;
+        font-weight: 900;
+        background: linear-gradient(135deg, #f97316, #facc15);
+        box-shadow: 0 16px 32px rgba(249, 115, 22, 0.34);
+      }
+
+      .pollazo-desktop-mode-warning h1 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 29px;
+        line-height: 0.95;
+        letter-spacing: -0.06em;
+        text-transform: uppercase;
+      }
+
+      .pollazo-desktop-mode-warning p {
+        margin: 14px 0 0;
+        color: #64748b;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+
+      .pollazo-desktop-mode-warning__steps {
+        margin: 20px 0 0;
+        border-radius: 24px;
+        background: #fff7ed;
+        padding: 16px;
+        color: #9a3412;
+        font-size: 14px;
+        font-weight: 900;
+        line-height: 1.5;
+        text-align: left;
+      }
+
+      .pollazo-desktop-mode-warning button {
+        width: 100%;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 999px;
+        padding: 17px 18px;
+        color: #ffffff;
+        background: linear-gradient(135deg, #f97316, #facc15);
+        box-shadow: 0 16px 30px rgba(249, 115, 22, 0.28);
+        font-size: 14px;
+        font-weight: 1000;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
       }
     </style>
   </head>
@@ -249,6 +203,63 @@
     <div id="root"></div>
 
     <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      (function warnWhenDesktopModeIsEnabledOnPhone() {
+        var dismissed = false;
+
+        function isDesktopModeOnPhone() {
+          var isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+          var dpr = window.devicePixelRatio || 1;
+          var width = window.innerWidth || 0;
+          var height = window.innerHeight || 0;
+          var looksLikeInflatedDesktopViewport = Math.max(width, height) > 760 && Math.min(width, height) > 600;
+
+          return isTouch && dpr > 1.15 && looksLikeInflatedDesktopViewport;
+        }
+
+        function removeWarning() {
+          var existing = document.getElementById('pollazo-desktop-mode-warning');
+          if (existing) existing.remove();
+        }
+
+        function renderWarning() {
+          if (dismissed || !isDesktopModeOnPhone()) {
+            removeWarning();
+            return;
+          }
+
+          if (document.getElementById('pollazo-desktop-mode-warning')) return;
+
+          var overlay = document.createElement('div');
+          overlay.id = 'pollazo-desktop-mode-warning';
+          overlay.className = 'pollazo-desktop-mode-warning';
+          overlay.innerHTML =
+            '<div class="pollazo-desktop-mode-warning__card" role="dialog" aria-modal="true" aria-label="Modo escritorio activo">' +
+              '<div class="pollazo-desktop-mode-warning__icon">!</div>' +
+              '<h1>Modo escritorio activo</h1>' +
+              '<p>Pollazo está optimizada como app móvil. Chrome está forzando una vista de computadora y puede romper el scroll o agrandar elementos.</p>' +
+              '<div class="pollazo-desktop-mode-warning__steps">En Chrome toca ⋮ y desmarca <strong>Sitio para computadora</strong>. Luego vuelve y toca el botón de abajo.</div>' +
+              '<button type="button" id="pollazo-desktop-mode-reload">Ya lo desactivé</button>' +
+            '</div>';
+
+          document.body.appendChild(overlay);
+
+          var button = document.getElementById('pollazo-desktop-mode-reload');
+          if (button) {
+            button.addEventListener('click', function () {
+              window.location.reload();
+            });
+          }
+        }
+
+        window.addEventListener('load', renderWarning);
+        window.addEventListener('resize', renderWarning, { passive: true });
+        window.addEventListener('orientationchange', function () {
+          window.setTimeout(renderWarning, 250);
+        });
+      })();
+    </script>
 
     <script>
       if ("serviceWorker" in navigator) {
