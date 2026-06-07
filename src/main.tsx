@@ -15,6 +15,7 @@ import AdminPosToolsDock from './components/AdminPosToolsDock';
 import LegalModalNoAutoScroll from './components/LegalModalNoAutoScroll';
 import InfoHelpCenterMount from './components/InfoHelpCenterMount';
 import InfoScreenVisualPolish from './components/InfoScreenVisualPolish';
+import PollazoPlusModalLayerFix from './components/PollazoPlusModalLayerFix';
 import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
@@ -48,46 +49,17 @@ const installLegacyTrackingModalGuard = () => {
           pointer-events: none !important;
           visibility: hidden !important;
         }
-
-        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) {
-          z-index: 2147483000 !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-          pointer-events: auto !important;
-          display: flex !important;
-          align-items: flex-end !important;
-          justify-content: center !important;
-        }
-
-        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) > section {
-          display: flex !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-          pointer-events: auto !important;
-          z-index: 2147483001 !important;
-          position: relative !important;
-          transform: translateY(0) !important;
-          margin-left: auto !important;
-          margin-right: auto !important;
-        }
-
-        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) > button[aria-label="Cerrar Pollazo Plus"] {
-          opacity: 1 !important;
-          visibility: visible !important;
-          pointer-events: auto !important;
-          z-index: 2147482999 !important;
-        }
       }
 
       button[aria-label="Cerrar rastreo"] {
         background: linear-gradient(
           to bottom,
-          rgba(67, 20, 7, 0.20),
-          rgba(67, 20, 7, 0.10),
-          rgba(67, 20, 7, 0.18)
+          rgba(67, 20, 7, 0.12),
+          rgba(67, 20, 7, 0.06),
+          rgba(67, 20, 7, 0.11)
         ) !important;
-        -webkit-backdrop-filter: blur(2px) !important;
-        backdrop-filter: blur(2px) !important;
+        -webkit-backdrop-filter: blur(1px) !important;
+        backdrop-filter: blur(1px) !important;
       }
     `;
 
@@ -182,6 +154,7 @@ createRoot(document.getElementById('root')!).render(
         <LegalModalNoAutoScroll />
         <InfoHelpCenterMount />
         <InfoScreenVisualPolish />
+        <PollazoPlusModalLayerFix />
         <CartTextPolish />
         <CartAvailabilityToast />
         <OrdersDetailProductToggle />
