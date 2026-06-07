@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 const CART_SCROLL_STYLE_ID = 'pollazo-cart-smart-scroll-bridge-style';
@@ -49,6 +49,24 @@ const findSection = (scroller: HTMLElement, patterns: RegExp[]) => {
   }) || null;
 };
 
+const findBankOptionsBlock = (scroller: HTMLElement) => {
+  const candidates = Array.from(scroller.querySelectorAll<HTMLElement>('div, section'))
+    .filter(element => {
+      const text = normalize(element.textContent || '');
+      const hasBankTitle = text.includes('selecciona tu banco') || text.includes('select your bank') || text.includes('elige banco');
+      const hasBankOptions =
+        text.includes('banco pichincha') ||
+        text.includes('banco guayaquil') ||
+        text.includes('banco del pacifico') ||
+        text.includes('produbanco');
+
+      return hasBankTitle && hasBankOptions;
+    })
+    .sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+
+  return candidates[0] || null;
+};
+
 const isPaymentPending = () => {
   const text = normalize(document.body.textContent || '');
   return text.includes('pago pendiente') || text.includes('elige tu forma de pago') || text.includes('payment pending');
@@ -64,8 +82,22 @@ const scrollToDynamicBottom = (scroller: HTMLElement) => {
   scroller.scrollTo({ top: bottom, behavior: 'smooth' });
 };
 
+const scrollToBankOptions = () => {
+  const scroller = findCartScroller();
+  if (!scroller) return false;
+
+  const bankBlock = findBankOptionsBlock(scroller);
+  if (!bankBlock) return false;
+
+  // Deja el título de bancos visible y evita que el footer fijo tape la última opción.
+  scrollToElement(scroller, bankBlock, 92);
+  return true;
+};
+
 export default function CartSmartScrollBridge() {
   const [visible, setVisible] = useState(false);
+  const manualHiddenRef = useRef(false);
+  const suppressManualScrollUntilRef = useRef(0);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -86,10 +118,10 @@ export default function CartSmartScrollBridge() {
     }
 
     let activeScroller: HTMLDivElement | null = null;
+    let lastScrollTop = 0;
 
     const update = () => {
       const scroller = isCartActive() ? findCartScroller() : null;
-      activeScroller = scroller;
 
       if (!scroller) {
         setVisible(false);
@@ -97,17 +129,62 @@ export default function CartSmartScrollBridge() {
       }
 
       const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      setVisible(remaining > 52);
+      setVisible(!manualHiddenRef.current && remaining > 52);
+    };
+
+    const handleScrollerScroll = () => {
+      const scroller = activeScroller;
+      if (!scroller) return;
+
+      const now = Date.now();
+      const moved = Math.abs(scroller.scrollTop - lastScrollTop) > 6;
+
+      if (moved && now > suppressManualScrollUntilRef.current) {
+        manualHiddenRef.current = true;
+      }
+
+      lastScrollTop = scroller.scrollTop;
+      update();
     };
 
     const attachScroll = () => {
       const scroller = isCartActive() ? findCartScroller() : null;
+
       if (scroller && scroller !== activeScroller) {
-        activeScroller?.removeEventListener('scroll', update);
+        activeScroller?.removeEventListener('scroll', handleScrollerScroll);
         activeScroller = scroller;
-        activeScroller.addEventListener('scroll', update, { passive: true });
+        lastScrollTop = scroller.scrollTop;
+        manualHiddenRef.current = false;
+        activeScroller.addEventListener('scroll', handleScrollerScroll, { passive: true });
       }
+
+      if (!scroller) {
+        manualHiddenRef.current = false;
+        activeScroller?.removeEventListener('scroll', handleScrollerScroll);
+        activeScroller = null;
+      }
+
       update();
+    };
+
+    const handleGlobalClick = (event: MouseEvent) => {
+      if (!isCartActive()) return;
+
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest('button');
+      if (!button) return;
+
+      const buttonText = normalize(button.textContent || '');
+      const isTransferButton = buttonText.includes('transferencia') || buttonText.includes('bank transfer');
+
+      if (!isTransferButton) return;
+
+      suppressManualScrollUntilRef.current = Date.now() + 1400;
+      manualHiddenRef.current = true;
+      setVisible(false);
+
+      window.setTimeout(scrollToBankOptions, 180);
+      window.setTimeout(scrollToBankOptions, 420);
     };
 
     const observer = new MutationObserver(() => {
@@ -124,6 +201,7 @@ export default function CartSmartScrollBridge() {
 
     window.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
+    window.addEventListener('click', handleGlobalClick, true);
     window.addEventListener('click', () => window.setTimeout(update, 80), true);
 
     const timers = [0, 180, 500, 900].map(delay => window.setTimeout(attachScroll, delay));
@@ -131,15 +209,20 @@ export default function CartSmartScrollBridge() {
     return () => {
       timers.forEach(timer => window.clearTimeout(timer));
       observer.disconnect();
-      activeScroller?.removeEventListener('scroll', update);
+      activeScroller?.removeEventListener('scroll', handleScrollerScroll);
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
+      window.removeEventListener('click', handleGlobalClick, true);
     };
   }, []);
 
   const handleClick = () => {
     const scroller = findCartScroller();
     if (!scroller) return;
+
+    suppressManualScrollUntilRef.current = Date.now() + 1400;
+    manualHiddenRef.current = true;
+    setVisible(false);
 
     const paymentSection = findSection(scroller, [/paso\s*3/, /forma de pago/, /payment method/]);
     const confirmSection = findSection(scroller, [/paso\s*4/, /confirmar/, /confirm/]);
@@ -150,13 +233,8 @@ export default function CartSmartScrollBridge() {
       const paymentTop = paymentSection.getBoundingClientRect().top;
 
       if (paymentTop > containerTop + 72) {
-        // Encuadra Paso 3 más arriba y deja asomar mejor Paso 4 / Total final.
-        // El offset negativo compensa el banner Plus sin depender de medidas fijas.
-        scrollToElement(scroller, paymentSection, -42);
-        window.setTimeout(() => {
-          const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-          setVisible(remaining > 52);
-        }, 420);
+        // Encuadra Paso 3 y deja que Paso 4 / Total final se vea mejor sin caer demasiado abajo.
+        scrollToElement(scroller, paymentSection, -68);
         return;
       }
     }
@@ -166,11 +244,6 @@ export default function CartSmartScrollBridge() {
     } else {
       scroller.scrollBy({ top: Math.round(scroller.clientHeight * 0.72), behavior: 'smooth' });
     }
-
-    window.setTimeout(() => {
-      const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      setVisible(remaining > 52);
-    }, 420);
   };
 
   if (!visible) return null;
@@ -180,12 +253,12 @@ export default function CartSmartScrollBridge() {
       type="button"
       onClick={handleClick}
       aria-label="Bajar en el carrito"
-      className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+238px)] z-[9999] flex h-12 w-12 items-center justify-center bg-transparent p-0 active:scale-90 transition-transform animate-bounce"
+      className="fixed right-6 bottom-[calc(env(safe-area-inset-bottom)+244px)] z-[9999] flex h-10 w-10 items-center justify-center bg-transparent p-0 active:scale-90 transition-transform animate-bounce"
     >
       <ChevronDown
-        size={32}
-        strokeWidth={4}
-        className="text-orange-500 drop-shadow-[0_4px_8px_rgba(249,115,22,0.42)]"
+        size={30}
+        strokeWidth={4.2}
+        className="text-orange-500 drop-shadow-[0_4px_8px_rgba(249,115,22,0.34)]"
       />
     </button>
   );
