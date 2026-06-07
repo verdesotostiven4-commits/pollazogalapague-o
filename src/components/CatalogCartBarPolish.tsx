@@ -5,7 +5,7 @@ const findFloatingCartButton = () => {
 
   return buttons.find(button => {
     const text = (button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    return text.includes('ver canasta') || text.includes('total del pedido') || text.includes('subtotal elegido');
+    return text.includes('ver canasta') || text.includes('total del pedido') || text.includes('subtotal elegido') || text.includes('canasta');
   }) || null;
 };
 
@@ -49,57 +49,59 @@ const polishButton = (button: HTMLButtonElement) => {
   const badge = iconWrap?.querySelector('span') as HTMLElement | null;
 
   if (fixedShell) {
-    setImportant(fixedShell, 'bottom', '88px');
-    setImportant(fixedShell, 'padding-left', '22px');
-    setImportant(fixedShell, 'padding-right', '22px');
+    setImportant(fixedShell, 'bottom', '84px');
+    setImportant(fixedShell, 'padding-left', '24px');
+    setImportant(fixedShell, 'padding-right', '24px');
     setImportant(fixedShell, 'z-index', '210');
   }
 
   if (directShell) {
-    setImportant(directShell, 'max-width', '430px');
+    setImportant(directShell, 'max-width', '410px');
   }
 
-  setImportant(button, 'min-height', '54px');
-  setImportant(button, 'padding', '7px 8px');
-  setImportant(button, 'border-radius', '23px');
-  setImportant(button, 'background', 'rgba(255, 255, 255, 0.95)');
-  setImportant(button, 'border', '1px solid rgba(249, 115, 22, 0.14)');
-  setImportant(button, 'box-shadow', '0 12px 30px rgba(249, 115, 22, 0.14), 0 3px 10px rgba(15, 23, 42, 0.06)');
-  setImportant(button, '-webkit-backdrop-filter', 'blur(16px) saturate(1.18)');
-  setImportant(button, 'backdrop-filter', 'blur(16px) saturate(1.18)');
+  setImportant(button, 'min-height', '50px');
+  setImportant(button, 'padding', '6px 7px');
+  setImportant(button, 'border-radius', '22px');
+  setImportant(button, 'background', 'rgba(255, 255, 255, 0.96)');
+  setImportant(button, 'border', '1px solid rgba(249, 115, 22, 0.12)');
+  setImportant(button, 'box-shadow', '0 10px 24px rgba(249, 115, 22, 0.12), 0 2px 8px rgba(15, 23, 42, 0.05)');
+  setImportant(button, '-webkit-backdrop-filter', 'blur(14px) saturate(1.12)');
+  setImportant(button, 'backdrop-filter', 'blur(14px) saturate(1.12)');
   setImportant(button, 'align-items', 'center');
   button.setAttribute('data-pollazo-polished-cart-bar', '1');
 
   if (leftSide) {
-    setImportant(leftSide, 'gap', '8px');
-    setImportant(leftSide, 'padding-left', '1px');
+    setImportant(leftSide, 'gap', '7px');
+    setImportant(leftSide, 'padding-left', '0');
     setImportant(leftSide, 'color', '#111827');
     setImportant(leftSide, 'min-width', '0');
   }
 
   if (iconWrap) {
-    setImportant(iconWrap, 'width', '38px');
-    setImportant(iconWrap, 'height', '38px');
+    setImportant(iconWrap, 'width', '34px');
+    setImportant(iconWrap, 'height', '34px');
     setImportant(iconWrap, 'padding', '0');
     setImportant(iconWrap, 'display', 'flex');
     setImportant(iconWrap, 'align-items', 'center');
     setImportant(iconWrap, 'justify-content', 'center');
-    setImportant(iconWrap, 'border-radius', '15px');
+    setImportant(iconWrap, 'border-radius', '14px');
     setImportant(iconWrap, 'background', 'linear-gradient(135deg, #ff6b18 0%, #ffb703 100%)');
     setImportant(iconWrap, 'color', '#ffffff');
-    setImportant(iconWrap, 'box-shadow', '0 8px 18px rgba(249, 115, 22, 0.24)');
+    setImportant(iconWrap, 'box-shadow', '0 7px 15px rgba(249, 115, 22, 0.21)');
   }
 
   if (badge) {
-    setImportant(badge, 'top', '-8px');
-    setImportant(badge, 'right', '-8px');
-    setImportant(badge, 'width', '21px');
-    setImportant(badge, 'height', '21px');
-    setImportant(badge, 'font-size', '9px');
+    setImportant(badge, 'top', '-7px');
+    setImportant(badge, 'right', '-7px');
+    setImportant(badge, 'min-width', '20px');
+    setImportant(badge, 'width', 'auto');
+    setImportant(badge, 'height', '20px');
+    setImportant(badge, 'padding', '0 5px');
+    setImportant(badge, 'font-size', '8.5px');
     setImportant(badge, 'background', '#ef4444');
     setImportant(badge, 'color', '#ffffff');
     setImportant(badge, 'border', '2px solid #ffffff');
-    setImportant(badge, 'box-shadow', '0 7px 16px rgba(239, 68, 68, 0.24)');
+    setImportant(badge, 'box-shadow', '0 6px 14px rgba(239, 68, 68, 0.22)');
     setImportant(badge, 'animation', 'none');
   }
 
@@ -110,14 +112,14 @@ const polishButton = (button: HTMLButtonElement) => {
 
   if (label) {
     label.textContent = 'Pedido';
-    setImportant(label, 'font-size', '8px');
-    setImportant(label, 'letter-spacing', '0.14em');
+    setImportant(label, 'font-size', '7.5px');
+    setImportant(label, 'letter-spacing', '0.13em');
     setImportant(label, 'color', '#9ca3af');
     setImportant(label, 'line-height', '1');
   }
 
   if (amount) {
-    setImportant(amount, 'font-size', '18px');
+    setImportant(amount, 'font-size', '17px');
     setImportant(amount, 'line-height', '1');
     setImportant(amount, 'color', '#ea580c');
     setImportant(amount, 'font-weight', '950');
@@ -132,14 +134,14 @@ const polishButton = (button: HTMLButtonElement) => {
       firstText.nodeValue = 'Canasta ';
     }
 
-    setImportant(rightPill, 'height', '42px');
-    setImportant(rightPill, 'min-width', '112px');
-    setImportant(rightPill, 'padding', '0 14px');
-    setImportant(rightPill, 'border-radius', '18px');
+    setImportant(rightPill, 'height', '38px');
+    setImportant(rightPill, 'min-width', '102px');
+    setImportant(rightPill, 'padding', '0 12px');
+    setImportant(rightPill, 'border-radius', '17px');
     setImportant(rightPill, 'background', 'linear-gradient(135deg, #ff6b18 0%, #ffc400 100%)');
     setImportant(rightPill, 'color', '#ffffff');
-    setImportant(rightPill, 'box-shadow', '0 8px 18px rgba(249, 115, 22, 0.22)');
-    setImportant(rightPill, 'font-size', '10px');
+    setImportant(rightPill, 'box-shadow', '0 7px 15px rgba(249, 115, 22, 0.20)');
+    setImportant(rightPill, 'font-size', '9.5px');
     setImportant(rightPill, 'letter-spacing', '0.08em');
     setImportant(rightPill, 'display', 'flex');
     setImportant(rightPill, 'align-items', 'center');
