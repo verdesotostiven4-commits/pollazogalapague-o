@@ -17,7 +17,9 @@ const normalize = (value: unknown) =>
   String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const toMoney = (value: unknown): number => {
   if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? Number(value.toFixed(2)) : 0;
@@ -151,19 +153,25 @@ export default function CatalogTodayDealsStrip() {
     [cartItems]
   );
 
+  const cartNames = useMemo(
+    () => new Set(cartItems.map(item => normalize(item.product?.name || item.name)).filter(Boolean)),
+    [cartItems]
+  );
+
   const promotionViews = useMemo(() => {
     return buildPromotionViews(seedProducts, DEFAULT_PROMOTIONS, {
       includePlusOnly: true,
       applyPromoPrices: false,
       maxItems: 6,
-    }).filter(view => !cartIds.has(String(view.product.id)));
-  }, [cartIds]);
+    }).filter(view => !cartIds.has(String(view.product.id)) && !cartNames.has(normalize(view.product.name)));
+  }, [cartIds, cartNames]);
 
   const recommendations = useMemo(() => {
     const today = new Date().getDay();
 
     return seedProducts
       .filter(product => !cartIds.has(String(product.id)))
+      .filter(product => !cartNames.has(normalize(product.name)))
       .filter(isRecommendationCandidate)
       .sort((a, b) => {
         const aName = normalize(a.name);
@@ -179,7 +187,7 @@ export default function CatalogTodayDealsStrip() {
         return getPrice(a) - getPrice(b);
       })
       .slice(0, 6);
-  }, [cartIds]);
+  }, [cartIds, cartNames]);
 
   const hasRealPromotions = promotionViews.length > 0;
   const cards: Array<Product | ProductPromotionView> = hasRealPromotions ? promotionViews : recommendations;
@@ -192,13 +200,13 @@ export default function CatalogTodayDealsStrip() {
 
   const title = hasRealPromotions ? 'Ofertas de hoy' : 'Para completar tu pedido';
   const subtitle = hasRealPromotions
-    ? 'Promociones reales activas por tiempo limitado.'
+    ? 'Promos activas por tiempo limitado.'
     : 'Extras útiles y rápidos para sumar a tu compra.';
 
   const Icon = hasRealPromotions ? Flame : Sparkles;
 
   return createPortal(
-    <section className="mb-4 rounded-[26px] border border-orange-100 bg-white px-3 py-3 shadow-sm animate-in fade-in duration-300">
+    <section className="mb-4 rounded-[26px] border border-orange-100 bg-white px-3 py-3 shadow-sm animate-in fade-in duration-300 overflow-hidden">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center flex-shrink-0">
@@ -216,7 +224,7 @@ export default function CatalogTodayDealsStrip() {
         )}
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 pl-1 pr-7 snap-x snap-mandatory">
         {cards.map(card => {
           const promotionView = 'promotion' in card ? card : null;
           const product = promotionView ? promotionView.product : card;
@@ -224,11 +232,11 @@ export default function CatalogTodayDealsStrip() {
           const added = addedId === product.id;
 
           return (
-            <article key={product.id} className="w-[124px] flex-shrink-0 rounded-[20px] border border-slate-100 bg-slate-50/70 p-2">
+            <article key={product.id} className="w-[116px] flex-shrink-0 snap-start rounded-[20px] border border-slate-100 bg-slate-50/70 p-2">
               <div className="h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden mb-2">
                 <img src={product.image || '/logo-final.png'} alt={product.name} className="w-full h-full object-contain p-1.5" />
               </div>
-              <p className="text-[10.5px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[27px]">{product.name}</p>
+              <p className="text-[10px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[26px]">{product.name}</p>
               {promotionView && (
                 <p className="mt-1 text-[8px] font-black uppercase tracking-wide text-orange-500 truncate">
                   {promotionView.promotion.label}
