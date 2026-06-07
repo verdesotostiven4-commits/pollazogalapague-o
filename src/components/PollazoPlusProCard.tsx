@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Bell,
   CheckCircle2,
   ChevronRight,
   Clock,
-  CreditCard,
   Crown,
   Gift,
+  HelpCircle,
   Lock,
   PartyPopper,
   ShieldCheck,
   Sparkles,
   Star,
   Truck,
+  WalletCards,
   X,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
@@ -25,6 +27,7 @@ interface Props {
 }
 
 const PLUS_PRICE = 6.99;
+const DELIVERY_SAMPLE_PRICE = 1.5;
 
 const STORAGE_KEYS = {
   lastCelebrated: 'pollazo_plus_last_celebrated_key',
@@ -57,6 +60,12 @@ const getDaysLeft = (value?: string | null) => {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
+function PortalLayer({ children }: { children: ReactNode }) {
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(children, document.body);
+}
+
 function PollazoBenefit({
   icon,
   title,
@@ -66,17 +75,18 @@ function PollazoBenefit({
   icon: ReactNode;
   title: string;
   desc: string;
-  tone?: 'light' | 'warm';
+  tone?: 'light' | 'warm' | 'green';
 }) {
+  const toneClass =
+    tone === 'green'
+      ? 'bg-green-50 border-green-100 text-green-700'
+      : tone === 'warm'
+        ? 'bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-100 text-orange-500'
+        : 'bg-white/95 border-orange-100 text-orange-500';
+
   return (
-    <div
-      className={`rounded-[24px] p-3 border shadow-sm ${
-        tone === 'warm'
-          ? 'bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-100'
-          : 'bg-white/90 border-yellow-100'
-      }`}
-    >
-      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-orange-100 to-yellow-100 flex items-center justify-center text-orange-500 mb-2">
+    <div className={`rounded-[24px] p-3 border shadow-sm ${toneClass}`}>
+      <div className="w-9 h-9 rounded-2xl bg-white flex items-center justify-center shadow-sm mb-2">
         {icon}
       </div>
 
@@ -91,6 +101,33 @@ function PollazoBenefit({
   );
 }
 
+function BenefitLine({
+  icon,
+  title,
+  desc,
+}: {
+  icon: ReactNode;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-[24px] bg-white border border-orange-50 p-3 shadow-sm">
+      <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[12px] font-black text-gray-950 uppercase leading-tight">
+          {title}
+        </p>
+        <p className="text-[10px] font-bold text-gray-500 leading-snug mt-1">
+          {desc}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function TermsSheet({
   open,
   onClose,
@@ -101,81 +138,83 @@ function TermsSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[13050] flex items-end justify-center">
-      <button
-        type="button"
-        aria-label="Cerrar términos Pollazo Plus"
-        onClick={onClose}
-        className="absolute inset-0 bg-orange-950/25"
-      />
+    <PortalLayer>
+      <div className="fixed inset-0 z-[15020] flex items-end justify-center">
+        <button
+          type="button"
+          aria-label="Cerrar términos Pollazo Plus"
+          onClick={onClose}
+          className="absolute inset-0 bg-black/25"
+        />
 
-      <section className="relative w-full max-w-md max-h-[62dvh] bg-white rounded-t-[34px] shadow-2xl overflow-hidden animate-[pollazoSheetIn_260ms_cubic-bezier(.2,.9,.2,1)]">
-        <div className="sticky top-0 bg-white border-b border-orange-50 px-5 py-4 flex items-center justify-between z-10">
-          <div>
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
-              Pollazo Plus
-            </p>
-            <h3 className="text-lg font-black text-gray-950 uppercase italic leading-none mt-1">
-              Términos y condiciones
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform"
-            aria-label="Cerrar"
-          >
-            <X size={19} />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(62dvh-76px)]">
-          <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4">
-            <p className="text-[11px] font-bold text-orange-800 leading-relaxed">
-              Pollazo Plus es una membresía mensual de beneficios para clientes de La Casa del Pollazo. Está pensada para compras más cómodas, entrega gratis y beneficios sorpresa.
-            </p>
-          </div>
-
-          {[
-            {
-              title: 'Pago mensual',
-              text: `La membresía tiene un valor de $${PLUS_PRICE.toFixed(2)} mensuales. Cuando se active el pago con tarjeta, el cobro será mensual mientras la membresía esté activa.`,
-            },
-            {
-              title: 'Delivery gratis',
-              text: 'El beneficio principal es delivery gratis durante el periodo activo, dentro de la zona de cobertura del negocio.',
-            },
-            {
-              title: 'Regalos y beneficios sorpresa',
-              text: 'Los regalos, extras o descuentos dependen de disponibilidad, stock, temporada y decisión del negocio. No se garantizan en todos los pedidos.',
-            },
-            {
-              title: 'Cancelación',
-              text: 'Cuando esté activo el pago con tarjeta, el cliente podrá solicitar cancelar la membresía para evitar futuras renovaciones. Los beneficios ya pagados se mantienen hasta el vencimiento.',
-            },
-            {
-              title: 'Uso correcto',
-              text: 'La membresía es personal para el número de WhatsApp registrado. El negocio puede revisar, pausar o cancelar beneficios si detecta abuso, datos falsos o mal uso del servicio.',
-            },
-          ].map(item => (
-            <div key={item.title} className="border-b border-gray-100 pb-4 last:border-0">
-              <p className="text-xs font-black text-gray-950 uppercase">
-                {item.title}
+        <section className="relative w-full max-w-md max-h-[70dvh] bg-white rounded-t-[34px] shadow-2xl overflow-hidden animate-[pollazoSheetIn_260ms_cubic-bezier(.2,.9,.2,1)]">
+          <div className="sticky top-0 bg-white border-b border-orange-50 px-5 py-4 flex items-center justify-between z-10">
+            <div>
+              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
+                Pollazo Plus
               </p>
-              <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
-                {item.text}
+              <h3 className="text-lg font-black text-gray-950 uppercase italic leading-none mt-1">
+                Términos y condiciones
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active:scale-90 transition-transform"
+              aria-label="Cerrar"
+            >
+              <X size={19} />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(70dvh-76px)]">
+            <div className="bg-orange-50 border border-orange-100 rounded-[26px] p-4">
+              <p className="text-[11px] font-bold text-orange-800 leading-relaxed">
+                Pollazo Plus es una membresía mensual de beneficios para clientes de La Casa del Pollazo. Está pensada para compras más cómodas, delivery gratis y beneficios sorpresa.
               </p>
             </div>
-          ))}
-        </div>
-      </section>
-    </div>
+
+            {[
+              {
+                title: 'Pago mensual',
+                text: `La membresía tiene un valor de $${PLUS_PRICE.toFixed(2)} mensuales. Cuando se active el pago con tarjeta, el cobro será mensual mientras la membresía esté activa.`,
+              },
+              {
+                title: 'Delivery gratis',
+                text: 'El beneficio principal es delivery gratis durante el periodo activo, dentro de la zona de cobertura del negocio.',
+              },
+              {
+                title: 'Regalos y beneficios sorpresa',
+                text: 'Los regalos, extras o descuentos dependen de disponibilidad, stock, temporada y decisión del negocio. No se garantizan en todos los pedidos.',
+              },
+              {
+                title: 'Cancelación',
+                text: 'Cuando esté activo el pago con tarjeta, el cliente podrá solicitar cancelar la membresía para evitar futuras renovaciones. Los beneficios ya pagados se mantienen hasta el vencimiento.',
+              },
+              {
+                title: 'Uso correcto',
+                text: 'La membresía es personal para el número de WhatsApp registrado. El negocio puede revisar, pausar o cancelar beneficios si detecta abuso, datos falsos o mal uso del servicio.',
+              },
+            ].map(item => (
+              <div key={item.title} className="border-b border-gray-100 pb-4 last:border-0">
+                <p className="text-xs font-black text-gray-950 uppercase">
+                  {item.title}
+                </p>
+                <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </PortalLayer>
   );
 }
 
 export default function PollazoPlusProCard({ onNavigate }: Props) {
-  const { requestMembership } = useAdmin();
+  const { requestMembership, cancelMembership } = useAdmin();
 
   const {
     customerPhone,
@@ -202,6 +241,10 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
 
   const isExpiringSoon =
     hasPollazoPlus && typeof daysLeft === 'number' && daysLeft <= 3;
+
+  const estimatedMonthSaving = useMemo(() => {
+    return DELIVERY_SAMPLE_PRICE * 4;
+  }, []);
 
   const celebrationKey = useMemo(() => {
     if (!hasPollazoPlus) return '';
@@ -261,6 +304,17 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
     return () => window.clearTimeout(timer);
   }, [celebrationKey, hasPollazoPlus]);
 
+  useEffect(() => {
+    if (!showDetails && !showTerms && !showCelebrate) return undefined;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [showDetails, showTerms, showCelebrate]);
+
   const handleSubscribe = async () => {
     if (!customerPhone) {
       setShowDetails(false);
@@ -277,20 +331,44 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
         customerName,
         paymentMethod: 'tarjeta',
         notes: isExpiredOrCancelled
-          ? 'Solicitud de renovación Pollazo Plus desde modal amigable. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.'
-          : 'Solicitud Pollazo Plus desde modal amigable. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.',
+          ? 'Solicitud de renovación Pollazo Plus desde pantalla profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.'
+          : 'Solicitud Pollazo Plus desde pantalla profesional. Pago con tarjeta pendiente de integración; activar manualmente en admin para pruebas.',
       });
 
       await refreshMembership();
 
       setNotice(
         isExpiredOrCancelled
-          ? 'Solicitud de renovación enviada. Por ahora el negocio podrá reactivar tu Plus manualmente mientras se integra pago con tarjeta.'
-          : 'Solicitud enviada. Por ahora el negocio podrá activar tu Plus manualmente mientras se integra pago con tarjeta.'
+          ? 'Solicitud de renovación enviada. El negocio podrá reactivar tu Plus manualmente mientras se integra el pago con tarjeta.'
+          : 'Solicitud enviada. El negocio podrá activar tu Plus manualmente mientras se integra el pago con tarjeta.'
       );
     } catch (error) {
       console.error('No se pudo solicitar Pollazo Plus:', error);
       setNotice('No se pudo enviar la solicitud. Intenta otra vez.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!activeMembership?.id) {
+      setNotice('No encontramos una membresía activa para cancelar.');
+      return;
+    }
+
+    setLoading(true);
+    setNotice('');
+
+    try {
+      await cancelMembership(
+        activeMembership.id,
+        'Cancelación solicitada por el cliente desde la pantalla Pollazo Plus.'
+      );
+      await refreshMembership();
+      setNotice('Tu solicitud de cancelación fue registrada.');
+    } catch (error) {
+      console.error('No se pudo cancelar Pollazo Plus:', error);
+      setNotice('No se pudo registrar la cancelación. Intenta otra vez.');
     } finally {
       setLoading(false);
     }
@@ -304,7 +382,7 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
   const subscribeVerb = isExpiredOrCancelled ? 'Renovar' : 'Suscríbete';
 
   const subscribeButtonLabel = isExpiredOrCancelled
-    ? 'Renovar Plus'
+    ? 'Renovar Pollazo Plus'
     : 'Suscribirme a Plus';
 
   return (
@@ -390,17 +468,8 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
               </h3>
 
               <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-2">
-                Tu membresía está lista para aplicar delivery gratis, prioridad y sorpresas en pedidos seleccionados.
+                Tu membresía está lista para aplicar delivery gratis, prioridad y regalos sorpresa en pedidos seleccionados.
               </p>
-
-              {isExpiringSoon && (
-                <div className="mt-4 bg-white/85 border border-orange-100 rounded-[24px] p-3 flex gap-2 shadow-sm">
-                  <AlertCircle size={17} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                    Tu Plus vence {daysLeft === 0 ? 'hoy' : `en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}. Renueva para mantener delivery gratis.
-                  </p>
-                </div>
-              )}
 
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <PollazoBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
@@ -535,255 +604,297 @@ export default function PollazoPlusProCard({ onNavigate }: Props) {
       )}
 
       {showDetails && (
-        <div className="fixed inset-0 z-[13000] flex items-end justify-center">
-          <button
-            type="button"
-            aria-label="Cerrar Pollazo Plus"
-            onClick={() => setShowDetails(false)}
-            className="absolute inset-0 bg-orange-950/25"
-          />
+        <PortalLayer>
+          <div className="fixed inset-0 z-[15000] flex items-end justify-center bg-black/35">
+            <button
+              type="button"
+              aria-label="Cerrar Pollazo Plus"
+              onClick={() => setShowDetails(false)}
+              className="absolute inset-0"
+            />
 
-          <section className="relative w-full max-w-md max-h-[calc(100dvh-10px)] bg-white rounded-t-[38px] shadow-2xl overflow-hidden flex flex-col animate-[pollazoSheetIn_280ms_cubic-bezier(.2,.9,.2,1)]">
-            <div className="relative bg-gradient-to-br from-orange-500 via-orange-400 to-yellow-400 text-white px-5 pt-5 pb-5 overflow-hidden flex-shrink-0">
-              <div className="absolute -right-16 -top-16 w-52 h-52 bg-white/20 rounded-full blur-3xl" />
-              <div className="absolute -left-16 bottom-0 w-44 h-44 bg-yellow-200/20 rounded-full blur-3xl" />
+            <section className="relative w-full max-w-md h-[min(94dvh,780px)] bg-white rounded-t-[34px] shadow-2xl overflow-hidden flex flex-col animate-[pollazoSheetIn_280ms_cubic-bezier(.2,.9,.2,1)]">
+              <div className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-yellow-400 text-white px-6 pt-[calc(env(safe-area-inset-top)+20px)] pb-6 overflow-hidden flex-shrink-0">
+                <div className="absolute -right-16 -top-16 w-56 h-56 bg-white/18 rounded-full blur-3xl" />
+                <div className="absolute -left-16 bottom-0 w-44 h-44 bg-yellow-200/25 rounded-full blur-3xl" />
 
-              <button
-                type="button"
-                onClick={() => setShowDetails(false)}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
-                aria-label="Cerrar"
-              >
-                <X size={19} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDetails(false)}
+                  className="absolute top-[calc(env(safe-area-inset-top)+14px)] right-5 w-12 h-12 rounded-full bg-white/22 text-white flex items-center justify-center active:scale-90 transition-transform z-10"
+                  aria-label="Cerrar"
+                >
+                  <X size={22} />
+                </button>
 
-              <div className="relative pr-12">
-                <div className="w-16 h-16 rounded-[26px] bg-white/22 flex items-center justify-center shadow-xl mb-4 border border-white/25">
-                  <Crown size={34} />
-                </div>
-
-                <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.28em]">
-                  La Casa del Pollazo
-                </p>
-
-                <h2 className="text-3xl font-black uppercase italic leading-none mt-2">
-                  {hasPollazoPlus
-                    ? 'Tus beneficios Plus'
-                    : isExpiredOrCancelled
-                      ? 'Renueva Pollazo Plus'
-                      : 'Suscríbete a Pollazo Plus'}
-                </h2>
-
-                <p className="text-[12px] font-bold text-white/85 leading-relaxed mt-3">
-                  Envíos gratis dentro de cobertura, prioridad, avisos y regalos sorpresa en pedidos seleccionados.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-3">
-                <PollazoBenefit icon={<Truck size={18} />} title="Envíos gratis" desc="Dentro de zona de cobertura." />
-                <PollazoBenefit icon={<Gift size={18} />} title="Regalos sorpresa" desc="Extras VIP según disponibilidad." />
-                <PollazoBenefit icon={<Sparkles size={18} />} title="Prioridad" desc="Atención preferente en pedidos." />
-                <PollazoBenefit icon={<Bell size={18} />} title="Avisos Plus" desc="Promos y vencimiento de membresía." />
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 text-gray-900 rounded-[30px] p-4 overflow-hidden relative border border-orange-100">
-                <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-300/20 rounded-full blur-2xl" />
-
-                <div className="relative flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-orange-500 border border-orange-100 shadow-sm">
-                    <CreditCard size={24} />
+                <div className="relative pr-14">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white text-orange-600 px-4 py-2 shadow-lg mb-5">
+                    <Crown size={18} />
+                    <span className="text-sm font-black italic lowercase">plus</span>
                   </div>
 
-                  <div className="flex-1">
-                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
-                      Método de pago
-                    </p>
+                  <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.28em]">
+                    La Casa del Pollazo
+                  </p>
 
-                    <p className="text-sm font-black uppercase mt-1">
-                      Tarjeta mensual
-                    </p>
+                  <h2 className="text-[34px] font-black uppercase italic leading-none mt-2 max-w-[260px]">
+                    {hasPollazoPlus
+                      ? 'Tu Pollazo Plus está activo'
+                      : isExpiredOrCancelled
+                        ? 'Renueva tus beneficios Plus'
+                        : 'Pide sin pagar delivery'}
+                  </h2>
 
-                    <p className="text-[10px] font-bold text-gray-500 mt-1">
-                      Próximamente podrás pagar y renovar automáticamente desde la app.
-                    </p>
-                  </div>
-
-                  <Lock size={17} className="text-orange-300" />
+                  <p className="text-[13px] font-bold text-white/90 leading-relaxed mt-3 max-w-[290px]">
+                    {hasPollazoPlus
+                      ? 'Revisa tus beneficios, vigencia y opciones de gestión desde un solo lugar.'
+                      : 'Activa delivery gratis dentro de cobertura, prioridad y sorpresas VIP en pedidos seleccionados.'}
+                  </p>
                 </div>
               </div>
 
-              {hasPollazoPlus ? (
-                <>
-                  <div className="bg-green-50 border border-green-100 rounded-[28px] p-4 flex gap-3">
-                    <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-
-                    <div>
-                      <p className="text-xs font-black text-green-700 uppercase">
-                        Tu Plus está activo
+              <div className="overflow-y-auto flex-1 bg-white">
+                {hasPollazoPlus ? (
+                  <div className="p-5 space-y-5">
+                    <div className="rounded-[30px] bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-100 p-5 text-center">
+                      <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.24em]">
+                        Ahorro potencial mensual
                       </p>
-
-                      <p className="text-[11px] font-bold text-green-700/70 leading-relaxed mt-1">
-                        {expiresLabel
-                          ? `Beneficios activos hasta ${expiresLabel}.`
-                          : 'Tus beneficios están activos.'}
+                      <p className="text-5xl font-black text-orange-600 leading-none mt-3">
+                        ${estimatedMonthSaving.toFixed(2)}
+                      </p>
+                      <p className="text-[11px] font-bold text-gray-500 mt-2">
+                        Basado en 4 deliveries de ${DELIVERY_SAMPLE_PRICE.toFixed(2)}. El ahorro real depende de tus pedidos.
                       </p>
                     </div>
+
+                    <div>
+                      <p className="text-lg font-black text-gray-950 mb-3">
+                        Tus beneficios exclusivos
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <PollazoBenefit icon={<Truck size={18} />} title="Delivery gratis" desc="Dentro de cobertura" tone="green" />
+                        <PollazoBenefit icon={<Gift size={18} />} title="Regalos VIP" desc="Según disponibilidad" />
+                        <PollazoBenefit icon={<Sparkles size={18} />} title="Prioridad" desc="Atención preferente" />
+                        <PollazoBenefit icon={<Bell size={18} />} title="Avisos Plus" desc="Promos y vencimiento" />
+                      </div>
+                    </div>
+
+                    <div className="rounded-[28px] border border-gray-100 bg-gray-50 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-gray-950">
+                            Gestionar suscripción
+                          </p>
+                          <p className="text-[11px] font-bold text-gray-500 mt-1">
+                            Vigencia, beneficios y cancelación.
+                          </p>
+                        </div>
+                        <ChevronRight size={20} className="text-gray-400" />
+                      </div>
+
+                      <div className="rounded-[22px] bg-white border border-gray-100 p-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                            Plan mensual
+                          </p>
+                          <p className="text-sm font-black text-gray-950 mt-1">
+                            ${PLUS_PRICE.toFixed(2)} / mes
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-black text-green-600 uppercase">
+                            Activo
+                          </p>
+                          <p className="text-[10px] font-bold text-gray-500 mt-1">
+                            {expiresLabel || 'Vigente'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {notice && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-[24px] p-3">
+                        <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed text-center">
+                          {notice}
+                        </p>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <div className="p-5 space-y-5">
+                    <div className="grid grid-cols-1 gap-3">
+                      <BenefitLine icon={<Truck size={21} />} title="Delivery gratis todo el mes" desc="Aplica dentro de la zona de cobertura de La Casa del Pollazo." />
+                      <BenefitLine icon={<Gift size={21} />} title="Regalos y extras VIP" desc="El negocio puede agregarte sorpresas cuando haya stock disponible." />
+                      <BenefitLine icon={<ShieldCheck size={21} />} title="Prioridad y avisos" desc="Recibe atención preferente y recordatorios importantes de tu membresía." />
+                      <BenefitLine icon={<Lock size={21} />} title="Sin contrato forzoso" desc="Podrás solicitar cancelar cuando quieras." />
+                    </div>
 
-                  {isExpiringSoon && (
-                    <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
-                      <AlertCircle size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                    <div className="rounded-[30px] bg-orange-50 border border-orange-100 p-4">
+                      <div className="flex items-start gap-3">
+                        <WalletCards size={22} className="text-orange-500 flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm font-black text-gray-950">
+                            Pago de membresía
+                          </p>
+                          <p className="text-[11px] font-bold text-gray-500 leading-relaxed mt-1">
+                            Por ahora se registra una solicitud para que el admin active Plus. Luego conectaremos el cobro real con tarjeta.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
+                    {notice && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-[24px] p-3">
+                        <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed text-center">
+                          {notice}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-orange-50 bg-white px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-shrink-0">
+                {hasPollazoPlus ? (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setNotice('Escríbenos por WhatsApp si necesitas ayuda con tu membresía Plus.')}
+                      className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-orange-200"
+                    >
+                      <HelpCircle size={18} />
+                      Necesito ayuda
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={loading}
+                      className="w-full bg-gray-100 text-gray-700 rounded-[24px] py-4 text-[12px] font-black uppercase tracking-widest active:scale-[0.98] transition-all disabled:opacity-60"
+                    >
+                      {loading ? 'Procesando...' : 'Solicitar cancelación'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-end justify-between gap-3 mb-3">
                       <div>
-                        <p className="text-xs font-black text-orange-700 uppercase">
-                          Renovación recomendada
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Suscripción mensual
                         </p>
 
-                        <p className="text-[11px] font-bold text-orange-700/70 leading-relaxed mt-1">
-                          Tu membresía vence {daysLeft === 0 ? 'hoy' : `en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}. Renueva para mantener delivery gratis.
+                        <p className="text-3xl font-black text-orange-600 leading-none">
+                          ${PLUS_PRICE.toFixed(2)}
+                          <span className="text-[11px] text-gray-400 font-bold"> / mes</span>
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-green-600 uppercase">
+                          Sin contrato
+                        </p>
+
+                        <p className="text-[9px] font-bold text-gray-400 mt-1">
+                          Cancela cuando quieras
                         </p>
                       </div>
                     </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-4 flex gap-3">
-                    <ShieldCheck size={20} className="text-orange-500 flex-shrink-0 mt-0.5" />
 
-                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed">
-                      Por ahora, mientras se integra el cobro real con tarjeta, esta solicitud queda para que el admin pueda activar Plus manualmente y seguir probando.
+                    <button
+                      type="button"
+                      onClick={handleSubscribe}
+                      disabled={loading || membershipStatus === 'pending'}
+                      className={`w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-orange-200 ${
+                        loading || membershipStatus === 'pending' ? 'opacity-60 cursor-wait' : ''
+                      }`}
+                    >
+                      <Crown size={18} />
+                      {membershipStatus === 'pending'
+                        ? 'Solicitud pendiente'
+                        : loading
+                          ? 'Procesando...'
+                          : subscribeButtonLabel}
+                    </button>
+
+                    <p className="text-[9px] font-bold text-gray-400 text-center leading-relaxed mt-3">
+                      Al continuar aceptas{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowTerms(true)}
+                        className="font-black text-orange-600 underline underline-offset-2"
+                      >
+                        términos y condiciones
+                      </button>
+                      .
                     </p>
-                  </div>
-
-                  {notice && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-[24px] p-3">
-                      <p className="text-[10px] font-black text-blue-700 uppercase leading-relaxed text-center">
-                        {notice}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="border-t border-orange-50 bg-white px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-shrink-0">
-              <div className="flex items-end justify-between gap-3 mb-3">
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                    Total mensual
-                  </p>
-
-                  <p className="text-3xl font-black text-orange-600 leading-none">
-                    ${PLUS_PRICE.toFixed(2)}
-                    <span className="text-[11px] text-gray-400 font-bold"> / mes</span>
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[9px] font-black text-green-600 uppercase">
-                    Sin contrato
-                  </p>
-
-                  <p className="text-[9px] font-bold text-gray-400 mt-1">
-                    Cancela cuando quieras
-                  </p>
-                </div>
+                  </>
+                )}
               </div>
-
-              {!hasPollazoPlus && (
-                <button
-                  type="button"
-                  onClick={handleSubscribe}
-                  disabled={loading || membershipStatus === 'pending'}
-                  className={`w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-orange-200 ${
-                    loading || membershipStatus === 'pending' ? 'opacity-60 cursor-wait' : ''
-                  }`}
-                >
-                  <Crown size={18} />
-                  {membershipStatus === 'pending'
-                    ? 'Solicitud pendiente'
-                    : loading
-                      ? 'Procesando...'
-                      : subscribeButtonLabel}
-                </button>
-              )}
-
-              <p className="text-[9px] font-bold text-gray-400 text-center leading-relaxed mt-3">
-                Al continuar aceptas{' '}
-                <button
-                  type="button"
-                  onClick={() => setShowTerms(true)}
-                  className="font-black text-orange-600 underline underline-offset-2"
-                >
-                  términos y condiciones
-                </button>
-                .
-              </p>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
+        </PortalLayer>
       )}
 
       {showCelebrate && (
-        <div className="fixed inset-0 z-[13100] flex items-center justify-center p-5">
-          <button
-            type="button"
-            aria-label="Cerrar felicitación Pollazo Plus"
-            onClick={() => setShowCelebrate(false)}
-            className="absolute inset-0 bg-orange-950/25"
-          />
+        <PortalLayer>
+          <div className="fixed inset-0 z-[15040] flex items-center justify-center p-5 bg-black/25">
+            <button
+              type="button"
+              aria-label="Cerrar felicitación Pollazo Plus"
+              onClick={() => setShowCelebrate(false)}
+              className="absolute inset-0"
+            />
 
-          <section className="relative w-full max-w-sm bg-white rounded-[38px] p-6 text-center shadow-2xl overflow-hidden pollazo-plus-pop">
-            <div className="absolute -top-16 -right-10 w-44 h-44 bg-yellow-300/25 rounded-full blur-3xl" />
-            <div className="absolute -bottom-16 -left-10 w-44 h-44 bg-orange-400/20 rounded-full blur-3xl" />
+            <section className="relative w-full max-w-sm bg-white rounded-[38px] p-6 text-center shadow-2xl overflow-hidden pollazo-plus-pop">
+              <div className="absolute -top-16 -right-10 w-44 h-44 bg-yellow-300/25 rounded-full blur-3xl" />
+              <div className="absolute -bottom-16 -left-10 w-44 h-44 bg-orange-400/20 rounded-full blur-3xl" />
 
-            <div className="relative">
-              <div className="w-24 h-24 rounded-[34px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white mx-auto flex items-center justify-center shadow-2xl shadow-orange-200 mb-5 pollazo-plus-float">
-                <PartyPopper size={44} />
+              <div className="relative">
+                <div className="w-24 h-24 rounded-[34px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white mx-auto flex items-center justify-center shadow-2xl shadow-orange-200 mb-5 pollazo-plus-float">
+                  <PartyPopper size={44} />
+                </div>
+
+                <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.28em]">
+                  Felicidades
+                </p>
+
+                <h2 className="text-3xl font-black text-gray-950 uppercase italic leading-none mt-2">
+                  Ya eres Pollazo Plus
+                </h2>
+
+                <p className="text-[12px] font-bold text-gray-500 leading-relaxed mt-3">
+                  Tu delivery gratis quedó activado. Desde ahora tus pedidos pueden recibir beneficios VIP y sorpresas.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 mt-5">
+                  <PollazoBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
+                  <PollazoBenefit icon={<Gift size={17} />} title="Sorpresas" desc="VIP" />
+                  <PollazoBenefit icon={<Crown size={17} />} title="Plus" desc="Activo" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCelebrate(false);
+                    setShowDetails(true);
+                  }}
+                  className="mt-5 w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-100"
+                >
+                  Ver mis beneficios
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCelebrate(false)}
+                  className="mt-3 text-[10px] font-black text-gray-400 uppercase"
+                >
+                  Cerrar
+                </button>
               </div>
-
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.28em]">
-                Felicidades
-              </p>
-
-              <h2 className="text-3xl font-black text-gray-950 uppercase italic leading-none mt-2">
-                Ya eres Pollazo Plus
-              </h2>
-
-              <p className="text-[12px] font-bold text-gray-500 leading-relaxed mt-3">
-                Tu delivery gratis quedó activado. Desde ahora tus pedidos pueden recibir beneficios VIP y sorpresas.
-              </p>
-
-              <div className="grid grid-cols-3 gap-2 mt-5">
-                <PollazoBenefit icon={<Truck size={17} />} title="Delivery" desc="Gratis" />
-                <PollazoBenefit icon={<Gift size={17} />} title="Sorpresas" desc="VIP" />
-                <PollazoBenefit icon={<Crown size={17} />} title="Plus" desc="Activo" />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCelebrate(false);
-                  setShowDetails(true);
-                }}
-                className="mt-5 w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-[24px] py-4 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-100"
-              >
-                Ver mis beneficios
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowCelebrate(false)}
-                className="mt-3 text-[10px] font-black text-gray-400 uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
+        </PortalLayer>
       )}
 
       <TermsSheet
