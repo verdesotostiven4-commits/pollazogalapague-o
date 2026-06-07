@@ -24,7 +24,9 @@ const normalized = (value: unknown) =>
   String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const productPrice = (product: Product) => {
   if (typeof product.custom_price === 'number' && product.custom_price > 0) return Number(product.custom_price.toFixed(2));
@@ -142,9 +144,15 @@ export default function CartCompleteOrderSuggestions() {
     [cartItems]
   );
 
+  const cartNames = useMemo(
+    () => new Set(cartItems.map(item => normalized(item.product?.name || item.name)).filter(Boolean)),
+    [cartItems]
+  );
+
   const suggestions = useMemo(() => {
     return seedProducts
       .filter(product => !cartIds.has(String(product.id)))
+      .filter(product => !cartNames.has(normalized(product.name)))
       .filter(isGoodSuggestion)
       .sort((a, b) => {
         const aName = normalized(a.name);
@@ -155,7 +163,7 @@ export default function CartCompleteOrderSuggestions() {
         return productPrice(a) - productPrice(b);
       })
       .slice(0, 8);
-  }, [cartIds]);
+  }, [cartIds, cartNames]);
 
   if (!host || suggestions.length === 0 || cartItems.length === 0) return null;
 
@@ -169,7 +177,7 @@ export default function CartCompleteOrderSuggestions() {
     : 'Extras rápidos que suelen acompañar tu compra.';
 
   return createPortal(
-    <section className="bg-white rounded-[28px] border border-orange-100/70 p-3.5 shadow-sm space-y-3 animate-in fade-in duration-300">
+    <section className="bg-white rounded-[28px] border border-orange-100/70 p-3.5 shadow-sm space-y-3 animate-in fade-in duration-300 overflow-hidden">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center flex-shrink-0 border border-orange-100">
@@ -185,7 +193,7 @@ export default function CartCompleteOrderSuggestions() {
         </span>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 pl-1 pr-6 snap-x snap-mandatory">
         {suggestions.map(product => {
           const price = productPrice(product);
           const added = justAddedId === product.id;
@@ -193,12 +201,12 @@ export default function CartCompleteOrderSuggestions() {
           return (
             <article
               key={product.id}
-              className="w-[132px] flex-shrink-0 rounded-[22px] border border-slate-100 bg-slate-50/60 p-2.5"
+              className="w-[124px] flex-shrink-0 snap-start rounded-[22px] border border-slate-100 bg-slate-50/60 p-2.5"
             >
               <div className="h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center mb-2 overflow-hidden">
                 <img src={product.image || '/logo-final.png'} alt={product.name} className="w-full h-full object-contain p-1.5" />
               </div>
-              <p className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[28px]">{product.name}</p>
+              <p className="text-[10.5px] font-black text-slate-800 leading-tight line-clamp-2 min-h-[27px]">{product.name}</p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-[12px] font-black text-orange-600">${price.toFixed(2)}</span>
                 <button
