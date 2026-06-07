@@ -150,9 +150,9 @@ export default function CartSmartScrollBridge() {
       const paymentTop = paymentSection.getBoundingClientRect().top;
 
       if (paymentTop > containerTop + 72) {
-        // Deja el Paso 3 respirando debajo del header fijo y permite ver el Total final.
-        // Funciona con Plus activo y sin Plus porque usa la posición real de la sección.
-        scrollToElement(scroller, paymentSection, 78);
+        // Encuadra Paso 3 más arriba y deja asomar mejor Paso 4 / Total final.
+        // El offset negativo compensa el banner Plus sin depender de medidas fijas.
+        scrollToElement(scroller, paymentSection, -42);
         window.setTimeout(() => {
           const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
           setVisible(remaining > 52);
