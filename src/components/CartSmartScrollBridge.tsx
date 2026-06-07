@@ -150,7 +150,7 @@ export default function CartSmartScrollBridge() {
       const paymentTop = paymentSection.getBoundingClientRect().top;
 
       if (paymentTop > containerTop + 72) {
-        scrollToElement(scroller, paymentSection, 12);
+        scrollToElement(scroller, paymentSection, -34);
         window.setTimeout(() => {
           const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
           setVisible(remaining > 52);
@@ -162,7 +162,7 @@ export default function CartSmartScrollBridge() {
     if (confirmSection) {
       scrollToDynamicBottom(scroller);
     } else {
-      scroller.scrollBy({ top: Math.round(scroller.clientHeight * 0.72), behavior: 'smooth' });
+      scroller.scrollBy({ top: Math.round(scroller.clientHeight * 0.76), behavior: 'smooth' });
     }
 
     window.setTimeout(() => {
@@ -178,13 +178,13 @@ export default function CartSmartScrollBridge() {
       type="button"
       onClick={handleClick}
       aria-label="Bajar en el carrito"
-      className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+132px)] z-[9999] h-12 w-9 flex items-center justify-center active:scale-95 transition-transform animate-bounce"
+      className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+222px)] z-[9999] flex h-10 w-10 items-center justify-center rounded-full border border-orange-100 bg-white/95 shadow-[0_14px_34px_rgba(249,115,22,0.22)] backdrop-blur active:scale-95 transition-transform animate-bounce"
     >
-      <span className="absolute right-0 top-1/2 h-10 w-7 -translate-y-1/2 rounded-l-full bg-orange-400/10 blur-md" />
+      <span className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-50 to-yellow-50" />
       <ChevronDown
-        size={26}
-        strokeWidth={3.2}
-        className="relative text-orange-500 drop-shadow-[0_2px_5px_rgba(249,115,22,0.45)]"
+        size={25}
+        strokeWidth={3.4}
+        className="relative text-orange-500 drop-shadow-[0_2px_5px_rgba(249,115,22,0.35)]"
       />
     </button>
   );
