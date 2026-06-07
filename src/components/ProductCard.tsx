@@ -325,29 +325,28 @@ export default function ProductCard({
             </div>
 
             {available && !product.is_variable && cartQuantity > 0 ? (
-              <div className="w-full min-h-[44px] bg-orange-50 border border-orange-200 rounded-2xl flex items-center justify-between px-2 shadow-inner">
+              <div className="w-full h-[52px] bg-white border border-orange-100 rounded-[22px] flex items-center justify-between p-1.5 shadow-[0_12px_24px_rgba(249,115,22,0.10)]">
                 <button
                   type="button"
                   onClick={handleDecrease}
-                  className="w-10 h-10 rounded-xl bg-white text-orange-600 flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                  className="h-10 w-10 rounded-[16px] bg-white border border-orange-100 text-slate-500 flex items-center justify-center shadow-sm active:scale-90 transition-transform"
                   aria-label="Quitar una unidad"
                 >
-                  <Minus size={compact ? 14 : 16} strokeWidth={3} />
+                  <Minus size={compact ? 15 : 17} strokeWidth={3} />
                 </button>
 
-                <div className="flex flex-col items-center leading-none">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-orange-500">Cantidad</span>
-                  <span className="text-lg font-black text-gray-950">{cartQuantity}</span>
+                <div className="min-w-[42px] flex items-center justify-center leading-none">
+                  <span className="text-[22px] font-black text-slate-950 tabular-nums">{cartQuantity}</span>
                 </div>
 
                 <button
                   ref={btnRef}
                   type="button"
                   onClick={handleIncrease}
-                  className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-sm shadow-orange-200 active:scale-90 transition-transform"
+                  className="h-10 w-10 rounded-[16px] bg-gradient-to-br from-orange-500 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-orange-200/70 active:scale-90 transition-transform"
                   aria-label="Agregar una unidad"
                 >
-                  <Plus size={compact ? 14 : 16} strokeWidth={3} />
+                  <Plus size={compact ? 15 : 17} strokeWidth={3} />
                 </button>
               </div>
             ) : (
