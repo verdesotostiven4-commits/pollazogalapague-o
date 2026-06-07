@@ -22,6 +22,7 @@ import CartSmartScrollBridge from './components/CartSmartScrollBridge';
 import CatalogCartBarPolish from './components/CatalogCartBarPolish';
 import CatalogCompactVisualBridge from './components/CatalogCompactVisualBridge';
 import CartCompleteOrderSuggestions from './components/CartCompleteOrderSuggestions';
+import CatalogTodayDealsStrip from './components/CatalogTodayDealsStrip';
 import SalesMarketingBridge from './components/SalesMarketingBridge';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
@@ -213,6 +214,7 @@ createRoot(document.getElementById('root')!).render(
         <CatalogCartBarPolish />
         <CatalogCompactVisualBridge />
         <CartCompleteOrderSuggestions />
+        <CatalogTodayDealsStrip />
         <SalesMarketingBridge />
         <OrdersDetailProductToggle />
         <PlusNonMemberSavingsGuard />
