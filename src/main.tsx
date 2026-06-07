@@ -20,11 +20,7 @@ import CartAvailabilityToast from './components/CartAvailabilityToast';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
-import GlobalOrderTrackingBridge from './components/GlobalOrderTrackingBridge';
 import SecurePanelGate from './components/SecurePanelGate';
-import { AdminProvider } from './context/AdminContext';
-import { LanguageProvider } from './context/LanguageContext';
-import { UserProvider } from './context/UserContext';
 import './index.css';
 import './styles/landing-install-lock.css';
 import { installHomeVisualTranslator } from './utils/homeVisualTranslator';
@@ -80,20 +76,17 @@ const installLegacyTrackingModalGuard = () => {
   const openUnifiedTracking = (orderCode: string) => {
     try {
       sessionStorage.setItem('pollazo_tracking_order_code', orderCode);
-      sessionStorage.setItem(
-        'pollazo_tracking_intent',
-        JSON.stringify({ orderCode, at: Date.now() })
-      );
     } catch {
       // sessionStorage opcional.
     }
 
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(window.location.search);
     params.set('tracking', '1');
     params.set('orderCode', orderCode);
 
     window.setTimeout(() => {
-      window.location.assign(`/?${params.toString()}`);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      window.dispatchEvent(new CustomEvent('pollazo:open-tracking', { detail: { orderCode } }));
     }, 60);
   };
 
@@ -138,13 +131,6 @@ createRoot(document.getElementById('root')!).render(
     <FirstRunWelcome>
       <SecurePanelGate>
         <App />
-        <AdminProvider>
-          <LanguageProvider>
-            <UserProvider>
-              <GlobalOrderTrackingBridge />
-            </UserProvider>
-          </LanguageProvider>
-        </AdminProvider>
         <LegalModalNoAutoScroll />
         <InfoHelpCenterMount />
         <InfoScreenVisualPolish />
