@@ -40,8 +40,14 @@ type ProductAvailabilityRow = {
   current_stock?: number | string | null;
 };
 
+type ExternalAddToCartDetail = {
+  product?: Product | null;
+  quantity?: number | null;
+};
+
 const CartContext = createContext<CartContextType | undefined>(undefined);
 const STORAGE_KEY = 'pollazo_cart_items';
+const EXTERNAL_ADD_EVENT = 'pollazo:add-cart-product';
 
 function safeNumber(value: unknown): number {
   if (typeof value === 'number') {
@@ -315,6 +321,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [...currentItems, newItem];
     });
   };
+
+  useEffect(() => {
+    const handleExternalAdd = (event: Event) => {
+      const detail = (event as CustomEvent<ExternalAddToCartDetail>).detail;
+      const product = detail?.product;
+
+      if (!product?.id || !product?.name) return;
+
+      addItem(product, detail?.quantity || 1);
+    };
+
+    window.addEventListener(EXTERNAL_ADD_EVENT, handleExternalAdd as EventListener);
+
+    return () => {
+      window.removeEventListener(EXTERNAL_ADD_EVENT, handleExternalAdd as EventListener);
+    };
+  });
 
   const removeItem = (productId: string) => {
     const cleanId = String(productId);
