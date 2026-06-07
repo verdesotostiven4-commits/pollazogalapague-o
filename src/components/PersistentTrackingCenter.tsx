@@ -41,6 +41,7 @@ const PHONE_KEY = 'pollazo_customer_phone';
 const ACTIVE_STATUSES: OrderStatus[] = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'];
 const FINAL_STATUSES: OrderStatus[] = ['Entregado', 'Cancelado'];
 const TRACKING_INTENT_KEY = 'pollazo_tracking_intent';
+const TRACKING_SEEN_KEY = 'pollazo_tracking_seen_orders';
 
 function cleanPhoneTail(value?: string | null) {
   return String(value || '').replace(/\D/g, '').slice(-9);
@@ -115,6 +116,29 @@ function itemCount(order?: TrackingOrder | null) {
     : 0;
 }
 
+function orderKey(order?: TrackingOrder | null) {
+  if (!order) return '';
+  return String(order.order_code || order.id || '').trim();
+}
+
+function readSeenOrders() {
+  try {
+    const raw = localStorage.getItem(TRACKING_SEEN_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSeenOrders(keys: string[]) {
+  try {
+    localStorage.setItem(TRACKING_SEEN_KEY, JSON.stringify(Array.from(new Set(keys)).slice(-80)));
+  } catch {
+    // localStorage opcional.
+  }
+}
+
 function hasTrackingQuery() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -159,6 +183,7 @@ export default function PersistentTrackingCenter() {
   const [loading, setLoading] = useState(false);
   const [lastNotificationCode, setLastNotificationCode] = useState<string | null>(null);
   const [isHomeScreen, setIsHomeScreen] = useState(() => isHomeScreenActive());
+  const [seenOrderKeys, setSeenOrderKeys] = useState<string[]>(() => readSeenOrders());
 
   const customerPhone = useMemo(() => {
     try {
@@ -222,7 +247,25 @@ export default function PersistentTrackingCenter() {
   const status = normalizeStatus(trackedOrder?.status);
   const Icon = statusIcon(status);
   const isActive = Boolean(trackedOrder && ACTIVE_STATUSES.includes(status));
-  const shouldShowFloating = Boolean(trackedOrder && isActive && isHomeScreen);
+  const currentOrderKey = orderKey(trackedOrder);
+  const hasSeenCurrentOrder = currentOrderKey ? seenOrderKeys.includes(currentOrderKey) : false;
+  const shouldShowFloating = Boolean(trackedOrder && isActive && isHomeScreen && !hasSeenCurrentOrder);
+
+  const markCurrentOrderSeen = useCallback(() => {
+    if (!currentOrderKey) return;
+
+    setSeenOrderKeys(previous => {
+      const next = Array.from(new Set([...previous, currentOrderKey]));
+      writeSeenOrders(next);
+      return next;
+    });
+  }, [currentOrderKey]);
+
+  useEffect(() => {
+    if (open && trackedOrder && isActive) {
+      markCurrentOrderSeen();
+    }
+  }, [isActive, markCurrentOrderSeen, open, trackedOrder]);
 
   useEffect(() => {
     const updateScreen = () => setIsHomeScreen(isHomeScreenActive());
@@ -320,17 +363,15 @@ export default function PersistentTrackingCenter() {
           type="button"
           data-pollazo-persistent-tracking="1"
           onClick={() => {
+            markCurrentOrderSeen();
             setOpen(true);
             refreshOrders();
           }}
-          className="fixed right-4 bottom-[94px] z-[12050] h-11 rounded-full bg-orange-500 px-3.5 text-white shadow-xl shadow-orange-200 active:scale-95 transition-all flex items-center gap-2 border border-white/40"
+          className="fixed right-4 bottom-[96px] z-[12050] h-11 w-11 rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-200 active:scale-95 transition-all flex items-center justify-center border-2 border-white animate-in zoom-in-95 duration-200"
           aria-label="Abrir rastreo del pedido activo"
         >
-          <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
-            <PackageSearch size={15} />
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-orange-500" />
-          </span>
-          <span className="text-[10px] font-black uppercase tracking-widest leading-none">Rastrear</span>
+          <PackageSearch size={20} />
+          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-yellow-300 border-2 border-white animate-pulse" />
         </button>
       )}
 
