@@ -35,6 +35,20 @@ type PushSubscriptionRow = {
   subscription: any;
 };
 
+type OrderValidationRow = {
+  id: string;
+  order_code: string | null;
+  customer_phone: string | null;
+  status?: string | null;
+  payment_status?: string | null;
+};
+
+type MembershipValidationRow = {
+  id: string;
+  customer_phone: string | null;
+  status?: string | null;
+};
+
 const DEFAULT_ICON = '/logo-final.png';
 
 const STATUS_ICONS: Record<string, string> = {
@@ -49,6 +63,10 @@ const cleanPhoneTail = (phone?: string | null) => {
   return String(phone || '').replace(/\D/g, '').slice(-9);
 };
 
+const cleanOrderCode = (orderCode?: string | null) => {
+  return String(orderCode || '').trim().slice(0, 80);
+};
+
 const getBody = (req: ApiRequest): PushPayload => {
   if (!req.body) return {};
 
@@ -61,6 +79,21 @@ const getBody = (req: ApiRequest): PushPayload => {
   }
 
   return req.body;
+};
+
+const getHeaderValue = (
+  headers: ApiRequest['headers'],
+  key: string
+): string => {
+  const direct = headers?.[key];
+  const lower = headers?.[key.toLowerCase()];
+  const value = direct || lower;
+
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+
+  return String(value || '');
 };
 
 const getNotificationIcon = (payload: PushPayload) => {
@@ -79,6 +112,26 @@ const getNotificationIcon = (payload: PushPayload) => {
   return DEFAULT_ICON;
 };
 
+const sanitizeRelativeUrl = (rawUrl?: string | null) => {
+  const fallback = '/?tracking=1';
+
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(rawUrl, 'https://pollazo.local');
+
+    if (url.origin !== 'https://pollazo.local') {
+      return fallback;
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return fallback;
+  }
+};
+
 const buildTrackingUrl = (payload: PushPayload) => {
   const params = new URLSearchParams();
 
@@ -95,11 +148,35 @@ const buildTrackingUrl = (payload: PushPayload) => {
   return `/?${params.toString()}`;
 };
 
+const buildPlusUrl = (payload: PushPayload) => {
+  const params = new URLSearchParams();
+
+  params.set('plus', '1');
+
+  if (payload.membershipId) {
+    params.set('membershipId', payload.membershipId);
+  }
+
+  if (payload.membershipReminder) {
+    params.set('membershipReminder', payload.membershipReminder);
+  }
+
+  return `/?${params.toString()}`;
+};
+
+const getTargetUrl = (payload: PushPayload) => {
+  if (payload.notificationType === 'plus') {
+    return payload.url ? sanitizeRelativeUrl(payload.url) : buildPlusUrl(payload);
+  }
+
+  return payload.url ? sanitizeRelativeUrl(payload.url) : buildTrackingUrl(payload);
+};
+
 const getPushText = (payload: PushPayload) => {
   if (payload.title && payload.body) {
     return {
-      title: payload.title,
-      body: payload.body,
+      title: String(payload.title).slice(0, 90),
+      body: String(payload.body).slice(0, 240),
     };
   }
 
@@ -165,6 +242,134 @@ const getPushText = (payload: PushPayload) => {
   };
 };
 
+const validateOrderPayload = async (
+  supabase: ReturnType<typeof createClient>,
+  payload: PushPayload,
+  cleanCustomerTail: string
+) => {
+  const orderCode = cleanOrderCode(payload.orderCode);
+
+  if (!orderCode) {
+    return {
+      ok: true,
+      order: null as OrderValidationRow | null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_code, customer_phone, status, payment_status')
+    .eq('order_code', orderCode)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error validating push order:', error);
+
+    return {
+      ok: false,
+      status: 500,
+      error: 'Could not validate order',
+      order: null as OrderValidationRow | null,
+    };
+  }
+
+  const order = data as OrderValidationRow | null;
+
+  if (!order) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Order not found',
+      order: null as OrderValidationRow | null,
+    };
+  }
+
+  const orderPhoneTail = cleanPhoneTail(order.customer_phone);
+
+  if (!orderPhoneTail || orderPhoneTail !== cleanCustomerTail) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Order does not belong to this customer',
+      order,
+    };
+  }
+
+  return {
+    ok: true,
+    order,
+  };
+};
+
+const validateMembershipPayload = async (
+  supabase: ReturnType<typeof createClient>,
+  payload: PushPayload,
+  cleanCustomerTail: string
+) => {
+  if (payload.notificationType !== 'plus' || !payload.membershipId) {
+    return {
+      ok: true,
+      membership: null as MembershipValidationRow | null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('customer_memberships')
+    .select('id, customer_phone, status')
+    .eq('id', payload.membershipId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error validating membership push:', error);
+
+    return {
+      ok: false,
+      status: 500,
+      error: 'Could not validate membership',
+      membership: null as MembershipValidationRow | null,
+    };
+  }
+
+  const membership = data as MembershipValidationRow | null;
+
+  if (!membership) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Membership not found',
+      membership: null as MembershipValidationRow | null,
+    };
+  }
+
+  const membershipPhoneTail = cleanPhoneTail(membership.customer_phone);
+
+  if (!membershipPhoneTail || membershipPhoneTail !== cleanCustomerTail) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Membership does not belong to this customer',
+      membership,
+    };
+  }
+
+  return {
+    ok: true,
+    membership,
+  };
+};
+
+const getRequestOrigin = (req: ApiRequest) => {
+  const origin = getHeaderValue(req.headers, 'origin');
+  const referer = getHeaderValue(req.headers, 'referer');
+
+  return {
+    origin,
+    referer,
+  };
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -206,6 +411,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const payload = getBody(req);
   const cleanCustomerTail = cleanPhoneTail(payload.customerPhone);
+  const requestOrigin = getRequestOrigin(req);
 
   if (!cleanCustomerTail) {
     return res.status(400).json({
@@ -225,6 +431,32 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       persistSession: false,
     },
   });
+
+  const orderValidation = await validateOrderPayload(
+    supabase,
+    payload,
+    cleanCustomerTail
+  );
+
+  if (!orderValidation.ok) {
+    return res.status(orderValidation.status || 403).json({
+      ok: false,
+      error: orderValidation.error || 'Invalid order push request',
+    });
+  }
+
+  const membershipValidation = await validateMembershipPayload(
+    supabase,
+    payload,
+    cleanCustomerTail
+  );
+
+  if (!membershipValidation.ok) {
+    return res.status(membershipValidation.status || 403).json({
+      ok: false,
+      error: membershipValidation.error || 'Invalid membership push request',
+    });
+  }
 
   const { data, error } = await supabase
     .from('push_subscriptions')
@@ -256,11 +488,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const text = getPushText(payload);
   const notificationIcon = getNotificationIcon(payload);
-
-  const targetUrl =
-    payload.notificationType === 'plus'
-      ? payload.url || '/?plus=1'
-      : payload.url || buildTrackingUrl(payload);
+  const targetUrl = getTargetUrl({
+    ...payload,
+    orderCode:
+      payload.orderCode ||
+      orderValidation.order?.order_code ||
+      undefined,
+  });
 
   const uniqueTag =
     payload.tag ||
@@ -273,9 +507,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     icon: notificationIcon,
     badge: notificationIcon,
     tag: uniqueTag,
-    orderCode: payload.orderCode || null,
-    status: payload.status || null,
-    paymentStatus: payload.paymentStatus || null,
+    orderCode: payload.orderCode || orderValidation.order?.order_code || null,
+    status: payload.status || orderValidation.order?.status || null,
+    paymentStatus:
+      payload.paymentStatus ||
+      orderValidation.order?.payment_status ||
+      null,
     notificationType: payload.notificationType || null,
     membershipId: payload.membershipId || null,
     membershipReminder: payload.membershipReminder || null,
@@ -332,5 +569,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     expiredDeleted: expiredSubscriptionIds.length,
     icon: notificationIcon,
     tag: uniqueTag,
+    requestOrigin,
   });
 }
