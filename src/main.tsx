@@ -41,12 +41,41 @@ const installLegacyTrackingModalGuard = () => {
           visibility: hidden !important;
         }
 
-        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page"])) button[aria-label="Abrir rastreo de pedido"],
+        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page")) button[aria-label="Abrir rastreo de pedido"],
         body:has(button[aria-label="Cerrar rastreo"]) button[aria-label="Abrir rastreo de pedido"] {
           display: none !important;
           opacity: 0 !important;
           pointer-events: none !important;
           visibility: hidden !important;
+        }
+
+        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) {
+          z-index: 2147483000 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+          display: flex !important;
+          align-items: flex-end !important;
+          justify-content: center !important;
+        }
+
+        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) > section {
+          display: flex !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+          z-index: 2147483001 !important;
+          position: relative !important;
+          transform: translateY(0) !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        div.fixed.inset-0:has(> button[aria-label="Cerrar Pollazo Plus"]) > button[aria-label="Cerrar Pollazo Plus"] {
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+          z-index: 2147482999 !important;
         }
       }
 
