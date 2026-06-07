@@ -21,6 +21,7 @@ import CartAvailabilityToast from './components/CartAvailabilityToast';
 import CartSmartScrollBridge from './components/CartSmartScrollBridge';
 import CatalogCartBarPolish from './components/CatalogCartBarPolish';
 import CatalogCompactVisualBridge from './components/CatalogCompactVisualBridge';
+import SalesMarketingBridge from './components/SalesMarketingBridge';
 import OrdersDetailProductToggle from './components/OrdersDetailProductToggle';
 import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
@@ -46,7 +47,7 @@ const installLegacyTrackingModalGuard = () => {
           visibility: hidden !important;
         }
 
-        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page"])) button[aria-label="Abrir rastreo de pedido"],
+        body:not(:has(nav[aria-label="Navegación principal"] button:first-child[aria-current="page")) button[aria-label="Abrir rastreo de pedido"],
         body:has(button[aria-label="Cerrar rastreo"]) button[aria-label="Abrir rastreo de pedido"] {
           display: none !important;
           opacity: 0 !important;
@@ -210,6 +211,7 @@ createRoot(document.getElementById('root')!).render(
         <CartSmartScrollBridge />
         <CatalogCartBarPolish />
         <CatalogCompactVisualBridge />
+        <SalesMarketingBridge />
         <OrdersDetailProductToggle />
         <PlusNonMemberSavingsGuard />
         <ErrorRetryGuard />
