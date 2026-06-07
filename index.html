@@ -45,6 +45,20 @@
           return isTouch && (mobileUA || dpr > 1.15 || biggestSide <= 1400);
         };
 
+        var updateDesktopModeHeight = function () {
+          var root = document.getElementById('root');
+          var desktopModeOnPhone = document.documentElement.classList.contains('pollazo-desktop-mode-mobile');
+          if (!root || !desktopModeOnPhone) {
+            document.documentElement.style.removeProperty('--pollazo-scaled-height');
+            return;
+          }
+
+          var scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--pollazo-mobile-scale')) || 1;
+          var contentHeight = Math.max(root.scrollHeight || 0, document.body.scrollHeight || 0, window.innerHeight || 0);
+          var scaledHeight = Math.ceil(contentHeight * scale + 24);
+          document.documentElement.style.setProperty('--pollazo-scaled-height', scaledHeight + 'px');
+        };
+
         var apply = function () {
           var innerWidth = window.innerWidth || 390;
           var phoneWidth = getEstimatedPhoneWidth();
@@ -62,6 +76,10 @@
           document.documentElement.style.setProperty('--pollazo-phone-width', phoneWidth + 'px');
           document.documentElement.style.setProperty('--pollazo-mobile-scale', String(mobileScale));
           document.documentElement.style.setProperty('--pollazo-real-viewport-width', innerWidth + 'px');
+
+          window.requestAnimationFrame(updateDesktopModeHeight);
+          window.setTimeout(updateDesktopModeHeight, 120);
+          window.setTimeout(updateDesktopModeHeight, 420);
         };
 
         apply();
@@ -71,7 +89,18 @@
           window.setTimeout(apply, 720);
         });
         window.addEventListener('resize', apply, { passive: true });
+        window.addEventListener('scroll', updateDesktopModeHeight, { passive: true });
         document.addEventListener('visibilitychange', apply, { passive: true });
+        document.addEventListener('DOMContentLoaded', function () {
+          apply();
+          var root = document.getElementById('root');
+          if (root && 'ResizeObserver' in window) {
+            var observer = new ResizeObserver(function () {
+              updateDesktopModeHeight();
+            });
+            observer.observe(root);
+          }
+        });
       })();
     </script>
 
@@ -184,23 +213,28 @@
         width: 100vw !important;
         min-width: 100vw !important;
         max-width: 100vw !important;
+        min-height: var(--pollazo-scaled-height, 100vh) !important;
         margin: 0 !important;
         background: #ffffff !important;
         overflow-x: hidden !important;
-        overscroll-behavior: none !important;
+        overflow-y: auto !important;
+        overscroll-behavior-y: contain !important;
       }
 
       html.pollazo-desktop-mode-mobile #root {
         width: var(--pollazo-phone-width, 390px) !important;
         min-width: var(--pollazo-phone-width, 390px) !important;
         max-width: var(--pollazo-phone-width, 390px) !important;
+        min-height: calc(var(--pollazo-scaled-height, 100vh) / var(--pollazo-mobile-scale, 1)) !important;
         margin: 0 !important;
         background: #ffffff !important;
         box-shadow: none !important;
         overflow-x: hidden !important;
-        zoom: var(--pollazo-mobile-scale, 1) !important;
-        transform: none !important;
+        overflow-y: visible !important;
+        zoom: 1 !important;
+        transform: scale(var(--pollazo-mobile-scale, 1)) !important;
         transform-origin: top left !important;
+        will-change: transform !important;
       }
 
       html.pollazo-desktop-mode-mobile #root [class*="md:grid-cols-"],
