@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { CheckCircle2, Clock3, ClipboardList, MapPin, PackageSearch, ReceiptText, ShoppingBag, TimerReset, Truck, X } from 'lucide-react';
+import { CheckCircle2, Clock3, ClipboardList, Crown, MapPin, PackageSearch, ReceiptText, ShoppingBag, TimerReset, Truck, X } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 
