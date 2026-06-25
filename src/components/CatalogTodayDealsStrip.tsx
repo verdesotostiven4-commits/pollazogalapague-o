@@ -52,6 +52,21 @@ const readCartItems = (): CartItem[] => {
 
 const visibleText = (element: Element | null) => normalize((element as HTMLElement | null)?.innerText || element?.textContent || '');
 
+const getCatalogHeadingText = () => {
+  const headings = Array.from(document.querySelectorAll<HTMLElement>('h3')).filter(heading => {
+    const className = String(heading.className || '');
+    const text = normalize(heading.textContent);
+
+    return (
+      className.includes('uppercase') &&
+      className.includes('flex') &&
+      ['todos', 'pollos', 'enteros', 'menudencia', 'presas especiales', 'embutidos', 'lacteos', 'lácteos', 'abarrotes', 'bebidas'].includes(text)
+    );
+  });
+
+  return normalize(headings[0]?.textContent || '');
+};
+
 const isCatalogScreenActive = () => {
   if (typeof document === 'undefined') return false;
 
@@ -59,13 +74,15 @@ const isCatalogScreenActive = () => {
   const activeNavText = visibleText(nav?.querySelector('[aria-current="page"]') || null);
   const headerText = visibleText(document.querySelector('header'));
   const bodyText = visibleText(document.body);
+  const isCatalog = activeNavText.includes('catalogo') || headerText.includes('catalogo');
 
+  if (!isCatalog) return false;
   if (activeNavText.includes('info') || headerText.includes('informacion') || bodyText.includes('contacto directo')) return false;
   if (activeNavText.includes('carrito') || headerText.includes('carrito') || bodyText.includes('tus productos')) return false;
   if (activeNavText.includes('pedido') || headerText.includes('pedidos')) return false;
   if (activeNavText.includes('inicio') || headerText.includes('la casa del pollazo')) return false;
 
-  return activeNavText.includes('catalogo') || headerText.includes('catalogo');
+  return true;
 };
 
 const isRecommendationCandidate = (product: Product) => {
@@ -97,30 +114,36 @@ const isRecommendationCandidate = (product: Product) => {
   ].some(keyword => haystack.includes(keyword));
 };
 
+const removeCatalogHost = () => {
+  document.getElementById(HOST_ID)?.remove();
+};
+
 const findCatalogHost = () => {
   if (!isCatalogScreenActive()) {
-    document.getElementById(HOST_ID)?.remove();
+    removeCatalogHost();
+    return null;
+  }
+
+  const currentHeading = getCatalogHeadingText();
+
+  // Profesional: se muestra solo en la vista general. No invade Pollos, Embutidos,
+  // Lácteos, subcategorías ni otras pantallas.
+  if (currentHeading !== 'todos') {
+    removeCatalogHost();
     return null;
   }
 
   const existing = document.getElementById(HOST_ID);
   if (existing) return existing;
 
-  const sectionTitle = Array.from(document.querySelectorAll<HTMLElement>('h2, h3, p')).find(heading => {
+  const sectionTitle = Array.from(document.querySelectorAll<HTMLElement>('h3')).find(heading => {
     const text = normalize(heading.textContent);
-    return (
-      text.includes('todos') ||
-      text.includes('pollos') ||
-      text.includes('abarrotes') ||
-      text.includes('bebidas') ||
-      text.includes('lacteos') ||
-      text.includes('lácteos')
-    );
+    const className = String(heading.className || '');
+    return text === 'todos' && className.includes('uppercase') && className.includes('flex');
   });
 
   const sectionRow = sectionTitle?.closest('div');
-  const container = sectionRow?.parentElement;
-  if (!sectionRow || !container) return null;
+  if (!sectionRow || !sectionRow.parentElement) return null;
 
   const host = document.createElement('div');
   host.id = HOST_ID;
@@ -135,13 +158,20 @@ export default function CatalogTodayDealsStrip() {
   const [cartVersion, setCartVersion] = useState(0);
 
   useEffect(() => {
-    const syncHost = () => setHost(findCatalogHost());
+    let raf = 0;
+
+    const syncHost = () => {
+      if (raf) return;
+
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        setHost(findCatalogHost());
+      });
+    };
 
     syncHost();
 
-    const observer = new MutationObserver(() => {
-      window.requestAnimationFrame(syncHost);
-    });
+    const observer = new MutationObserver(syncHost);
 
     observer.observe(document.documentElement, {
       childList: true,
@@ -153,20 +183,21 @@ export default function CatalogTodayDealsStrip() {
     const interval = window.setInterval(() => {
       setCartVersion(version => version + 1);
       syncHost();
-    }, 1300);
+    }, 3200);
 
-    const timers = [120, 400, 900, 1600].map(delay => window.setTimeout(syncHost, delay));
+    const timers = [120, 500, 1200].map(delay => window.setTimeout(syncHost, delay));
 
     window.addEventListener('click', syncHost, true);
     window.addEventListener('popstate', syncHost);
 
     return () => {
+      if (raf) window.cancelAnimationFrame(raf);
       observer.disconnect();
       window.clearInterval(interval);
       timers.forEach(timer => window.clearTimeout(timer));
       window.removeEventListener('click', syncHost, true);
       window.removeEventListener('popstate', syncHost);
-      document.getElementById(HOST_ID)?.remove();
+      removeCatalogHost();
     };
   }, []);
 
@@ -216,15 +247,15 @@ export default function CatalogTodayDealsStrip() {
   const hasRealPromotions = promotionViews.length > 0;
   const cards: Array<Product | ProductPromotionView> = hasRealPromotions ? promotionViews : recommendations;
 
-  if (!host || cards.length < 3) return null;
+  if (!host || cards.length < 3 || cartItems.length === 0) return null;
 
   const bodyText = normalize(document.body.textContent);
-  if (!isCatalogScreenActive() || bodyText.includes('pedido registrado') || bodyText.includes('carrito bloqueado')) return null;
+  if (!isCatalogScreenActive() || getCatalogHeadingText() !== 'todos' || bodyText.includes('pedido registrado') || bodyText.includes('carrito bloqueado')) return null;
 
-  const title = hasRealPromotions ? 'Ofertas de hoy' : 'Para completar tu pedido';
+  const title = hasRealPromotions ? 'Ofertas de hoy' : 'Extras rápidos';
   const subtitle = hasRealPromotions
     ? 'Promos activas por tiempo limitado.'
-    : 'Extras útiles y rápidos para sumar a tu compra.';
+    : 'Sugerencias pequeñas para sumar a tu compra.';
 
   const Icon = hasRealPromotions ? Flame : Sparkles;
 
@@ -240,11 +271,9 @@ export default function CatalogTodayDealsStrip() {
             <p className="text-[10px] font-bold text-slate-400 leading-snug truncate">{subtitle}</p>
           </div>
         </div>
-        {hasRealPromotions && (
-          <span className="text-[9px] font-black text-orange-500 bg-orange-50 border border-orange-100 rounded-full px-2.5 py-1 whitespace-nowrap">
-            Hoy
-          </span>
-        )}
+        <span className="text-[9px] font-black text-orange-500 bg-orange-50 border border-orange-100 rounded-full px-2.5 py-1 whitespace-nowrap">
+          {hasRealPromotions ? 'Hoy' : '+ fácil'}
+        </span>
       </div>
 
       <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 pl-1 pr-7 snap-x snap-mandatory">
@@ -255,7 +284,7 @@ export default function CatalogTodayDealsStrip() {
           const added = addedId === product.id;
 
           return (
-            <article key={product.id} className="w-[116px] flex-shrink-0 snap-start rounded-[20px] border border-slate-100 bg-slate-50/70 p-2">
+            <article key={product.id} className="w-[112px] flex-shrink-0 snap-start rounded-[20px] border border-slate-100 bg-slate-50/70 p-2">
               <div className="h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden mb-2">
                 <img src={product.image || '/logo-final.png'} alt={product.name} className="w-full h-full object-contain p-1.5" />
               </div>
@@ -273,7 +302,7 @@ export default function CatalogTodayDealsStrip() {
                     window.dispatchEvent(new CustomEvent(ADD_EVENT, { detail: { product, quantity: 1 } }));
                     setAddedId(product.id);
                     setCartVersion(version => version + 1);
-                    window.setTimeout(() => setAddedId(null), 800);
+                    window.setTimeout(() => setAddedId(null), 650);
                   }}
                   className={`w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm active:scale-90 transition-all ${
                     added ? 'bg-green-500' : 'bg-gradient-to-br from-orange-500 to-yellow-400'
