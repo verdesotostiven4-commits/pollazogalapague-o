@@ -4,6 +4,7 @@ const STYLE_ID = 'pollazo-lite-location-map-style';
 const TILE = 256;
 const PIN_OFFSET_Y = 64;
 const MOVE_MS = 90;
+const ZOOM_MS = 160;
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SUBS = ['a', 'b', 'c'];
 
@@ -64,7 +65,10 @@ const installStyles = () => {
       -webkit-tap-highlight-color:transparent;
     }
     .pollazo-lite-map.is-dragging { cursor:grabbing; }
-    .pollazo-lite-tiles,.pollazo-lite-markers { position:absolute; inset:0; transform:translate3d(0,0,0); will-change:transform; backface-visibility:hidden; }
+    .pollazo-lite-tiles,.pollazo-lite-markers {
+      position:absolute; inset:0; transform:translate3d(0,0,0); will-change:transform;
+      backface-visibility:hidden; transform-style:preserve-3d;
+    }
     .pollazo-lite-tile { position:absolute; width:${TILE}px; height:${TILE}px; pointer-events:none; user-select:none; -webkit-user-drag:none; }
     .pollazo-lite-user { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:9999px; pointer-events:none; }
     .pollazo-lite-user:before { content:''; position:absolute; inset:0; border-radius:inherit; background:rgba(59,130,246,.18); border:1px solid rgba(59,130,246,.35); }
@@ -120,8 +124,11 @@ class LiteMap {
   startCenterPx: Point | null = null;
   pinchDistance = 0;
   pinchZoom = 0;
+  pinchScale = 1;
   frame = 0;
+  zoomFrame = 0;
   moveTimer = 0;
+  zoomTimer = 0;
   dragging = false;
 
   constructor(container: HTMLElement, options?: Record<string, unknown>) {
@@ -188,19 +195,51 @@ class LiteMap {
   getCenter() { return { ...this.center }; }
   getZoom() { return this.zoom; }
 
+  setLayerTransform(transform: string, animated = false) {
+    if (animated) {
+      this.tiles.style.transition = `transform ${ZOOM_MS}ms cubic-bezier(.2,.8,.2,1)`;
+      this.marks.style.transition = `transform ${ZOOM_MS}ms cubic-bezier(.2,.8,.2,1)`;
+    } else {
+      this.tiles.style.transition = '';
+      this.marks.style.transition = '';
+    }
+    this.tiles.style.transform = transform;
+    this.marks.style.transform = transform;
+  }
+
+  setZoomOrigin() {
+    const origin = this.screenPoint();
+    this.tiles.style.transformOrigin = `${origin.x}px ${origin.y}px`;
+    this.marks.style.transformOrigin = `${origin.x}px ${origin.y}px`;
+  }
+
   setZoom(zoom: number) {
     const next = clamp(Math.round(zoom), this.minZoom, this.maxZoom);
     if (next !== this.zoom) {
-      this.zoom = next;
-      this.render();
-      this.emit('zoomend');
-      this.emit('move');
-      this.emit('moveend');
+      const fromZoom = this.zoom;
+      const scale = 2 ** (next - fromZoom);
+
+      if (this.zoomTimer) window.clearTimeout(this.zoomTimer);
+      this.setZoomOrigin();
+      window.requestAnimationFrame(() => this.setLayerTransform(`scale(${scale})`, true));
+
+      this.zoomTimer = window.setTimeout(() => {
+        this.zoomTimer = 0;
+        this.zoom = next;
+        this.render();
+        this.emit('zoomend');
+        this.emit('move');
+        this.emit('moveend');
+      }, ZOOM_MS + 24);
     }
     return this;
   }
 
   setView(value: unknown, zoom?: number) {
+    if (this.zoomTimer) {
+      window.clearTimeout(this.zoomTimer);
+      this.zoomTimer = 0;
+    }
     this.center = latLng(value);
     if (finite(zoom)) this.zoom = clamp(Math.round(zoom), this.minZoom, this.maxZoom);
     this.render();
@@ -216,7 +255,9 @@ class LiteMap {
 
   remove() {
     if (this.frame) window.cancelAnimationFrame(this.frame);
+    if (this.zoomFrame) window.cancelAnimationFrame(this.zoomFrame);
     if (this.moveTimer) window.clearTimeout(this.moveTimer);
+    if (this.zoomTimer) window.clearTimeout(this.zoomTimer);
     this.container.removeEventListener('pointerdown', this.down);
     this.container.removeEventListener('pointermove', this.move);
     this.container.removeEventListener('pointerup', this.up);
@@ -248,6 +289,10 @@ class LiteMap {
   }
 
   resetTransform() {
+    this.tiles.style.transition = '';
+    this.marks.style.transition = '';
+    this.tiles.style.transformOrigin = '';
+    this.marks.style.transformOrigin = '';
     this.tiles.style.transform = 'translate3d(0,0,0)';
     this.marks.style.transform = 'translate3d(0,0,0)';
   }
@@ -287,8 +332,33 @@ class LiteMap {
     this.positionMarkers();
   }
 
+  commitPinch() {
+    const hadPinch = this.pinchDistance > 0;
+    const shouldChangeZoom = hadPinch && Math.abs(this.pinchScale - 1) > 0.08;
+
+    if (shouldChangeZoom) {
+      this.zoom = clamp(Math.round(this.pinchZoom + Math.log2(this.pinchScale)), this.minZoom, this.maxZoom);
+    }
+
+    this.pinchDistance = 0;
+    this.pinchZoom = 0;
+    this.pinchScale = 1;
+    this.render();
+
+    if (hadPinch) {
+      this.emit('move');
+      this.emit('moveend');
+      if (shouldChangeZoom) this.emit('zoomend');
+    }
+  }
+
   down = (event: PointerEvent) => {
     event.preventDefault();
+    if (this.zoomTimer) {
+      window.clearTimeout(this.zoomTimer);
+      this.zoomTimer = 0;
+      this.render();
+    }
     this.container.setPointerCapture?.(event.pointerId);
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     this.container.classList.add('is-dragging');
@@ -301,6 +371,8 @@ class LiteMap {
       const points = Array.from(this.pointers.values());
       this.pinchDistance = dist(points[0], points[1]);
       this.pinchZoom = this.zoom;
+      this.pinchScale = 1;
+      this.setZoomOrigin();
     }
   };
 
@@ -313,8 +385,15 @@ class LiteMap {
       const points = Array.from(this.pointers.values());
       const current = dist(points[0], points[1]);
       if (this.pinchDistance > 0 && current > 0) {
-        const next = clamp(Math.round(this.pinchZoom + Math.log2(current / this.pinchDistance)), this.minZoom, this.maxZoom);
-        if (next !== this.zoom) { this.zoom = next; this.render(); this.emit('zoomend'); this.emit('move'); }
+        this.pinchScale = clamp(current / this.pinchDistance, 0.58, 1.85);
+        if (!this.zoomFrame) {
+          this.zoomFrame = window.requestAnimationFrame(() => {
+            this.zoomFrame = 0;
+            this.setZoomOrigin();
+            this.setLayerTransform(`scale(${this.pinchScale})`);
+          });
+        }
+        this.emitMoveSoon();
       }
       return;
     }
@@ -327,6 +406,8 @@ class LiteMap {
     if (!this.frame) {
       this.frame = window.requestAnimationFrame(() => {
         this.frame = 0;
+        this.tiles.style.transition = '';
+        this.marks.style.transition = '';
         this.tiles.style.transform = `translate3d(${dx}px,${dy}px,0)`;
         this.marks.style.transform = `translate3d(${dx}px,${dy}px,0)`;
       });
@@ -340,6 +421,16 @@ class LiteMap {
     this.container.releasePointerCapture?.(event.pointerId);
     this.pointers.delete(event.pointerId);
 
+    if (this.pinchDistance > 0 && this.pointers.size < 2) {
+      this.commitPinch();
+      if (this.pointers.size === 1) {
+        const [point] = Array.from(this.pointers.values());
+        this.startPointer = point;
+        this.startCenterPx = project(this.center.lat, this.center.lng, this.zoom);
+        return;
+      }
+    }
+
     if (this.pointers.size === 1) {
       const [point] = Array.from(this.pointers.values());
       this.startPointer = point;
@@ -351,7 +442,6 @@ class LiteMap {
       this.dragging = false;
       this.startPointer = null;
       this.startCenterPx = null;
-      this.pinchDistance = 0;
       this.container.classList.remove('is-dragging');
       this.render();
       this.emit('move');
