@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 
 const STYLE_ID = 'pollazo-lite-location-map-style';
 const TILE = 256;
+const TILE_OVERLAP = 2;
 const PIN_OFFSET_Y = 64;
 const MOVE_MS = 70;
 const ZOOM_MS = 170;
+const STALE_TILE_MS = 900;
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SUBS = ['a', 'b', 'c'];
 
@@ -62,7 +64,7 @@ const installStyles = () => {
   style.textContent = `
     .pollazo-lite-map {
       position:absolute; inset:0; overflow:hidden; contain:strict; touch-action:none!important;
-      background:#f8fafc; cursor:grab; user-select:none; -webkit-user-select:none;
+      background:#eef4ed; cursor:grab; user-select:none; -webkit-user-select:none;
       -webkit-tap-highlight-color:transparent;
     }
     .pollazo-lite-map.is-dragging { cursor:grabbing; }
@@ -71,9 +73,9 @@ const installStyles = () => {
       backface-visibility:hidden; transform-style:preserve-3d;
     }
     .pollazo-lite-tile {
-      position:absolute; width:${TILE}px; height:${TILE}px; pointer-events:none;
+      position:absolute; width:${TILE + TILE_OVERLAP}px; height:${TILE + TILE_OVERLAP}px; pointer-events:none;
       user-select:none; -webkit-user-drag:none; transform-origin:0 0; image-rendering:auto;
-      backface-visibility:hidden;
+      backface-visibility:hidden; transition:opacity 120ms linear;
     }
     .pollazo-lite-user { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:9999px; pointer-events:none; }
     .pollazo-lite-user:before { content:''; position:absolute; inset:0; border-radius:inherit; background:rgba(59,130,246,.18); border:1px solid rgba(59,130,246,.35); }
@@ -125,11 +127,13 @@ class LiteMap {
   listeners: Record<string, Listener[]> = {};
   markers = new Set<LiteMarker>();
   tileElements = new Map<string, HTMLImageElement>();
+  staleTileTimers = new Map<string, number>();
   pointers = new Map<number, Point>();
   startPointer: Point | null = null;
   startCenterPx: Point | null = null;
   pinchDistance = 0;
   pinchZoom = 0;
+  gestureTileZoom: number | null = null;
   renderFrame = 0;
   moveTimer = 0;
   zoomAnimation = 0;
@@ -204,6 +208,18 @@ class LiteMap {
     });
   }
 
+  keepTile(key: string) {
+    const timer = this.staleTileTimers.get(key);
+    if (!timer) return;
+    window.clearTimeout(timer);
+    this.staleTileTimers.delete(key);
+  }
+
+  clearStaleTiles() {
+    this.staleTileTimers.forEach(timer => window.clearTimeout(timer));
+    this.staleTileTimers.clear();
+  }
+
   getCenter() { return { ...this.center }; }
   getZoom() { return this.zoom; }
 
@@ -230,6 +246,7 @@ class LiteMap {
       } else {
         this.zoomAnimation = 0;
         this.zoom = target;
+        this.gestureTileZoom = null;
         this.render();
         this.emit('zoomend');
         this.emit('move');
@@ -237,6 +254,7 @@ class LiteMap {
       }
     };
 
+    this.gestureTileZoom = clamp(Math.floor(start), this.minZoom, this.maxZoom);
     this.zoomAnimation = window.requestAnimationFrame(step);
   }
 
@@ -250,6 +268,7 @@ class LiteMap {
 
   setView(value: unknown, zoom?: number) {
     this.cancelZoomAnimation();
+    this.gestureTileZoom = null;
     this.center = latLng(value);
     if (finite(zoom)) this.zoom = clamp(Math.round(zoom), this.minZoom, this.maxZoom);
     this.render();
@@ -267,6 +286,7 @@ class LiteMap {
     this.cancelZoomAnimation();
     if (this.renderFrame) window.cancelAnimationFrame(this.renderFrame);
     if (this.moveTimer) window.clearTimeout(this.moveTimer);
+    this.clearStaleTiles();
     this.container.removeEventListener('pointerdown', this.down);
     this.container.removeEventListener('pointermove', this.move);
     this.container.removeEventListener('pointerup', this.up);
@@ -281,6 +301,7 @@ class LiteMap {
 
   setTiles(url: string) {
     this.url = url || TILE_URL;
+    this.clearStaleTiles();
     this.tileElements.forEach(tile => tile.remove());
     this.tileElements.clear();
     this.render();
@@ -305,7 +326,7 @@ class LiteMap {
     const width = Math.max(box.width, 1);
     const height = Math.max(box.height, 1);
     const screen = this.screenPoint();
-    const tileZoom = clamp(Math.round(this.zoom), this.minZoom, this.maxZoom);
+    const tileZoom = this.gestureTileZoom ?? clamp(Math.floor(this.zoom), this.minZoom, this.maxZoom);
     const tileScale = 2 ** (this.zoom - tileZoom);
     const selected = project(this.center.lat, this.center.lng, tileZoom);
     const maxTile = 2 ** tileZoom;
@@ -332,6 +353,7 @@ class LiteMap {
         const wrappedX = ((x % maxTile) + maxTile) % maxTile;
         const key = `${tileZoom}/${wrappedX}/${y}`;
         liveKeys.add(key);
+        this.keepTile(key);
 
         let img = this.tileElements.get(key);
         if (!img) {
@@ -341,24 +363,31 @@ class LiteMap {
           img.draggable = false;
           img.decoding = 'async';
           img.loading = 'eager';
+          img.style.opacity = '0';
+          img.onload = () => { img!.style.opacity = '1'; };
+          img.onerror = () => { img!.style.opacity = '0.001'; };
           img.src = tileUrl(this.url, tileZoom, wrappedX, y);
+          if (img.complete && img.naturalWidth > 0) img.style.opacity = '1';
           this.tileElements.set(key, img);
           this.tiles.appendChild(img);
         }
 
         const left = screen.x + (x * TILE - selected.x);
         const top = screen.y + (y * TILE - selected.y);
-        img.style.width = `${TILE}px`;
-        img.style.height = `${TILE}px`;
-        img.style.transform = `translate3d(${Math.round(left)}px,${Math.round(top)}px,0)`;
+        img.style.width = `${TILE + TILE_OVERLAP}px`;
+        img.style.height = `${TILE + TILE_OVERLAP}px`;
+        img.style.transform = `translate3d(${left}px,${top}px,0)`;
       }
     }
 
     this.tileElements.forEach((tile, key) => {
-      if (!liveKeys.has(key)) {
+      if (liveKeys.has(key) || this.staleTileTimers.has(key)) return;
+      const timer = window.setTimeout(() => {
         tile.remove();
         this.tileElements.delete(key);
-      }
+        this.staleTileTimers.delete(key);
+      }, STALE_TILE_MS);
+      this.staleTileTimers.set(key, timer);
     });
 
     this.positionMarkers();
@@ -379,6 +408,7 @@ class LiteMap {
       const points = Array.from(this.pointers.values());
       this.pinchDistance = dist(points[0], points[1]);
       this.pinchZoom = this.zoom;
+      this.gestureTileZoom = clamp(Math.floor(this.zoom), this.minZoom, this.maxZoom);
     }
   };
 
@@ -419,6 +449,7 @@ class LiteMap {
     if (wasPinching && this.pointers.size < 2) {
       this.pinchDistance = 0;
       this.pinchZoom = 0;
+      this.gestureTileZoom = null;
       this.render();
       this.emit('move');
       this.emit('moveend');
@@ -443,6 +474,7 @@ class LiteMap {
       this.dragging = false;
       this.startPointer = null;
       this.startCenterPx = null;
+      this.gestureTileZoom = null;
       this.container.classList.remove('is-dragging');
       this.render();
       this.emit('move');
