@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  type RefObject,
+  type TouchEvent,
+} from 'react';
 import {
   Search,
   X,
@@ -26,10 +33,7 @@ type SortOption =
   | 'precio-alto'
   | 'disponibles';
 
-const PAGE_SIZE = 32;
-
 const CATEGORY_ICONS: Record<string, string> = {
-  Todos: '🛒',
   Pollos: '🍗',
   Embutidos: '🥓',
   'Lácteos y refrigerados': '🥛',
@@ -43,7 +47,6 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 const SHORT_LABELS: Record<string, string> = {
-  Todos: 'Todos',
   Pollos: 'Pollos',
   Embutidos: 'Embutidos',
   'Lácteos y refrigerados': 'Lácteos',
@@ -85,19 +88,43 @@ const SORT_OPTIONS: Array<{
   description: string;
   icon: typeof Star;
 }> = [
-  { id: 'sugeridos', label: 'Sugeridos', description: 'Orden recomendado', icon: Star },
-  { id: 'mas-pedidos', label: 'Más pedidos', description: 'Productos populares', icon: PackageCheck },
-  { id: 'precio-bajo', label: 'Menor precio', description: 'De barato a caro', icon: DollarSign },
-  { id: 'precio-alto', label: 'Mayor precio', description: 'De caro a barato', icon: DollarSign },
-  { id: 'disponibles', label: 'Disponibles', description: 'Agotados al final', icon: Check },
+  {
+    id: 'sugeridos',
+    label: 'Sugeridos',
+    description: 'Orden recomendado',
+    icon: Star,
+  },
+  {
+    id: 'mas-pedidos',
+    label: 'Más pedidos',
+    description: 'Productos populares',
+    icon: PackageCheck,
+  },
+  {
+    id: 'precio-bajo',
+    label: 'Menor precio',
+    description: 'De barato a caro',
+    icon: DollarSign,
+  },
+  {
+    id: 'precio-alto',
+    label: 'Mayor precio',
+    description: 'De caro a barato',
+    icon: DollarSign,
+  },
+  {
+    id: 'disponibles',
+    label: 'Disponibles',
+    description: 'Agotados al final',
+    icon: Check,
+  },
 ];
 
-const normalizeText = (text: unknown) =>
-  String(text || '')
+const normalizeText = (text: string) =>
+  text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
+    .toLowerCase();
 
 const toMoney = (value: number) => {
   if (!Number.isFinite(value)) return 0;
@@ -105,13 +132,19 @@ const toMoney = (value: number) => {
 };
 
 const parsePrice = (price?: string | number | null): number => {
-  if (typeof price === 'number') return price > 0 ? toMoney(price) : 0;
+  if (typeof price === 'number') {
+    return price > 0 ? toMoney(price) : 0;
+  }
 
-  const numeric = Number.parseFloat(
-    String(price || '')
-      .replace(',', '.')
-      .replace(/[^0-9.]/g, '')
-  );
+  const raw = String(price || '').trim();
+
+  if (!raw) return 0;
+
+  const normalized = raw
+    .replace(',', '.')
+    .replace(/[^0-9.]/g, '');
+
+  const numeric = Number.parseFloat(normalized);
 
   return Number.isFinite(numeric) ? toMoney(numeric) : 0;
 };
@@ -126,77 +159,115 @@ const getProductPrice = (product: Product) => {
 
 const productIsAvailable = (product: Product) => product.available !== false;
 
-const getSubcategory = (product: Product): string => {
-  if (product.subcategory) return product.subcategory;
+const getSubcategory = (p: Product): string => {
+  if (p.subcategory) return p.subcategory;
 
-  const name = normalizeText(product.name);
+  const name = p.name.toLowerCase();
 
-  if (product.category === 'Pollos') {
-    if (name.includes('entero')) return 'Enteros';
+  if (p.category === 'Pollos') {
+    if (name.includes('entero')) return 'Pollo Entero';
     if (name.includes('menudencia')) return 'Menudencia';
-    return 'Presas especiales';
+    return 'Presas Especiales';
   }
 
-  if (product.category === 'Lácteos y refrigerados') {
+  if (p.category === 'Lácteos y refrigerados') {
     if (name.includes('leche')) return 'Leches';
     if (name.includes('yogurt')) return 'Yogures';
-    if (name.includes('galamix') || name.includes('avena')) return 'Bebidas lácteas';
+    if (name.includes('galamix') || name.includes('avena')) return 'Bebidas Lácteas';
     if (name.includes('queso')) return 'Quesos';
     if (name.includes('mantequilla') || name.includes('vaquita')) return 'Mantequillas';
     return 'Refrigerados';
   }
 
-  if (product.category === 'Abarrotes y básicos') {
+  if (p.category === 'Abarrotes y básicos') {
     if (name.includes('arroz')) return 'Arroz';
-    if (name.includes('fideo') || name.includes('tallarin') || name.includes('rapidito')) return 'Pastas y sopas';
-    if (name.includes('atun') || name.includes('sardina')) return 'Enlatados del mar';
+    if (name.includes('fideo') || name.includes('tallarín') || name.includes('rapidito')) return 'Pastas y Sopas';
+    if (name.includes('atún') || name.includes('sardina')) return 'Enlatados del Mar';
     if (name.includes('harina') || name.includes('maizabrosa')) return 'Harinas';
-    if (name.includes('lenteja') || name.includes('garbanzo') || name.includes('alverja')) return 'Granos y menestras';
-    if (name.includes('azucar') || name.includes('panela')) return 'Endulzantes';
-    return 'Básicos de despensa';
+    if (name.includes('lenteja') || name.includes('garbanzo') || name.includes('alverja')) return 'Granos y Menestras';
+    if (name.includes('azúcar') || name.includes('azucar') || name.includes('panela')) return 'Endulzantes';
+    return 'Básicos de Despensa';
   }
 
-  if (product.category === 'Salsas, aliños y aceites') {
+  if (p.category === 'Salsas, aliños y aceites') {
     if (name.includes('aceite')) return 'Aceites';
     if (name.includes('achiote')) return 'Achiotes';
-    if (name.includes('salsa') || name.includes('soya') || name.includes('aji') || name.includes('mayonesa') || name.includes('mostaza') || name.includes('bbq')) return 'Salsas y aderezos';
-    if (name.includes('maggi') || name.includes('sazon') || name.includes('ranchero') || name.includes('caldo')) return 'Sazonadores';
-    return 'Vinagres y esencias';
+    if (
+      name.includes('salsa') ||
+      name.includes('soya') ||
+      name.includes('ají') ||
+      name.includes('mayonesa') ||
+      name.includes('mostaza') ||
+      name.includes('bbq')
+    ) {
+      return 'Salsas y Aderezos';
+    }
+    if (
+      name.includes('maggi') ||
+      name.includes('sazón') ||
+      name.includes('ranchero') ||
+      name.includes('caldo')
+    ) {
+      return 'Sazonadores';
+    }
+    return 'Vinagres y Esencias';
   }
 
-  if (product.category === 'Bebidas') {
-    if (name.includes('agua') || name.includes('guitig')) return 'Aguas minerales';
-    if (name.includes('cerveza') || name.includes('cana')) return 'Licores';
-    if (name.includes('powerade') || name.includes('ego')) return 'Energizantes';
-    if (name.includes('cola') || name.includes('sprite') || name.includes('fanta') || name.includes('inca')) return 'Gaseosas';
-    return 'Jugos y refrescos';
+  if (p.category === 'Bebidas') {
+    if (name.includes('agua') || name.includes('guitig')) return 'Aguas Minerales';
+    if (name.includes('cerveza') || name.includes('caña')) return 'Licores';
+    if (name.includes('powerade') || name.includes('ego')) return 'Energizantes e Hidratantes';
+    if (
+      name.includes('cola') ||
+      name.includes('sprite') ||
+      name.includes('fanta') ||
+      name.includes('inca')
+    ) {
+      return 'Gaseosas';
+    }
+    return 'Jugos y Refrescos';
   }
 
-  if (product.category === 'Frutas y verduras') {
-    if (name.includes('manzana') || name.includes('naranja') || name.includes('guineo') || name.includes('naranjilla')) return 'Frutas frescas';
-    if (name.includes('papa') || name.includes('cebolla') || name.includes('ajo') || name.includes('pimiento') || name.includes('tomate')) return 'Vegetales';
-    return 'Hojas y hierbas';
+  if (p.category === 'Frutas y verduras') {
+    if (
+      name.includes('manzana') ||
+      name.includes('naranja') ||
+      name.includes('guineo') ||
+      name.includes('naranjilla')
+    ) {
+      return 'Frutas Frescas';
+    }
+    if (
+      name.includes('papa') ||
+      name.includes('cebolla') ||
+      name.includes('ajo') ||
+      name.includes('pimiento') ||
+      name.includes('tomate')
+    ) {
+      return 'Vegetales y Hortalizas';
+    }
+    return 'Hojas y Hierbas';
   }
 
-  if (product.category === 'Snacks y dulces') {
+  if (p.category === 'Snacks y dulces') {
     if (name.includes('galleta') || name.includes('oreo')) return 'Galletas';
-    if (name.includes('chifle') || name.includes('pipas')) return 'Snacks salados';
+    if (name.includes('chifle') || name.includes('pipas')) return 'Snacks Salados';
     if (name.includes('chocolate') || name.includes('nutella')) return 'Chocolates';
-    return 'Golosinas';
+    return 'Golosinas y Postres';
   }
 
-  if (product.category === 'Cuidado personal') {
-    if (name.includes('toalla')) return 'Cuidado femenino';
-    if (name.includes('colgate') || name.includes('pasta')) return 'Cuidado bucal';
-    if (name.includes('head') || name.includes('shampoo')) return 'Cuidado capilar';
-    return 'Higiene personal';
+  if (p.category === 'Cuidado personal') {
+    if (name.includes('toalla')) return 'Cuidado Femenino';
+    if (name.includes('colgate') || name.includes('pasta')) return 'Cuidado Bucal';
+    if (name.includes('head') || name.includes('shampoo')) return 'Cuidado Capilar';
+    return 'Higiene Personal';
   }
 
-  if (product.category === 'Limpieza y hogar') {
-    if (name.includes('detergente') || name.includes('deja') || name.includes('suavitel')) return 'Cuidado de ropa';
-    if (name.includes('cloro') || name.includes('fabuloso') || name.includes('clorox')) return 'Superficies';
+  if (p.category === 'Limpieza y hogar') {
+    if (name.includes('detergente') || name.includes('deja') || name.includes('suavitel')) return 'Cuidado de Ropa';
+    if (name.includes('cloro') || name.includes('fabuloso') || name.includes('clorox')) return 'Limpieza de Superficies';
     if (name.includes('papel') || name.includes('servilletas')) return 'Papelería';
-    return 'Artículos del hogar';
+    return 'Artículos del Hogar';
   }
 
   return 'General';
@@ -221,14 +292,16 @@ export default function CatalogScreen({
   const [sortBy, setSortBy] = useState<SortOption>('sugeridos');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [search, setSearch] = useState('');
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const tabBarRef = useRef<HTMLDivElement>(null);
   const subBarRef = useRef<HTMLDivElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   const allCategories = useMemo(() => {
-    return ORDERED_CATEGORIES.filter(category => category === 'Todos' || categories.includes(category));
+    return ORDERED_CATEGORIES.filter(
+      category => category === 'Todos' || categories.includes(category)
+    );
   }, [categories]);
 
   const cartAnalytics = useMemo(() => {
@@ -247,11 +320,21 @@ export default function CatalogScreen({
               : parsePrice(item.product.price);
 
       money += productPrice * item.quantity;
-      if (item.product.is_variable || item.product.custom_price) hasVariablePrices = true;
-      if (productPrice <= 0) hasConsultPrices = true;
+
+      if (item.product.is_variable || item.product.custom_price) {
+        hasVariablePrices = true;
+      }
+
+      if (productPrice <= 0) {
+        hasConsultPrices = true;
+      }
     });
 
-    return { totalMoney: toMoney(money), hasVariablePrices, hasConsultPrices };
+    return {
+      totalMoney: toMoney(money),
+      hasVariablePrices,
+      hasConsultPrices,
+    };
   }, [items]);
 
   const subcategories = useMemo(() => {
@@ -267,9 +350,10 @@ export default function CatalogScreen({
   }, [activeCategory, products]);
 
   const filtered = useMemo(() => {
-    let base = activeCategory === 'Todos'
-      ? products
-      : products.filter(product => product.category === activeCategory);
+    let base =
+      activeCategory === 'Todos'
+        ? products
+        : products.filter(product => product.category === activeCategory);
 
     if (activeSubcategory) {
       base = base.filter(product => getSubcategory(product) === activeSubcategory);
@@ -285,30 +369,40 @@ export default function CatalogScreen({
       const availableA = productIsAvailable(a);
       const availableB = productIsAvailable(b);
 
-      if (availableA !== availableB) return availableA ? -1 : 1;
+      if (availableA !== availableB) {
+        return availableA ? -1 : 1;
+      }
 
       if (sortBy === 'mas-pedidos') {
         const scoreA = BESTSELLER_IDS.includes(a.id) ? 1 : 0;
         const scoreB = BESTSELLER_IDS.includes(b.id) ? 1 : 0;
+
         if (scoreA !== scoreB) return scoreB - scoreA;
       }
 
       if (sortBy === 'precio-bajo' || sortBy === 'precio-alto') {
         const priceA = getProductPrice(a);
         const priceB = getProductPrice(b);
-        if (priceA !== priceB) return sortBy === 'precio-bajo' ? priceA - priceB : priceB - priceA;
+
+        if (priceA !== priceB) {
+          return sortBy === 'precio-bajo' ? priceA - priceB : priceB - priceA;
+        }
       }
 
-      if (sortBy === 'disponibles') return a.name.localeCompare(b.name);
+      if (sortBy === 'disponibles') {
+        return a.name.localeCompare(b.name);
+      }
 
       if (activeCategory === 'Todos') {
         const categoryA = ORDERED_CATEGORIES.indexOf(a.category);
         const categoryB = ORDERED_CATEGORIES.indexOf(b.category);
+
         if (categoryA !== categoryB) return categoryA - categoryB;
       }
 
       const bestA = BESTSELLER_IDS.includes(a.id) ? 1 : 0;
       const bestB = BESTSELLER_IDS.includes(b.id) ? 1 : 0;
+
       if (bestA !== bestB) return bestB - bestA;
 
       return a.name.localeCompare(b.name);
@@ -317,11 +411,6 @@ export default function CatalogScreen({
     return sorted;
   }, [activeCategory, filtered, sortBy]);
 
-  const visibleProducts = useMemo(
-    () => displayedProducts.slice(0, visibleCount),
-    [displayedProducts, visibleCount]
-  );
-
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
 
@@ -329,23 +418,29 @@ export default function CatalogScreen({
 
     return products
       .filter(product => {
-        const haystack = normalizeText([
-          product.name,
-          product.category,
-          product.subcategory,
-          product.description,
-          getSubcategory(product),
-        ].filter(Boolean).join(' '));
+        const haystack = normalizeText(
+          [
+            product.name,
+            product.category,
+            product.subcategory,
+            product.description,
+            getSubcategory(product),
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
 
         return haystack.includes(query);
       })
       .sort((a, b) => {
         const availableA = productIsAvailable(a);
         const availableB = productIsAvailable(b);
+
         if (availableA !== availableB) return availableA ? -1 : 1;
 
         const bestA = BESTSELLER_IDS.includes(a.id) ? 1 : 0;
         const bestB = BESTSELLER_IDS.includes(b.id) ? 1 : 0;
+
         return bestB - bestA;
       })
       .slice(0, 18);
@@ -354,41 +449,28 @@ export default function CatalogScreen({
   useEffect(() => {
     setActiveCategory(initialCategory);
     setActiveSubcategory(null);
-    setVisibleCount(PAGE_SIZE);
   }, [initialCategory]);
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-
     const main = document.querySelector('main');
-    main?.scrollTo({ top: 0, behavior: 'auto' });
-  }, [activeCategory, activeSubcategory, sortBy]);
 
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel) return undefined;
+    if (main) {
+      main.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [activeCategory, activeSubcategory]);
 
-    const observer = new IntersectionObserver(
-      entries => {
-        if (!entries[0]?.isIntersecting) return;
-
-        setVisibleCount(current => Math.min(current + PAGE_SIZE, displayedProducts.length));
-      },
-      { root: null, rootMargin: '700px 0px 700px 0px' }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [displayedProducts.length, visibleProducts.length]);
-
-  const syncPillsScroll = (ref: React.RefObject<HTMLDivElement>, index: number) => {
+  const syncPillsScroll = (ref: RefObject<HTMLDivElement>, index: number) => {
     if (!ref.current || index < 0) return;
 
-    const btn = ref.current.querySelectorAll('button')[index] as HTMLElement | undefined;
+    const btn = ref.current.querySelectorAll('button')[index];
+
     if (!btn) return;
 
     ref.current.scrollTo({
-      left: btn.offsetLeft + btn.offsetWidth / 2 - ref.current.clientWidth / 2,
+      left:
+        (btn as HTMLElement).offsetLeft +
+        (btn as HTMLElement).offsetWidth / 2 -
+        ref.current.clientWidth / 2,
       behavior: 'smooth',
     });
   };
@@ -407,12 +489,11 @@ export default function CatalogScreen({
   }, [activeSubcategory, subcategories]);
 
   const changeCategory = (next: CatalogCategory) => {
-    if (next === activeCategory && activeSubcategory === null) return;
+    if (next === activeCategory) return;
 
     setActiveSubcategory(null);
     setActiveCategory(next);
     setShowSortMenu(false);
-    setVisibleCount(PAGE_SIZE);
     onCategoryChange?.(next);
   };
 
@@ -424,8 +505,53 @@ export default function CatalogScreen({
 
     window.setTimeout(() => {
       setActiveSubcategory(getSubcategory(product));
-      setVisibleCount(PAGE_SIZE);
-    }, 60);
+    }, 80);
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+
+    const dx = event.changedTouches[0].clientX - touchStartX.current;
+    const dy = event.changedTouches[0].clientY - touchStartY.current;
+
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      const catIdx = allCategories.indexOf(activeCategory);
+
+      if (activeCategory === 'Todos') {
+        if (dx < 0 && catIdx < allCategories.length - 1) {
+          changeCategory(allCategories[catIdx + 1]);
+        }
+
+        if (dx > 0 && catIdx > 0) {
+          changeCategory(allCategories[catIdx - 1]);
+        }
+      } else {
+        const subIdx = activeSubcategory
+          ? subcategories.indexOf(activeSubcategory)
+          : -1;
+
+        if (dx < 0) {
+          if (subIdx === -1 && subcategories.length > 0) {
+            setActiveSubcategory(subcategories[0]);
+          } else if (subIdx < subcategories.length - 1) {
+            setActiveSubcategory(subcategories[subIdx + 1]);
+          } else if (catIdx < allCategories.length - 1) {
+            changeCategory(allCategories[catIdx + 1]);
+          }
+        } else if (dx > 0) {
+          if (subIdx > 0) {
+            setActiveSubcategory(subcategories[subIdx - 1]);
+          } else if (activeSubcategory) {
+            setActiveSubcategory(null);
+          } else if (catIdx > 0) {
+            changeCategory(allCategories[catIdx - 1]);
+          }
+        }
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
   };
 
   const openCart = () => {
@@ -448,7 +574,9 @@ export default function CatalogScreen({
           <div className="relative flex-1 group">
             <Search
               size={16}
-              className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-orange-500' : 'text-gray-400'}`}
+              className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                search ? 'text-orange-500' : 'text-gray-400'
+              }`}
             />
 
             <input
@@ -475,7 +603,9 @@ export default function CatalogScreen({
             type="button"
             onClick={() => setShowSortMenu(current => !current)}
             className={`p-2.5 rounded-[20px] border transition-all ${
-              showSortMenu ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-inner' : 'bg-white border-gray-200 text-gray-600 active:scale-95'
+              showSortMenu
+                ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-inner'
+                : 'bg-white border-gray-200 text-gray-600 active:scale-95'
             }`}
             aria-label="Ordenar catálogo"
           >
@@ -486,8 +616,12 @@ export default function CatalogScreen({
         {showSortMenu && (
           <div className="absolute right-4 top-[58px] z-[180] w-64 bg-white rounded-[28px] border border-orange-100 shadow-2xl shadow-orange-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-4 py-3 bg-orange-50 border-b border-orange-100">
-              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Ordenar productos</p>
-              <p className="text-[10px] font-bold text-orange-500/70 mt-0.5">Actual: {selectedSort.label}</p>
+              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                Ordenar productos
+              </p>
+              <p className="text-[10px] font-bold text-orange-500/70 mt-0.5">
+                Actual: {selectedSort.label}
+              </p>
             </div>
 
             <div className="p-2">
@@ -504,16 +638,26 @@ export default function CatalogScreen({
                       setShowSortMenu(false);
                     }}
                     className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all active:scale-[0.98] ${
-                      active ? 'bg-orange-50 text-orange-600' : 'hover:bg-gray-50 text-gray-500'
+                      active
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'hover:bg-gray-50 text-gray-500'
                     }`}
                   >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${active ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        active ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
                       <Icon size={16} />
                     </div>
 
                     <div className="flex-1">
-                      <p className="text-xs font-black uppercase">{option.label}</p>
-                      <p className="text-[10px] font-bold opacity-70">{option.description}</p>
+                      <p className="text-xs font-black uppercase">
+                        {option.label}
+                      </p>
+                      <p className="text-[10px] font-bold opacity-70">
+                        {option.description}
+                      </p>
                     </div>
 
                     {active && <Check size={16} />}
@@ -533,8 +677,12 @@ export default function CatalogScreen({
             {searchResults.length === 0 ? (
               <div className="p-12 text-center text-gray-400">
                 <ShoppingBag size={38} className="mx-auto text-orange-200 mb-3" />
-                <p className="font-black text-gray-500 uppercase">No encontramos “{search}”</p>
-                <p className="text-xs font-bold text-gray-400 mt-2">Intenta buscar con otra palabra.</p>
+                <p className="font-black text-gray-500 uppercase">
+                  No encontramos “{search}”
+                </p>
+                <p className="text-xs font-bold text-gray-400 mt-2">
+                  Intenta buscar con otra palabra.
+                </p>
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-gray-50">
@@ -553,18 +701,32 @@ export default function CatalogScreen({
                         src={product.image || '/logo-final.png'}
                         alt={product.name}
                         className="w-16 h-14 object-contain bg-white rounded-xl border border-gray-100 p-1 shrink-0"
-                        loading="lazy"
+                        loading="eager"
                         decoding="async"
                       />
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-bold text-gray-900 truncate">{product.name}</p>
-                        <p className="text-[11px] font-bold uppercase text-orange-500 truncate">{getSubcategory(product)}</p>
-                        {!available && <p className="text-[9px] font-black text-red-500 uppercase mt-0.5">Agotado</p>}
+                        <p className="text-[15px] font-bold text-gray-900 truncate">
+                          {product.name}
+                        </p>
+
+                        <p className="text-[11px] font-bold uppercase text-orange-500 truncate">
+                          {getSubcategory(product)}
+                        </p>
+
+                        {!available && (
+                          <p className="text-[9px] font-black text-red-500 uppercase mt-0.5">
+                            Agotado
+                          </p>
+                        )}
                       </div>
 
                       <span className="text-[16px] font-black text-orange-600 whitespace-nowrap">
-                        {product.is_variable ? 'Por valor' : price > 0 ? `$${price.toFixed(2)}` : 'Consultar'}
+                        {product.is_variable
+                          ? 'Por valor'
+                          : price > 0
+                            ? `$${price.toFixed(2)}`
+                            : 'Consultar'}
                       </span>
                     </button>
                   );
@@ -582,9 +744,8 @@ export default function CatalogScreen({
                   key={category}
                   type="button"
                   onClick={() => changeCategory(category)}
-                  aria-current={activeCategory === category && !activeSubcategory ? 'page' : undefined}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                    activeCategory === category && !activeSubcategory
+                    activeCategory === category
                       ? 'bg-orange-500 text-white shadow-md'
                       : 'bg-gray-100 text-gray-500 active:scale-95'
                   }`}
@@ -605,7 +766,9 @@ export default function CatalogScreen({
                   type="button"
                   onClick={() => setActiveSubcategory(null)}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase transition-all border ${
-                    activeSubcategory === null ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm' : 'bg-white border-orange-200 text-gray-400'
+                    activeSubcategory === null
+                      ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm scale-105'
+                      : 'bg-white border-orange-200 text-gray-400'
                   }`}
                 >
                   Todos
@@ -617,7 +780,9 @@ export default function CatalogScreen({
                     type="button"
                     onClick={() => setActiveSubcategory(subcategory)}
                     className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase transition-all border ${
-                      activeSubcategory === subcategory ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm' : 'bg-white border-orange-200 text-gray-400'
+                      activeSubcategory === subcategory
+                        ? 'bg-orange-100 border-orange-400 text-orange-700 shadow-sm scale-105'
+                        : 'bg-white border-orange-200 text-gray-400'
                     }`}
                   >
                     {subcategory}
@@ -629,11 +794,20 @@ export default function CatalogScreen({
         )}
       </div>
 
-      <div className="px-3 pt-4 min-h-[80vh] flex flex-col">
+      <div
+        className="px-3 pt-4 min-h-[80vh] flex flex-col"
+        onTouchStart={event => {
+          touchStartX.current = event.touches[0].clientX;
+          touchStartY.current = event.touches[0].clientY;
+        }}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="flex items-center justify-between mb-4 px-1">
           <h3 className="text-sm font-black text-gray-800 uppercase flex items-center gap-1.5 min-w-0">
             <MapPin size={14} className="text-orange-500 flex-shrink-0" />
-            <span className="truncate">{activeSubcategory || activeCategory}</span>
+            <span className="truncate">
+              {activeSubcategory || activeCategory}
+            </span>
           </h3>
 
           <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-full">
@@ -644,33 +818,21 @@ export default function CatalogScreen({
         {displayedProducts.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8 py-16">
             <ShoppingBag size={48} className="text-orange-200 mb-4" />
-            <p className="font-black text-gray-700 uppercase">Sin productos aquí</p>
-            <p className="text-xs font-bold text-gray-400 leading-relaxed mt-2">Prueba otra subcategoría o vuelve a “Todos”.</p>
+            <p className="font-black text-gray-700 uppercase">
+              Sin productos aquí
+            </p>
+            <p className="text-xs font-bold text-gray-400 leading-relaxed mt-2">
+              Prueba otra subcategoría o vuelve a “Todos”.
+            </p>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 flex-1">
-              {visibleProducts.map(product => (
-                <div key={product.id} className="w-full min-w-0">
-                  <ProductCard product={product} />
-                </div>
-              ))}
-            </div>
-
-            <div ref={loadMoreRef} className="py-8 flex items-center justify-center">
-              {visibleProducts.length < displayedProducts.length ? (
-                <button
-                  type="button"
-                  onClick={() => setVisibleCount(current => Math.min(current + PAGE_SIZE, displayedProducts.length))}
-                  className="px-5 py-3 rounded-2xl bg-white border border-orange-100 text-orange-600 text-[11px] font-black uppercase shadow-sm active:scale-95 transition-transform"
-                >
-                  Cargar más productos
-                </button>
-              ) : (
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Fin del catálogo</span>
-              )}
-            </div>
-          </>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 flex-1">
+            {displayedProducts.map(product => (
+              <div key={product.id} className="w-full min-w-0">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -698,7 +860,9 @@ export default function CatalogScreen({
                         ? 'Subtotal elegido'
                         : 'Total del pedido'}
                   </span>
-                  <span className="font-black text-xl leading-none">${cartAnalytics.totalMoney.toFixed(2)}</span>
+                  <span className="font-black text-xl leading-none">
+                    ${cartAnalytics.totalMoney.toFixed(2)}
+                  </span>
                 </div>
               </div>
 
