@@ -19,6 +19,7 @@ import PollazoPlusModalLayerFix from './components/PollazoPlusModalLayerFix';
 import CartTextPolish from './components/CartTextPolish';
 import CartAvailabilityToast from './components/CartAvailabilityToast';
 import CartSmartScrollBridge from './components/CartSmartScrollBridge';
+import LocationVectorMapBridge from './components/LocationVectorMapBridge';
 import LocationMapMotionBridge from './components/LocationMapMotionBridge';
 import CatalogCartBarPolish from './components/CatalogCartBarPolish';
 import CatalogCompactVisualBridge from './components/CatalogCompactVisualBridge';
@@ -204,6 +205,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <SecurePanelGate>
+        <LocationVectorMapBridge />
         <App />
         <LegalModalNoAutoScroll />
         <InfoHelpCenterMount />
