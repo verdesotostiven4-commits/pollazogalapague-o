@@ -7,11 +7,8 @@ const cleanupIntrusiveMarketing = () => {
     node.remove();
   });
 
-  document.querySelectorAll('[data-pollazo-sales-card]').forEach(node => {
+  document.querySelectorAll('[data-pollazo-sales-card], [data-pollazo-plus-nudge]').forEach(node => {
     node.removeAttribute('data-pollazo-sales-card');
-  });
-
-  document.querySelectorAll('[data-pollazo-plus-nudge]').forEach(node => {
     node.removeAttribute('data-pollazo-plus-nudge');
   });
 };
@@ -40,19 +37,9 @@ export default function SalesMarketingBridge() {
     installStyles();
     cleanupIntrusiveMarketing();
 
-    const observer = new MutationObserver(() => {
-      window.requestAnimationFrame(cleanupIntrusiveMarketing);
-    });
-
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-
-    const timers = [80, 250, 700, 1400].map(delay => window.setTimeout(cleanupIntrusiveMarketing, delay));
+    const timers = [80, 250, 700, 1400, 2600].map(delay => window.setTimeout(cleanupIntrusiveMarketing, delay));
 
     return () => {
-      observer.disconnect();
       timers.forEach(timer => window.clearTimeout(timer));
     };
   }, []);
