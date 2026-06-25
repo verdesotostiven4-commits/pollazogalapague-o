@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
 const STYLE_ID = 'pollazo-location-map-smooth-pointer-style';
-const PATCH_FLAG = '__pollazoMovePatchInstalledV4';
-const TILE_PATCH_FLAG = '__pollazoTilePatchInstalledV1';
+const PATCH_FLAG = '__pollazoMovePatchInstalledV5';
+const TILE_PATCH_FLAG = '__pollazoTilePatchInstalledV2';
 
 type LeafletMapLike = {
   getContainer?: () => HTMLElement | null;
@@ -99,7 +99,7 @@ const markLocationModal = () => {
 
     if (!isCenterLayer) return;
 
-    const looksLikePin = className.includes('flex-col') || element.querySelector('svg');
+    const looksLikePin = className.includes('flex-col') || Boolean(element.querySelector('svg'));
     element.dataset[looksLikePin ? 'pollazoLocationPin' : 'pollazoLocationDot'] = 'true';
   });
 };
@@ -115,40 +115,54 @@ const isLocationMap = (map: unknown) => {
   }
 };
 
-const makeMoveHandlerLight = (handler: (...args: any[]) => void) => {
-  return function lightMoveHandler(this: unknown, ...args: any[]) {
-    if (isLocationMap(this)) return;
-    handler.apply(this, args);
-  };
-};
-
-const makeMoveEndHandlerLight = (handler: (...args: any[]) => void) => {
-  let timer = 0;
+const makeMoveHandlerSmooth = (handler: (...args: any[]) => void) => {
+  let timeout = 0;
+  let frame = 0;
+  let lastRun = 0;
   let lastArgs: any[] = [];
+  let lastThis: unknown = null;
 
-  return function lightMoveEndHandler(this: unknown, ...args: any[]) {
+  const run = () => {
+    timeout = 0;
+    frame = 0;
+    lastRun = performance.now();
+    handler.apply(lastThis, lastArgs);
+  };
+
+  return function smoothMoveHandler(this: unknown, ...args: any[]) {
     if (!isLocationMap(this)) {
       handler.apply(this, args);
       return;
     }
 
+    lastThis = this;
     lastArgs = args;
 
-    if (timer) {
-      window.clearTimeout(timer);
+    if (frame || timeout) return;
+
+    const elapsed = performance.now() - lastRun;
+
+    if (elapsed >= 140) {
+      frame = window.requestAnimationFrame(run);
+      return;
     }
 
-    timer = window.setTimeout(() => {
-      timer = 0;
-      handler.apply(this, lastArgs);
-    }, 90);
+    timeout = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(run);
+    }, 140 - elapsed);
   };
 };
 
-const makeMoveStartHandlerLight = (handler: (...args: any[]) => void) => {
+const makeMoveEndHandlerSmooth = (handler: (...args: any[]) => void) => {
+  return function smoothMoveEndHandler(this: unknown, ...args: any[]) {
+    handler.apply(this, args);
+  };
+};
+
+const makeMoveStartHandlerSmooth = (handler: (...args: any[]) => void) => {
   let lastRun = 0;
 
-  return function lightMoveStartHandler(this: unknown, ...args: any[]) {
+  return function smoothMoveStartHandler(this: unknown, ...args: any[]) {
     if (!isLocationMap(this)) {
       handler.apply(this, args);
       return;
@@ -156,7 +170,7 @@ const makeMoveStartHandlerLight = (handler: (...args: any[]) => void) => {
 
     const now = performance.now();
 
-    if (now - lastRun < 180) return;
+    if (now - lastRun < 120) return;
 
     lastRun = now;
     handler.apply(this, args);
@@ -176,15 +190,15 @@ const installLeafletEventPatch = () => {
   mapPrototype.on = function patchedLeafletOn(this: unknown, types: unknown, fn?: unknown, context?: unknown) {
     if (typeof fn === 'function') {
       if (types === 'move') {
-        return originalOn.call(this, types, makeMoveHandlerLight(fn as (...args: any[]) => void), context);
+        return originalOn.call(this, types, makeMoveHandlerSmooth(fn as (...args: any[]) => void), context);
       }
 
       if (types === 'moveend') {
-        return originalOn.call(this, types, makeMoveEndHandlerLight(fn as (...args: any[]) => void), context);
+        return originalOn.call(this, types, makeMoveEndHandlerSmooth(fn as (...args: any[]) => void), context);
       }
 
       if (types === 'movestart') {
-        return originalOn.call(this, types, makeMoveStartHandlerLight(fn as (...args: any[]) => void), context);
+        return originalOn.call(this, types, makeMoveStartHandlerSmooth(fn as (...args: any[]) => void), context);
       }
     }
 
@@ -235,20 +249,20 @@ export default function LocationMapMotionBridge() {
     };
 
     tryPatch();
+    markLocationModal();
 
-    let attempts = 0;
-    const modalTimer = window.setInterval(() => {
+    const observer = new MutationObserver(() => {
       markLocationModal();
-      attempts += 1;
+    });
 
-      if (attempts >= 40) {
-        window.clearInterval(modalTimer);
-      }
-    }, 150);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
     return () => {
       if (patchTimer) window.clearTimeout(patchTimer);
-      window.clearInterval(modalTimer);
+      observer.disconnect();
     };
   }, []);
 
