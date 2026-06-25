@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 
 const STYLE_ID = 'pollazo-location-map-smooth-pointer-style';
-const PATCH_FLAG = '__pollazoMovePatchInstalled';
+const PATCH_FLAG = '__pollazoMovePatchInstalledV2';
+
+type LeafletMapLike = {
+  getContainer?: () => HTMLElement | null;
+};
 
 type LeafletLike = {
   Map?: {
@@ -34,11 +38,17 @@ const installStyles = () => {
   style.textContent = `
     .pollazo-location-map-modal .leaflet-container,
     .pollazo-location-map-modal .leaflet-pane,
+    .pollazo-location-map-modal .leaflet-map-pane,
     .pollazo-location-map-modal .leaflet-tile-container {
       backface-visibility: hidden !important;
       -webkit-backface-visibility: hidden !important;
       transform-style: preserve-3d !important;
       will-change: transform !important;
+    }
+
+    .pollazo-location-map-modal .leaflet-container {
+      touch-action: none !important;
+      contain: layout paint style !important;
     }
 
     .pollazo-location-map-modal .leaflet-tile {
@@ -58,6 +68,18 @@ const findLocationModal = () => {
   );
 };
 
+const isLocationMap = (map: unknown) => {
+  try {
+    const container = (map as LeafletMapLike)?.getContainer?.();
+    const modal = container?.closest<HTMLElement>('.pollazo-location-map-modal') || container?.closest<HTMLElement>('div.fixed');
+    const text = normalize(modal?.textContent);
+
+    return Boolean(text.includes('confirmar direccion') && text.includes('puerto ayora'));
+  } catch {
+    return false;
+  }
+};
+
 const lowerPointer = () => {
   const modal = findLocationModal();
   if (!modal) return;
@@ -73,37 +95,18 @@ const lowerPointer = () => {
 
     if (!isCenterLayer) return;
 
-    element.style.setProperty('top', 'calc(50% + 22px)', 'important');
+    element.style.setProperty('top', 'calc(50% + 38px)', 'important');
     element.style.setProperty('will-change', 'transform, opacity', 'important');
   });
 };
 
-const throttleMoveHandler = (handler: (...args: any[]) => void) => {
-  let raf = 0;
-  let lastArgs: any[] | null = null;
-  let lastRun = 0;
-
-  return function throttledMove(this: unknown, ...args: any[]) {
-    lastArgs = args;
-    const now = performance.now();
-
-    if (now - lastRun < 140) {
-      if (!raf) {
-        raf = window.requestAnimationFrame(() => {
-          raf = 0;
-        });
-      }
+const makeMoveHandlerLight = (handler: (...args: any[]) => void) => {
+  return function lightMoveHandler(this: unknown, ...args: any[]) {
+    if (isLocationMap(this)) {
       return;
     }
 
-    lastRun = now;
-
-    if (raf) {
-      window.cancelAnimationFrame(raf);
-      raf = 0;
-    }
-
-    handler.apply(this, lastArgs);
+    handler.apply(this, args);
   };
 };
 
@@ -119,7 +122,7 @@ const installLeafletMovePatch = () => {
 
   mapPrototype.on = function patchedLeafletOn(this: unknown, types: unknown, fn?: unknown, context?: unknown) {
     if (types === 'move' && typeof fn === 'function') {
-      return originalOn.call(this, types, throttleMoveHandler(fn as (...args: any[]) => void), context);
+      return originalOn.call(this, types, makeMoveHandlerLight(fn as (...args: any[]) => void), context);
     }
 
     return originalOn.apply(this, arguments as any);
@@ -142,31 +145,23 @@ export default function LocationMapMotionBridge() {
     };
 
     tryPatch();
-    lowerPointer();
 
-    let raf = 0;
-    const schedulePointerPolish = () => {
-      if (raf) return;
+    let attempts = 0;
+    const pointerTimer = window.setInterval(() => {
+      lowerPointer();
+      attempts += 1;
 
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        lowerPointer();
-      });
-    };
+      if (attempts >= 24) {
+        window.clearInterval(pointerTimer);
+      }
+    }, 250);
 
-    const observer = new MutationObserver(schedulePointerPolish);
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    const timers = [150, 450, 900, 1500].map(delay => window.setTimeout(schedulePointerPolish, delay));
+    window.addEventListener('pollazo:location-map-open', lowerPointer as EventListener);
 
     return () => {
       if (patchTimer) window.clearTimeout(patchTimer);
-      if (raf) window.cancelAnimationFrame(raf);
-      timers.forEach(timer => window.clearTimeout(timer));
-      observer.disconnect();
+      window.clearInterval(pointerTimer);
+      window.removeEventListener('pollazo:location-map-open', lowerPointer as EventListener);
     };
   }, []);
 
