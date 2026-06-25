@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import LocationSmoothZoomPatch from './LocationSmoothZoomPatch';
 
 function protectErrorRetry() {
   const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
@@ -47,5 +46,5 @@ export default function ErrorRetryGuard() {
     };
   }, []);
 
-  return <LocationSmoothZoomPatch />;
+  return null;
 }
