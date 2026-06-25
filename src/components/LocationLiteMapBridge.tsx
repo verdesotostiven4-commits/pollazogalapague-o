@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 const STYLE_ID = 'pollazo-lite-location-map-style';
 const TILE = 256;
 const PIN_OFFSET_Y = 64;
-const MOVE_MS = 90;
+const MOVE_MS = 70;
 const ZOOM_MS = 170;
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SUBS = ['a', 'b', 'c'];
@@ -130,8 +130,7 @@ class LiteMap {
   startCenterPx: Point | null = null;
   pinchDistance = 0;
   pinchZoom = 0;
-  panFrame = 0;
-  zoomFrame = 0;
+  renderFrame = 0;
   moveTimer = 0;
   zoomAnimation = 0;
   dragging = false;
@@ -197,6 +196,14 @@ class LiteMap {
     }, MOVE_MS);
   }
 
+  scheduleRender() {
+    if (this.renderFrame) return;
+    this.renderFrame = window.requestAnimationFrame(() => {
+      this.renderFrame = 0;
+      this.render();
+    });
+  }
+
   getCenter() { return { ...this.center }; }
   getZoom() { return this.zoom; }
 
@@ -205,14 +212,6 @@ class LiteMap {
       window.cancelAnimationFrame(this.zoomAnimation);
       this.zoomAnimation = 0;
     }
-  }
-
-  scheduleZoomRender() {
-    if (this.zoomFrame) return;
-    this.zoomFrame = window.requestAnimationFrame(() => {
-      this.zoomFrame = 0;
-      this.render();
-    });
   }
 
   animateZoom(target: number) {
@@ -266,8 +265,7 @@ class LiteMap {
 
   remove() {
     this.cancelZoomAnimation();
-    if (this.panFrame) window.cancelAnimationFrame(this.panFrame);
-    if (this.zoomFrame) window.cancelAnimationFrame(this.zoomFrame);
+    if (this.renderFrame) window.cancelAnimationFrame(this.renderFrame);
     if (this.moveTimer) window.clearTimeout(this.moveTimer);
     this.container.removeEventListener('pointerdown', this.down);
     this.container.removeEventListener('pointermove', this.move);
@@ -302,15 +300,6 @@ class LiteMap {
     });
   }
 
-  resetTransform() {
-    this.tiles.style.transition = '';
-    this.marks.style.transition = '';
-    this.tiles.style.transformOrigin = '';
-    this.marks.style.transformOrigin = '';
-    this.tiles.style.transform = 'translate3d(0,0,0)';
-    this.marks.style.transform = 'translate3d(0,0,0)';
-  }
-
   render() {
     const box = this.container.getBoundingClientRect();
     const width = Math.max(box.width, 1);
@@ -324,13 +313,18 @@ class LiteMap {
     const visibleTop = selected.y - screen.y / tileScale;
     const visibleRight = selected.x + (width - screen.x) / tileScale;
     const visibleBottom = selected.y + (height - screen.y) / tileScale;
-    const startX = Math.floor(visibleLeft / TILE) - 1;
-    const endX = Math.floor(visibleRight / TILE) + 1;
-    const startY = Math.floor(visibleTop / TILE) - 1;
-    const endY = Math.floor(visibleBottom / TILE) + 1;
+    const startX = Math.floor(visibleLeft / TILE) - 2;
+    const endX = Math.floor(visibleRight / TILE) + 2;
+    const startY = Math.floor(visibleTop / TILE) - 2;
+    const endY = Math.floor(visibleBottom / TILE) + 2;
     const liveKeys = new Set<string>();
 
-    this.resetTransform();
+    this.tiles.style.transition = '';
+    this.tiles.style.transformOrigin = `${screen.x}px ${screen.y}px`;
+    this.tiles.style.transform = `translate3d(0,0,0) scale(${tileScale})`;
+    this.marks.style.transition = '';
+    this.marks.style.transformOrigin = '';
+    this.marks.style.transform = 'translate3d(0,0,0)';
 
     for (let x = startX; x <= endX; x += 1) {
       for (let y = startY; y <= endY; y += 1) {
@@ -352,12 +346,11 @@ class LiteMap {
           this.tiles.appendChild(img);
         }
 
-        const left = screen.x + (x * TILE - selected.x) * tileScale;
-        const top = screen.y + (y * TILE - selected.y) * tileScale;
-        const size = TILE * tileScale;
-        img.style.width = `${size}px`;
-        img.style.height = `${size}px`;
-        img.style.transform = `translate3d(${left}px,${top}px,0)`;
+        const left = screen.x + (x * TILE - selected.x);
+        const top = screen.y + (y * TILE - selected.y);
+        img.style.width = `${TILE}px`;
+        img.style.height = `${TILE}px`;
+        img.style.transform = `translate3d(${Math.round(left)}px,${Math.round(top)}px,0)`;
       }
     }
 
@@ -401,7 +394,7 @@ class LiteMap {
         const nextZoom = clamp(this.pinchZoom + Math.log2(current / this.pinchDistance), this.minZoom, this.maxZoom);
         if (Math.abs(nextZoom - this.zoom) > 0.002) {
           this.zoom = nextZoom;
-          this.scheduleZoomRender();
+          this.scheduleRender();
           this.emitMoveSoon();
         }
       }
@@ -412,16 +405,7 @@ class LiteMap {
     const dx = event.clientX - this.startPointer.x;
     const dy = event.clientY - this.startPointer.y;
     this.center = unproject(this.startCenterPx.x - dx, this.startCenterPx.y - dy, this.zoom);
-
-    if (!this.panFrame) {
-      this.panFrame = window.requestAnimationFrame(() => {
-        this.panFrame = 0;
-        this.tiles.style.transition = '';
-        this.marks.style.transition = '';
-        this.tiles.style.transform = `translate3d(${dx}px,${dy}px,0)`;
-        this.marks.style.transform = `translate3d(${dx}px,${dy}px,0)`;
-      });
-    }
+    this.scheduleRender();
     this.emitMoveSoon();
   };
 
