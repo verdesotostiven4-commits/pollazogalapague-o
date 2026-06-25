@@ -14,9 +14,7 @@ function Particle({ startX, startY, cartX, cartY }: ParticleProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setActive(true));
-    });
+    const frame = requestAnimationFrame(() => setActive(true));
     return () => cancelAnimationFrame(frame);
   }, []);
 
@@ -25,9 +23,9 @@ function Particle({ startX, startY, cartX, cartY }: ParticleProps) {
 
   const style: React.CSSProperties = active
     ? {
-        transform: `translate(${dx}px, ${dy}px) scale(0.3)`,
+        transform: `translate(${dx}px, ${dy}px) scale(0.22)`,
         opacity: 0,
-        transition: 'transform 0.9s cubic-bezier(0.22, 0.68, 0, 1.2), opacity 0.9s ease-in',
+        transition: 'transform 0.54s cubic-bezier(0.2, 0.85, 0.16, 1), opacity 0.54s ease-out',
       }
     : {
         transform: 'translate(0px, 0px) scale(1)',
@@ -40,22 +38,20 @@ function Particle({ startX, startY, cartX, cartY }: ParticleProps) {
       ref={ref}
       className="fixed pointer-events-none z-[9999]"
       style={{
-        left: startX - 18,
-        top: startY - 18,
-        width: 36,
-        height: 36,
+        left: startX - 14,
+        top: startY - 14,
+        width: 28,
+        height: 28,
+        willChange: 'transform, opacity',
         ...style,
       }}
     >
-      <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 shadow-lg shadow-orange-500/50 flex items-center justify-center border-2 border-orange-300/60"
+      <div
+        className="w-full h-full rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 shadow-lg shadow-orange-500/40 flex items-center justify-center border-2 border-white/80"
         style={{ backdropFilter: 'blur(2px)' }}
       >
-        <div className="w-2 h-2 rounded-full bg-white/80" />
+        <div className="w-2 h-2 rounded-full bg-white/90" />
       </div>
-      <div
-        className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-300/60 to-yellow-300/30 animate-ping"
-        style={{ animationDuration: '0.8s', animationIterationCount: 1 }}
-      />
     </div>
   );
 }
@@ -65,20 +61,31 @@ export default function FlyParticleLayer() {
   const [cartPos, setCartPos] = useState({ x: window.innerWidth - 60, y: 30 });
 
   useEffect(() => {
+    let raf = 0;
+
     const update = () => {
-      if (cartRef?.current) {
-        const rect = cartRef.current.getBoundingClientRect();
-        setCartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-      }
+      if (raf) return;
+
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+
+        if (cartRef?.current) {
+          const rect = cartRef.current.getBoundingClientRect();
+          setCartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+        }
+      });
     };
+
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { passive: true });
+
     return () => {
+      if (raf) window.cancelAnimationFrame(raf);
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update);
     };
-  }, [cartRef]);
+  }, [cartRef, particles.length]);
 
   return (
     <>
