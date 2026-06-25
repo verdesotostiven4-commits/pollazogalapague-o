@@ -54,12 +54,12 @@ const patchLeafletMoveHandlers = () => {
   const originalOn = mapPrototype.on;
   if (typeof originalOn !== 'function') return false;
 
-  mapPrototype.on = function patchedOn(types: unknown, fn: unknown, context?: unknown) {
+  mapPrototype.on = function patchedOn(this: unknown, types: unknown, fn: unknown, context?: unknown) {
     const typeText = typeof types === 'string' ? types : '';
     const onlyMove = typeText.split(/\s+/).includes('move') && typeof fn === 'function';
 
     if (!onlyMove) {
-      return originalOn.apply(this, arguments as unknown as Parameters<typeof originalOn>);
+      return originalOn.apply(this, arguments as any);
     }
 
     let raf = 0;
