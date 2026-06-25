@@ -50,6 +50,24 @@ const readCartItems = (): CartItem[] => {
   }
 };
 
+const visibleText = (element: Element | null) => normalize((element as HTMLElement | null)?.innerText || element?.textContent || '');
+
+const isCatalogScreenActive = () => {
+  if (typeof document === 'undefined') return false;
+
+  const nav = document.querySelector('nav[aria-label="Navegación principal"]');
+  const activeNavText = visibleText(nav?.querySelector('[aria-current="page"]') || null);
+  const headerText = visibleText(document.querySelector('header'));
+  const bodyText = visibleText(document.body);
+
+  if (activeNavText.includes('info') || headerText.includes('informacion') || bodyText.includes('contacto directo')) return false;
+  if (activeNavText.includes('carrito') || headerText.includes('carrito') || bodyText.includes('tus productos')) return false;
+  if (activeNavText.includes('pedido') || headerText.includes('pedidos')) return false;
+  if (activeNavText.includes('inicio') || headerText.includes('la casa del pollazo')) return false;
+
+  return activeNavText.includes('catalogo') || headerText.includes('catalogo');
+};
+
 const isRecommendationCandidate = (product: Product) => {
   if (product.available === false || product.is_variable) return false;
 
@@ -80,12 +98,13 @@ const isRecommendationCandidate = (product: Product) => {
 };
 
 const findCatalogHost = () => {
+  if (!isCatalogScreenActive()) {
+    document.getElementById(HOST_ID)?.remove();
+    return null;
+  }
+
   const existing = document.getElementById(HOST_ID);
   if (existing) return existing;
-
-  const body = normalize(document.body.textContent);
-  if (!body.includes('catalogo') && !body.includes('catálogo')) return null;
-  if (body.includes('carrito') && body.includes('tus productos')) return null;
 
   const sectionTitle = Array.from(document.querySelectorAll<HTMLElement>('h2, h3, p')).find(heading => {
     const text = normalize(heading.textContent);
@@ -138,10 +157,15 @@ export default function CatalogTodayDealsStrip() {
 
     const timers = [120, 400, 900, 1600].map(delay => window.setTimeout(syncHost, delay));
 
+    window.addEventListener('click', syncHost, true);
+    window.addEventListener('popstate', syncHost);
+
     return () => {
       observer.disconnect();
       window.clearInterval(interval);
       timers.forEach(timer => window.clearTimeout(timer));
+      window.removeEventListener('click', syncHost, true);
+      window.removeEventListener('popstate', syncHost);
       document.getElementById(HOST_ID)?.remove();
     };
   }, []);
@@ -195,8 +219,7 @@ export default function CatalogTodayDealsStrip() {
   if (!host || cards.length < 3) return null;
 
   const bodyText = normalize(document.body.textContent);
-  const isCatalogScreen = bodyText.includes('catalogo') || bodyText.includes('catálogo');
-  if (!isCatalogScreen || bodyText.includes('pedido registrado') || bodyText.includes('carrito bloqueado')) return null;
+  if (!isCatalogScreenActive() || bodyText.includes('pedido registrado') || bodyText.includes('carrito bloqueado')) return null;
 
   const title = hasRealPromotions ? 'Ofertas de hoy' : 'Para completar tu pedido';
   const subtitle = hasRealPromotions
