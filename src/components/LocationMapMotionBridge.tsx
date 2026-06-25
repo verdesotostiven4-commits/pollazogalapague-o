@@ -105,7 +105,11 @@ const patchLeafletPerformance = () => {
   const originalTileLayer = leaflet.tileLayer;
   const originalOn = leaflet.Map.prototype.on;
 
-  leaflet.map = function pollazoMapFactory(element: unknown, options?: Record<string, unknown>) {
+  leaflet.map = function pollazoMapFactory(
+    this: unknown,
+    element: unknown,
+    options?: Record<string, unknown>
+  ) {
     return originalMap.call(this, element, {
       ...(options || {}),
       preferCanvas: true,
@@ -114,7 +118,11 @@ const patchLeafletPerformance = () => {
     });
   };
 
-  leaflet.tileLayer = function pollazoTileLayerFactory(url: string, options?: Record<string, unknown>) {
+  leaflet.tileLayer = function pollazoTileLayerFactory(
+    this: unknown,
+    url: string,
+    options?: Record<string, unknown>
+  ) {
     return originalTileLayer.call(this, url, {
       ...(options || {}),
       updateWhenIdle: true,
@@ -124,23 +132,31 @@ const patchLeafletPerformance = () => {
     });
   };
 
-  leaflet.Map.prototype.on = function pollazoMapOn(type: unknown, handler?: unknown, context?: unknown) {
+  leaflet.Map.prototype.on = function pollazoMapOn(
+    this: unknown,
+    type: unknown,
+    handler?: unknown,
+    context?: unknown
+  ) {
     if (type === 'move' && typeof handler === 'function') {
       return originalOn.call(this, type, wrapMoveHandler(handler as (...args: any[]) => any, context), context);
     }
 
     if (type && typeof type === 'object' && typeof (type as Record<string, unknown>).move === 'function') {
+      const listenerMap = type as Record<string, unknown>;
+      const moveHandler = listenerMap.move as (...args: any[]) => any;
+
       return originalOn.call(
         this,
         {
-          ...(type as Record<string, unknown>),
-          move: wrapMoveHandler((type as Record<string, (...args: any[]) => any>).move, handler),
+          ...listenerMap,
+          move: wrapMoveHandler(moveHandler, handler),
         },
         handler
       );
     }
 
-    return originalOn.apply(this, arguments as any);
+    return originalOn.call(this, type, handler, context);
   };
 
   return true;
