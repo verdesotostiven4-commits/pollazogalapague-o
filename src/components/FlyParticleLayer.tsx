@@ -23,9 +23,9 @@ function Particle({ startX, startY, cartX, cartY }: ParticleProps) {
 
   const style: React.CSSProperties = active
     ? {
-        transform: `translate(${dx}px, ${dy}px) scale(0.22)`,
+        transform: `translate(${dx}px, ${dy}px) scale(0.2)`,
         opacity: 0,
-        transition: 'transform 0.54s cubic-bezier(0.2, 0.85, 0.16, 1), opacity 0.54s ease-out',
+        transition: 'transform 0.38s cubic-bezier(0.18, 0.9, 0.2, 1), opacity 0.38s ease-out',
       }
     : {
         transform: 'translate(0px, 0px) scale(1)',
@@ -46,10 +46,7 @@ function Particle({ startX, startY, cartX, cartY }: ParticleProps) {
         ...style,
       }}
     >
-      <div
-        className="w-full h-full rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 shadow-lg shadow-orange-500/40 flex items-center justify-center border-2 border-white/80"
-        style={{ backdropFilter: 'blur(2px)' }}
-      >
+      <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 shadow-lg shadow-orange-500/40 flex items-center justify-center border-2 border-white/80">
         <div className="w-2 h-2 rounded-full bg-white/90" />
       </div>
     </div>
@@ -61,30 +58,10 @@ export default function FlyParticleLayer() {
   const [cartPos, setCartPos] = useState({ x: window.innerWidth - 60, y: 30 });
 
   useEffect(() => {
-    let raf = 0;
-
-    const update = () => {
-      if (raf) return;
-
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-
-        if (cartRef?.current) {
-          const rect = cartRef.current.getBoundingClientRect();
-          setCartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-        }
-      });
-    };
-
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, { passive: true });
-
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update);
-    };
+    if (cartRef?.current) {
+      const rect = cartRef.current.getBoundingClientRect();
+      setCartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    }
   }, [cartRef, particles.length]);
 
   return (
