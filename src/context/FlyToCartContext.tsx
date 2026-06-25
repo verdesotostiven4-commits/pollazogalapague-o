@@ -30,16 +30,17 @@ export function FlyToCartProvider({ children }: { children: ReactNode }) {
 
   const triggerFly = useCallback((startX: number, startY: number, image: string) => {
     const id = nextId++;
-    setParticles(prev => [...prev, { id, startX, startY, image }]);
 
-    setTimeout(() => {
+    setParticles(prev => [...prev.slice(-2), { id, startX, startY, image }]);
+
+    window.setTimeout(() => {
       setCartPop(true);
-      setTimeout(() => setCartPop(false), 500);
-    }, 820);
+      window.setTimeout(() => setCartPop(false), 260);
+    }, 360);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setParticles(prev => prev.filter(p => p.id !== id));
-    }, 1100);
+    }, 720);
   }, []);
 
   return (
