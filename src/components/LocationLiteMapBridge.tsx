@@ -109,7 +109,7 @@ class LiteMarker {
   remove() {
     this.el.remove();
     this.map?.markers.delete(this);
-    map = null;
+    this.map = null;
   }
 }
 
