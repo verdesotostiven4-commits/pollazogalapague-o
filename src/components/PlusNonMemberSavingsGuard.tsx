@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import LocationLiteMapBridge from './LocationLiteMapBridge';
 
 function visibleText(element: Element | null) {
   return ((element as HTMLElement | null)?.innerText || '').toLowerCase();
@@ -62,5 +63,5 @@ export default function PlusNonMemberSavingsGuard() {
     };
   }, []);
 
-  return null;
+  return <LocationLiteMapBridge />;
 }
