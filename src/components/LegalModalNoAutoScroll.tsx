@@ -3,6 +3,12 @@ import { createPortal } from 'react-dom';
 import { CheckCircle2 } from 'lucide-react';
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
+const PROXY_ACCEPT_ATTR = 'data-pollazo-legal-proxy-accept';
+
+function hasAcceptedLegal() {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(LEGAL_ACCEPTED_KEY) === '1';
+}
 
 function getLegalScroll(): HTMLElement | null {
   return document.querySelector('.pollazo-legal-scroll') as HTMLElement | null;
@@ -18,8 +24,30 @@ function getOriginalAcceptButton(): HTMLButtonElement | null {
 
   return (
     buttons.find(button => {
+      if (button.getAttribute(PROXY_ACCEPT_ATTR) === '1') return false;
+
       const text = button.innerText?.toLowerCase() || '';
-      return text.includes('acept') || text.includes('accept');
+      const isAccept = text.includes('acept') || text.includes('accept');
+      const isCloseReading = text.includes('cerrar') || text.includes('close');
+
+      return isAccept && !isCloseReading;
+    }) || null
+  );
+}
+
+function getOriginalCloseButton(): HTMLButtonElement | null {
+  const scroll = getLegalScroll();
+  const modal = scroll?.closest('section') || scroll?.parentElement;
+  const buttons = Array.from((modal || document).querySelectorAll('button')) as HTMLButtonElement[];
+
+  return (
+    buttons.find(button => {
+      if (button.getAttribute(PROXY_ACCEPT_ATTR) === '1') return false;
+
+      const aria = (button.getAttribute('aria-label') || '').toLowerCase();
+      const text = (button.innerText || '').toLowerCase();
+
+      return aria.includes('cerrar') || aria.includes('close') || text.includes('cerrar lectura') || text.includes('close');
     }) || null
   );
 }
@@ -32,6 +60,7 @@ function getOriginalArrowButton(): HTMLElement | null {
 export default function LegalModalNoAutoScroll() {
   const [acceptUnlocked, setAcceptUnlocked] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [accepted, setAccepted] = useState(() => hasAcceptedLegal());
 
   useEffect(() => {
     let lockUntil = 0;
@@ -67,17 +96,25 @@ export default function LegalModalNoAutoScroll() {
     };
 
     const keepAcceptAboveArrow = () => {
+      if (hasAcceptedLegal()) {
+        setAccepted(true);
+        setMounted(false);
+        setAcceptUnlocked(false);
+        return;
+      }
+
       const footer = getLegalFooter();
       const originalAccept = getOriginalAcceptButton();
+      const originalClose = getOriginalCloseButton();
       const originalArrow = getOriginalArrowButton();
-      const hasAccept = Boolean(footer || originalAccept || acceptWasUnlocked);
+      const hasRequiredAccept = Boolean(footer && originalAccept && !originalClose);
 
-      if (footer || originalAccept) {
+      if (hasRequiredAccept) {
         acceptWasUnlocked = true;
         setAcceptUnlocked(true);
       }
 
-      if (hasAccept && originalArrow) {
+      if ((hasRequiredAccept || acceptWasUnlocked) && originalArrow) {
         originalArrow.style.display = 'none';
         originalArrow.style.pointerEvents = 'none';
       }
@@ -85,9 +122,24 @@ export default function LegalModalNoAutoScroll() {
 
     const loop = () => {
       const scroll = getLegalScroll();
-      setMounted(Boolean(scroll));
+      const legalAccepted = hasAcceptedLegal();
+      setAccepted(legalAccepted);
 
-      if (scroll) {
+      if (legalAccepted) {
+        setMounted(false);
+        setAcceptUnlocked(false);
+        lastScroll = null;
+        unlockedByUser = false;
+        acceptWasUnlocked = false;
+        lockUntil = 0;
+        frame = window.requestAnimationFrame(loop);
+        return;
+      }
+
+      const hasReadOnlyClose = Boolean(scroll && getOriginalCloseButton());
+      setMounted(Boolean(scroll && !hasReadOnlyClose));
+
+      if (scroll && !hasReadOnlyClose) {
         startLock(scroll);
         keepAcceptAboveArrow();
 
@@ -141,16 +193,20 @@ export default function LegalModalNoAutoScroll() {
   const handleAccept = () => {
     const originalButton = getOriginalAcceptButton();
 
+    window.localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
+    setAccepted(true);
+    setMounted(false);
+    setAcceptUnlocked(false);
+
     if (originalButton) {
       originalButton.click();
       return;
     }
 
-    window.localStorage.setItem(LEGAL_ACCEPTED_KEY, '1');
-    window.location.reload();
+    getOriginalCloseButton()?.click();
   };
 
-  if (!mounted || !acceptUnlocked) return null;
+  if (accepted || !mounted || !acceptUnlocked) return null;
 
   return createPortal(
     <div className="fixed inset-x-0 bottom-0 z-[13050] bg-white/95 border-t border-orange-100 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+14px)] shadow-[0_-10px_30px_rgba(251,146,60,0.16)]">
@@ -160,6 +216,7 @@ export default function LegalModalNoAutoScroll() {
 
       <button
         type="button"
+        data-pollazo-legal-proxy-accept="1"
         onClick={handleAccept}
         className="w-full max-w-lg mx-auto bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-5 rounded-[26px] font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-xl shadow-orange-200 border-b-4 border-orange-600 flex items-center justify-center gap-2"
       >
