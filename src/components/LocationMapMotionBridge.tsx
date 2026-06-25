@@ -1,27 +1,14 @@
 import { useEffect } from 'react';
 
-const STYLE_ID = 'pollazo-location-map-smooth-pointer-style';
-const PATCH_FLAG = '__pollazoMovePatchInstalledV5';
-const TILE_PATCH_FLAG = '__pollazoTilePatchInstalledV2';
-
-type LeafletMapLike = {
-  getContainer?: () => HTMLElement | null;
-};
+const STYLE_ID = 'pollazo-location-map-pointer-position-style';
 
 type LeafletLike = {
-  Map?: {
-    prototype?: {
-      on?: (...args: any[]) => any;
-    };
-  };
   tileLayer?: (...args: any[]) => any;
 };
 
 declare global {
   interface Window {
     L?: LeafletLike;
-    [PATCH_FLAG]?: boolean;
-    [TILE_PATCH_FLAG]?: boolean;
   }
 }
 
@@ -51,23 +38,17 @@ const installStyles = () => {
 
     .pollazo-location-map-modal .leaflet-container {
       touch-action: none !important;
-      contain: layout paint style !important;
-    }
-
-    .pollazo-location-map-modal .leaflet-tile {
-      image-rendering: auto !important;
+      background: #f8fafc !important;
     }
 
     .pollazo-location-map-modal [data-pollazo-location-pin='true'] {
-      top: calc(50% + 50px) !important;
+      top: calc(50% + 54px) !important;
       will-change: transform, opacity !important;
-      transform: translate3d(-50%, -100%, 0) !important;
     }
 
     .pollazo-location-map-modal [data-pollazo-location-dot='true'] {
-      top: calc(50% + 50px) !important;
+      top: calc(50% + 54px) !important;
       will-change: transform, opacity !important;
-      transform: translate3d(-50%, -50%, 0) !important;
     }
   `;
 
@@ -104,156 +85,14 @@ const markLocationModal = () => {
   });
 };
 
-const isLocationMap = (map: unknown) => {
-  if (typeof map !== 'object' || map === null) return false;
-
-  try {
-    const container = (map as LeafletMapLike)?.getContainer?.();
-    return Boolean(container?.closest?.('.pollazo-location-map-modal'));
-  } catch {
-    return false;
-  }
-};
-
-const makeMoveHandlerSmooth = (handler: (...args: any[]) => void) => {
-  let timeout = 0;
-  let frame = 0;
-  let lastRun = 0;
-  let lastArgs: any[] = [];
-  let lastThis: unknown = null;
-
-  const run = () => {
-    timeout = 0;
-    frame = 0;
-    lastRun = performance.now();
-    handler.apply(lastThis, lastArgs);
-  };
-
-  return function smoothMoveHandler(this: unknown, ...args: any[]) {
-    if (!isLocationMap(this)) {
-      handler.apply(this, args);
-      return;
-    }
-
-    lastThis = this;
-    lastArgs = args;
-
-    if (frame || timeout) return;
-
-    const elapsed = performance.now() - lastRun;
-
-    if (elapsed >= 140) {
-      frame = window.requestAnimationFrame(run);
-      return;
-    }
-
-    timeout = window.setTimeout(() => {
-      frame = window.requestAnimationFrame(run);
-    }, 140 - elapsed);
-  };
-};
-
-const makeMoveEndHandlerSmooth = (handler: (...args: any[]) => void) => {
-  return function smoothMoveEndHandler(this: unknown, ...args: any[]) {
-    handler.apply(this, args);
-  };
-};
-
-const makeMoveStartHandlerSmooth = (handler: (...args: any[]) => void) => {
-  let lastRun = 0;
-
-  return function smoothMoveStartHandler(this: unknown, ...args: any[]) {
-    if (!isLocationMap(this)) {
-      handler.apply(this, args);
-      return;
-    }
-
-    const now = performance.now();
-
-    if (now - lastRun < 120) return;
-
-    lastRun = now;
-    handler.apply(this, args);
-  };
-};
-
-const installLeafletEventPatch = () => {
-  if (window[PATCH_FLAG]) return true;
-
-  const leaflet = window.L;
-  const mapPrototype = leaflet?.Map?.prototype;
-
-  if (!mapPrototype?.on) return false;
-
-  const originalOn = mapPrototype.on;
-
-  mapPrototype.on = function patchedLeafletOn(this: unknown, types: unknown, fn?: unknown, context?: unknown) {
-    if (typeof fn === 'function') {
-      if (types === 'move') {
-        return originalOn.call(this, types, makeMoveHandlerSmooth(fn as (...args: any[]) => void), context);
-      }
-
-      if (types === 'moveend') {
-        return originalOn.call(this, types, makeMoveEndHandlerSmooth(fn as (...args: any[]) => void), context);
-      }
-
-      if (types === 'movestart') {
-        return originalOn.call(this, types, makeMoveStartHandlerSmooth(fn as (...args: any[]) => void), context);
-      }
-    }
-
-    return originalOn.apply(this, arguments as any);
-  };
-
-  window[PATCH_FLAG] = true;
-  return true;
-};
-
-const installTilePatch = () => {
-  if (window[TILE_PATCH_FLAG]) return true;
-
-  const leaflet = window.L;
-
-  if (!leaflet?.tileLayer) return false;
-
-  const originalTileLayer = leaflet.tileLayer;
-
-  leaflet.tileLayer = function patchedTileLayer(url: string, options?: Record<string, unknown>) {
-    return originalTileLayer.call(this, url, {
-      updateWhenIdle: true,
-      updateWhenZooming: false,
-      keepBuffer: 1,
-      ...options,
-      detectRetina: false,
-    });
-  };
-
-  window[TILE_PATCH_FLAG] = true;
-  return true;
-};
-
 export default function LocationMapMotionBridge() {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
     installStyles();
-
-    let patchTimer = 0;
-    const tryPatch = () => {
-      const eventsReady = installLeafletEventPatch();
-      const tilesReady = installTilePatch();
-
-      if (eventsReady && tilesReady) return;
-
-      patchTimer = window.setTimeout(tryPatch, 120);
-    };
-
-    tryPatch();
     markLocationModal();
 
-    const observer = new MutationObserver(() => {
-      markLocationModal();
-    });
+    const observer = new MutationObserver(markLocationModal);
 
     observer.observe(document.body, {
       childList: true,
@@ -261,7 +100,6 @@ export default function LocationMapMotionBridge() {
     });
 
     return () => {
-      if (patchTimer) window.clearTimeout(patchTimer);
       observer.disconnect();
     };
   }, []);
