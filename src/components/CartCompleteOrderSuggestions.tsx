@@ -52,6 +52,48 @@ const hasPlusActive = () => {
   return body.includes('pollazo plus activo') || body.includes('delivery gratis aplicado') || body.includes('plus activo');
 };
 
+const getActiveTabText = () => {
+  if (typeof document === 'undefined') return '';
+
+  const activeTab = document.querySelector<HTMLElement>('nav[aria-label="Navegación principal"] button[aria-current="page"]');
+  return normalized(activeTab?.textContent || activeTab?.getAttribute('aria-label') || '');
+};
+
+const getHeaderTitleText = () => {
+  if (typeof document === 'undefined') return '';
+
+  const header = document.querySelector<HTMLElement>('header');
+  return normalized(header?.textContent || '');
+};
+
+const isCartScreenActive = () => {
+  const activeTabText = getActiveTabText();
+  const headerText = getHeaderTitleText();
+  const bodyText = normalized(document.body.textContent);
+
+  if (activeTabText.includes('info') || headerText.includes('informacion') || bodyText.includes('contacto directo')) {
+    return false;
+  }
+
+  if (activeTabText.includes('catalogo') || headerText.includes('catalogo')) {
+    return false;
+  }
+
+  if (activeTabText.includes('pedido') || headerText.includes('pedidos')) {
+    return false;
+  }
+
+  return activeTabText.includes('carrito') || headerText.includes('carrito');
+};
+
+const removeHostIfNeeded = () => {
+  if (typeof document === 'undefined') return;
+
+  if (!isCartScreenActive()) {
+    document.getElementById(HOST_ID)?.remove();
+  }
+};
+
 const isGoodSuggestion = (product: Product) => {
   if (product.available === false || product.is_variable) return false;
 
@@ -82,6 +124,10 @@ const isGoodSuggestion = (product: Product) => {
 };
 
 const findHost = () => {
+  removeHostIfNeeded();
+
+  if (!isCartScreenActive()) return null;
+
   const existing = document.getElementById(HOST_ID);
   if (existing) return existing;
 
@@ -109,7 +155,10 @@ export default function CartCompleteOrderSuggestions() {
   const [cartVersion, setCartVersion] = useState(0);
 
   useEffect(() => {
-    const syncHost = () => setHost(findHost());
+    const syncHost = () => {
+      removeHostIfNeeded();
+      setHost(findHost());
+    };
 
     syncHost();
 
@@ -120,6 +169,8 @@ export default function CartCompleteOrderSuggestions() {
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-current', 'class', 'style'],
     });
 
     const interval = window.setInterval(() => {
@@ -129,10 +180,15 @@ export default function CartCompleteOrderSuggestions() {
 
     const timers = [120, 400, 900, 1600].map(delay => window.setTimeout(syncHost, delay));
 
+    window.addEventListener('click', syncHost, true);
+    window.addEventListener('popstate', syncHost);
+
     return () => {
       observer.disconnect();
       window.clearInterval(interval);
       timers.forEach(timer => window.clearTimeout(timer));
+      window.removeEventListener('click', syncHost, true);
+      window.removeEventListener('popstate', syncHost);
       document.getElementById(HOST_ID)?.remove();
     };
   }, []);
@@ -168,8 +224,7 @@ export default function CartCompleteOrderSuggestions() {
   if (!host || suggestions.length === 0 || cartItems.length === 0) return null;
 
   const bodyText = normalized(document.body.textContent);
-  const isCartScreen = bodyText.includes('carrito') || bodyText.includes('tus productos');
-  if (!isCartScreen || bodyText.includes('carrito bloqueado') || bodyText.includes('pedido registrado')) return null;
+  if (!isCartScreenActive() || bodyText.includes('carrito bloqueado') || bodyText.includes('pedido registrado')) return null;
 
   const title = 'Completa tu pedido';
   const subtitle = hasPlusActive()
