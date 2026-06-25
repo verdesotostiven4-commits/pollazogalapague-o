@@ -13,7 +13,6 @@ type Listener = { handler: (...args: unknown[]) => void; context?: unknown };
 
 declare global {
   interface Window {
-    L?: any;
     __pollazoLiteLocationMapInstalled?: boolean;
   }
 }
@@ -70,7 +69,7 @@ const installStyles = () => {
     .pollazo-lite-user { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:9999px; pointer-events:none; }
     .pollazo-lite-user:before { content:''; position:absolute; inset:0; border-radius:inherit; background:rgba(59,130,246,.18); border:1px solid rgba(59,130,246,.35); }
     .pollazo-lite-user:after { content:''; position:absolute; left:5px; top:5px; width:12px; height:12px; border-radius:9999px; background:#2563eb; border:2px solid #fff; box-shadow:0 4px 12px rgba(37,99,235,.4); }
-    div[class*="fixed"][class*="inset-0"][class*="z-[10000]"][class*="bg-slate-100"] div[class*="top-1/2"][class*="left-1/2"][class*="z-[650]"] { top:calc(50% + ${PIN_OFFSET_Y}px)!important; will-change:opacity,transform!important; }
+    body div[class*="fixed"][class*="inset-0"][class*="z-[10000]"][class*="bg-slate-100"] div[class*="top-1/2"][class*="left-1/2"][class*="z-[650]"] { top:calc(50% + ${PIN_OFFSET_Y}px)!important; will-change:opacity,transform!important; }
   `;
   document.head.appendChild(style);
 };
@@ -369,8 +368,8 @@ class LiteMap {
 const install = () => {
   if (window.__pollazoLiteLocationMapInstalled) return;
   window.__pollazoLiteLocationMapInstalled = true;
-  const previous = window.L || {};
-  window.L = {
+  const previous = (window as any).L || {};
+  (window as any).L = {
     ...previous,
     map: (container: HTMLElement, options?: Record<string, unknown>) => new LiteMap(container, options),
     tileLayer: (url: string) => ({ addTo: (map: LiteMap) => { map.setTiles(url); return map; }, on: () => undefined }),
