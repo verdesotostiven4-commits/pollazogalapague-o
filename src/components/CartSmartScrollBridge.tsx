@@ -89,7 +89,6 @@ const scrollToBankOptions = () => {
   const bankBlock = findBankOptionsBlock(scroller);
   if (!bankBlock) return false;
 
-  // Deja el título de bancos visible y evita que el footer fijo tape la última opción.
   scrollToElement(scroller, bankBlock, 92);
   return true;
 };
@@ -129,7 +128,13 @@ export default function CartSmartScrollBridge() {
       }
 
       const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      setVisible(!manualHiddenRef.current && remaining > 52);
+      const isNearTop = scroller.scrollTop <= 48;
+
+      if (isNearTop) {
+        manualHiddenRef.current = false;
+      }
+
+      setVisible((isNearTop || !manualHiddenRef.current) && remaining > 52);
     };
 
     const handleScrollerScroll = () => {
@@ -139,7 +144,9 @@ export default function CartSmartScrollBridge() {
       const now = Date.now();
       const moved = Math.abs(scroller.scrollTop - lastScrollTop) > 6;
 
-      if (moved && now > suppressManualScrollUntilRef.current) {
+      if (scroller.scrollTop <= 48) {
+        manualHiddenRef.current = false;
+      } else if (moved && now > suppressManualScrollUntilRef.current) {
         manualHiddenRef.current = true;
       }
 
@@ -154,7 +161,7 @@ export default function CartSmartScrollBridge() {
         activeScroller?.removeEventListener('scroll', handleScrollerScroll);
         activeScroller = scroller;
         lastScrollTop = scroller.scrollTop;
-        manualHiddenRef.current = false;
+        manualHiddenRef.current = scroller.scrollTop > 48;
         activeScroller.addEventListener('scroll', handleScrollerScroll, { passive: true });
       }
 
@@ -233,8 +240,7 @@ export default function CartSmartScrollBridge() {
       const paymentTop = paymentSection.getBoundingClientRect().top;
 
       if (paymentTop > containerTop + 72) {
-        // Encuadra Paso 3 y deja que Paso 4 / Total final se vea mejor sin caer demasiado abajo.
-        scrollToElement(scroller, paymentSection, -68);
+        scrollToElement(scroller, paymentSection, -28);
         return;
       }
     }
