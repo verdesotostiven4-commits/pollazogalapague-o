@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const STYLE_ID = 'pollazo-location-map-smooth-pointer-style';
-const PATCH_FLAG = '__pollazoMovePatchInstalledV2';
+const PATCH_FLAG = '__pollazoMovePatchInstalledV3';
 
 type LeafletMapLike = {
   getContainer?: () => HTMLElement | null;
@@ -21,14 +21,6 @@ declare global {
     [PATCH_FLAG]?: boolean;
   }
 }
-
-const normalize = (value: unknown) =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
 
 const installStyles = () => {
   if (document.getElementById(STYLE_ID)) return;
@@ -54,56 +46,37 @@ const installStyles = () => {
     .pollazo-location-map-modal .leaflet-tile {
       image-rendering: auto !important;
     }
+
+    .pollazo-location-map-modal [data-pollazo-location-pin='true'] {
+      top: calc(50% + 46px) !important;
+      will-change: transform, opacity !important;
+      transform: translate3d(-50%, -100%, 0) !important;
+    }
+
+    .pollazo-location-map-modal [data-pollazo-location-dot='true'] {
+      top: calc(50% + 46px) !important;
+      will-change: transform, opacity !important;
+      transform: translate3d(-50%, -50%, 0) !important;
+    }
   `;
 
   document.head.appendChild(style);
 };
 
-const findLocationModal = () => {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>('div.fixed')).find(element => {
-      const text = normalize(element.textContent);
-      return text.includes('confirmar direccion') && text.includes('puerto ayora');
-    }) || null
-  );
-};
-
-const isLocationMap = (map: unknown) => {
-  try {
-    const container = (map as LeafletMapLike)?.getContainer?.();
-    const modal = container?.closest<HTMLElement>('.pollazo-location-map-modal') || container?.closest<HTMLElement>('div.fixed');
-    const text = normalize(modal?.textContent);
-
-    return Boolean(text.includes('confirmar direccion') && text.includes('puerto ayora'));
-  } catch {
-    return false;
-  }
-};
-
-const lowerPointer = () => {
-  const modal = findLocationModal();
-  if (!modal) return;
-
-  modal.classList.add('pollazo-location-map-modal');
-
-  Array.from(modal.querySelectorAll<HTMLElement>('div')).forEach(element => {
-    const className = String(element.className || '');
-    const isCenterLayer =
-      className.includes('top-1/2') &&
-      className.includes('left-1/2') &&
-      className.includes('z-[650]');
-
-    if (!isCenterLayer) return;
-
-    element.style.setProperty('top', 'calc(50% + 38px)', 'important');
-    element.style.setProperty('will-change', 'transform, opacity', 'important');
-  });
-};
-
 const makeMoveHandlerLight = (handler: (...args: any[]) => void) => {
+  const locationMapCache = new WeakMap<object, boolean>();
+
   return function lightMoveHandler(this: unknown, ...args: any[]) {
-    if (isLocationMap(this)) {
-      return;
+    if (typeof this === 'object' && this !== null) {
+      let isLocationMap = locationMapCache.get(this);
+
+      if (typeof isLocationMap === 'undefined') {
+        const container = (this as LeafletMapLike)?.getContainer?.();
+        isLocationMap = Boolean(container?.closest?.('.pollazo-location-map-modal'));
+        locationMapCache.set(this, isLocationMap);
+      }
+
+      if (isLocationMap) return;
     }
 
     handler.apply(this, args);
@@ -146,22 +119,8 @@ export default function LocationMapMotionBridge() {
 
     tryPatch();
 
-    let attempts = 0;
-    const pointerTimer = window.setInterval(() => {
-      lowerPointer();
-      attempts += 1;
-
-      if (attempts >= 24) {
-        window.clearInterval(pointerTimer);
-      }
-    }, 250);
-
-    window.addEventListener('pollazo:location-map-open', lowerPointer as EventListener);
-
     return () => {
       if (patchTimer) window.clearTimeout(patchTimer);
-      window.clearInterval(pointerTimer);
-      window.removeEventListener('pollazo:location-map-open', lowerPointer as EventListener);
     };
   }, []);
 
