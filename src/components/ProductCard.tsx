@@ -149,7 +149,7 @@ export default function ProductCard({
 
   const markAdded = () => {
     setAdded(true);
-    window.setTimeout(() => setAdded(false), 900);
+    window.setTimeout(() => setAdded(false), 620);
   };
 
   const handleIncrease = () => {
@@ -225,18 +225,18 @@ export default function ProductCard({
     <>
       <div
         style={style}
-        className={`group relative flex flex-col h-auto self-start bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-all duration-300 ${
+        className={`group relative flex flex-col h-auto self-start bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-shadow duration-200 ${
           compact
             ? 'active:shadow-md'
-            : 'hover:shadow-lg hover:shadow-orange-100/60 hover:-translate-y-1'
+            : 'hover:shadow-lg hover:shadow-orange-100/60'
         } ${className} ${!available ? 'opacity-60 grayscale-[20%]' : ''}`}
       >
         <div className={`relative w-full overflow-hidden bg-gradient-to-br from-gray-50 to-orange-50/30 ${compact ? 'h-[132px]' : 'h-[150px]'}`}>
           <img
             src={productImage}
             alt={translated.name}
-            className="w-full h-full object-contain p-2.5 group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
+            className="w-full h-full object-contain p-2.5"
+            loading="eager"
             decoding="async"
             onError={() => setImageFailed(true)}
           />
@@ -355,7 +355,7 @@ export default function ProductCard({
                 type="button"
                 onClick={handleAdd}
                 disabled={!available}
-                className={`w-full min-h-[42px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-300 ${
+                className={`w-full min-h-[42px] flex items-center justify-center gap-1.5 font-black rounded-2xl transition-all duration-200 ${
                   compact ? 'text-[12px] py-2.5' : 'text-[13px] py-2.5'
                 } ${
                   !available
@@ -427,6 +427,8 @@ export default function ProductCard({
                   src={productImage}
                   className="w-12 h-12 object-contain rounded-lg bg-white border border-orange-100 p-1"
                   alt={translated.name}
+                  loading="eager"
+                  decoding="async"
                 />
 
                 <div className="min-w-0">
