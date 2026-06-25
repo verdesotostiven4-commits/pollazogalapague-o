@@ -55,9 +55,7 @@ const polishButton = (button: HTMLButtonElement) => {
     setImportant(fixedShell, 'z-index', '210');
   }
 
-  if (directShell) {
-    setImportant(directShell, 'max-width', '410px');
-  }
+  if (directShell) setImportant(directShell, 'max-width', '410px');
 
   setImportant(button, 'min-height', '50px');
   setImportant(button, 'padding', '6px 7px');
@@ -130,9 +128,7 @@ const polishButton = (button: HTMLButtonElement) => {
     const nodes = textNodesOf(rightPill);
     const firstText = nodes.find(node => (node.nodeValue || '').trim().length > 0);
 
-    if (firstText) {
-      firstText.nodeValue = 'Canasta ';
-    }
+    if (firstText) firstText.nodeValue = 'Canasta ';
 
     setImportant(rightPill, 'height', '38px');
     setImportant(rightPill, 'min-width', '102px');
@@ -159,27 +155,28 @@ const polishCatalogCartBar = () => {
 
 export default function CatalogCartBarPolish() {
   useEffect(() => {
-    polishCatalogCartBar();
+    let raf = 0;
 
-    const observer = new MutationObserver(() => {
-      window.requestAnimationFrame(polishCatalogCartBar);
-    });
+    const schedule = () => {
+      if (raf) return;
 
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        polishCatalogCartBar();
+      });
+    };
 
-    window.addEventListener('resize', polishCatalogCartBar);
-    window.addEventListener('click', polishCatalogCartBar, true);
+    schedule();
 
-    const timers = [100, 350, 900].map(delay => window.setTimeout(polishCatalogCartBar, delay));
+    window.addEventListener('resize', schedule);
+    window.addEventListener('click', schedule, true);
+
+    const timers = [100, 350, 900, 1600].map(delay => window.setTimeout(schedule, delay));
 
     return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', polishCatalogCartBar);
-      window.removeEventListener('click', polishCatalogCartBar, true);
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('click', schedule, true);
       timers.forEach(timer => window.clearTimeout(timer));
     };
   }, []);
