@@ -16,7 +16,6 @@ type MapLibreLike = {
 declare global {
   interface Window {
     maplibregl?: MapLibreLike;
-    L?: any;
     __pollazoVectorMapBridgeInstalled?: boolean;
   }
 }
@@ -283,7 +282,7 @@ const installBridge = () => {
 
   installStyles();
 
-  window.L = {
+  (window as any).L = {
     map: (container: HTMLElement, options?: Record<string, unknown>) => new VectorMap(container, options),
     tileLayer: () => noopTileLayer,
     marker: (value: unknown) => new VectorMarker(value),
