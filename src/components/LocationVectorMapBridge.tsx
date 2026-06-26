@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const STYLE_ID = 'pollazo-location-vector-map-style';
 const PIN_OFFSET_Y = 56;
@@ -19,6 +21,13 @@ declare global {
     __pollazoVectorMapBridgeInstalled?: boolean;
   }
 }
+
+const getMapLibre = (): MapLibreLike | null => {
+  if (typeof window === 'undefined') return null;
+  const bundled = maplibregl as unknown as MapLibreLike;
+  window.maplibregl = window.maplibregl?.Map ? window.maplibregl : bundled;
+  return window.maplibregl || bundled;
+};
 
 const readLatLng = (value: unknown): LatLng => {
   if (Array.isArray(value)) {
@@ -117,7 +126,7 @@ class VectorMarker {
   }
 
   addTo(map: VectorMap) {
-    const Marker = window.maplibregl?.Marker;
+    const Marker = getMapLibre()?.Marker;
     if (!Marker) return this;
 
     this.marker = new Marker({ element: this.element(), anchor: 'center' })
@@ -144,7 +153,7 @@ class VectorMap {
   private fallbackApplied = false;
 
   constructor(container: HTMLElement, options?: Record<string, unknown>) {
-    const MapLibreMap = window.maplibregl?.Map;
+    const MapLibreMap = getMapLibre()?.Map;
     if (!MapLibreMap) throw new Error('MapLibre no está disponible');
 
     const center = readLatLng(options?.center || { lat: -0.7439, lng: -90.3131 });
@@ -168,6 +177,7 @@ class VectorMap {
       fadeDuration: 0,
       preserveDrawingBuffer: false,
       refreshExpiredTiles: false,
+      maxTileCacheSize: 500,
     });
 
     this.map.on('load', () => {
@@ -219,7 +229,7 @@ class VectorMap {
   }
 
   setZoom(zoom: number, options?: Record<string, unknown>) {
-    const duration = options?.animate === false ? 0 : 160;
+    const duration = options?.animate === false ? 0 : 120;
     this.map.easeTo({ zoom, duration, easing: (t: number) => t, essential: true });
     return this;
   }
@@ -230,7 +240,7 @@ class VectorMap {
     this.map.easeTo({
       center: [center.lng, center.lat],
       zoom: typeof zoom === 'number' ? zoom : this.map.getZoom(),
-      duration: animate ? 180 : 0,
+      duration: animate ? 160 : 0,
       easing: (t: number) => t,
       essential: true,
     });
@@ -239,12 +249,12 @@ class VectorMap {
 
   flyTo(value: unknown, zoom?: number, options?: Record<string, unknown>) {
     const center = readLatLng(value);
-    const rawDuration = Number(options?.duration || 0.45);
+    const rawDuration = Number(options?.duration || 0.35);
     const duration = rawDuration <= 10 ? rawDuration * 1000 : rawDuration;
     this.map.easeTo({
       center: [center.lng, center.lat],
       zoom: typeof zoom === 'number' ? zoom : this.map.getZoom(),
-      duration: Math.min(duration, 600),
+      duration: Math.min(duration, 420),
       easing: (t: number) => 1 - (1 - t) * (1 - t),
       essential: true,
     });
@@ -278,7 +288,7 @@ const noopTileLayer = {
 
 const installBridge = () => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
-  if (!window.maplibregl?.Map || !window.maplibregl?.Marker) return false;
+  if (!getMapLibre()?.Map || !getMapLibre()?.Marker) return false;
 
   installStyles();
 
@@ -293,8 +303,10 @@ const installBridge = () => {
   return true;
 };
 
+installBridge();
+
 export default function LocationVectorMapBridge() {
-  if (typeof window !== 'undefined' && window.maplibregl?.Map && !window.__pollazoVectorMapBridgeInstalled) {
+  if (typeof window !== 'undefined' && !window.__pollazoVectorMapBridgeInstalled) {
     installBridge();
   }
 
