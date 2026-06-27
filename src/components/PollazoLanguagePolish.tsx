@@ -6,16 +6,17 @@ import { visualI18nJa } from '../utils/visualI18nJa';
 import { visualI18nZh } from '../utils/visualI18nZh';
 import { visualI18nPt, visualI18nFr, visualI18nDe } from '../utils/visualI18nLatins';
 import { visualI18nIt, visualI18nNl } from '../utils/visualI18nMoreLatins';
+import { visualI18nExtraTargets } from '../utils/visualI18nExtraTargets';
 
 const LANGUAGE_KEY = 'pollazo_language';
-const SKIP_SELECTOR = 'script,style,textarea,select,input,.maplibregl-map,.maplibregl-map *,[contenteditable="true"]';
+const SKIP_SELECTOR = 'script,style,textarea,select,.maplibregl-map,.maplibregl-map *,[contenteditable="true"]';
 
 const targets: Partial<Record<LanguageCode, Partial<Record<VisualI18nKey, string>>>> = {
-  pt: visualI18nPt,
-  fr: visualI18nFr,
-  de: visualI18nDe,
-  it: visualI18nIt,
-  nl: visualI18nNl,
+  pt: { ...visualI18nPt, ...visualI18nExtraTargets.pt },
+  fr: { ...visualI18nFr, ...visualI18nExtraTargets.fr },
+  de: { ...visualI18nDe, ...visualI18nExtraTargets.de },
+  it: { ...visualI18nIt, ...visualI18nExtraTargets.it },
+  nl: { ...visualI18nNl, ...visualI18nExtraTargets.nl },
   ru: visualI18nRu,
   ja: visualI18nJa,
   zh: visualI18nZh,
@@ -43,6 +44,19 @@ const findTranslation = (value: string, language: LanguageCode) => {
   return languageTargets?.[id] || '';
 };
 
+const translatePlaceholders = (language: LanguageCode) => {
+  if (language === 'es') return;
+
+  document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[placeholder], textarea[placeholder]').forEach(input => {
+    const placeholder = input.getAttribute('placeholder') || '';
+    const translated = findTranslation(placeholder, language);
+
+    if (translated) {
+      input.setAttribute('placeholder', translated);
+    }
+  });
+};
+
 export default function PollazoLanguagePolish() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
@@ -59,14 +73,14 @@ export default function PollazoLanguagePolish() {
           const parent = node.parentElement;
           if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
           const key = normalize(node.nodeValue || '');
-          if (!key || key.length > 120) return NodeFilter.FILTER_REJECT;
+          if (!key || key.length > 140) return NodeFilter.FILTER_REJECT;
           return sourceIndex.has(key) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         },
       });
 
       const nodes: Text[] = [];
       let node = walker.nextNode();
-      while (node && nodes.length < 320) {
+      while (node && nodes.length < 420) {
         nodes.push(node as Text);
         node = walker.nextNode();
       }
@@ -77,6 +91,8 @@ export default function PollazoLanguagePolish() {
         if (!replacement) return;
         textNode.nodeValue = current.replace(current.trim(), replacement);
       });
+
+      translatePlaceholders(language);
     };
 
     const schedule = () => {
@@ -85,7 +101,7 @@ export default function PollazoLanguagePolish() {
     };
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder'] });
 
     schedule();
     window.addEventListener('click', schedule, true);
