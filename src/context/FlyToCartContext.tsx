@@ -31,16 +31,16 @@ export function FlyToCartProvider({ children }: { children: ReactNode }) {
   const triggerFly = useCallback((startX: number, startY: number, image: string) => {
     const id = nextId++;
 
-    setParticles(prev => [...prev.slice(-2), { id, startX, startY, image }]);
+    setParticles(prev => [...prev.slice(-1), { id, startX, startY, image }]);
 
     window.setTimeout(() => {
       setCartPop(true);
-      window.setTimeout(() => setCartPop(false), 220);
-    }, 320);
+      window.setTimeout(() => setCartPop(false), 180);
+    }, 220);
 
     window.setTimeout(() => {
       setParticles(prev => prev.filter(p => p.id !== id));
-    }, 780);
+    }, 520);
   }, []);
 
   return (
