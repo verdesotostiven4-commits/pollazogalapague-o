@@ -23,6 +23,7 @@ const targets: Partial<Record<LanguageCode, Partial<Record<VisualI18nKey, string
 };
 
 const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+const strip = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
 
 const sourceIndex = new Map<string, VisualI18nKey>();
 Object.entries(visualI18nSources).forEach(([id, phrases]) => {
@@ -57,6 +58,32 @@ const translatePlaceholders = (language: LanguageCode) => {
   });
 };
 
+const fixSoldOutOrder = () => {
+  const grids = Array.from(document.querySelectorAll<HTMLElement>('div.grid'));
+  const grid = grids.find(candidate => {
+    const cards = Array.from(candidate.children) as HTMLElement[];
+    return cards.length >= 2 && cards.some(card => card.querySelector('h3'));
+  });
+
+  if (!grid) return;
+
+  const cards = Array.from(grid.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
+  const hasSoldOut = cards.some(card => strip(card.textContent || '').includes('agotado'));
+
+  if (!hasSoldOut) {
+    cards.forEach(card => card.style.removeProperty('order'));
+    return;
+  }
+
+  const sorted = cards
+    .map((card, index) => ({ card, index, name: strip(card.querySelector('h3')?.textContent || card.textContent || '') }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.index - b.index);
+
+  sorted.forEach((item, index) => {
+    item.card.style.order = String(index + 1);
+  });
+};
+
 export default function PollazoLanguagePolish() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
@@ -66,33 +93,36 @@ export default function PollazoLanguagePolish() {
     const run = () => {
       timer = 0;
       const language = currentLanguage();
-      if (language === 'es') return;
 
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-          const parent = node.parentElement;
-          if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
-          const key = normalize(node.nodeValue || '');
-          if (!key || key.length > 140) return NodeFilter.FILTER_REJECT;
-          return sourceIndex.has(key) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-        },
-      });
+      if (language !== 'es') {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            const key = normalize(node.nodeValue || '');
+            if (!key || key.length > 140) return NodeFilter.FILTER_REJECT;
+            return sourceIndex.has(key) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+          },
+        });
 
-      const nodes: Text[] = [];
-      let node = walker.nextNode();
-      while (node && nodes.length < 420) {
-        nodes.push(node as Text);
-        node = walker.nextNode();
+        const nodes: Text[] = [];
+        let node = walker.nextNode();
+        while (node && nodes.length < 420) {
+          nodes.push(node as Text);
+          node = walker.nextNode();
+        }
+
+        nodes.forEach(textNode => {
+          const current = textNode.nodeValue || '';
+          const replacement = findTranslation(current, language);
+          if (!replacement) return;
+          textNode.nodeValue = current.replace(current.trim(), replacement);
+        });
+
+        translatePlaceholders(language);
       }
 
-      nodes.forEach(textNode => {
-        const current = textNode.nodeValue || '';
-        const replacement = findTranslation(current, language);
-        if (!replacement) return;
-        textNode.nodeValue = current.replace(current.trim(), replacement);
-      });
-
-      translatePlaceholders(language);
+      fixSoldOutOrder();
     };
 
     const schedule = () => {
