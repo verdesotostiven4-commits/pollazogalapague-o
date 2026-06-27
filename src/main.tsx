@@ -29,6 +29,7 @@ import PlusNonMemberSavingsGuard from './components/PlusNonMemberSavingsGuard';
 import ErrorRetryGuard from './components/ErrorRetryGuard';
 import SecurePanelGate from './components/SecurePanelGate';
 import PollazoMotionSystem from './components/PollazoMotionSystem';
+import PollazoExperienceSystem from './components/PollazoExperienceSystem';
 import './index.css';
 import './styles/homeHeroRestore.css';
 import './styles/landing-install-lock.css';
@@ -205,6 +206,7 @@ createRoot(document.getElementById('root')!).render(
     <FirstRunWelcome>
       <SecurePanelGate>
         <PollazoMotionSystem />
+        <PollazoExperienceSystem />
         <App />
         <LegalModalNoAutoScroll />
         <InfoHelpCenterMount />
