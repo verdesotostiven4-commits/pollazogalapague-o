@@ -92,6 +92,18 @@ const isPointInsidePuertoAyora = (position: LatLng): boolean => {
   );
 };
 
+const formatSelectedLocationLabel = (position: LatLng | null): string => {
+  if (!position) {
+    return 'Mueve el mapa para marcar tu punto de entrega';
+  }
+
+  if (!isPointInsidePuertoAyora(position)) {
+    return `Fuera de cobertura · ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`;
+  }
+
+  return `Puerto Ayora · ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`;
+};
+
 const normalizeEcuadorPhone = (phone: string): string => {
   const digits = cleanDigits(phone);
 
@@ -155,6 +167,8 @@ export default function LoginModal({
   const mapInstance = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const selectedPointRef = useRef<LatLng>(DEFAULT_CENTER);
+  const liveCoordinateLabelRef = useRef<HTMLParagraphElement | null>(null);
+  const liveCoordinateFrameRef = useRef<number | null>(null);
 
   const {
     customerName,
@@ -228,22 +242,25 @@ export default function LoginModal({
   const selectedAvatarReady = avatar.startsWith('data:') || loadedAvatarUrls.has(avatar);
 
   const selectedLocationLabel = useMemo(() => {
-    if (lat === null || lng === null) {
-      return 'Mueve el mapa para marcar tu punto de entrega';
-    }
+    return formatSelectedLocationLabel(lat !== null && lng !== null ? { lat, lng } : null);
+  }, [lat, lng]);
 
-    if (!isInsideGeofence) {
-      return `Fuera de cobertura · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    }
+  const paintLiveCoordinateLabel = useCallback((position: LatLng | null) => {
+    if (!liveCoordinateLabelRef.current) return;
 
-    return `Puerto Ayora · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  }, [isInsideGeofence, lat, lng]);
+    liveCoordinateLabelRef.current.textContent = formatSelectedLocationLabel(position);
+  }, []);
 
   useEffect(() => {
     if (lat !== null && lng !== null) {
-      selectedPointRef.current = { lat, lng };
+      const nextPosition = { lat, lng };
+      selectedPointRef.current = nextPosition;
+      paintLiveCoordinateLabel(nextPosition);
+      return;
     }
-  }, [lat, lng]);
+
+    paintLiveCoordinateLabel(null);
+  }, [lat, lng, paintLiveCoordinateLabel]);
 
   const clearEditingRequest = useCallback(() => {
     sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
@@ -327,7 +344,7 @@ export default function LoginModal({
     };
   }, []);
 
-  const syncSelectedPointFromMap = useCallback(() => {
+  const getPinnedPositionFromMap = useCallback(() => {
     const map = mapInstance.current;
 
     if (!map) return null;
@@ -338,17 +355,42 @@ export default function LoginModal({
       canvas.clientHeight / 2 + MAP_PIN_OFFSET_Y,
     ]);
 
-    const nextPosition = {
+    return {
       lat: pinnedLngLat.lat,
       lng: pinnedLngLat.lng,
     };
+  }, []);
+
+  const paintLiveSelectedPointFromMap = useCallback(() => {
+    const nextPosition = getPinnedPositionFromMap();
+
+    if (!nextPosition) return null;
 
     selectedPointRef.current = nextPosition;
+    paintLiveCoordinateLabel(nextPosition);
+
+    return nextPosition;
+  }, [getPinnedPositionFromMap, paintLiveCoordinateLabel]);
+
+  const scheduleLiveSelectedPointPaint = useCallback(() => {
+    if (liveCoordinateFrameRef.current !== null) return;
+
+    liveCoordinateFrameRef.current = window.requestAnimationFrame(() => {
+      liveCoordinateFrameRef.current = null;
+      paintLiveSelectedPointFromMap();
+    });
+  }, [paintLiveSelectedPointFromMap]);
+
+  const syncSelectedPointFromMap = useCallback(() => {
+    const nextPosition = paintLiveSelectedPointFromMap();
+
+    if (!nextPosition) return null;
+
     setLat(nextPosition.lat);
     setLng(nextPosition.lng);
 
     return nextPosition;
-  }, []);
+  }, [paintLiveSelectedPointFromMap]);
 
   const syncUserMarker = useCallback((position: LatLng) => {
     const map = mapInstance.current;
@@ -657,6 +699,10 @@ export default function LoginModal({
       setIsDragging(true);
     });
 
+    map.on('move', () => {
+      scheduleLiveSelectedPointPaint();
+    });
+
     map.on('moveend', () => {
       keepZoomSafe();
       syncSelectedPointFromMap();
@@ -677,6 +723,11 @@ export default function LoginModal({
       disposed = true;
       window.clearTimeout(loadingTimeout);
 
+      if (liveCoordinateFrameRef.current !== null) {
+        window.cancelAnimationFrame(liveCoordinateFrameRef.current);
+        liveCoordinateFrameRef.current = null;
+      }
+
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
         userMarkerRef.current = null;
@@ -690,6 +741,7 @@ export default function LoginModal({
   }, [
     isOpen,
     keepZoomSafe,
+    scheduleLiveSelectedPointPaint,
     step,
     syncSelectedPointFromMap,
     syncUserMarker,
@@ -1040,7 +1092,10 @@ export default function LoginModal({
             >
               Punto seleccionado
             </p>
-            <p className="text-[11px] font-black text-slate-700 leading-snug mt-1">
+            <p
+              ref={liveCoordinateLabelRef}
+              className="text-[11px] font-black text-slate-700 leading-snug mt-1"
+            >
               {selectedLocationLabel}
             </p>
           </div>
