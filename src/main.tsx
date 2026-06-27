@@ -32,6 +32,7 @@ import PollazoMotionSystem from './components/PollazoMotionSystem';
 import PollazoExperienceSystem from './components/PollazoExperienceSystem';
 import PollazoUXFixes from './components/PollazoUXFixes';
 import PollazoLanguagePolish from './components/PollazoLanguagePolish';
+import LanguageReloadGuard from './components/LanguageReloadGuard';
 import './index.css';
 import './styles/homeHeroRestore.css';
 import './styles/landing-install-lock.css';
@@ -207,6 +208,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <FirstRunWelcome>
       <SecurePanelGate>
+        <LanguageReloadGuard />
         <PollazoMotionSystem />
         <PollazoExperienceSystem />
         <PollazoUXFixes />
