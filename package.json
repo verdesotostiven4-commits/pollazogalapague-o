@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "./node_modules/.bin/vite",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "./node_modules/.bin/vite preview",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
