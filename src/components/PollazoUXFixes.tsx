@@ -36,6 +36,14 @@ const installStyles = () => {
       }
     }
 
+    nav[aria-label="Navegación principal"] button[aria-current="page"] > span.absolute.bottom-0 {
+      left: 0 !important;
+      right: 0 !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      transform: none !important;
+    }
+
     .pollazo-search-polished {
       z-index: 145 !important;
       padding-top: 4px !important;
@@ -252,6 +260,45 @@ const defaultPlusSavingsToTotal = () => {
   });
 };
 
+const isHomeNavActive = () => {
+  const nav = document.querySelector('nav[aria-label="Navegación principal"]');
+  const buttons = nav ? Array.from(nav.querySelectorAll<HTMLButtonElement>('button')) : [];
+  const activeButton = buttons.find(button => button.getAttribute('aria-current') === 'page');
+
+  return Boolean(activeButton && buttons[0] === activeButton);
+};
+
+const isTrackingButton = (button: HTMLButtonElement) => {
+  const raw = `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`.toLowerCase();
+  const className = String(button.className || '');
+
+  return (
+    (button.classList.contains('fixed') || className.includes('fixed')) &&
+    (raw.includes('rastre') ||
+      raw.includes('track') ||
+      raw.includes('rastream') ||
+      raw.includes('suivi') ||
+      raw.includes('verfolg') ||
+      raw.includes('tracci') ||
+      raw.includes('отслеж') ||
+      raw.includes('追跡') ||
+      raw.includes('跟踪'))
+  );
+};
+
+const fixTrackingButtonHomeOnly = () => {
+  const shouldShow = isHomeNavActive();
+
+  Array.from(document.querySelectorAll<HTMLButtonElement>('button')).forEach(button => {
+    if (!isTrackingButton(button)) return;
+
+    setImportant(button, 'display', shouldShow ? 'flex' : 'none');
+    setImportant(button, 'opacity', shouldShow ? '1' : '0');
+    setImportant(button, 'pointer-events', shouldShow ? 'auto' : 'none');
+    setImportant(button, 'visibility', shouldShow ? 'visible' : 'hidden');
+  });
+};
+
 export default function PollazoUXFixes() {
   useEffect(() => {
     if (!canUseDOM()) return undefined;
@@ -266,6 +313,7 @@ export default function PollazoUXFixes() {
       fixMapLoadingLayer();
       polishRankingReveal();
       defaultPlusSavingsToTotal();
+      fixTrackingButtonHomeOnly();
     };
 
     const schedule = () => {
@@ -274,12 +322,13 @@ export default function PollazoUXFixes() {
     };
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'aria-current', 'aria-label'] });
 
     schedule();
     window.addEventListener('input', schedule, true);
     window.addEventListener('click', schedule, true);
     window.addEventListener('scroll', schedule, true);
+    window.addEventListener('popstate', schedule);
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
@@ -287,6 +336,7 @@ export default function PollazoUXFixes() {
       window.removeEventListener('input', schedule, true);
       window.removeEventListener('click', schedule, true);
       window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('popstate', schedule);
     };
   }, []);
 
