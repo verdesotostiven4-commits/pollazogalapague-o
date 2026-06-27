@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   Camera,
   User,
@@ -21,8 +23,6 @@ import {
 import { PRESET_AVATARS } from '../constants/avatars';
 import { useUser } from '../context/UserContext';
 import type { DeliveryAddressLabel } from '../types';
-
-declare const L: any;
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -56,9 +56,11 @@ const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
+const MAP_STYLE_URL = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 const MAP_MAX_ZOOM = 18;
 const MAP_DEFAULT_ZOOM = 17;
 const MAP_GPS_ZOOM = 17;
+const MAP_PIN_OFFSET_Y = 56;
 
 const PUERTO_AYORA_BOUNDS = {
   latMin: -0.765,
@@ -78,8 +80,6 @@ const ADDRESS_LABELS: Array<{
 ];
 
 const preloadedAvatarCache = new Set<string>();
-
-const hasLeaflet = () => typeof L !== 'undefined' && Boolean(L?.map);
 
 const cleanDigits = (value: string) => value.replace(/\D/g, '');
 
@@ -131,6 +131,16 @@ const isFiniteNumber = (value: unknown): value is number => {
   return typeof value === 'number' && Number.isFinite(value);
 };
 
+const createUserMarkerElement = () => {
+  const marker = document.createElement('div');
+  marker.className = 'pollazo-user-dot';
+  marker.innerHTML = `
+    <span class="pollazo-user-halo"></span>
+    <span class="pollazo-user-core"></span>
+  `;
+  return marker;
+};
+
 export default function LoginModal({
   isOpen,
   onClose,
@@ -142,9 +152,9 @@ export default function LoginModal({
 }: LoginModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstance = useRef<any>(null);
-  const userMarkerRef = useRef<any>(null);
-  const fallbackTileLoadedRef = useRef(false);
+  const mapInstance = useRef<maplibregl.Map | null>(null);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const selectedPointRef = useRef<LatLng>(DEFAULT_CENTER);
 
   const {
     customerName,
@@ -229,6 +239,12 @@ export default function LoginModal({
     return `Puerto Ayora · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }, [isInsideGeofence, lat, lng]);
 
+  useEffect(() => {
+    if (lat !== null && lng !== null) {
+      selectedPointRef.current = { lat, lng };
+    }
+  }, [lat, lng]);
+
   const clearEditingRequest = useCallback(() => {
     sessionStorage.removeItem(EDIT_ADDRESS_STORAGE_KEY);
     setEditingAddressId(null);
@@ -311,65 +327,78 @@ export default function LoginModal({
     };
   }, []);
 
-  const createBlueDotIcon = useCallback(() => {
-    return L.divIcon({
-      className: 'custom-div-icon',
-      html: `
-        <div class="pollazo-user-dot">
-          <span class="pollazo-user-halo"></span>
-          <span class="pollazo-user-core"></span>
-        </div>
-      `,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-    });
+  const syncSelectedPointFromMap = useCallback(() => {
+    const map = mapInstance.current;
+
+    if (!map) return null;
+
+    const canvas = map.getCanvas();
+    const pinnedLngLat = map.unproject([
+      canvas.clientWidth / 2,
+      canvas.clientHeight / 2 + MAP_PIN_OFFSET_Y,
+    ]);
+
+    const nextPosition = {
+      lat: pinnedLngLat.lat,
+      lng: pinnedLngLat.lng,
+    };
+
+    selectedPointRef.current = nextPosition;
+    setLat(nextPosition.lat);
+    setLng(nextPosition.lng);
+
+    return nextPosition;
   }, []);
 
-  const syncUserMarker = useCallback(
-    (position: LatLng) => {
-      if (!mapInstance.current || !hasLeaflet()) return;
+  const syncUserMarker = useCallback((position: LatLng) => {
+    const map = mapInstance.current;
 
-      if (!userMarkerRef.current) {
-        userMarkerRef.current = L.marker([position.lat, position.lng], {
-          icon: createBlueDotIcon(),
-          interactive: false,
-        }).addTo(mapInstance.current);
-      } else {
-        userMarkerRef.current.setLatLng([position.lat, position.lng]);
-      }
-    },
-    [createBlueDotIcon]
-  );
+    if (!map) return;
 
-  const removeUserMarker = useCallback(() => {
-    if (!mapInstance.current || !userMarkerRef.current) return;
-
-    try {
-      mapInstance.current.removeLayer(userMarkerRef.current);
-    } catch {
-      // Si Leaflet ya removió el marcador, seguimos normal.
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new maplibregl.Marker({
+        element: createUserMarkerElement(),
+        anchor: 'center',
+      })
+        .setLngLat([position.lng, position.lat])
+        .addTo(map);
+      return;
     }
 
+    userMarkerRef.current.setLngLat([position.lng, position.lat]);
+  }, []);
+
+  const removeUserMarker = useCallback(() => {
+    if (!userMarkerRef.current) return;
+
+    userMarkerRef.current.remove();
     userMarkerRef.current = null;
   }, []);
 
   const keepZoomSafe = useCallback(() => {
-    if (!mapInstance.current) return;
+    const map = mapInstance.current;
 
-    const currentZoom = mapInstance.current.getZoom();
+    if (!map) return;
+
+    const currentZoom = map.getZoom();
 
     if (currentZoom > MAP_MAX_ZOOM) {
-      mapInstance.current.setZoom(MAP_MAX_ZOOM, { animate: true });
+      map.easeTo({ zoom: MAP_MAX_ZOOM, duration: 120 });
     }
   }, []);
 
   const moveMapTo = useCallback((position: LatLng, zoom = MAP_DEFAULT_ZOOM) => {
-    if (!mapInstance.current) return;
+    const map = mapInstance.current;
+
+    if (!map) return;
 
     const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
 
-    mapInstance.current.flyTo([position.lat, position.lng], safeZoom, {
-      duration: 0.85,
+    map.flyTo({
+      center: [position.lng, position.lat],
+      zoom: safeZoom,
+      offset: [0, MAP_PIN_OFFSET_Y],
+      duration: 850,
     });
   }, []);
 
@@ -384,9 +413,7 @@ export default function LoginModal({
         setGpsNotice(message);
       }
 
-      if (mapInstance.current) {
-        moveMapTo(DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
-      }
+      moveMapTo(DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
     },
     [moveMapTo, removeUserMarker]
   );
@@ -426,7 +453,7 @@ export default function LoginModal({
               setLng(DEFAULT_CENTER.lng);
             }
 
-            if (mapInstance.current && options?.moveMap !== false) {
+            if (options?.moveMap !== false) {
               moveMapTo(DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
             }
 
@@ -445,7 +472,7 @@ export default function LoginModal({
             setLng(nextPosition.lng);
           }
 
-          if (mapInstance.current && options?.moveMap !== false) {
+          if (options?.moveMap !== false) {
             moveMapTo(nextPosition, MAP_GPS_ZOOM);
           }
 
@@ -467,13 +494,11 @@ export default function LoginModal({
     setMapReady(false);
     setMapFailed(false);
     setIsSavingLocation(false);
-    fallbackTileLoadedRef.current = false;
 
     const requestedEditId = sessionStorage.getItem(EDIT_ADDRESS_STORAGE_KEY);
-    const addressToEdit =
-      requestedEditId
-        ? deliveryAddresses.find(address => address.id === requestedEditId) || null
-        : null;
+    const addressToEdit = requestedEditId
+      ? deliveryAddresses.find(address => address.id === requestedEditId) || null
+      : null;
 
     setEditingAddressId(addressToEdit?.id || null);
 
@@ -537,7 +562,6 @@ export default function LoginModal({
         setStep(2);
         setError('');
         setGpsNotice('Marca tu ubicación de entrega para finalizar el pedido.');
-
         setLat(DEFAULT_CENTER.lat);
         setLng(DEFAULT_CENTER.lng);
 
@@ -574,118 +598,103 @@ export default function LoginModal({
       return undefined;
     }
 
-    const timer = window.setTimeout(() => {
-      if (!mapContainerRef.current) return;
+    let disposed = false;
+    let loaded = false;
+    const startPosition = selectedPointRef.current || DEFAULT_CENTER;
 
-      if (!hasLeaflet()) {
-        setMapFailed(true);
-        setError('No se pudo cargar el mapa. Revisa tu conexión e intenta nuevamente.');
-        return;
-      }
+    setMapReady(false);
+    setMapFailed(false);
 
-      const startLat = lat ?? DEFAULT_CENTER.lat;
-      const startLng = lng ?? DEFAULT_CENTER.lng;
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: MAP_STYLE_URL,
+      center: [startPosition.lng, startPosition.lat],
+      zoom: MAP_DEFAULT_ZOOM,
+      minZoom: 5,
+      maxZoom: MAP_MAX_ZOOM,
+      attributionControl: false,
+      renderWorldCopies: false,
+      fadeDuration: 120,
+    });
 
-      mapInstance.current = L.map(mapContainerRef.current, {
-        center: [startLat, startLng],
-        zoom: MAP_DEFAULT_ZOOM,
-        minZoom: 5,
-        maxZoom: MAP_MAX_ZOOM,
-        zoomControl: false,
-        attributionControl: false,
-        scrollWheelZoom: true,
-        tap: true,
-        worldCopyJump: true,
-      });
+    mapInstance.current = map;
 
-      const modernTileLayer = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        {
-          subdomains: 'abcd',
-          maxZoom: MAP_MAX_ZOOM,
-          maxNativeZoom: MAP_MAX_ZOOM,
-          detectRetina: false,
-        }
-      );
+    const loadingTimeout = window.setTimeout(() => {
+      if (disposed || loaded) return;
 
-      const fallbackTileLayer = L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-          maxZoom: MAP_MAX_ZOOM,
-          maxNativeZoom: MAP_MAX_ZOOM,
-          detectRetina: false,
-        }
-      );
+      setMapFailed(true);
+      setError('No se pudo cargar el mapa. Revisa tu conexión e intenta nuevamente.');
+    }, 12000);
 
-      modernTileLayer.on('tileerror', () => {
-        if (!mapInstance.current || fallbackTileLoadedRef.current) return;
+    map.on('load', () => {
+      if (disposed) return;
 
-        fallbackTileLoadedRef.current = true;
+      loaded = true;
+      window.clearTimeout(loadingTimeout);
 
-        try {
-          mapInstance.current.removeLayer(modernTileLayer);
-        } catch {
-          // Si el layer ya fue removido, continuamos con el fallback.
-        }
+      window.requestAnimationFrame(() => {
+        if (disposed) return;
 
-        fallbackTileLayer.addTo(mapInstance.current);
-      });
+        map.resize();
+        map.flyTo({
+          center: [startPosition.lng, startPosition.lat],
+          zoom: MAP_DEFAULT_ZOOM,
+          offset: [0, MAP_PIN_OFFSET_Y],
+          duration: 0,
+        });
 
-      modernTileLayer.addTo(mapInstance.current);
+        syncSelectedPointFromMap();
 
-      mapInstance.current.on('movestart', () => setIsDragging(true));
-
-      mapInstance.current.on('move', () => {
-        const center = mapInstance.current.getCenter();
-        setLat(center.lat);
-        setLng(center.lng);
-      });
-
-      mapInstance.current.on('zoomend', keepZoomSafe);
-
-      mapInstance.current.on('moveend', () => {
-        keepZoomSafe();
-
-        const center = mapInstance.current.getCenter();
-        setLat(center.lat);
-        setLng(center.lng);
-        setIsDragging(false);
-      });
-
-      window.setTimeout(() => {
-        mapInstance.current?.invalidateSize();
-
-        if (lat !== null && lng !== null) {
-          mapInstance.current?.setView([lat, lng], MAP_DEFAULT_ZOOM, { animate: false });
+        if (userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
+          syncUserMarker(userActualLocation);
         }
 
         setMapReady(true);
-      }, 180);
+      });
+    });
 
-      if (userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
-        syncUserMarker(userActualLocation);
+    map.on('movestart', () => {
+      setIsDragging(true);
+    });
+
+    map.on('moveend', () => {
+      keepZoomSafe();
+      syncSelectedPointFromMap();
+      setIsDragging(false);
+    });
+
+    map.on('zoomend', () => {
+      keepZoomSafe();
+    });
+
+    map.on('error', event => {
+      if (!loaded) {
+        console.warn('MapLibre loading error', event?.error || event);
       }
-    }, 220);
+    });
 
     return () => {
-      window.clearTimeout(timer);
-    };
-  }, [isOpen, keepZoomSafe, lat, lng, step, syncUserMarker, userActualLocation]);
+      disposed = true;
+      window.clearTimeout(loadingTimeout);
 
-  useEffect(() => {
-    if (!isOpen || step !== 2) return undefined;
-
-    return () => {
-      if (mapInstance.current) {
-        mapInstance.current.remove();
-        mapInstance.current = null;
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
       }
 
-      userMarkerRef.current = null;
+      map.remove();
+      mapInstance.current = null;
       setMapReady(false);
       setIsDragging(false);
     };
-  }, [isOpen, step]);
+  }, [
+    isOpen,
+    keepZoomSafe,
+    step,
+    syncSelectedPointFromMap,
+    syncUserMarker,
+    userActualLocation,
+  ]);
 
   useEffect(() => {
     if (mapInstance.current && userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
@@ -793,7 +802,6 @@ export default function LoginModal({
         silent: true,
         updateSelectedPoint: false,
       });
-
       return;
     }
 
@@ -835,12 +843,14 @@ export default function LoginModal({
   };
 
   const handleSave = () => {
-    if (!selectedPointIsReady) {
+    const finalPoint = syncSelectedPointFromMap() || selectedPointRef.current;
+
+    if (!finalPoint) {
       setError('Marca tu punto de entrega en el mapa.');
       return;
     }
 
-    if (!isInsideGeofence) {
+    if (!isPointInsidePuertoAyora(finalPoint)) {
       setError('Fuera de cobertura. Solo entregamos dentro de Puerto Ayora.');
       return;
     }
@@ -854,18 +864,13 @@ export default function LoginModal({
       return;
     }
 
-    if (lat === null || lng === null) {
-      setError('No se pudo leer el punto del mapa. Intenta moverlo un poco.');
-      return;
-    }
-
     setIsSavingLocation(true);
 
     saveDeliveryAddress({
       id: editingAddressId || undefined,
       label: addressLabel,
-      lat,
-      lng,
+      lat: finalPoint.lat,
+      lng: finalPoint.lng,
       reference: reference.trim(),
       isDefault: true,
     });
@@ -876,8 +881,8 @@ export default function LoginModal({
       name: name.trim(),
       whatsapp: normalizedWhatsapp,
       avatarUrl: avatar,
-      lat,
-      lng,
+      lat: finalPoint.lat,
+      lng: finalPoint.lng,
       reference: reference.trim(),
     });
   };
@@ -888,7 +893,7 @@ export default function LoginModal({
     return (
       <div className="fixed inset-0 z-[10000] bg-slate-100 overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-[54dvh] min-h-[350px] max-h-[460px] z-0 overflow-hidden bg-slate-100">
-          <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+          <div ref={mapContainerRef} className="pollazo-maplibre absolute inset-0 z-0" />
 
           {!mapReady && !mapFailed && (
             <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
@@ -914,17 +919,19 @@ export default function LoginModal({
           )}
 
           <div
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
+            className={`absolute left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-opacity duration-200 ${
               isDragging ? 'opacity-100' : 'opacity-0'
             }`}
+            style={{ top: `calc(50% + ${MAP_PIN_OFFSET_Y}px)` }}
           >
             <div className="w-1.5 h-1.5 bg-gray-500 rounded-full shadow-lg border border-white/70" />
           </div>
 
           <div
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
+            className={`absolute left-1/2 -translate-x-1/2 z-[650] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center ${
               isDragging ? '-translate-y-[108%] scale-90' : '-translate-y-full scale-100'
             }`}
+            style={{ top: `calc(50% + ${MAP_PIN_OFFSET_Y}px)` }}
           >
             <div className="bg-orange-500 p-2.5 rounded-[20px] shadow-[0_10px_24px_rgba(249,115,22,0.45)] border-2 border-white">
               <MapPin size={28} className="text-white fill-white" />
@@ -1107,24 +1114,24 @@ export default function LoginModal({
         </div>
 
         <style>{`
-          .leaflet-container {
+          .pollazo-maplibre {
             font-family: inherit;
-            cursor: grab !important;
-            touch-action: pan-x pan-y;
-            background: #f8fafc;
+            background: #e2e8f0;
+            cursor: grab;
+            contain: strict;
           }
 
-          .leaflet-container:active {
-            cursor: grabbing !important;
+          .pollazo-maplibre:active {
+            cursor: grabbing;
           }
 
-          .leaflet-tile {
-            filter: saturate(1.08) contrast(1.03);
+          .pollazo-maplibre .maplibregl-canvas {
+            outline: none;
+            background: #e2e8f0;
           }
 
-          .custom-div-icon {
-            background: none;
-            border: none;
+          .pollazo-maplibre .maplibregl-ctrl-attrib {
+            display: none !important;
           }
 
           .pollazo-user-dot {
@@ -1134,6 +1141,7 @@ export default function LoginModal({
             display: flex;
             align-items: center;
             justify-content: center;
+            pointer-events: none;
           }
 
           .pollazo-user-halo {
@@ -1320,9 +1328,7 @@ export default function LoginModal({
                         onLoad={() => markAvatarLoaded(item.url)}
                       />
 
-                      {avatar === item.url && (
-                        <div className="absolute inset-0 bg-orange-500/10" />
-                      )}
+                      {avatar === item.url && <div className="absolute inset-0 bg-orange-500/10" />}
                     </button>
                   );
                 })}
