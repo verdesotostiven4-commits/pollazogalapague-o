@@ -36,6 +36,12 @@ const installStyles = () => {
       }
     }
 
+    .pollazo-search-polished {
+      z-index: 145 !important;
+      padding-top: 4px !important;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 28px) !important;
+    }
+
     .pollazo-search-polished button[data-pollazo-search-result="1"] {
       margin: 9px 12px !important;
       width: calc(100% - 24px) !important;
@@ -133,7 +139,7 @@ const polishSearchOverlay = () => {
   if (!overlay) return;
 
   overlay.classList.add('pollazo-search-polished');
-  setImportant(overlay, 'z-index', '260');
+  setImportant(overlay, 'z-index', '145');
   setImportant(overlay, 'padding-bottom', 'calc(env(safe-area-inset-bottom) + 28px)');
 
   const query = normalize(findCatalogSearchInput()?.value || '');
@@ -218,16 +224,32 @@ const defaultPlusSavingsToTotal = () => {
     return text.includes('tu plus esta activo') && text.includes('ahorro acumulado');
   });
 
-  if (!plusModal || plusModal.dataset.pollazoPlusTotalDefaulted === '1') return;
+  if (!plusModal) return;
 
   const totalButton = Array.from(plusModal.querySelectorAll<HTMLButtonElement>('button')).find(button =>
     normalize(button.textContent || '').includes('ahorro acumulado')
   );
 
-  if (!totalButton) return;
+  if (totalButton && plusModal.dataset.pollazoPlusTotalDefaulted !== '1') {
+    plusModal.dataset.pollazoPlusTotalDefaulted = '1';
+    window.setTimeout(() => totalButton.click(), 40);
+  }
 
-  plusModal.dataset.pollazoPlusTotalDefaulted = '1';
-  window.setTimeout(() => totalButton.click(), 40);
+  const activeMain = plusModal.querySelector<HTMLElement>('main');
+  if (activeMain) {
+    setImportant(activeMain, 'overflow', 'visible');
+    setImportant(activeMain, 'padding-bottom', '10px');
+  }
+
+  Array.from(plusModal.querySelectorAll<HTMLElement>('div, button')).forEach(element => {
+    const text = normalize(element.textContent || '');
+    const isBenefitGrid = text.includes('delivery gratis') && text.includes('prioridad') && text.includes('sorpresas');
+    const isConditionsButton = text.includes('condiciones de tu membresia') || text.includes('cobertura beneficios y uso correcto');
+
+    if (isBenefitGrid || isConditionsButton) {
+      setImportant(element, 'display', 'none');
+    }
+  });
 };
 
 export default function PollazoUXFixes() {
@@ -252,7 +274,7 @@ export default function PollazoUXFixes() {
     };
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
     schedule();
     window.addEventListener('input', schedule, true);
