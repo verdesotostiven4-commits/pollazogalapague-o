@@ -212,6 +212,24 @@ const polishRankingReveal = () => {
   });
 };
 
+const defaultPlusSavingsToTotal = () => {
+  const plusModal = Array.from(document.querySelectorAll<HTMLElement>('div.fixed')).find(element => {
+    const text = normalize(element.textContent || '');
+    return text.includes('tu plus esta activo') && text.includes('ahorro acumulado');
+  });
+
+  if (!plusModal || plusModal.dataset.pollazoPlusTotalDefaulted === '1') return;
+
+  const totalButton = Array.from(plusModal.querySelectorAll<HTMLButtonElement>('button')).find(button =>
+    normalize(button.textContent || '').includes('ahorro acumulado')
+  );
+
+  if (!totalButton) return;
+
+  plusModal.dataset.pollazoPlusTotalDefaulted = '1';
+  window.setTimeout(() => totalButton.click(), 40);
+};
+
 export default function PollazoUXFixes() {
   useEffect(() => {
     if (!canUseDOM()) return undefined;
@@ -225,6 +243,7 @@ export default function PollazoUXFixes() {
       polishSoldOut();
       fixMapLoadingLayer();
       polishRankingReveal();
+      defaultPlusSavingsToTotal();
     };
 
     const schedule = () => {
