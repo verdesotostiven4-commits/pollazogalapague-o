@@ -34,6 +34,7 @@ import PollazoUXFixes from './components/PollazoUXFixes';
 import PollazoLanguagePolish from './components/PollazoLanguagePolish';
 import LanguageReloadGuard from './components/LanguageReloadGuard';
 import CheckoutBusinessRulesBridge from './components/CheckoutBusinessRulesBridge';
+import InstallQrGuideBridge from './components/InstallQrGuideBridge';
 import './index.css';
 import './styles/homeHeroRestore.css';
 import './styles/landing-install-lock.css';
@@ -215,6 +216,7 @@ createRoot(document.getElementById('root')!).render(
         <PollazoUXFixes />
         <PollazoLanguagePolish />
         <CheckoutBusinessRulesBridge />
+        <InstallQrGuideBridge />
         <App />
         <LegalModalNoAutoScroll />
         <InfoHelpCenterMount />
