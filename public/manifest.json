@@ -1,9 +1,9 @@
 {
-  "name": "Pollazo Galapagueño",
+  "name": "La Casa del Pollazo",
   "short_name": "Pollazo",
-  "description": "Tu market de confianza con pollo fresco enfundado en Puerto Ayora.",
-  "id": "/?appVersion=7",
-  "start_url": "/?appVersion=7",
+  "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
+  "id": "/?appVersion=8",
+  "start_url": "/?appVersion=8",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -12,19 +12,36 @@
   "orientation": "portrait",
   "lang": "es-EC",
   "dir": "ltr",
-  "categories": ["food", "shopping", "business"],
+  "categories": ["food", "shopping", "business", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/pollazo-splash-icon.svg?v=7",
+      "src": "/pollazo-splash-icon.svg?v=8",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png?v=7",
+      "src": "/icon-512.png?v=8",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catálogo",
+      "short_name": "Catálogo",
+      "description": "Ver productos disponibles",
+      "url": "/catalogo",
+      "icons": [{ "src": "/icon-512.png?v=8", "sizes": "512x512" }]
+    },
+    {
+      "name": "Carrito",
+      "short_name": "Carrito",
+      "description": "Revisar pedido",
+      "url": "/carrito",
+      "icons": [{ "src": "/icon-512.png?v=8", "sizes": "512x512" }]
     }
   ]
 }
