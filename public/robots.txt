@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pollazogalapague-o-psi.vercel.app/sitemap.xml
