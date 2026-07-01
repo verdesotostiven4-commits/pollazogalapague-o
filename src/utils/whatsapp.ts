@@ -4,6 +4,7 @@ export const WHATSAPP = '593989795628';
 export const STORE_WHATSAPP = WHATSAPP;
 
 const APP_URL = 'https://pollazogalapague-o.vercel.app';
+const FIRST_DELIVERY_PROMO_KEY = 'pollazo_first_delivery_free_active';
 
 interface WhatsAppOptions {
   paymentMethod?: PaymentMethod;
@@ -71,8 +72,21 @@ export function subtotalOf(items: CartItem[]): number {
 export function deliveryFeeOf(subtotal: number): number {
   if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
 
-  // Cliente normal SIEMPRE paga delivery.
-  // El delivery gratis solo se aplica desde App/Carrito cuando tiene Pollazo Plus activo.
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem(FIRST_DELIVERY_PROMO_KEY) === '1' &&
+      subtotal >= 10
+    ) {
+      return 0;
+    }
+  } catch {
+    // localStorage opcional.
+  }
+
+  if (subtotal < 5) return 0;
+  if (subtotal < 8) return 2;
+
   return 1.5;
 }
 
@@ -92,9 +106,9 @@ export function isStoreOpen(date = new Date()): boolean {
   const currentMinutes = hour * 60 + minute;
 
   const openMinutes = 7 * 60;
-  const closeMinutes = 21 * 60;
+  const lastAutomaticOrderMinutes = 20 * 60 + 45;
 
-  return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+  return currentMinutes >= openMinutes && currentMinutes <= lastAutomaticOrderMinutes;
 }
 
 function cleanPhoneNumber(phone?: string | null): string {
@@ -190,7 +204,9 @@ export function buildWhatsAppUrl(
 
   const deliveryText = hasPollazoPlus
     ? 'Gratis por Pollazo Plus 👑'
-    : formatMoney(deliveryFee);
+    : deliveryFee === 0
+      ? 'Gratis por promoción de bienvenida 🎁'
+      : formatMoney(deliveryFee);
 
   const messageSections = [
     `Hola, soy ${customerName || 'cliente'} 👋`,
@@ -201,6 +217,7 @@ export function buildWhatsAppUrl(
       : `Estado de horario: Tienda abierta`,
     `WhatsApp del cliente: ${customerPhone}`,
     hasPollazoPlus ? `Membresía: Pollazo Plus activo 👑` : '',
+    deliveryFee === 0 && !hasPollazoPlus ? `Promoción: primer delivery gratis aplicado 🎁` : '',
     `Método de pago: ${paymentLabel(options?.paymentMethod)}`,
     options?.paymentMethod === 'transferencia'
       ? `Banco del cliente: ${selectedBank}`
@@ -216,69 +233,4 @@ export function buildWhatsAppUrl(
   const text = messageSections.join('\n\n');
 
   return `https://wa.me/${cleanPhoneNumber(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
-}
-
-export function buildStatusWhatsAppUrl(
-  phone: string,
-  code: string,
-  status: OrderStatus
-): string {
-  const clean = cleanPhoneNumber(phone);
-
-  if (!clean) {
-    return '#';
-  }
-
-  const statusConfig: Record<OrderStatus, { emoji: string; msg: string }> = {
-    'Por Confirmar': {
-      emoji: '🕒',
-      msg: 'Recibimos tu pedido y está pendiente de confirmación. Estamos revisando disponibilidad y/o pago.',
-    },
-    Recibido: {
-      emoji: '✅',
-      msg: '¡Confirmado! El negocio aceptó tu pedido. Ahora sí empieza el seguimiento de entrega.',
-    },
-    Preparando: {
-      emoji: '📦',
-      msg: '¡Buenas noticias! Tu pedido ya se está preparando.',
-    },
-    Enviado: {
-      emoji: '🛵',
-      msg: '¡Tu pedido va en camino! Prepárate para recibirlo.',
-    },
-    Entregado: {
-      emoji: '😋',
-      msg: '¡Pedido entregado! Gracias por comprar en La Casa del Pollazo.',
-    },
-    Cancelado: {
-      emoji: '❌',
-      msg: 'Tu pedido ha sido cancelado. Escríbenos si tienes dudas.',
-    },
-  };
-
-  const fallback = statusConfig['Por Confirmar'];
-  const { emoji, msg } = statusConfig[status] || fallback;
-
-  const lines: string[] = [];
-
-  lines.push(`${emoji} *ACTUALIZACIÓN ORDEN ${code || 'POLLazo'}*`);
-  lines.push('');
-  lines.push(msg);
-  lines.push('');
-
-  if (status === 'Por Confirmar') {
-    lines.push('🕒 Apenas confirmemos disponibilidad y/o pago, se activará el tiempo estimado en la app.');
-  }
-
-  if (status === 'Recibido') {
-    lines.push('✅ Ya puedes revisar el tiempo estimado desde la app.');
-  }
-
-  lines.push('');
-  lines.push('📲 *Mira el estado en vivo aquí:*');
-  lines.push(APP_URL);
-  lines.push('');
-  lines.push('_Pollazo El Mirador_');
-
-  return `https://wa.me/${clean}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
