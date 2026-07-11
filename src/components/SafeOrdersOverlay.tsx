@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, Home, Info, PackageSearch, RefreshCw, Search, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
+import { CalendarDays, ChevronLeft, Home, Info, PackageSearch, RefreshCw, Repeat2, Search, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import type { Category, Order, Product } from '../types';
 
+const WHATSAPP_NUMBER = '593989795628';
 const ACTIVE_STATUSES = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'];
 const VALID_CATEGORIES: Category[] = [
   'Pollos', 'Embutidos', 'Lácteos y refrigerados', 'Abarrotes y básicos', 'Salsas, aliños y aceites',

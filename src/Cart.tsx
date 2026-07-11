@@ -10,7 +10,7 @@ export default function Cart() {
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const buildWhatsAppUrl = () => {
-    const isFixedPrice = (price: string | undefined) => {
+    const isFixedPrice = (price?: string | null) => {
       const p = price ?? '';
       return p.startsWith('$') && !isNaN(parseFloat(p.replace('$', '')));
     };
@@ -116,7 +116,7 @@ export default function Cart() {
             items.map(item => (
               <div key={item.product.id} className="group flex gap-3 bg-orange-50 border border-orange-200 rounded-2xl p-3 hover:bg-orange-100/50 transition-colors">
                 <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0">
-                  <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" />
+                  <img src={item.product.image || '/logo-final.png'} alt={item.product.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-900 font-semibold text-sm truncate">{item.product.name}</p>

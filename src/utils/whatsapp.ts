@@ -234,3 +234,30 @@ export function buildWhatsAppUrl(
 
   return `https://wa.me/${cleanPhoneNumber(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
 }
+
+export function buildStatusWhatsAppUrl(
+  customerPhone: string,
+  code: string,
+  status: OrderStatus
+): string {
+  const statusMessages: Record<OrderStatus, string> = {
+    'Por Confirmar': 'recibimos tu pedido y está pendiente de confirmación',
+    Recibido: 'tu pedido fue confirmado y recibido por el local',
+    Preparando: 'estamos preparando tu pedido',
+    Enviado: 'tu pedido salió para entrega',
+    Entregado: 'tu pedido fue entregado',
+    Cancelado: 'tu pedido fue cancelado',
+  };
+
+  const trackingUrl = `${APP_URL}/?tracking=1&orderCode=${encodeURIComponent(code)}`;
+  const text = [
+    `Hola 👋`,
+    `Actualización de tu pedido ${code}: ${statusMessages[status]}.`,
+    status === 'Cancelado'
+      ? 'Escríbenos si necesitas ayuda con este pedido.'
+      : `Puedes revisar el estado aquí: ${trackingUrl}`,
+  ].join('\n\n');
+
+  return `https://wa.me/${cleanPhoneNumber(customerPhone)}?text=${encodeURIComponent(text)}`;
+}
+
