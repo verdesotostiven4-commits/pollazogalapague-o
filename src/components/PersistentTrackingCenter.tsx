@@ -10,7 +10,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { fetchCustomerOrders } from '../utils/customerOrdersApi';
 
 type OrderStatus = 'Por Confirmar' | 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
 
@@ -196,30 +196,17 @@ export default function PersistentTrackingCenter() {
   const cleanCustomerPhone = cleanPhoneTail(customerPhone);
 
   const refreshOrders = useCallback(async () => {
-    if (!isSupabaseConfigured || !cleanCustomerPhone) return;
-
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false, nullsFirst: false })
-        .limit(60);
-
-      if (error) throw error;
-
-      const mine = (Array.isArray(data) ? data : [])
-        .filter(order => cleanPhoneTail(order?.customer_phone) === cleanCustomerPhone)
-        .map(order => order as TrackingOrder);
-
+      const data = await fetchCustomerOrders();
+      const mine = data.map(order => order as TrackingOrder);
       setOrders(mine);
     } catch (error) {
-      console.error('No se pudo cargar el rastreo persistente:', error);
+      console.error('No se pudo cargar el rastreo protegido:', error);
     } finally {
       setLoading(false);
     }
-  }, [cleanCustomerPhone]);
+  }, []);
 
   const trackedOrder = useMemo(() => {
     const intent = readTrackingIntent();
