@@ -50,10 +50,9 @@ import { useAdmin } from '../context/AdminContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Category, OrderStatus, PaymentStatus } from '../types';
 import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
+import { logoutPanelSession } from '../utils/panelSession';
 import AdminPlusPanel from './AdminPlusPanel';
 
-const ADMIN_PIN = '1328';
-const PIN_KEY = 'pollazo_admin_auth';
 
 const TABS = [
   { id: 'overview', label: 'Inicio', Icon: Home },
@@ -226,65 +225,6 @@ class AdminErrorBoundary extends Component<
 
     return this.props.children;
   }
-}
-
-function PinScreen({ onAuth }: { onAuth: () => void }) {
-  const [pin, setPin] = useState('');
-
-  const add = (digit: string) => {
-    const next = (pin + digit).slice(0, 4);
-    setPin(next);
-
-    if (next.length === 4) {
-      if (next === ADMIN_PIN) {
-        sessionStorage.setItem(PIN_KEY, '1');
-        onAuth();
-      } else {
-        window.setTimeout(() => setPin(''), 350);
-      }
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 text-white text-center">
-      <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500">
-        <img src="/logo-final.png" className="w-24 h-24 mx-auto object-contain" alt="Logo" />
-        <h1 className="text-2xl font-black italic uppercase tracking-widest leading-none">
-          Admin VIP
-        </h1>
-
-        <div className="flex justify-center gap-4">
-          {[0, 1, 2, 3].map(index => (
-            <div
-              key={index}
-              className={`w-3.5 h-3.5 rounded-full transition-all ${
-                index < pin.length
-                  ? 'bg-orange-500 scale-125 shadow-[0_0_10px_#f97316]'
-                  : 'bg-white/10'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((digit, index) =>
-            digit ? (
-              <button
-                key={index}
-                type="button"
-                onClick={() => (digit === '⌫' ? setPin(current => current.slice(0, -1)) : add(digit))}
-                className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-bold active:scale-90 transition-all hover:bg-white/10"
-              >
-                {digit}
-              </button>
-            ) : (
-              <div key={index} />
-            )
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 const toNumber = (value: unknown) => {
@@ -644,7 +584,6 @@ function MethodCard({ item }: { item: MethodTotal }) {
 }
 
 function AdminDashboardContent() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(PIN_KEY) === '1');
   const context = useAdmin();
 
   const [tab, setTab] = useState<TabId>('overview');
@@ -790,7 +729,7 @@ function AdminDashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!authed || !safeOrders.length) {
+    if (!safeOrders.length) {
       return;
     }
 
@@ -866,7 +805,7 @@ function AdminDashboardContent() {
     if (pendingAlert) {
       raiseOperationalAlert(pendingAlert);
     }
-  }, [authed, raiseOperationalAlert, safeOrders]);
+  }, [raiseOperationalAlert, safeOrders]);
 
   const ranking = useMemo(() => {
     return [...safeCustomers].sort((a, b) => (b?.points || 0) - (a?.points || 0));
@@ -1053,7 +992,6 @@ function AdminDashboardContent() {
       });
   }, [orderBucket, safeCustomers, safeOrders, search]);
 
-  if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
 
   if (!context || context.loading) {
     return (
@@ -1323,10 +1261,7 @@ function AdminDashboardContent() {
 
             <button
               type="button"
-              onClick={() => {
-                sessionStorage.removeItem(PIN_KEY);
-                setAuthed(false);
-              }}
+              onClick={() => void logoutPanelSession('admin')}
               className="p-2 text-gray-400 active:scale-75"
               aria-label="Cerrar admin"
             >
