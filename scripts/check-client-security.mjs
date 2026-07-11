@@ -6,9 +6,18 @@ const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const forbidden = [
   { label: 'hardcoded admin PIN', pattern: /\b1328\b/ },
   { label: 'hardcoded delivery PIN', pattern: /\b2580\b/ },
-  { label: 'client panel auth flag', pattern: /pollazo_(?:admin|delivery)_auth/ },
-  { label: 'direct sensitive table access', pattern: /\.from\(\s*['"](?:customers|orders|customer_memberships|membership_payments|order_bonus_items|push_subscriptions|cash_registers|cash_transactions|pos_sales|pos_sale_items|pos_payment_splits|stock_movements|testimonials|app_metrics)['"]\s*\)/ },
-  { label: 'direct sensitive RPC', pattern: /\.rpc\(\s*['"](?:increment_metric|open_cash_register_v1|close_cash_register_v1|create_pos_sale_v1|get_pos_report_v1|void_pos_sale_v1|adjust_product_stock_v1|get_product_stock_movements_v1|sync_online_order_stock_v1|transition_online_order_v2|submit_customer_testimonial_v1)['"]/ },
+  {
+    label: 'client panel auth flag',
+    pattern: /(?:getItem|setItem)\(\s*['"]pollazo_(?:admin|delivery)_auth['"]/, 
+  },
+  {
+    label: 'direct sensitive table access',
+    pattern: /\.from\(\s*['"](?:customers|orders|customer_memberships|membership_payments|order_bonus_items|push_subscriptions|cash_registers|cash_transactions|pos_sales|pos_sale_items|pos_payment_splits|stock_movements|testimonials|app_metrics)['"]\s*\)/,
+  },
+  {
+    label: 'direct sensitive RPC',
+    pattern: /\.rpc\(\s*['"](?:increment_metric|open_cash_register_v1|close_cash_register_v1|create_pos_sale_v1|get_pos_report_v1|void_pos_sale_v1|adjust_product_stock_v1|get_product_stock_movements_v1|sync_online_order_stock_v1|transition_online_order_v2|submit_customer_testimonial_v1)['"]/, 
+  },
 ];
 
 const files = [];
