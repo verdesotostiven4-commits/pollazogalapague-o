@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -18,8 +18,25 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout phase branch
         uses: actions/checkout@v4
+        with:
+          ref: phase-1-stabilization-20260711
+
+      - name: Protect testimonials, metrics and push cleanup
+        run: python .github/scripts/protect_public_features.py
+
+      - name: Persist protected public features
+        run: |
+          git add src/components/Testimonials.tsx src/components/LiveMetrics.tsx src/utils/pushNotifications.ts
+          if git diff --cached --quiet; then
+            echo "Protected public features are already applied"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "security(public): proxy testimonials metrics and push cleanup"
+            git push origin HEAD:phase-1-stabilization-20260711
+          fi
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
