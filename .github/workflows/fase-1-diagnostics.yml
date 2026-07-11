@@ -1,5 +1,6 @@
 name: Fase 1 Diagnostics
 
+# Manual refresh marker: remaining TypeScript blockers
 on:
   push:
     branches:
