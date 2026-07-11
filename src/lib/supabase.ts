@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { insertOrderSecurely } from '../services/secureOrderInsert';
+import { createSecureOrderReadBuilder } from '../services/secureOrderRead';
 import {
   createSecureOrderUpdateBuilder,
   isProtectedOrderUpdate,
@@ -38,6 +39,7 @@ type SecureInsertArgs = Parameters<typeof insertOrderSecurely>[0];
 /**
  * Compatibilidad transicional de Fase 1:
  *
+ * - SELECT de `orders` usa sesiones firmadas de panel o cliente.
  * - INSERT sobre `orders` pasa por /api/create-order.
  * - UPDATE de estado/pago pasa por endpoints con sesión firmada y service role.
  * - Un cambio logístico nunca puede confirmar el pago en la misma petición.
@@ -56,6 +58,10 @@ export const supabase = new Proxy(rawSupabase, {
 
         return new Proxy(query, {
           get(queryTarget, queryProperty, queryReceiver) {
+            if (queryProperty === 'select') {
+              return () => createSecureOrderReadBuilder();
+            }
+
             if (queryProperty === 'insert') {
               const fallbackInsert = queryTarget.insert.bind(queryTarget);
 
