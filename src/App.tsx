@@ -401,7 +401,7 @@ function AppShell() {
   });
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, orders, products, loading, refreshData } = useAdmin();
+  const { createOrder, orders, products, loading, refreshData } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -708,17 +708,6 @@ function AppShell() {
       setShowConfirmation(true);
     }
 
-    void (async () => {
-      try {
-        await upsertCustomer(u.whatsapp, u.name, u.avatarUrl, {
-          lat: u.lat,
-          lng: u.lng,
-          reference: u.reference || null,
-        });
-      } catch (error) {
-        console.error('Error perfil:', error);
-      }
-    })();
   };
 
   const requireCustomerBeforeOrder = () => {
