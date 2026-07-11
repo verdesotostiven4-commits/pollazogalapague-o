@@ -672,109 +672,32 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       document.documentElement.style.setProperty('--pollazo-primary', value);
     }
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({
-        key,
-        value,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error('❌ Error guardando setting:', error);
+    try {
+      await runPanelAction('update_setting', { key, value });
+    } catch (error) {
+      await load();
       throw error;
     }
-  }, []);
+  }, [load]);
 
   const updateExtraSettings = useCallback(
     async (patch: Partial<ExtraSettings>) => {
-      const now = new Date().toISOString();
-      const next: ExtraSettings = {
-        ...extraSettings,
-        ...patch,
-      };
+      setExtraSettings(prev => ({ ...prev, ...patch }));
 
-      setExtraSettings(next);
-
-      if (!isSupabaseConfigured) return;
-
-      const { error: settingsError } = await supabase
-        .from('settings')
-        .upsert({
-          id: 'global',
-          ...next,
-          updated_at: now,
-        });
-
-      if (settingsError) {
-        console.error('❌ Error guardando settings global:', settingsError);
+      try {
+        await runPanelAction('update_extra_settings', { patch });
         await load();
-        throw settingsError;
+      } catch (error) {
+        await load();
+        throw error;
       }
-
-      const prizePromises = [];
-
-      if (patch.prize_1 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_1', value: patch.prize_1, updated_at: now })
-        );
-      }
-
-      if (patch.prize_2 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_2', value: patch.prize_2, updated_at: now })
-        );
-      }
-
-      if (patch.prize_3 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_3', value: patch.prize_3, updated_at: now })
-        );
-      }
-
-      if (prizePromises.length > 0) {
-        const results = await Promise.all(prizePromises);
-
-        results.forEach(result => {
-          if (result.error) {
-            console.error('❌ Error guardando premio:', result.error);
-          }
-        });
-      }
-
-      await load();
     },
-    [extraSettings, load]
+    [load]
   );
 
   const finalizeSeason = useCallback(
     async (name: string, prize: string, winners: any[]) => {
-      if (!isSupabaseConfigured) return;
-
-      const now = new Date().toISOString();
-
-      const { error } = await supabase.from('seasons').insert({
-        name,
-        prize,
-        winners,
-        is_published: false,
-        created_at: now,
-        updated_at: now,
-      });
-
-      if (error) {
-        console.error('❌ Error finalizando temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('finalize_season', { name, prize, winners });
       await load();
     },
     [load]
@@ -782,15 +705,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const deleteSeason = useCallback(
     async (id: string) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase.from('seasons').delete().eq('id', id);
-
-      if (error) {
-        console.error('❌ Error eliminando temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('delete_season', { id });
       await load();
     },
     [load]
@@ -798,21 +713,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const toggleSeasonVisibility = useCallback(
     async (id: string, published: boolean) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('seasons')
-        .update({
-          is_published: published,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error cambiando visibilidad de temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('toggle_season', { id, published });
       await load();
     },
     [load]
@@ -820,21 +721,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const updateSeasonWinners = useCallback(
     async (id: string, winners: any[]) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('seasons')
-        .update({
-          winners,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error actualizando ganadores:', error);
-        throw error;
-      }
-
+      await runPanelAction('update_season_winners', { id, winners });
       await load();
     },
     [load]
@@ -842,12 +729,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const setOverride = useCallback(
     async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => {
-      const current = overrides[id] ?? {
-        id,
-        price: null,
-        available: true,
-      };
-
+      const current = overrides[id] ?? { id, price: null, available: true };
       const updated: ProductOverride = {
         ...current,
         ...patch,
@@ -855,22 +737,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         available: patch.available ?? current.available ?? true,
       };
 
-      setOverrides(prev => ({
-        ...prev,
-        [id]: updated,
-      }));
+      setOverrides(prev => ({ ...prev, [id]: updated }));
 
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('product_overrides')
-        .upsert({
-          ...updated,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('❌ Error guardando override:', error);
+      try {
+        await runPanelAction('set_product_override', { ...updated });
+      } catch (error) {
         await load();
         throw error;
       }
@@ -879,31 +750,23 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => {
-    const now = new Date().toISOString();
-
     const newProduct = normalizeProduct({
       ...product,
       id: product.id || slug(product.name),
     } as Product);
 
-    setRemoteProducts(prev => {
-      const withoutDuplicate = prev.filter(item => item.id !== newProduct.id);
-      return [newProduct, ...withoutDuplicate];
-    });
+    setRemoteProducts(prev => [
+      newProduct,
+      ...prev.filter(item => item.id !== newProduct.id),
+    ]);
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase.from('products').upsert({
-      ...newProduct,
-      created_at: newProduct.created_at || now,
-      updated_at: now,
-    });
-
-    if (error) {
-      console.error('❌ Error agregando producto:', error);
+    try {
+      await runPanelAction<Product>('upsert_product', { product: newProduct });
+    } catch (error) {
+      await load();
       throw error;
     }
-  }, []);
+  }, [load]);
 
   const updateProduct = useCallback(
     async (id: string, patch: Partial<Product>) => {
@@ -911,53 +774,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         remoteProducts.find(product => product.id === id) ||
         seedProducts.find(product => product.id === id);
 
-      setRemoteProducts(prev => {
-        const exists = prev.some(product => product.id === id);
-
-        if (exists) {
-          return prev.map(product =>
-            product.id === id ? normalizeProduct({ ...product, ...patch }) : product
-          );
-        }
-
-        if (baseProduct) {
-          return [normalizeProduct({ ...baseProduct, ...patch } as Product), ...prev];
-        }
-
-        return prev;
-      });
-
-      if (!isSupabaseConfigured) return;
-
-      const now = new Date().toISOString();
-
-      if (baseProduct) {
-        const { error } = await supabase.from('products').upsert({
-          ...baseProduct,
-          ...patch,
+      const nextProduct = normalizeProduct({
+        ...(baseProduct || {
           id,
-          updated_at: now,
-        });
+          name: patch.name || id,
+          category: patch.category || 'Pollos',
+        }),
+        ...patch,
+        id,
+      } as Product);
 
-        if (error) {
-          console.error('❌ Error actualizando producto:', error);
-          await load();
-          throw error;
-        }
+      setRemoteProducts(prev => [
+        nextProduct,
+        ...prev.filter(product => product.id !== id),
+      ]);
 
-        return;
-      }
-
-      const { error } = await supabase
-        .from('products')
-        .update({
-          ...patch,
-          updated_at: now,
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error actualizando producto:', error);
+      try {
+        await runPanelAction<Product>('upsert_product', { product: nextProduct });
+      } catch (error) {
         await load();
         throw error;
       }
@@ -967,42 +801,19 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const deleteProduct = useCallback(async (id: string) => {
     const seedProduct = seedProducts.find(product => product.id === id);
-    const now = new Date().toISOString();
 
     if (seedProduct) {
-      const hiddenProduct = normalizeProduct({
-        ...seedProduct,
-        available: false,
-      } as Product);
-
-      setRemoteProducts(prev => {
-        const withoutDuplicate = prev.filter(product => product.id !== id);
-        return [hiddenProduct, ...withoutDuplicate];
-      });
-
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase.from('products').upsert({
-        ...hiddenProduct,
-        updated_at: now,
-      });
-
-      if (error) {
-        console.error('❌ Error ocultando producto base:', error);
-        throw error;
-      }
-
+      const hiddenProduct = normalizeProduct({ ...seedProduct, available: false } as Product);
+      setRemoteProducts(prev => [hiddenProduct, ...prev.filter(product => product.id !== id)]);
+      await runPanelAction('upsert_product', { product: hiddenProduct });
       return;
     }
 
     setRemoteProducts(prev => prev.filter(product => product.id !== id));
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase.from('products').delete().eq('id', id);
-
-    if (error) {
-      console.error('❌ Error eliminando producto:', error);
+    try {
+      await runPanelAction('delete_product', { id });
+    } catch (error) {
       await load();
       throw error;
     }
