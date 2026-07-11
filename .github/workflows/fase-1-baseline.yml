@@ -1,0 +1,67 @@
+name: Fase 1 Baseline
+
+on:
+  push:
+    branches:
+      - stabilization/fase-1
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies reproducibly
+        id: npm_ci
+        continue-on-error: true
+        run: npm ci
+
+      - name: Install dependencies for diagnostics when npm ci fails
+        if: steps.npm_ci.outcome == 'failure'
+        run: npm install --ignore-scripts
+
+      - name: TypeScript check
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: ESLint check
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Production build
+        id: build
+        continue-on-error: true
+        run: npm run build
+
+      - name: Fail when any baseline check failed
+        if: always()
+        shell: bash
+        run: |
+          echo "npm ci: ${{ steps.npm_ci.outcome }}"
+          echo "typecheck: ${{ steps.typecheck.outcome }}"
+          echo "lint: ${{ steps.lint.outcome }}"
+          echo "build: ${{ steps.build.outcome }}"
+
+          if [[ "${{ steps.npm_ci.outcome }}" != "success" || \
+                "${{ steps.typecheck.outcome }}" != "success" || \
+                "${{ steps.lint.outcome }}" != "success" || \
+                "${{ steps.build.outcome }}" != "success" ]]; then
+            exit 1
+          fi
