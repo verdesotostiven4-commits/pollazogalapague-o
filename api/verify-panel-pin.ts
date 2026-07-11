@@ -1,6 +1,14 @@
+import {
+  buildPanelSessionCookie,
+  createPanelSessionToken,
+  getPanelSessionSecret,
+  isPanelType,
+  type PanelType,
+} from '../server/panel-session';
+
 type ApiRequest = {
   method?: string;
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string | string[] | undefined>;
 };
 
@@ -8,9 +16,8 @@ type ApiResponse = {
   status: (code: number) => {
     json: (payload: unknown) => void;
   };
+  setHeader: (name: string, value: string | string[]) => void;
 };
-
-type PanelType = 'admin' | 'delivery';
 
 type VerifyPinPayload = {
   panel?: string;
@@ -18,29 +25,27 @@ type VerifyPinPayload = {
 };
 
 const MAX_PIN_LENGTH = 12;
+const MAX_ATTEMPTS = 6;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 const getBody = (req: ApiRequest): VerifyPinPayload => {
   if (!req.body) return {};
 
   if (typeof req.body === 'string') {
     try {
-      return JSON.parse(req.body);
+      return JSON.parse(req.body) as VerifyPinPayload;
     } catch {
       return {};
     }
   }
 
-  return req.body;
+  return typeof req.body === 'object' ? (req.body as VerifyPinPayload) : {};
 };
 
 const cleanPin = (pin?: string | null) => {
   return String(pin || '')
     .replace(/\D/g, '')
     .slice(0, MAX_PIN_LENGTH);
-};
-
-const isPanelType = (value?: string | null): value is PanelType => {
-  return value === 'admin' || value === 'delivery';
 };
 
 const getExpectedPin = (panel: PanelType) => {
@@ -52,7 +57,8 @@ const getExpectedPin = (panel: PanelType) => {
 };
 
 const getRateLimitKey = (req: ApiRequest, panel: PanelType) => {
-  const forwardedFor = req.headers?.['x-forwarded-for'] || req.headers?.['X-Forwarded-For'];
+  const forwardedFor =
+    req.headers?.['x-forwarded-for'] || req.headers?.['X-Forwarded-For'];
   const rawIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
   const ip = String(rawIp || 'unknown')
     .split(',')[0]
@@ -71,17 +77,17 @@ const checkRateLimit = (key: string) => {
   if (!current || current.resetAt <= now) {
     attempts.set(key, {
       count: 1,
-      resetAt: now + 10 * 60 * 1000,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
     });
 
     return {
       allowed: true,
-      remaining: 5,
+      remaining: MAX_ATTEMPTS - 1,
       retryAfterSeconds: 0,
     };
   }
 
-  if (current.count >= 6) {
+  if (current.count >= MAX_ATTEMPTS) {
     return {
       allowed: false,
       remaining: 0,
@@ -94,18 +100,13 @@ const checkRateLimit = (key: string) => {
 
   return {
     allowed: true,
-    remaining: Math.max(0, 6 - current.count),
+    remaining: Math.max(0, MAX_ATTEMPTS - current.count),
     retryAfterSeconds: 0,
   };
 };
 
-const resetRateLimit = (key: string) => {
-  attempts.delete(key);
-};
-
 const timingSafeEqualText = (a: string, b: string) => {
-  if (!a || !b) return false;
-  if (a.length !== b.length) return false;
+  if (!a || !b || a.length !== b.length) return false;
 
   let result = 0;
 
@@ -117,11 +118,10 @@ const timingSafeEqualText = (a: string, b: string) => {
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
+
   if (req.method !== 'POST') {
-    return res.status(405).json({
-      ok: false,
-      error: 'Method not allowed',
-    });
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
   const payload = getBody(req);
@@ -129,28 +129,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const pin = cleanPin(payload.pin);
 
   if (!isPanelType(panel)) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Invalid panel',
-    });
+    return res.status(400).json({ ok: false, error: 'Invalid panel' });
   }
 
   if (!pin) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Missing pin',
-    });
+    return res.status(400).json({ ok: false, error: 'Missing pin' });
   }
 
   const expectedPin = getExpectedPin(panel);
+  const sessionSecret = getPanelSessionSecret();
 
-  if (!expectedPin) {
+  if (!expectedPin || !sessionSecret) {
     return res.status(500).json({
       ok: false,
-      error:
-        panel === 'admin'
+      error: !expectedPin
+        ? panel === 'admin'
           ? 'Missing POLLAZO_ADMIN_PIN env var'
-          : 'Missing POLLAZO_DELIVERY_PIN env var',
+          : 'Missing POLLAZO_DELIVERY_PIN env var'
+        : 'Missing or weak POLLAZO_PANEL_SESSION_SECRET',
       missingEnv: true,
     });
   }
@@ -166,9 +162,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
-  const valid = timingSafeEqualText(pin, expectedPin);
-
-  if (!valid) {
+  if (!timingSafeEqualText(pin, expectedPin)) {
     return res.status(401).json({
       ok: false,
       error: 'Invalid pin',
@@ -176,10 +170,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
-  resetRateLimit(rateLimitKey);
+  attempts.delete(rateLimitKey);
+
+  const { token, claims } = await createPanelSessionToken(panel, sessionSecret);
+  res.setHeader('Set-Cookie', buildPanelSessionCookie(panel, token));
 
   return res.status(200).json({
     ok: true,
     panel,
+    expiresAt: claims.expiresAt,
   });
 }
