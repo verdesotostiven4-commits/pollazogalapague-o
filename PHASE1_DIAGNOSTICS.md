@@ -1,19 +1,19 @@
 # Phase 1 diagnostics
 
-Generated from commit: `8e185d3479e3fab34eb343b4fbd604297749fd8f`
+Generated from commit: `249760504ac2b808180da3ca82c290df6f159c29`
 
 | Check | Result |
 |---|---|
 | npm ci | PASS |
 | TypeScript | FAIL (2) |
 | ESLint | FAIL (1) |
-| Production build | FAIL (1) |
+| Production build | PASS |
 
 ## npm-ci
 
 ```text
 
-added 343 packages, and audited 344 packages in 3s
+added 343 packages, and audited 344 packages in 4s
 
 70 packages are looking for funding
   run `npm fund` for details
@@ -33,22 +33,14 @@ Run `npm audit` for details.
 > vite-react-typescript-starter@0.0.0 typecheck
 > tsc --noEmit -p tsconfig.app.json
 
-src/components/CartScreen.tsx(198,16): error TS7053: Element implicitly has an 'any' type because expression of type 'LanguageCode' can't be used to index type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
-  Property 'pt' does not exist on type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
-src/components/CartScreen.tsx(198,53): error TS2339: Property 'es' does not exist on type 'never'.
-src/components/CartScreen.tsx(244,5): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(253,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(254,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(255,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(256,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(257,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(258,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/CartScreen.tsx(259,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/InstallQrGuideBridge.tsx(2,48): error TS2305: Module '"lucide-react"' has no exported member 'Safari'.
-src/components/SafeOrdersOverlay.tsx(268,237): error TS2304: Cannot find name 'Repeat2'.
-src/components/SafeOrdersOverlay.tsx(269,117): error TS2304: Cannot find name 'WHATSAPP_NUMBER'.
-src/context/LanguageContext.tsx(58,40): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
-src/utils/productI18n.ts(30,40): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/components/CartScreen.tsx(244,5): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(253,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(254,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(255,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(256,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(257,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(258,7): error TS18047: 'context' is possibly 'null'.
+src/components/CartScreen.tsx(259,7): error TS18047: 'context' is possibly 'null'.
 ```
 
 ## lint
@@ -178,11 +170,11 @@ src/utils/productI18n.ts(30,40): error TS2550: Property 'replaceAll' does not ex
   231:9  error  'daysLeft' is assigned a value but never used      @typescript-eslint/no-unused-vars
 
 /home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/SafeOrdersOverlay.tsx
-  55:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  59:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  63:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  71:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  75:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/Testimonials.tsx
   455:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -231,26 +223,16 @@ Browserslist: caniuse-lite is outdated. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
 [32m✓[39m 1625 modules transformed.
-[31mx[39m Build failed in 3.97s
-[31merror during build:
-[31msrc/components/InstallQrGuideBridge.tsx (2:47): "Safari" is not exported by "node_modules/lucide-react/dist/esm/lucide-react.js", imported by "src/components/InstallQrGuideBridge.tsx".[31m
-file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/InstallQrGuideBridge.tsx:2:47[31m
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m   11.39 kB[22m[1m[22m[2m │ gzip:   3.12 kB[22m
+[2mdist/[22m[2massets/[22m[35mindex-Dm6avVHR.css  [39m[1m[2m  190.41 kB[22m[1m[22m[2m │ gzip:  27.21 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex-Ce4fvbch.js   [39m[1m[33m1,963.64 kB[39m[22m[2m │ gzip: 544.44 kB[22m
 [33m
-1: import { useEffect, useMemo, useState } from 'react';
-2: import { ChevronRight, Download, Home, QrCode, Safari, Smartphone, Sparkles, X } from 'lucide-react';
-                                                  ^
-3: 
-4: const INSTALL_PATH = '/instalar';
-[31m
-    at getRollupError (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/parseAst.js:395:41)
-    at error (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/parseAst.js:391:42)
-    at Module.error (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:15535:16)
-    at Module.traceVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:15984:29)
-    at ModuleScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:13770:39)
-    at FunctionScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
-    at FunctionBodyScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
-    at Identifier.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5035:40)
-    at CallExpression.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:2851:28)
-    at CallExpression.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:11235:15)[39m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 6.53s[39m
 ```
 
