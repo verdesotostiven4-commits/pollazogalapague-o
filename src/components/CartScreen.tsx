@@ -218,6 +218,8 @@ function spawnConfetti() {
     return;
   }
 
+  const confettiContext: CanvasRenderingContext2D = context;
+
   const count = 55;
   const cx = canvas.width / 2;
   const cy = canvas.height * 0.55;
@@ -241,7 +243,7 @@ function spawnConfetti() {
   const max = 65;
 
   function animate() {
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    confettiContext.clearRect(0, 0, canvas.width, canvas.height);
     const alpha = Math.max(0, 1 - frame / max);
 
     particles.forEach(particle => {
@@ -250,13 +252,13 @@ function spawnConfetti() {
       particle.vy += 0.25;
       particle.vx *= 0.98;
       particle.rotation += particle.rotSpeed;
-      context.globalAlpha = alpha;
-      context.fillStyle = particle.color;
-      context.save();
-      context.translate(particle.x, particle.y);
-      context.rotate(particle.rotation);
-      context.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.5);
-      context.restore();
+      confettiContext.globalAlpha = alpha;
+      confettiContext.fillStyle = particle.color;
+      confettiContext.save();
+      confettiContext.translate(particle.x, particle.y);
+      confettiContext.rotate(particle.rotation);
+      confettiContext.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.5);
+      confettiContext.restore();
     });
 
     frame += 1;
