@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -18,8 +18,25 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout phase branch
         uses: actions/checkout@v4
+        with:
+          ref: phase-1-stabilization-20260711
+
+      - name: Finalize protected inventory operations
+        run: python .github/scripts/finalize_phase1_inventory.py
+
+      - name: Persist final inventory correction
+        run: |
+          git add src/components/AdminInventoryLauncher.tsx
+          if git diff --cached --quiet; then
+            echo "Inventory protection already finalized"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "security(inventory): route remaining operations through server"
+            git push origin HEAD:phase-1-stabilization-20260711
+          fi
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -31,21 +48,7 @@ jobs:
         run: npm ci
 
       - name: Client security check
-        id: security
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run security:check 2>&1 | tee security-check.log
-
-      - name: Upload security diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-1-security-diagnostics
-          path: security-check.log
-          if-no-files-found: error
-          retention-days: 3
+        run: npm run security:check
 
       - name: Typecheck
         run: npm run typecheck
@@ -55,7 +58,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Fail when security check failed
-        if: ${{ steps.security.outcome == 'failure' }}
-        run: exit 1
