@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 // Keep CI diagnostics compact so the actual TypeScript errors stay visible.
+// This script is also usable locally with npm run typecheck.
 const result = spawnSync(
   process.platform === 'win32' ? 'npx.cmd' : 'npx',
   ['tsc', '--noEmit', '-p', 'tsconfig.app.json', '--pretty', 'false'],
