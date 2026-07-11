@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { products as seedProducts, categories as seedCategories } from '../data/products';
+import { saveOrderCredential } from '../utils/orderCredentials';
 import type {
   AppSettings,
   Customer,
@@ -124,7 +125,7 @@ interface AdminContextValue {
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
   resetSeasonPoints: () => Promise<void>;
 
-  createOrder: (order: CreateOrderInput) => Promise<void>;
+  createOrder: (order: CreateOrderInput) => Promise<ExtendedOrder | null>;
   updateOrderStatus: (orderId: string, status: ExtendedOrder['status']) => Promise<void>;
 
   requestMembership: (input: MembershipRequestInput) => Promise<CustomerMembership | null>;
@@ -1446,63 +1447,81 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const createOrder = useCallback(
-    async (order: CreateOrderInput) => {
-      if (!isSupabaseConfigured) return;
+    async (order: CreateOrderInput): Promise<ExtendedOrder | null> => {
+      const idempotencyKey = String(order.order_code || '').trim();
 
-      const now = new Date().toISOString();
-      const status = order.status || 'Por Confirmar';
-      const paymentStatus = resolvePaymentStatus(order, status);
+      if (!idempotencyKey) {
+        throw new Error('No se pudo generar la clave segura del pedido.');
+      }
 
-      const cleanCustomerPhone = normalizeEcuadorPhone(order.customer_phone);
-      const activeMembership = findActiveMembershipByPhone(
-        memberships,
-        cleanCustomerPhone || order.customer_phone
-      );
+      const customerPhone = normalizeEcuadorPhone(order.customer_phone);
+      const customer = findBestCustomerByPhone(customers, customerPhone);
+      const items = Array.isArray(order.items) ? order.items : [];
 
-      const subtotal = toMoneyNumber(order.subtotal || 0);
-      const serviceFee = toMoneyNumber(order.service_fee || 0);
-      const cardFee = toMoneyNumber(order.card_fee || 0);
-      const originalDeliveryFee = toMoneyNumber(order.delivery_fee || 0);
-      const finalDeliveryFee = activeMembership ? 0 : originalDeliveryFee;
+      const response = await fetch('/api/create-order', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idempotencyKey,
+          customerPhone,
+          customerName: customer?.name || null,
+          items: items.map(item => ({
+            productId:
+              item.product_id ||
+              item.product?.id ||
+              item.cart_item_id ||
+              item.id ||
+              '',
+            quantity: Number(item.quantity || 1),
+            customPrice:
+              typeof item.custom_price === 'number'
+                ? item.custom_price
+                : typeof item.product?.custom_price === 'number'
+                  ? item.product.custom_price
+                  : null,
+          })),
+          paymentMethod: order.payment_method,
+          deliveryType: order.delivery_type || 'domicilio',
+          lat: typeof order.lat === 'number' ? order.lat : Number(order.lat),
+          lng: typeof order.lng === 'number' ? order.lng : Number(order.lng),
+          reference: order.reference || null,
+        }),
+      });
 
-      const baseTotal = toMoneyNumber(
-        subtotal + finalDeliveryFee + serviceFee + cardFee
-      );
-
-      const payload = {
-        ...order,
-        customer_phone: cleanCustomerPhone || order.customer_phone,
-        status,
-        payment_status: order.payment_status || paymentStatus,
-        counted_in_metrics: order.counted_in_metrics || false,
-        is_test_order: order.is_test_order || false,
-        provider: order.provider ?? false,
-        service_fee: serviceFee,
-        card_fee: cardFee,
-        delivery_fee: finalDeliveryFee,
-        subtotal,
-        total: activeMembership ? baseTotal : toMoneyNumber(order.total || baseTotal),
-        membership_applied: Boolean(activeMembership),
-        membership_id: activeMembership?.id || null,
-        membership_plan: activeMembership?.plan_name || null,
-        delivery_fee_original: originalDeliveryFee,
-        delivery_fee_final: finalDeliveryFee,
-        bonus_items: order.bonus_items || [],
-        vip_gift_message: order.vip_gift_message || null,
-        created_at: order.created_at || now,
-        updated_at: now,
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        order?: ExtendedOrder;
+        trackingToken?: string;
+        minimumOrder?: number;
+        storeClosed?: boolean;
       };
 
-      const { error } = await supabase.from('orders').insert(payload);
-
-      if (error) {
-        console.error('❌ Error creando orden:', error);
+      if (!response.ok || !result.ok || !result.order) {
+        const error = new Error(result.error || 'No se pudo registrar el pedido de forma segura.');
+        Object.assign(error, {
+          status: response.status,
+          minimumOrder: result.minimumOrder,
+          storeClosed: result.storeClosed,
+        });
         throw error;
       }
 
-      await load();
+      if (result.trackingToken) {
+        saveOrderCredential(result.order.order_code, result.trackingToken);
+      }
+
+      setOrders(prev => {
+        const withoutDuplicate = prev.filter(item => item.id !== result.order?.id);
+        return result.order ? [result.order, ...withoutDuplicate] : withoutDuplicate;
+      });
+
+      return result.order;
     },
-    [load, memberships]
+    [customers]
   );
 
   const countOrderForMetricsAndCustomer = useCallback(
