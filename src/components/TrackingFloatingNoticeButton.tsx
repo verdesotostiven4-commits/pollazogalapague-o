@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PackageSearch } from 'lucide-react';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { fetchCustomerOrders } from '../utils/customerOrdersApi';
 
 type OrderStatus = 'Por Confirmar' | 'Recibido' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado';
 
@@ -139,28 +139,15 @@ export default function TrackingFloatingNoticeButton() {
   const hasSeen = currentKey ? seenKeys.includes(currentKey) : false;
 
   const refreshOrder = useCallback(async () => {
-    if (!isSupabaseConfigured || !cleanCustomerPhone) return;
-
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, order_code, customer_phone, status, updated_at, created_at')
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false, nullsFirst: false })
-        .limit(40);
-
-      if (error) throw error;
-
-      const mine = (Array.isArray(data) ? data : [])
-        .filter(order => cleanPhoneTail(order?.customer_phone) === cleanCustomerPhone)
-        .map(order => order as TrackingOrder);
-
+      const data = await fetchCustomerOrders();
+      const mine = data.map(order => order as TrackingOrder);
       const active = mine.find(order => ACTIVE_STATUSES.includes(normalizeStatus(order.status))) || null;
       setActiveOrder(active);
     } catch (error) {
-      console.error('No se pudo cargar botón de rastreo:', error);
+      console.error('No se pudo cargar el botón de rastreo protegido:', error);
     }
-  }, [cleanCustomerPhone]);
+  }, []);
 
   useEffect(() => {
     const removeStyle = installOldGreenButtonGuard();

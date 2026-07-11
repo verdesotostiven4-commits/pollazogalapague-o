@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 type PushRegisterResult = {
   ok: boolean;
   reason?: string;
@@ -115,14 +113,18 @@ const saveSubscriptionWithApi = async ({
   };
 };
 
-const deleteSubscriptionFromSupabase = async (endpoint: string) => {
+const deleteSubscriptionWithApi = async (endpoint: string) => {
+  if (!endpoint) return;
+
   try {
-    await supabase
-      .from('push_subscriptions')
-      .delete()
-      .eq('endpoint', endpoint);
+    await fetch('/api/register-push', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', endpoint }),
+    });
   } catch (error) {
-    console.warn('No se pudo borrar suscripción vieja desde cliente:', error);
+    console.warn('No se pudo borrar la suscripción desde la API:', error);
   }
 };
 
@@ -204,7 +206,7 @@ export const registerPushNotifications = async (
       oldEndpoint = subscription.endpoint;
 
       try {
-        await deleteSubscriptionFromSupabase(oldEndpoint);
+        await deleteSubscriptionWithApi(oldEndpoint);
         await subscription.unsubscribe();
       } catch (unsubscribeError) {
         console.warn('No se pudo limpiar suscripción anterior:', unsubscribeError);
@@ -229,7 +231,7 @@ export const registerPushNotifications = async (
       const failedEndpoint = subscription.endpoint;
 
       try {
-        await deleteSubscriptionFromSupabase(failedEndpoint);
+        await deleteSubscriptionWithApi(failedEndpoint);
         await subscription.unsubscribe();
       } catch (unsubscribeError) {
         console.warn('No se pudo limpiar suscripción vieja:', unsubscribeError);
@@ -271,7 +273,7 @@ export const registerPushNotifications = async (
       const oldSubscription = await registration.pushManager.getSubscription();
 
       if (oldSubscription) {
-        await deleteSubscriptionFromSupabase(oldSubscription.endpoint);
+        await deleteSubscriptionWithApi(oldSubscription.endpoint);
         await oldSubscription.unsubscribe();
       }
     } catch {
@@ -300,7 +302,7 @@ export const unregisterPushNotifications = async () => {
 
     if (subscription) {
       await subscription.unsubscribe();
-      await deleteSubscriptionFromSupabase(subscription.endpoint);
+      await deleteSubscriptionWithApi(subscription.endpoint);
     }
   } catch (error) {
     console.error('Error desactivando push notifications:', error);

@@ -55,7 +55,7 @@ const applyParams = (text: string, params?: TranslationParams) => {
   if (!params) return text;
 
   return Object.entries(params).reduce(
-    (current, [key, value]) => current.replaceAll(`{${key}}`, String(value)),
+    (current, [key, value]) => current.split(`{${key}}`).join(String(value)),
     text
   );
 };

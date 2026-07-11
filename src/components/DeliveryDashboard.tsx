@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike,
-  Lock,
   MapPin,
   Phone,
   MessageCircle,
@@ -20,9 +19,8 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import type { Order, OrderStatus } from '../types';
+import { logoutPanelSession } from '../utils/panelSession';
 
-const DELIVERY_PIN = '2580';
-const DELIVERY_PIN_KEY = 'pollazo_delivery_auth';
 const DELIVERY_SEEN_READY_KEY = 'pollazo_delivery_seen_ready_ids';
 
 const DELIVERY_ACTIVE_STATUSES: OrderStatus[] = ['Preparando', 'Enviado'];
@@ -183,98 +181,7 @@ const playDeliveryAlertSound = () => {
   }
 };
 
-function DeliveryPinScreen({ onAuth }: { onAuth: () => void }) {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
-
-  const addDigit = (digit: string) => {
-    setError(false);
-
-    const next = (pin + digit).slice(0, 4);
-    setPin(next);
-
-    if (next.length === 4) {
-      if (next === DELIVERY_PIN) {
-        sessionStorage.setItem(DELIVERY_PIN_KEY, '1');
-        onAuth();
-      } else {
-        setError(true);
-        window.setTimeout(() => {
-          setPin('');
-          setError(false);
-        }, 450);
-      }
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-xs text-center space-y-7">
-        <div className="w-24 h-24 rounded-[32px] bg-orange-500 mx-auto flex items-center justify-center shadow-2xl shadow-orange-500/20">
-          <Bike size={46} />
-        </div>
-
-        <div>
-          <h1 className="font-black text-2xl uppercase italic tracking-tight">
-            Repartidor
-          </h1>
-          <p className="text-white/45 text-[10px] font-black uppercase tracking-[0.25em] mt-2">
-            La Casa del Pollazo
-          </p>
-        </div>
-
-        <div className="flex justify-center gap-3">
-          {[0, 1, 2, 3].map(index => (
-            <div
-              key={index}
-              className={`w-3.5 h-3.5 rounded-full transition-all ${
-                index < pin.length
-                  ? error
-                    ? 'bg-red-500'
-                    : 'bg-orange-500 scale-125 shadow-[0_0_12px_#f97316]'
-                  : 'bg-white/10'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((digit, index) =>
-            digit ? (
-              <button
-                key={index}
-                type="button"
-                onClick={() => {
-                  if (digit === '⌫') {
-                    setPin(current => current.slice(0, -1));
-                    return;
-                  }
-
-                  addDigit(digit);
-                }}
-                className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-black active:scale-90 transition-all"
-              >
-                {digit}
-              </button>
-            ) : (
-              <div key={index} />
-            )
-          )}
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-3 text-left">
-          <Lock size={18} className="text-orange-400 flex-shrink-0" />
-          <p className="text-[10px] font-bold text-white/50 leading-relaxed">
-            Esta pantalla solo muestra pedidos para entrega. No permite editar productos, ranking ni configuración.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function DeliveryDashboard() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(DELIVERY_PIN_KEY) === '1');
   const [filter, setFilter] = useState<'ready' | 'sent' | 'all'>('ready');
   const [urgentReadyIds, setUrgentReadyIds] = useState<Set<string>>(() => new Set());
   const [deliveryNotice, setDeliveryNotice] = useState<{
@@ -338,8 +245,6 @@ export default function DeliveryDashboard() {
   };
 
   useEffect(() => {
-    if (!authed) return undefined;
-
     void refreshData();
 
     const interval = window.setInterval(() => {
@@ -364,11 +269,9 @@ export default function DeliveryDashboard() {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [authed, refreshData]);
+  }, [refreshData]);
 
   useEffect(() => {
-    if (!authed) return;
-
     const currentReadyIds = new Set(readyOrders.map(order => order.id));
     const seenReadyIds = readSeenReadyIds();
 
@@ -416,7 +319,7 @@ export default function DeliveryDashboard() {
     } catch {
       // Título opcional.
     }
-  }, [authed, readyOrders]);
+  }, [readyOrders]);
 
   useEffect(() => {
     if (!deliveryNotice) {
@@ -428,9 +331,6 @@ export default function DeliveryDashboard() {
     }
   }, [deliveryNotice]);
 
-  if (!authed) {
-    return <DeliveryPinScreen onAuth={() => setAuthed(true)} />;
-  }
 
   const handleStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -503,10 +403,7 @@ export default function DeliveryDashboard() {
 
             <button
               type="button"
-              onClick={() => {
-                sessionStorage.removeItem(DELIVERY_PIN_KEY);
-                setAuthed(false);
-              }}
+              onClick={() => void logoutPanelSession('delivery')}
               className="w-10 h-10 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
               aria-label="Salir"
             >

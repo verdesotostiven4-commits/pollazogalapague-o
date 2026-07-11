@@ -18,7 +18,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runAdminOperation } from '../utils/adminOperations';
 import type { Product } from '../types';
 
 type PaymentMethod = 'cash' | 'deuna' | 'transfer' | 'card';
@@ -40,6 +40,21 @@ type ActiveRegister = {
   id: string;
   openingBalance: number;
   expectedCashSales: number;
+};
+
+type RegisterRow = {
+  id: string;
+  opening_balance?: number | string | null;
+  expected_cash_sales?: number | string | null;
+};
+
+const mapRegister = (row: RegisterRow | null): ActiveRegister | null => {
+  if (!row?.id) return null;
+  return {
+    id: String(row.id),
+    openingBalance: parseMoney(row.opening_balance),
+    expectedCashSales: parseMoney(row.expected_cash_sales),
+  };
 };
 
 type SessionSale = {
@@ -156,80 +171,73 @@ export default function AdminPosSmartLauncher() {
   const change = useMemo(() => (paymentMethod === 'cash' ? Math.max(0, parseMoney(cashReceived) - total) : 0), [cashReceived, paymentMethod, total]);
   const shiftTotal = useMemo(() => sessionSales.reduce((sum, sale) => sum + sale.total, 0), [sessionSales]);
 
-  const loadProducts = async () => {
-    if (!isSupabaseConfigured) {
-      setError('No hay conexión con el sistema.');
-      return;
-    }
+  const applyRegister = (row: RegisterRow | null, fallbackOpeningBalance = 0) => {
+    const next = mapRegister(row) ||
+      (row?.id
+        ? {
+            id: String(row.id),
+            openingBalance: fallbackOpeningBalance,
+            expectedCashSales: 0,
+          }
+        : null);
 
+    setRegister(next);
+    if (next) {
+      setClosingCash(money(next.openingBalance + next.expectedCashSales));
+    }
+  };
+
+  const loadProducts = async () => {
     setLoadingProducts(true);
     setError(null);
 
-    const { data, error: productsError } = await supabase
-      .from('products')
-      .select('*')
-      .eq('show_in_pos', true)
-      .order('name', { ascending: true });
+    try {
+      const result = await runAdminOperation<{
+        products: PosProduct[];
+        register: RegisterRow | null;
+      }>('pos_load', { operator: POS_OPERATOR });
 
-    if (productsError) {
-      console.error(productsError);
-      setError('No pude cargar productos para caja.');
+      setProducts(
+        (Array.isArray(result.products) ? result.products : []).filter(
+          product => product.show_in_pos !== false
+        )
+      );
+      if (result.register) applyRegister(result.register);
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude cargar productos para caja.');
       setProducts([]);
-    } else {
-      setProducts((data || []) as PosProduct[]);
+    } finally {
+      setLoadingProducts(false);
     }
-
-    setLoadingProducts(false);
   };
 
-  const loadRegisterById = async (registerId: string, fallbackOpeningBalance = 0) => {
-    const { data, error: registerError } = await supabase
-      .from('cash_registers')
-      .select('id, opening_balance, expected_cash_sales')
-      .eq('id', registerId)
-      .maybeSingle();
-
-    if (registerError || !data) {
-      const fallback = {
-        id: registerId,
-        openingBalance: fallbackOpeningBalance,
-        expectedCashSales: 0,
-      };
-      setRegister(fallback);
-      setClosingCash(money(fallback.openingBalance));
-      return;
+  const loadRegisterById = async (
+    registerId: string,
+    fallbackOpeningBalance = 0
+  ) => {
+    try {
+      const result = await runAdminOperation<{ register: RegisterRow | null }>(
+        'pos_register',
+        { registerId }
+      );
+      applyRegister(result.register || { id: registerId }, fallbackOpeningBalance);
+    } catch (error) {
+      console.error(error);
+      applyRegister({ id: registerId }, fallbackOpeningBalance);
     }
-
-    const nextRegister = {
-      id: String(data.id),
-      openingBalance: parseMoney(data.opening_balance),
-      expectedCashSales: parseMoney(data.expected_cash_sales),
-    };
-
-    setRegister(nextRegister);
-    setClosingCash(money(nextRegister.openingBalance + nextRegister.expectedCashSales));
   };
 
   const loadCurrentOpenRegister = async () => {
-    if (!isSupabaseConfigured) return;
-
-    const { data, error: registerError } = await supabase
-      .from('cash_registers')
-      .select('id, opening_balance, expected_cash_sales')
-      .eq('opened_by', POS_OPERATOR)
-      .eq('status', 'open')
-      .maybeSingle();
-
-    if (registerError || !data) return;
-
-    const nextRegister = {
-      id: String(data.id),
-      openingBalance: parseMoney(data.opening_balance),
-      expectedCashSales: parseMoney(data.expected_cash_sales),
-    };
-
-    setRegister(nextRegister);
-    setClosingCash(money(nextRegister.openingBalance + nextRegister.expectedCashSales));
+    try {
+      const result = await runAdminOperation<{
+        products: PosProduct[];
+        register: RegisterRow | null;
+      }>('pos_load', { operator: POS_OPERATOR });
+      if (result.register) applyRegister(result.register);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   useEffect(() => {
@@ -261,34 +269,32 @@ export default function AdminPosSmartLauncher() {
   }, [availableProducts, query]);
 
   const openCashRegister = async () => {
-    if (!isSupabaseConfigured) {
-      setError('No hay conexión con el sistema.');
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
     const cleanOpeningBalance = parseMoney(openingBalance);
-    const { data, error: rpcError } = await supabase.rpc('open_cash_register_v1', {
-      p_opening_balance: cleanOpeningBalance,
-      p_opened_by: POS_OPERATOR,
-      p_notes: 'Caja abierta desde POS del admin',
-    });
 
-    if (rpcError) {
-      console.error(rpcError);
-      setError(rpcError.message || 'No se pudo abrir caja.');
-    } else if (data) {
-      await loadRegisterById(String(data), cleanOpeningBalance);
+    try {
+      const result = await runAdminOperation<{ register: RegisterRow | null }>(
+        'pos_open_register',
+        {
+          openingBalance: cleanOpeningBalance,
+          operator: POS_OPERATOR,
+          notes: 'Caja abierta desde POS del admin',
+        }
+      );
+
+      if (!result.register) throw new Error('No se recibió la caja abierta.');
+      applyRegister(result.register, cleanOpeningBalance);
       setSessionSales([]);
       setLastSaleId(null);
       setLastTicket(null);
-    } else {
-      setError('No se recibió ID de caja.');
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No se pudo abrir caja.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   const closeCashRegister = async () => {
@@ -315,16 +321,12 @@ export default function AdminPosSmartLauncher() {
     setClosing(true);
     setError(null);
 
-    const { error: closeError } = await supabase.rpc('close_cash_register_v1', {
-      p_cash_register_id: register.id,
-      p_real_balance_cash: realCash,
-      p_notes: `Cierre POS. Esperado $${money(expectedCash)}. Contado $${money(realCash)}. Diferencia $${money(difference)}`,
-    });
-
-    if (closeError) {
-      console.error(closeError);
-      setError(closeError.message || 'No se pudo cerrar caja.');
-    } else {
+    try {
+      await runAdminOperation('pos_close_register', {
+        registerId: register.id,
+        realCash,
+        notes: `Cierre POS. Esperado $${money(expectedCash)}. Contado $${money(realCash)}. Diferencia $${money(difference)}`,
+      });
       setRegister(null);
       setItems([]);
       setCashReceived('');
@@ -333,9 +335,12 @@ export default function AdminPosSmartLauncher() {
       setLastSaleId(null);
       setLastTicket(null);
       window.alert('Turno de caja cerrado correctamente.');
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No se pudo cerrar caja.');
+    } finally {
+      setClosing(false);
     }
-
-    setClosing(false);
   };
 
   const addProduct = (product: PosProduct) => {
@@ -481,23 +486,22 @@ export default function AdminPosSmartLauncher() {
     const soldCashReceived = paymentMethod === 'cash' ? cleanCashReceived : soldTotal;
     const soldChange = paymentMethod === 'cash' ? Math.max(0, cleanCashReceived - soldTotal) : 0;
 
-    const { data, error: rpcError } = await supabase.rpc('create_pos_sale_v1', {
-      p_cash_register_id: register.id,
-      p_customer_id: null,
-      p_customer_name: 'Consumidor final',
-      p_customer_phone: null,
-      p_sold_by: POS_OPERATOR,
-      p_items: payloadItems,
-      p_payments: payments,
-      p_discount_amount: 0,
-      p_notes: 'Venta de mostrador desde POS',
-    });
+    try {
+      const result = await runAdminOperation<{
+        saleId: string;
+        register: RegisterRow | null;
+      }>('pos_create_sale', {
+        registerId: register.id,
+        customerName: 'Consumidor final',
+        operator: POS_OPERATOR,
+        items: payloadItems,
+        payments,
+        discountAmount: 0,
+        notes: 'Venta de mostrador desde POS',
+      });
 
-    if (rpcError) {
-      console.error(rpcError);
-      setError(rpcError.message || 'No se pudo guardar la venta.');
-    } else {
-      const saleId = String(data);
+      const saleId = String(result.saleId || '');
+      if (!saleId) throw new Error('No se recibió el ID de la venta.');
       const saleDate = new Date().toLocaleString('es-EC');
 
       setLastSaleId(saleId);
@@ -520,20 +524,27 @@ export default function AdminPosSmartLauncher() {
         },
         ...current,
       ].slice(0, 6));
-      setRegister(current => {
-        if (!current) return current;
-        const nextExpectedCashSales =
-          soldPaymentMethod === 'cash'
-            ? current.expectedCashSales + soldTotal
-            : current.expectedCashSales;
-        const nextExpectedCash = current.openingBalance + nextExpectedCashSales;
-        setClosingCash(money(nextExpectedCash));
-        return { ...current, expectedCashSales: nextExpectedCashSales };
-      });
+
+      if (result.register) {
+        applyRegister(result.register);
+      } else {
+        setRegister(current => {
+          if (!current) return current;
+          const nextExpectedCashSales =
+            current.expectedCashSales +
+            (soldPaymentMethod === 'cash' ? soldTotal : 0);
+          setClosingCash(money(current.openingBalance + nextExpectedCashSales));
+          return { ...current, expectedCashSales: nextExpectedCashSales };
+        });
+      }
+
       setItems([]);
       setCashReceived('');
       setPaymentReference('');
       await loadProducts();
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No se pudo guardar la venta.');
     }
 
     setSaving(false);

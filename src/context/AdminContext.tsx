@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { products as seedProducts, categories as seedCategories } from '../data/products';
+import { getOrderCredentials, saveOrderCredential } from '../utils/orderCredentials';
+import { runPanelAction } from '../utils/panelApi';
 import type {
   AppSettings,
   Customer,
@@ -124,7 +126,7 @@ interface AdminContextValue {
   addCustomerPoints: (customerId: string, points: number) => Promise<void>;
   resetSeasonPoints: () => Promise<void>;
 
-  createOrder: (order: CreateOrderInput) => Promise<void>;
+  createOrder: (order: CreateOrderInput) => Promise<ExtendedOrder | null>;
   updateOrderStatus: (orderId: string, status: ExtendedOrder['status']) => Promise<void>;
 
   requestMembership: (input: MembershipRequestInput) => Promise<CustomerMembership | null>;
@@ -509,165 +511,157 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
 
     try {
-      const [
-        prodRes,
-        ovRes,
-        settingsRes,
-        extraRes,
-        custRes,
-        orderRes,
-        seasonsRes,
-        membershipsRes,
-        membershipPaymentsRes,
-        orderBonusItemsRes,
-      ] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: true }),
-        supabase.from('product_overrides').select('id, price, available'),
-        supabase.from('app_settings').select('key, value'),
-        supabase.from('settings').select('*').eq('id', 'global').maybeSingle(),
-        supabase.from('customers').select('*').order('points', { ascending: false }),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(150),
-        supabase.from('seasons').select('*').order('created_at', { ascending: false }),
-        supabase
-          .from('customer_memberships')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('membership_payments')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('order_bonus_items')
-          .select('*')
-          .order('created_at', { ascending: false }),
-      ]);
+      const path = window.location.pathname;
+      const panel = path === '/admin' ? 'admin' : path === '/repartidor' ? 'delivery' : null;
+      const dataResponse = await fetch(
+        panel ? `/api/panel-data?panel=${encodeURIComponent(panel)}` : '/api/public-data',
+        {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }
+      );
 
-      warnIfError('Error leyendo products', prodRes.error);
-      warnIfError('Error leyendo product_overrides', ovRes.error);
-      warnIfError('Error leyendo app_settings', settingsRes.error);
-      warnIfError('Error leyendo settings global', extraRes.error);
-      warnIfError('Error leyendo customers', custRes.error);
-      warnIfError('Error leyendo orders', orderRes.error);
-      warnIfError('Error leyendo seasons', seasonsRes.error);
-      warnIfError('Error leyendo customer_memberships', membershipsRes.error);
-      warnIfError('Error leyendo membership_payments', membershipPaymentsRes.error);
-      warnIfError('Error leyendo order_bonus_items', orderBonusItemsRes.error);
+      const data = (await dataResponse.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        products?: Product[];
+        overrides?: ProductOverride[];
+        appSettings?: Array<{ key: string; value: string }>;
+        settings?: Partial<ExtraSettings> | null;
+        seasons?: Season[];
+        customers?: ExtendedCustomer[];
+        orders?: ExtendedOrder[];
+        memberships?: CustomerMembership[];
+        membershipPayments?: MembershipPayment[];
+        orderBonusItems?: OrderBonusItem[];
+      };
 
-      if (prodRes.data) {
-        setRemoteProducts(prodRes.data as Product[]);
+      if (!dataResponse.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudieron cargar los datos de la aplicación.');
       }
 
-      if (ovRes.data) {
-        const map: Record<string, ProductOverride> = {};
+      setRemoteProducts(Array.isArray(data.products) ? data.products : []);
 
-        ovRes.data.forEach(row => {
-          map[row.id] = {
-            id: row.id,
-            price: row.price ?? null,
-            available: row.available !== false,
-          };
-        });
-
-        setOverrides(map);
-      }
+      const overrideMap: Record<string, ProductOverride> = {};
+      (Array.isArray(data.overrides) ? data.overrides : []).forEach(row => {
+        if (!row?.id) return;
+        overrideMap[row.id] = {
+          id: row.id,
+          price: row.price ?? null,
+          available: row.available !== false,
+        };
+      });
+      setOverrides(overrideMap);
 
       const nextSettings: AppSettings = { ...DEFAULT_SETTINGS };
       const prizeSettings: Partial<ExtraSettings> = {};
 
-      if (settingsRes.data) {
-        settingsRes.data.forEach((setting: { key: string; value: string }) => {
-          if (setting.key in nextSettings) {
-            nextSettings[setting.key as keyof AppSettings] = setting.value;
-          }
+      (Array.isArray(data.appSettings) ? data.appSettings : []).forEach(setting => {
+        if (!setting?.key) return;
 
-          if (
-            setting.key === 'prize_1' ||
-            setting.key === 'prize_2' ||
-            setting.key === 'prize_3'
-          ) {
-            prizeSettings[setting.key] = setting.value;
-          }
-        });
-      }
+        if (setting.key in nextSettings) {
+          nextSettings[setting.key as keyof AppSettings] = setting.value;
+        }
+
+        if (
+          setting.key === 'prize_1' ||
+          setting.key === 'prize_2' ||
+          setting.key === 'prize_3'
+        ) {
+          prizeSettings[setting.key] = setting.value;
+        }
+      });
 
       setSettings(nextSettings);
       document.documentElement.style.setProperty(
         '--pollazo-primary',
         nextSettings.primary_color
       );
+      setExtraSettings({
+        ...DEFAULT_EXTRA,
+        ...(data.settings || {}),
+        ...prizeSettings,
+      });
+      setSeasons(Array.isArray(data.seasons) ? data.seasons : []);
 
-      if (extraRes.data) {
-        setExtraSettings({
-          ...DEFAULT_EXTRA,
-          ...(extraRes.data as Partial<ExtraSettings>),
-          ...prizeSettings,
-        });
+      if (panel) {
+        setCustomers(Array.isArray(data.customers) ? data.customers : []);
+        setOrders(Array.isArray(data.orders) ? data.orders : []);
+        setMemberships(Array.isArray(data.memberships) ? data.memberships : []);
+        setMembershipPayments(
+          Array.isArray(data.membershipPayments) ? data.membershipPayments : []
+        );
+        setOrderBonusItems(
+          Array.isArray(data.orderBonusItems) ? data.orderBonusItems : []
+        );
       } else {
-        setExtraSettings({
-          ...DEFAULT_EXTRA,
-          ...prizeSettings,
+        setCustomers([]);
+        setMemberships([]);
+        setMembershipPayments([]);
+        setOrderBonusItems([]);
+
+        const credentials = getOrderCredentials();
+        const ordersResponse = await fetch('/api/customer-orders', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ credentials }),
         });
-      }
+        const ordersPayload = (await ordersResponse.json().catch(() => ({}))) as {
+          ok?: boolean;
+          orders?: ExtendedOrder[];
+        };
 
-      if (custRes.data) {
-        setCustomers(custRes.data as ExtendedCustomer[]);
-      }
-
-      if (orderRes.data) {
-        setOrders(orderRes.data as ExtendedOrder[]);
-      }
-
-      if (seasonsRes.data) {
-        setSeasons(seasonsRes.data as Season[]);
-      }
-
-      if (membershipsRes.data) {
-        setMemberships(membershipsRes.data as CustomerMembership[]);
-      }
-
-      if (membershipPaymentsRes.data) {
-        setMembershipPayments(membershipPaymentsRes.data as MembershipPayment[]);
-      }
-
-      if (orderBonusItemsRes.data) {
-        setOrderBonusItems(orderBonusItemsRes.data as OrderBonusItem[]);
+        setOrders(
+          ordersResponse.ok && ordersPayload.ok && Array.isArray(ordersPayload.orders)
+            ? ordersPayload.orders
+            : []
+        );
       }
     } catch (error) {
-      console.error('❌ Error cargando datos:', error);
+      console.error('❌ Error cargando datos protegidos:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    const panel =
+      window.location.pathname === '/admin'
+        ? 'admin'
+        : window.location.pathname === '/repartidor'
+          ? 'delivery'
+          : null;
 
-    const channel = supabase
-      .channel('pollazo_admin_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_overrides' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_memberships' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'membership_payments' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_bonus_items' }, () => load())
-      .subscribe();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void load();
+      }
+    };
+
+    const interval = window.setInterval(
+      refresh,
+      panel === 'delivery' ? 5000 : panel === 'admin' ? 10000 : 60000
+    );
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [load]);
 
@@ -678,109 +672,32 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       document.documentElement.style.setProperty('--pollazo-primary', value);
     }
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({
-        key,
-        value,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error('❌ Error guardando setting:', error);
+    try {
+      await runPanelAction('update_setting', { key, value });
+    } catch (error) {
+      await load();
       throw error;
     }
-  }, []);
+  }, [load]);
 
   const updateExtraSettings = useCallback(
     async (patch: Partial<ExtraSettings>) => {
-      const now = new Date().toISOString();
-      const next: ExtraSettings = {
-        ...extraSettings,
-        ...patch,
-      };
+      setExtraSettings(prev => ({ ...prev, ...patch }));
 
-      setExtraSettings(next);
-
-      if (!isSupabaseConfigured) return;
-
-      const { error: settingsError } = await supabase
-        .from('settings')
-        .upsert({
-          id: 'global',
-          ...next,
-          updated_at: now,
-        });
-
-      if (settingsError) {
-        console.error('❌ Error guardando settings global:', settingsError);
+      try {
+        await runPanelAction('update_extra_settings', { patch });
         await load();
-        throw settingsError;
+      } catch (error) {
+        await load();
+        throw error;
       }
-
-      const prizePromises = [];
-
-      if (patch.prize_1 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_1', value: patch.prize_1, updated_at: now })
-        );
-      }
-
-      if (patch.prize_2 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_2', value: patch.prize_2, updated_at: now })
-        );
-      }
-
-      if (patch.prize_3 !== undefined) {
-        prizePromises.push(
-          supabase
-            .from('app_settings')
-            .upsert({ key: 'prize_3', value: patch.prize_3, updated_at: now })
-        );
-      }
-
-      if (prizePromises.length > 0) {
-        const results = await Promise.all(prizePromises);
-
-        results.forEach(result => {
-          if (result.error) {
-            console.error('❌ Error guardando premio:', result.error);
-          }
-        });
-      }
-
-      await load();
     },
-    [extraSettings, load]
+    [load]
   );
 
   const finalizeSeason = useCallback(
     async (name: string, prize: string, winners: any[]) => {
-      if (!isSupabaseConfigured) return;
-
-      const now = new Date().toISOString();
-
-      const { error } = await supabase.from('seasons').insert({
-        name,
-        prize,
-        winners,
-        is_published: false,
-        created_at: now,
-        updated_at: now,
-      });
-
-      if (error) {
-        console.error('❌ Error finalizando temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('finalize_season', { name, prize, winners });
       await load();
     },
     [load]
@@ -788,15 +705,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const deleteSeason = useCallback(
     async (id: string) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase.from('seasons').delete().eq('id', id);
-
-      if (error) {
-        console.error('❌ Error eliminando temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('delete_season', { id });
       await load();
     },
     [load]
@@ -804,21 +713,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const toggleSeasonVisibility = useCallback(
     async (id: string, published: boolean) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('seasons')
-        .update({
-          is_published: published,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error cambiando visibilidad de temporada:', error);
-        throw error;
-      }
-
+      await runPanelAction('toggle_season', { id, published });
       await load();
     },
     [load]
@@ -826,21 +721,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const updateSeasonWinners = useCallback(
     async (id: string, winners: any[]) => {
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('seasons')
-        .update({
-          winners,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error actualizando ganadores:', error);
-        throw error;
-      }
-
+      await runPanelAction('update_season_winners', { id, winners });
       await load();
     },
     [load]
@@ -848,12 +729,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const setOverride = useCallback(
     async (id: string, patch: Partial<Omit<ProductOverride, 'id'>>) => {
-      const current = overrides[id] ?? {
-        id,
-        price: null,
-        available: true,
-      };
-
+      const current = overrides[id] ?? { id, price: null, available: true };
       const updated: ProductOverride = {
         ...current,
         ...patch,
@@ -861,22 +737,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         available: patch.available ?? current.available ?? true,
       };
 
-      setOverrides(prev => ({
-        ...prev,
-        [id]: updated,
-      }));
+      setOverrides(prev => ({ ...prev, [id]: updated }));
 
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('product_overrides')
-        .upsert({
-          ...updated,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('❌ Error guardando override:', error);
+      try {
+        await runPanelAction('set_product_override', { ...updated });
+      } catch (error) {
         await load();
         throw error;
       }
@@ -885,31 +750,23 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const addProduct = useCallback(async (product: Omit<Product, 'id'> & { id?: string }) => {
-    const now = new Date().toISOString();
-
     const newProduct = normalizeProduct({
       ...product,
       id: product.id || slug(product.name),
     } as Product);
 
-    setRemoteProducts(prev => {
-      const withoutDuplicate = prev.filter(item => item.id !== newProduct.id);
-      return [newProduct, ...withoutDuplicate];
-    });
+    setRemoteProducts(prev => [
+      newProduct,
+      ...prev.filter(item => item.id !== newProduct.id),
+    ]);
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase.from('products').upsert({
-      ...newProduct,
-      created_at: newProduct.created_at || now,
-      updated_at: now,
-    });
-
-    if (error) {
-      console.error('❌ Error agregando producto:', error);
+    try {
+      await runPanelAction<Product>('upsert_product', { product: newProduct });
+    } catch (error) {
+      await load();
       throw error;
     }
-  }, []);
+  }, [load]);
 
   const updateProduct = useCallback(
     async (id: string, patch: Partial<Product>) => {
@@ -917,53 +774,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         remoteProducts.find(product => product.id === id) ||
         seedProducts.find(product => product.id === id);
 
-      setRemoteProducts(prev => {
-        const exists = prev.some(product => product.id === id);
-
-        if (exists) {
-          return prev.map(product =>
-            product.id === id ? normalizeProduct({ ...product, ...patch }) : product
-          );
-        }
-
-        if (baseProduct) {
-          return [normalizeProduct({ ...baseProduct, ...patch } as Product), ...prev];
-        }
-
-        return prev;
-      });
-
-      if (!isSupabaseConfigured) return;
-
-      const now = new Date().toISOString();
-
-      if (baseProduct) {
-        const { error } = await supabase.from('products').upsert({
-          ...baseProduct,
-          ...patch,
+      const nextProduct = normalizeProduct({
+        ...(baseProduct || {
           id,
-          updated_at: now,
-        });
+          name: patch.name || id,
+          category: patch.category || 'Pollos',
+        }),
+        ...patch,
+        id,
+      } as Product);
 
-        if (error) {
-          console.error('❌ Error actualizando producto:', error);
-          await load();
-          throw error;
-        }
+      setRemoteProducts(prev => [
+        nextProduct,
+        ...prev.filter(product => product.id !== id),
+      ]);
 
-        return;
-      }
-
-      const { error } = await supabase
-        .from('products')
-        .update({
-          ...patch,
-          updated_at: now,
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error('❌ Error actualizando producto:', error);
+      try {
+        await runPanelAction<Product>('upsert_product', { product: nextProduct });
+      } catch (error) {
         await load();
         throw error;
       }
@@ -973,42 +801,19 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const deleteProduct = useCallback(async (id: string) => {
     const seedProduct = seedProducts.find(product => product.id === id);
-    const now = new Date().toISOString();
 
     if (seedProduct) {
-      const hiddenProduct = normalizeProduct({
-        ...seedProduct,
-        available: false,
-      } as Product);
-
-      setRemoteProducts(prev => {
-        const withoutDuplicate = prev.filter(product => product.id !== id);
-        return [hiddenProduct, ...withoutDuplicate];
-      });
-
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase.from('products').upsert({
-        ...hiddenProduct,
-        updated_at: now,
-      });
-
-      if (error) {
-        console.error('❌ Error ocultando producto base:', error);
-        throw error;
-      }
-
+      const hiddenProduct = normalizeProduct({ ...seedProduct, available: false } as Product);
+      setRemoteProducts(prev => [hiddenProduct, ...prev.filter(product => product.id !== id)]);
+      await runPanelAction('upsert_product', { product: hiddenProduct });
       return;
     }
 
     setRemoteProducts(prev => prev.filter(product => product.id !== id));
 
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase.from('products').delete().eq('id', id);
-
-    if (error) {
-      console.error('❌ Error eliminando producto:', error);
+    try {
+      await runPanelAction('delete_product', { id });
+    } catch (error) {
       await load();
       throw error;
     }
@@ -1021,710 +826,229 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       avatar_url?: string | null,
       locationPatch?: CustomerLocationPatch
     ) => {
-      const clean = normalizeEcuadorPhone(phone);
+      if (window.location.pathname !== '/admin') return null;
 
+      const clean = normalizeEcuadorPhone(phone);
       if (!clean) return null;
 
-      const now = new Date().toISOString();
-
-      const payload: Record<string, unknown> = {
+      const existingCustomer = findBestCustomerByPhone(customers, clean);
+      const customer = {
         phone: clean,
-        updated_at: now,
+        name: name ?? existingCustomer?.name ?? null,
+        avatar_url: avatar_url ?? existingCustomer?.avatar_url ?? null,
+        lat: locationPatch?.lat ?? existingCustomer?.lat ?? null,
+        lng: locationPatch?.lng ?? existingCustomer?.lng ?? null,
+        reference: locationPatch?.reference ?? existingCustomer?.reference ?? null,
       };
 
-      if (name !== undefined) {
-        payload.name = name || null;
-      }
-
-      if (avatar_url !== undefined) {
-        payload.avatar_url = avatar_url || null;
-      }
-
-      if (locationPatch) {
-        if ('lat' in locationPatch) {
-          payload.lat = locationPatch.lat ?? null;
-        }
-
-        if ('lng' in locationPatch) {
-          payload.lng = locationPatch.lng ?? null;
-        }
-
-        if ('reference' in locationPatch) {
-          payload.reference = locationPatch.reference || null;
-        }
-      }
-
-      const activeMembership = findActiveMembershipByPhone(memberships, clean);
-
-      if (activeMembership) {
-        payload.membership_status = 'active';
-        payload.membership_plan = activeMembership.plan_name;
-        payload.membership_started_at = activeMembership.started_at || null;
-        payload.membership_expires_at = activeMembership.expires_at || null;
-        payload.membership_updated_at = now;
-      }
-
-      if (!isSupabaseConfigured) {
-        return null;
-      }
-
-      const existingCustomer = findBestCustomerByPhone(customers, clean);
-
-      if (existingCustomer?.id) {
-        const updatePayload = { ...payload };
-
-        delete updatePayload.phone;
-
-        const { data, error } = await supabase
-          .from('customers')
-          .update(updatePayload)
-          .eq('id', existingCustomer.id)
-          .select()
-          .maybeSingle();
-
-        if (error) {
-          console.error('❌ Error actualizando cliente existente:', error);
-          return null;
-        }
-
-        await load();
-
-        return data as ExtendedCustomer | null;
-      }
-
-      const { data, error } = await supabase
-        .from('customers')
-        .upsert(payload, { onConflict: 'phone' })
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.error('❌ Error guardando cliente:', error);
-        return null;
-      }
-
+      const data = await runPanelAction<ExtendedCustomer | null>('upsert_customer', {
+        id: existingCustomer?.id || null,
+        customer,
+      });
       await load();
-
-      return data as ExtendedCustomer | null;
-    },
-    [customers, load, memberships]
-  );
-
-  const addCustomerPoints = useCallback(
-    async (customerId: string, pointsToAdd: number) => {
-      const current = customers.find(customer => customer.id === customerId);
-
-      if (!current) return;
-
-      const safePointsToAdd = Math.max(0, pointsToAdd);
-      const nextPoints = Math.max(0, (current.points ?? 0) + safePointsToAdd);
-      const nextExp = Math.max(0, (current.exp ?? 0) + safePointsToAdd);
-
-      if (!isSupabaseConfigured) {
-        setCustomers(prev =>
-          prev.map(customer =>
-            customer.id === customerId
-              ? { ...customer, points: nextPoints, exp: nextExp }
-              : customer
-          )
-        );
-
-        return;
-      }
-
-      const { error } = await supabase
-        .from('customers')
-        .update({
-          points: nextPoints,
-          exp: nextExp,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', customerId);
-
-      if (error) {
-        console.error('❌ Error sumando puntos:', error);
-        throw error;
-      }
-
-      await load();
+      return data;
     },
     [customers, load]
   );
 
-  const resetSeasonPoints = useCallback(async () => {
-    const now = new Date().toISOString();
-
-    setCustomers(prev =>
-      prev.map(customer => ({
-        ...customer,
-        points: 0,
-        updated_at: now,
-      }))
-    );
-
-    if (!isSupabaseConfigured) return;
-
-    const { error } = await supabase
-      .from('customers')
-      .update({
-        points: 0,
-        updated_at: now,
-      })
-      .gte('points', 0);
-
-    if (error) {
-      console.error('❌ Error reiniciando puntos de temporada:', error);
+  const addCustomerPoints = useCallback(
+    async (customerId: string, pointsToAdd: number) => {
+      await runPanelAction('add_customer_points', {
+        id: customerId,
+        points: Math.max(0, pointsToAdd),
+      });
       await load();
-      throw error;
-    }
+    },
+    [load]
+  );
 
+  const resetSeasonPoints = useCallback(async () => {
+    await runPanelAction('reset_season_points');
     await load();
   }, [load]);
 
   const requestMembership = useCallback(
     async (input: MembershipRequestInput) => {
-      const clean = normalizeEcuadorPhone(input.customerPhone);
-
-      if (!clean || !isSupabaseConfigured) return null;
-
-      const active = findActiveMembershipByPhone(memberships, clean);
-
-      if (active) {
-        return active;
-      }
-
-      const pending = memberships.find(membership => {
-        return (
-          cleanPhoneTail(membership.customer_phone) === cleanPhoneTail(clean) &&
-          membership.status === 'pending'
-        );
+      const response = await fetch('/api/request-membership', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
       });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        membership?: CustomerMembership;
+      };
 
-      if (pending) {
-        return pending;
+      if (!response.ok || !result.ok || !result.membership) {
+        throw new Error(result.error || 'No se pudo solicitar Pollazo Plus.');
       }
 
-      const now = new Date().toISOString();
-
-      const { data, error } = await supabase
-        .from('customer_memberships')
-        .insert({
-          customer_phone: clean,
-          customer_name: input.customerName || null,
-          plan_key: POLLAZO_PLUS_PLAN_KEY,
-          plan_name: POLLAZO_PLUS_PLAN_NAME,
-          status: 'pending',
-          price: POLLAZO_PLUS_PRICE,
-          payment_method: input.paymentMethod,
-          payment_status: 'pendiente',
-          notes: input.notes || null,
-          created_at: now,
-          updated_at: now,
-        })
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.error('❌ Error solicitando membresía:', error);
-        throw error;
+      if (window.location.pathname === '/admin') {
+        await load();
       }
 
-      if (data) {
-        const { error: paymentError } = await supabase
-          .from('membership_payments')
-          .insert({
-            membership_id: data.id,
-            customer_phone: clean,
-            customer_name: input.customerName || null,
-            amount: POLLAZO_PLUS_PRICE,
-            payment_method: input.paymentMethod,
-            payment_status: 'pendiente',
-            notes: input.notes || null,
-            created_at: now,
-            updated_at: now,
-          });
-
-        if (paymentError) {
-          console.error('❌ Error registrando pago de membresía:', paymentError);
-        }
-      }
-
-      await load();
-
-      return data as CustomerMembership | null;
+      return result.membership;
     },
-    [load, memberships]
+    [load]
   );
 
   const activateMembership = useCallback(
     async (membershipId: string, paymentMethod?: PaymentMethod | null) => {
-      if (!isSupabaseConfigured) return;
-
-      const membership = memberships.find(item => item.id === membershipId);
-
-      if (!membership) return;
-
-      const nowDate = new Date();
-      const now = nowDate.toISOString();
-      const expiresAt = addDays(nowDate, 30).toISOString();
-      const clean = normalizeEcuadorPhone(membership.customer_phone);
-
-      await supabase
-        .from('customer_memberships')
-        .update({
-          status: 'expired',
-          updated_at: now,
-        })
-        .eq('customer_phone', membership.customer_phone)
-        .eq('status', 'active')
-        .neq('id', membershipId);
-
-      const { error } = await supabase
-        .from('customer_memberships')
-        .update({
-          status: 'active',
-          started_at: now,
-          expires_at: expiresAt,
-          payment_method: paymentMethod || membership.payment_method || 'efectivo',
-          payment_status: 'confirmado',
-          updated_at: now,
-        })
-        .eq('id', membershipId);
-
-      if (error) {
-        console.error('❌ Error activando membresía:', error);
-        throw error;
-      }
-
-      const { error: paymentError } = await supabase
-        .from('membership_payments')
-        .update({
-          payment_status: 'confirmado',
-          payment_method: paymentMethod || membership.payment_method || 'efectivo',
-          period_start: now,
-          period_end: expiresAt,
-          confirmed_at: now,
-          confirmed_by: 'admin',
-          updated_at: now,
-        })
-        .eq('membership_id', membershipId);
-
-      if (paymentError) {
-        console.warn('⚠️ No se pudo confirmar pago de membresía:', paymentError);
-      }
-
-      const existingCustomer = findBestCustomerByPhone(customers, clean);
-
-      if (existingCustomer?.id) {
-        const { error: customerError } = await supabase
-          .from('customers')
-          .update({
-            membership_status: 'active',
-            membership_plan: POLLAZO_PLUS_PLAN_NAME,
-            membership_started_at: now,
-            membership_expires_at: expiresAt,
-            membership_updated_at: now,
-            is_vip: true,
-            updated_at: now,
-          })
-          .eq('id', existingCustomer.id);
-
-        if (customerError) {
-          console.warn('⚠️ No se pudo actualizar cliente con membresía:', customerError);
-        }
-      } else if (clean) {
-        const { error: customerUpsertError } = await supabase
-          .from('customers')
-          .upsert(
-            {
-              phone: clean,
-              name: membership.customer_name || null,
-              points: 0,
-              exp: 0,
-              is_vip: true,
-              membership_status: 'active',
-              membership_plan: POLLAZO_PLUS_PLAN_NAME,
-              membership_started_at: now,
-              membership_expires_at: expiresAt,
-              membership_updated_at: now,
-              updated_at: now,
-            },
-            { onConflict: 'phone' }
-          );
-
-        if (customerUpsertError) {
-          console.warn('⚠️ No se pudo crear cliente con membresía:', customerUpsertError);
-        }
-      }
-
+      await runPanelAction('activate_membership', { membershipId, paymentMethod });
       await load();
     },
-    [customers, load, memberships]
+    [load]
   );
 
   const cancelMembership = useCallback(
     async (membershipId: string, notes?: string | null) => {
-      if (!isSupabaseConfigured) return;
-
-      const membership = memberships.find(item => item.id === membershipId);
-      const now = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('customer_memberships')
-        .update({
-          status: 'cancelled',
-          notes: notes || membership?.notes || null,
-          updated_at: now,
-        })
-        .eq('id', membershipId);
-
-      if (error) {
-        console.error('❌ Error cancelando membresía:', error);
-        throw error;
+      if (window.location.pathname !== '/admin') {
+        throw new Error('La cancelación debe ser revisada por el administrador.');
       }
-
-      if (membership) {
-        const existingCustomer = findBestCustomerByPhone(customers, membership.customer_phone);
-
-        if (existingCustomer?.id) {
-          await supabase
-            .from('customers')
-            .update({
-              membership_status: 'cancelled',
-              membership_plan: membership.plan_name,
-              membership_updated_at: now,
-              updated_at: now,
-            })
-            .eq('id', existingCustomer.id);
-        }
-      }
-
+      await runPanelAction('cancel_membership', { membershipId, notes });
       await load();
     },
-    [customers, load, memberships]
+    [load]
   );
 
   const expireMembership = useCallback(
     async (membershipId: string) => {
-      if (!isSupabaseConfigured) return;
-
-      const membership = memberships.find(item => item.id === membershipId);
-      const now = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('customer_memberships')
-        .update({
-          status: 'expired',
-          updated_at: now,
-        })
-        .eq('id', membershipId);
-
-      if (error) {
-        console.error('❌ Error venciendo membresía:', error);
-        throw error;
-      }
-
-      if (membership) {
-        const existingCustomer = findBestCustomerByPhone(customers, membership.customer_phone);
-
-        if (existingCustomer?.id) {
-          await supabase
-            .from('customers')
-            .update({
-              membership_status: 'expired',
-              membership_plan: membership.plan_name,
-              membership_updated_at: now,
-              updated_at: now,
-            })
-            .eq('id', existingCustomer.id);
-        }
-      }
-
+      await runPanelAction('expire_membership', { membershipId });
       await load();
     },
-    [customers, load, memberships]
+    [load]
   );
 
   const createOrder = useCallback(
-    async (order: CreateOrderInput) => {
-      if (!isSupabaseConfigured) return;
+    async (order: CreateOrderInput): Promise<ExtendedOrder | null> => {
+      const idempotencyKey = String(order.order_code || '').trim();
 
-      const now = new Date().toISOString();
-      const status = order.status || 'Por Confirmar';
-      const paymentStatus = resolvePaymentStatus(order, status);
+      if (!idempotencyKey) {
+        throw new Error('No se pudo generar la clave segura del pedido.');
+      }
 
-      const cleanCustomerPhone = normalizeEcuadorPhone(order.customer_phone);
-      const activeMembership = findActiveMembershipByPhone(
-        memberships,
-        cleanCustomerPhone || order.customer_phone
-      );
+      const customerPhone = normalizeEcuadorPhone(order.customer_phone);
+      const customer = findBestCustomerByPhone(customers, customerPhone);
+      const items = Array.isArray(order.items) ? order.items : [];
 
-      const subtotal = toMoneyNumber(order.subtotal || 0);
-      const serviceFee = toMoneyNumber(order.service_fee || 0);
-      const cardFee = toMoneyNumber(order.card_fee || 0);
-      const originalDeliveryFee = toMoneyNumber(order.delivery_fee || 0);
-      const finalDeliveryFee = activeMembership ? 0 : originalDeliveryFee;
+      const response = await fetch('/api/create-order', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idempotencyKey,
+          customerPhone,
+          customerName: customer?.name || null,
+          items: items.map(item => ({
+            productId:
+              item.product_id ||
+              item.product?.id ||
+              item.cart_item_id ||
+              item.id ||
+              '',
+            quantity: Number(item.quantity || 1),
+            customPrice:
+              typeof item.custom_price === 'number'
+                ? item.custom_price
+                : typeof item.product?.custom_price === 'number'
+                  ? item.product.custom_price
+                  : null,
+          })),
+          paymentMethod: order.payment_method,
+          deliveryType: order.delivery_type || 'domicilio',
+          lat: typeof order.lat === 'number' ? order.lat : Number(order.lat),
+          lng: typeof order.lng === 'number' ? order.lng : Number(order.lng),
+          reference: order.reference || null,
+        }),
+      });
 
-      const baseTotal = toMoneyNumber(
-        subtotal + finalDeliveryFee + serviceFee + cardFee
-      );
-
-      const payload = {
-        ...order,
-        customer_phone: cleanCustomerPhone || order.customer_phone,
-        status,
-        payment_status: order.payment_status || paymentStatus,
-        counted_in_metrics: order.counted_in_metrics || false,
-        is_test_order: order.is_test_order || false,
-        provider: order.provider ?? false,
-        service_fee: serviceFee,
-        card_fee: cardFee,
-        delivery_fee: finalDeliveryFee,
-        subtotal,
-        total: activeMembership ? baseTotal : toMoneyNumber(order.total || baseTotal),
-        membership_applied: Boolean(activeMembership),
-        membership_id: activeMembership?.id || null,
-        membership_plan: activeMembership?.plan_name || null,
-        delivery_fee_original: originalDeliveryFee,
-        delivery_fee_final: finalDeliveryFee,
-        bonus_items: order.bonus_items || [],
-        vip_gift_message: order.vip_gift_message || null,
-        created_at: order.created_at || now,
-        updated_at: now,
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        order?: ExtendedOrder;
+        trackingToken?: string;
+        minimumOrder?: number;
+        storeClosed?: boolean;
       };
 
-      const { error } = await supabase.from('orders').insert(payload);
-
-      if (error) {
-        console.error('❌ Error creando orden:', error);
+      if (!response.ok || !result.ok || !result.order) {
+        const error = new Error(result.error || 'No se pudo registrar el pedido de forma segura.');
+        Object.assign(error, {
+          status: response.status,
+          minimumOrder: result.minimumOrder,
+          storeClosed: result.storeClosed,
+        });
         throw error;
       }
 
-      await load();
-    },
-    [load, memberships]
-  );
+      if (result.trackingToken) {
+        saveOrderCredential(result.order.order_code, result.trackingToken);
+      }
 
-  const countOrderForMetricsAndCustomer = useCallback(
-    async (order: ExtendedOrder) => {
-      if (!isSupabaseConfigured) return;
-
-      const cleanCustomerPhone = normalizeEcuadorPhone(order.customer_phone);
-      const orderTotal = toMoneyNumber(order.total);
-      const expToAdd = getExpFromTotal(orderTotal);
-      const shouldAddSeasonPoints = extraSettings.event_active !== false;
-      const now = new Date().toISOString();
-
-      const rpcResult = await supabase.rpc('increment_metric', {
-        metric_id: 'total_orders',
+      setOrders(prev => {
+        const withoutDuplicate = prev.filter(item => item.id !== result.order?.id);
+        return result.order ? [result.order, ...withoutDuplicate] : withoutDuplicate;
       });
 
-      if (rpcResult.error) {
-        console.warn('No se pudo incrementar total_orders:', rpcResult.error);
-      }
-
-      if (!cleanCustomerPhone || orderTotal <= 0 || expToAdd <= 0) {
-        return;
-      }
-
-      const currentCustomer = findBestCustomerByPhone(customers, cleanCustomerPhone);
-
-      if (currentCustomer) {
-        const nextExp = Math.max(0, (currentCustomer.exp || 0) + expToAdd);
-        const nextPoints = Math.max(
-          0,
-          (currentCustomer.points || 0) + (shouldAddSeasonPoints ? expToAdd : 0)
-        );
-        const nextTotalSpent = toMoneyNumber((currentCustomer.total_spent || 0) + orderTotal);
-        const nextTotalOrders = (currentCustomer.total_orders || 0) + 1;
-
-        const { error } = await supabase
-          .from('customers')
-          .update({
-            exp: nextExp,
-            points: nextPoints,
-            total_spent: nextTotalSpent,
-            total_orders: nextTotalOrders,
-            last_order_at: now,
-            updated_at: now,
-          })
-          .eq('id', currentCustomer.id);
-
-        if (error) {
-          console.error('❌ Error actualizando historial del cliente:', error);
-        }
-
-        return;
-      }
-
-      const { error } = await supabase
-        .from('customers')
-        .upsert(
-          {
-            phone: cleanCustomerPhone,
-            name: null,
-            points: shouldAddSeasonPoints ? expToAdd : 0,
-            exp: expToAdd,
-            total_spent: orderTotal,
-            total_orders: 1,
-            last_order_at: now,
-            updated_at: now,
-          },
-          { onConflict: 'phone' }
-        );
-
-      if (error) {
-        console.error('❌ Error creando historial del cliente:', error);
-      }
+      return result.order;
     },
-    [customers, extraSettings.event_active]
+    [customers]
   );
+
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: ExtendedOrder['status']) => {
       const currentOrder = orders.find(order => order.id === orderId);
-      const now = new Date().toISOString();
-      const paymentStatus = resolvePaymentStatus(currentOrder || {}, status);
-
-      const patch: Partial<ExtendedOrder> = {
+      const result = await runPanelAction<{ order: ExtendedOrder }>('transition_order', {
+        orderId,
         status,
-        payment_status: paymentStatus,
-        updated_at: now,
-      };
+      });
 
-      if (CONFIRMED_STATUSES.includes(status) && !currentOrder?.confirmed_at) {
-        patch.confirmed_at = now;
-      }
-
-      if (status === 'Entregado') {
-        patch.delivered_at = now;
-      }
-
-      if (status === 'Cancelado') {
-        patch.cancelled_at = now;
-      }
-
-      const countNow = currentOrder ? shouldCountOrderNow(currentOrder, status) : false;
-
-      if (countNow) {
-        patch.counted_in_metrics = true;
-      }
-
-      setOrders(prev =>
-        prev.map(order =>
-          order.id === orderId
-            ? { ...order, ...patch }
-            : order
-        )
-      );
-
-      if (!isSupabaseConfigured) return;
-
-      const { error } = await supabase
-        .from('orders')
-        .update(patch)
-        .eq('id', orderId);
-
-      if (error) {
-        console.error('❌ Error actualizando estado:', error);
-        await load();
-        throw error;
-      }
-
-      if (countNow && currentOrder) {
-        await countOrderForMetricsAndCustomer({ ...currentOrder, ...patch });
-      }
-
-      if (currentOrder) {
-        void sendOrderPushNotification(
-          { ...currentOrder, ...patch },
-          status,
-          paymentStatus
+      if (result.order) {
+        setOrders(prev =>
+          prev.map(order => (order.id === orderId ? result.order : order))
         );
+
+        if (currentOrder) {
+          void sendOrderPushNotification(
+            result.order,
+            result.order.status,
+            result.order.payment_status || currentOrder.payment_status || 'pendiente'
+          );
+        }
       }
 
       await load();
     },
-    [countOrderForMetricsAndCustomer, load, orders]
+    [load, orders]
   );
 
   const addVipGiftToOrder = useCallback(
     async (orderId: string, gift: VipGiftInput) => {
-      if (!isSupabaseConfigured) return;
+      const result = await runPanelAction<{
+        gift: OrderBonusItem;
+        order: ExtendedOrder;
+      }>('add_vip_gift', { orderId, gift });
+
+      if (result.order) {
+        setOrders(prev =>
+          prev.map(order => (order.id === orderId ? result.order : order))
+        );
+      }
 
       const currentOrder = orders.find(order => order.id === orderId);
-
-      if (!currentOrder) return;
-
-      const now = new Date().toISOString();
-      const quantity = gift.quantity && gift.quantity > 0 ? gift.quantity : 1;
-
-      const giftPayload = {
-        order_id: currentOrder.id,
-        order_code: currentOrder.order_code,
-        customer_phone: currentOrder.customer_phone,
-        item_name: gift.item_name.trim(),
-        quantity,
-        reason: gift.reason || 'Regalo Pollazo Plus',
-        message:
-          gift.message ||
-          `Te agregamos ${quantity} ${gift.item_name.trim()} de regalo por ser parte de Pollazo Plus 🎁`,
-        added_by_admin: gift.added_by_admin || 'admin',
-        created_at: now,
-      };
-
-      if (!giftPayload.item_name) return;
-
-      const { data, error } = await supabase
-        .from('order_bonus_items')
-        .insert(giftPayload)
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.error('❌ Error agregando regalo VIP:', error);
-        throw error;
+      if (currentOrder && result.gift) {
+        void sendVipGiftPushNotification(currentOrder, {
+          ...gift,
+          item_name: result.gift.item_name,
+          quantity: result.gift.quantity,
+          message: result.gift.message || gift.message,
+        });
       }
-
-      const nextGift = (data || giftPayload) as OrderBonusItem;
-      const nextBonusItems = [
-        ...(Array.isArray(currentOrder.bonus_items) ? currentOrder.bonus_items : []),
-        nextGift,
-      ];
-
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({
-          bonus_items: nextBonusItems,
-          vip_gift_message: nextGift.message || giftPayload.message,
-          updated_at: now,
-        })
-        .eq('id', currentOrder.id);
-
-      if (orderError) {
-        console.error('❌ Error actualizando pedido con regalo VIP:', orderError);
-        throw orderError;
-      }
-
-      setOrders(prev =>
-        prev.map(order =>
-          order.id === currentOrder.id
-            ? {
-                ...order,
-                bonus_items: nextBonusItems,
-                vip_gift_message: nextGift.message || giftPayload.message,
-                updated_at: now,
-              }
-            : order
-        )
-      );
-
-      void sendVipGiftPushNotification(currentOrder, {
-        ...gift,
-        item_name: giftPayload.item_name,
-        quantity,
-        message: nextGift.message || giftPayload.message,
-      });
 
       await load();
     },

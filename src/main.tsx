@@ -9,7 +9,6 @@ import AdminPosCorrectionsLauncher from './components/AdminPosCorrectionsLaunche
 import AdminCatalogMasterLauncher from './components/AdminCatalogMasterLauncher';
 import AdminCatalogMenuBridge from './components/AdminCatalogMenuBridge';
 import CustomerCatalogVisibilityFilter from './components/CustomerCatalogVisibilityFilter';
-import OnlineOrderStockSyncBridge from './components/OnlineOrderStockSyncBridge';
 import AdminPosToolEventBridge from './components/AdminPosToolEventBridge';
 import AdminPosToolsDock from './components/AdminPosToolsDock';
 import LegalModalNoAutoScroll from './components/LegalModalNoAutoScroll';
@@ -234,7 +233,6 @@ createRoot(document.getElementById('root')!).render(
         <PlusNonMemberSavingsGuard />
         <ErrorRetryGuard />
         <CustomerCatalogVisibilityFilter />
-        <OnlineOrderStockSyncBridge />
         <AdminPosSmartLauncher />
         <AdminInventoryLauncher />
         <AdminPosReportsLauncher />

@@ -13,7 +13,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runAdminOperation } from '../utils/adminOperations';
 
 type PaymentRow = {
   method: string;
@@ -127,28 +127,22 @@ export default function AdminPosReportsLauncher() {
   }, [date]);
 
   const loadReport = async () => {
-    if (!isSupabaseConfigured) {
-      setError('Supabase no está configurado.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
-    const { data, error: reportError } = await supabase.rpc('get_pos_report_v1', {
-      p_start_date: range.start.toISOString(),
-      p_end_date: range.end.toISOString(),
-    });
-
-    if (reportError) {
-      console.error(reportError);
-      setError(reportError.message || 'No pude cargar reporte POS.');
+    try {
+      const result = await runAdminOperation<{ report: PosReport }>('pos_report', {
+        startDate: range.start.toISOString(),
+        endDate: range.end.toISOString(),
+      });
+      setReport(result.report || {});
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude cargar reporte POS.');
       setReport(null);
-    } else {
-      setReport((data || {}) as PosReport);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {

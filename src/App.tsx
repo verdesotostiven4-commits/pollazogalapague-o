@@ -401,7 +401,7 @@ function AppShell() {
   });
 
   const { items, clearCart } = useCart();
-  const { createOrder, upsertCustomer, orders, products, loading, refreshData } = useAdmin();
+  const { createOrder, orders, products, loading, refreshData } = useAdmin();
   const {
     customerPhone,
     customerAvatar,
@@ -708,17 +708,6 @@ function AppShell() {
       setShowConfirmation(true);
     }
 
-    void (async () => {
-      try {
-        await upsertCustomer(u.whatsapp, u.name, u.avatarUrl, {
-          lat: u.lat,
-          lng: u.lng,
-          reference: u.reference || null,
-        });
-      } catch (error) {
-        console.error('Error perfil:', error);
-      }
-    })();
   };
 
   const requireCustomerBeforeOrder = () => {
@@ -787,7 +776,10 @@ function AppShell() {
       setActiveOrderCode(code);
 
       try {
-        await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+        const createdOrder = await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+        const officialCode = createdOrder?.order_code || code;
+        setActiveOrderCode(officialCode);
+        return officialCode;
       } catch (error) {
         console.error('Error crítico al guardar orden:', error);
         setActiveOrderCode(null);
@@ -795,7 +787,7 @@ function AppShell() {
       }
     }
 
-    return code;
+    return activeOrderCode || code;
   };
 
   const handleEarlySave = async () => {
@@ -815,7 +807,8 @@ function AppShell() {
     setActiveOrderCode(code);
 
     try {
-      await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+      const createdOrder = await createOrder(buildOrderPayload(code, 'Por Confirmar'));
+      setActiveOrderCode(createdOrder?.order_code || code);
     } catch (error) {
       console.error('Error crítico al guardar orden anticipada:', error);
       setActiveOrderCode(null);

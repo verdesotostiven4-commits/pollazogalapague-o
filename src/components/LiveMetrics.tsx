@@ -62,87 +62,42 @@ export default function LiveMetrics() {
 
   const sessionId = getSessionId();
 
-  const fetchMetrics = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
+  const fetchMetrics = useCallback(async (countVisit = false) => {
+    try {
+      const response = await fetch('/api/metrics', {
+        method: countVisit ? 'POST' : 'GET',
+        cache: 'no-store',
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        totalVisits?: number;
+        totalOrders?: number;
+      };
 
-    const { data, error } = await supabase
-      .from('app_metrics')
-      .select('id, value');
-
-    if (error) {
+      if (!response.ok || !result.ok) return;
+      setTotalVisits(Number(result.totalVisits || 0));
+      setTotalOrders(Number(result.totalOrders || 0));
+    } catch (error) {
       console.warn('No se pudieron cargar métricas:', error);
-      return;
     }
-
-    const visits = data?.find(metric => metric.id === 'total_visits');
-    const orders = data?.find(metric => metric.id === 'total_orders');
-
-    setTotalVisits(Number(visits?.value || 0));
-    setTotalOrders(Number(orders?.value || 0));
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-
     const alreadyCounted = sessionStorage.getItem(VISIT_COUNTED_KEY);
-
     if (!alreadyCounted) {
       sessionStorage.setItem(VISIT_COUNTED_KEY, '1');
-
-      supabase
-        .rpc('increment_metric', { metric_id: 'total_visits' })
-        .then(({ error }) => {
-          if (error) {
-            console.warn('No se pudo incrementar total_visits:', error);
-          }
-        });
+      void fetchMetrics(true);
+    } else {
+      void fetchMetrics(false);
     }
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const safeFetch = async () => {
-      if (!mounted) return;
-      await fetchMetrics();
-    };
-
-    safeFetch();
-
-    const interval = window.setInterval(safeFetch, 30000);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(interval);
-    };
   }, [fetchMetrics]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
-
-    const channel = supabase
-      .channel('pollazo_live_metrics')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_metrics' },
-        payload => {
-          const row = payload.new as { id?: string; value?: number | string };
-
-          if (row?.id === 'total_visits') {
-            setTotalVisits(Number(row.value || 0));
-          }
-
-          if (row?.id === 'total_orders') {
-            setTotalOrders(Number(row.value || 0));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    const interval = window.setInterval(() => {
+      void fetchMetrics(false);
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [fetchMetrics]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {

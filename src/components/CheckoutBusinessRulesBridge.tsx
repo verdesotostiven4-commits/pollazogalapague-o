@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { fetchCustomerOrders } from '../utils/customerOrdersApi';
 
 const CART_KEY = 'pollazo_cart_items';
 const PHONE_KEY = 'pollazo_customer_phone';
@@ -186,27 +186,20 @@ const refreshPreviousOrders = async () => {
     return;
   }
 
-  if (!isSupabaseConfigured || Date.now() - state.lastLookup < 12000) return;
+  if (Date.now() - state.lastLookup < 12000) return;
   state.lastLookup = Date.now();
 
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('customer_phone,status')
-      .limit(300);
-
-    if (error || !Array.isArray(data)) return;
-
-    const hasOrder = data.some(row => {
-      const samePhone = cleanPhoneTail((row as any).customer_phone) === phoneTail;
-      const status = String((row as any).status || '').toLowerCase();
-      return samePhone && status !== 'cancelado' && status !== 'cancelled';
+    const orders = await fetchCustomerOrders();
+    const hasOrder = orders.some(order => {
+      const status = String(order.status || '').toLowerCase();
+      return status !== 'cancelado' && status !== 'cancelled';
     });
 
     state.hasPreviousOrder = hasOrder;
     if (hasOrder) localStorage.setItem(`${FIRST_ORDER_USED_PREFIX}${phoneTail}`, '1');
   } catch {
-    // Si falla Supabase, no bloqueamos la experiencia.
+    // Si falla la consulta protegida, el servidor validará la promoción al confirmar.
   }
 };
 
