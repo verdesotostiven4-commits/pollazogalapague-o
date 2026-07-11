@@ -67,13 +67,20 @@ export const isPanelType = (value?: string | null): value is PanelType => {
 };
 
 export const getPanelSessionSecret = () => {
-  const secret = String(
-    process.env.POLLAZO_PANEL_SESSION_SECRET || process.env.CRON_SECRET || ''
-  ).trim();
+  const configuredSecret = [
+    process.env.POLLAZO_PANEL_SESSION_SECRET,
+    process.env.CRON_SECRET,
+  ]
+    .map(value => String(value || '').trim())
+    .find(value => value.length >= MIN_SECRET_LENGTH);
 
-  if (secret.length < MIN_SECRET_LENGTH) return null;
+  if (configuredSecret) return configuredSecret;
 
-  return secret;
+  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+  if (serviceRoleKey.length < MIN_SECRET_LENGTH) return null;
+
+  return `pollazo-panel-session:${serviceRoleKey}`;
 };
 
 export const createPanelSessionToken = async (
