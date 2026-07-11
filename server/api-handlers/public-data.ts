@@ -21,9 +21,40 @@ type Warning = {
   code: string;
 };
 
-const getServerClient = () => {
+const getSafeErrorCode = (error: QueryError | null): string => {
+  if (!error) return 'QUERY_FAILED';
+
+  if (error.code) {
+    return String(error.code);
+  }
+
+  const message = String(error.message || '').toLowerCase();
+
+  if (message.includes('fetch failed') || message.includes('network')) {
+    return 'CONNECTION_FAILED';
+  }
+
+  if (message.includes('invalid api key') || message.includes('jwt')) {
+    return 'INVALID_API_KEY';
+  }
+
+  if (message.includes('permission denied') || message.includes('row-level security')) {
+    return 'PERMISSION_DENIED';
+  }
+
+  if (message.includes('does not exist') || message.includes('not found')) {
+    return 'TABLE_NOT_FOUND';
+  }
+
+  return 'QUERY_FAILED';
+};
+
+const getPublicClient = () => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) return null;
 
@@ -37,7 +68,7 @@ const toWarning = (source: string, error: QueryError | null): Warning | null => 
 
   return {
     source,
-    code: String(error.code || 'QUERY_FAILED'),
+    code: getSafeErrorCode(error),
   };
 };
 
@@ -46,12 +77,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const supabase = getServerClient();
+  const supabase = getPublicClient();
 
   if (!supabase) {
     return res.status(500).json({
       ok: false,
-      error: 'Missing server database configuration',
+      error: 'Missing public database configuration',
     });
   }
 
@@ -74,7 +105,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       ok: false,
       error: 'Could not load products',
       source: 'products',
-      code: String(products.error.code || 'QUERY_FAILED'),
+      code: getSafeErrorCode(products.error),
     });
   }
 
