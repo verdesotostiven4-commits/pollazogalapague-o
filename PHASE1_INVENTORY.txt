@@ -1,0 +1,246 @@
+# Phase 1 repository inventory
+
+Commit: 6c74b0832647169aa7b38e29654dc88bffc2feb9
+
+## Files
+./.env.example
+./.github/workflows/fase-1-baseline.yml
+./.github/workflows/fase-1-diagnostics.yml
+./.github/workflows/fase-1-inventory.yml
+./.github/workflows/fase-1-sync-lockfile.yml
+./.gitignore
+./PHASE1_INVENTORY.txt
+./README.md
+./api/check-memberships.ts
+./api/register-push.ts
+./api/send-push.ts
+./api/verify-panel-pin.ts
+./eslint.config.js
+./index.html
+./package-lock.json
+./package.json
+./postcss.config.js
+./public/_redirects
+./public/apple-touch-icon.png
+./public/favicon-48.png
+./public/icon-192.png
+./public/icon-512.png
+./public/index.ts
+./public/logo-final.png
+./public/manifest.json
+./public/maskable-192.png
+./public/maskable-512.png
+./public/notification-cancelled.png
+./public/notification-confirmed.png
+./public/notification-delivered.png
+./public/notification-preparing.png
+./public/notification-sent.png
+./public/pollazo-splash-icon.svg
+./public/robots.txt
+./public/sitemap.xml
+./public/splash-logo-1024.png
+./public/splash-logo-512.png
+./public/sw.js
+./src/App.tsx
+./src/Cart.tsx
+./src/components/AdminCatalogMasterLauncher.tsx
+./src/components/AdminCatalogMenuBridge.tsx
+./src/components/AdminDashboard.tsx
+./src/components/AdminInventoryLauncher.tsx
+./src/components/AdminPlusPanel.tsx
+./src/components/AdminPosCorrectionsLauncher.tsx
+./src/components/AdminPosLauncher.tsx
+./src/components/AdminPosReportsLauncher.tsx
+./src/components/AdminPosSmartLauncher.tsx
+./src/components/AdminPosToolEventBridge.tsx
+./src/components/AdminPosToolsDock.tsx
+./src/components/AnnouncementBanner.tsx
+./src/components/AppHeader.tsx
+./src/components/AvatarSelector.tsx
+./src/components/BottomNav.tsx
+./src/components/CartAvailabilityToast.tsx
+./src/components/CartCompleteOrderSuggestions.tsx
+./src/components/CartScreen.tsx
+./src/components/CartSmartScrollBridge.tsx
+./src/components/CartTextPolish.tsx
+./src/components/Catalog.tsx
+./src/components/CatalogCartBarPolish.tsx
+./src/components/CatalogCompactVisualBridge.tsx
+./src/components/CatalogScreen.tsx
+./src/components/CatalogSoldOutOrderGuard.tsx
+./src/components/CatalogTodayDealsStrip.tsx
+./src/components/CheckoutBusinessRulesBridge.tsx
+./src/components/CustomerCatalogSoldOutPositionFix.tsx
+./src/components/CustomerCatalogVisibilityFilter.tsx
+./src/components/DeliveryAreas.tsx
+./src/components/DeliveryDashboard.tsx
+./src/components/ErrorRetryGuard.tsx
+./src/components/FAQ.tsx
+./src/components/FeaturedProduct.tsx
+./src/components/FirstRunWelcome.tsx
+./src/components/FloatingWhatsApp.tsx
+./src/components/FlyParticleLayer.tsx
+./src/components/Footer.tsx
+./src/components/Gallery.tsx
+./src/components/GlobalOrderTrackingBridge.tsx
+./src/components/Header.tsx
+./src/components/Hero.tsx
+./src/components/HomeScreen.tsx
+./src/components/InfoHelpCenter.tsx
+./src/components/InfoHelpCenterMount.tsx
+./src/components/InfoScreen.tsx
+./src/components/InfoScreenVisualPolish.tsx
+./src/components/InstallQrGuideBridge.tsx
+./src/components/LandingPage.tsx
+./src/components/LanguageReloadGuard.tsx
+./src/components/LegalModal.tsx
+./src/components/LegalModalNoAutoScroll.tsx
+./src/components/LegalModalScrollFix.tsx
+./src/components/LiveMetrics.tsx
+./src/components/Location.tsx
+./src/components/LocationLiteMapBridge.tsx
+./src/components/LoginModal.tsx
+./src/components/OnlineOrderStockSyncBridge.tsx
+./src/components/OrderConfirmation.tsx
+./src/components/OrderTracking.tsx
+./src/components/OrdersDetailProductToggle.tsx
+./src/components/OrdersDetailShowMorePolish.tsx
+./src/components/OrdersScreen.tsx
+./src/components/PersistentTrackingCenter.tsx
+./src/components/PlusNonMemberSavingsGuard.tsx
+./src/components/PollazoBrandPolish.tsx
+./src/components/PollazoExperienceSystem.tsx
+./src/components/PollazoLanguagePolish.tsx
+./src/components/PollazoMotionSystem.tsx
+./src/components/PollazoPlusModalLayerFix.tsx
+./src/components/PollazoPlusProCard.tsx
+./src/components/PollazoPlusProCardNew.tsx
+./src/components/PollazoUXFixes.tsx
+./src/components/ProductCard.tsx
+./src/components/Promotions.tsx
+./src/components/SafeOrdersOverlay.tsx
+./src/components/SalesMarketingBridge.tsx
+./src/components/SecurePanelGate.tsx
+./src/components/SplashScreen.tsx
+./src/components/Team.tsx
+./src/components/Testimonials.tsx
+./src/components/TrackingFloatingNoticeButton.tsx
+./src/components/TrustSection.tsx
+./src/constants/avatars.ts
+./src/context/AdminContext.tsx
+./src/context/CartContext.tsx
+./src/context/DarkModeContext.tsx
+./src/context/FlyToCartContext.tsx
+./src/context/LanguageContext,tsx
+./src/context/LanguageContext.tsx
+./src/context/UserContext.tsx
+./src/data/products.ts
+./src/hooks/useScrollReveal.ts
+./src/index.css
+./src/lib/supabase.ts
+./src/main.tsx
+./src/pages/Ranking.tsx
+./src/styles/homeHeroRestore.css
+./src/styles/landing-install-lock.css
+./src/types.ts
+./src/utils/adminPosToolsEvents.ts
+./src/utils/homeVisualTranslator.ts
+./src/utils/productI18n.ts
+./src/utils/promoEngine.ts
+./src/utils/pushNotifications.ts
+./src/utils/visualI18nExtraTargets.ts
+./src/utils/visualI18nJa.ts
+./src/utils/visualI18nLatins.ts
+./src/utils/visualI18nMoreLatins.ts
+./src/utils/visualI18nRu.ts
+./src/utils/visualI18nSources.ts
+./src/utils/visualI18nZh.ts
+./src/utils/whatsapp.ts
+./src/vite-env.d.ts
+./supabase/migrations/20260427013239_create_app_metrics_and_testimonials.sql
+./supabase/migrations/20260427013804_add_increment_metric_rpc.sql
+./supabase/migrations/20260503224200_create_product_overrides_and_app_settings.sql
+./supabase/migrations/20260505090000_pollazo_full_admin_orders_customers.sql
+./supabase/migrations/20260602080000_pos_cash_mvp.sql
+./supabase/migrations/20260602103000_online_order_stock_sync.sql
+./supabase/migrations/20260602105000_inventory_adjustments.sql
+./supabase/migrations/20260602112000_inventory_movements_reader.sql
+./supabase/migrations/20260602115000_pos_reports_reader.sql
+./supabase/migrations/20260602123000_pos_void_sales.sql
+./supabase/migrations/20260602132000_pos_production_cleanup_helpers.sql
+./supabase/migrations/20260602143000_catalog_visibility_flags.sql
+./supabase/migrations/20260607052000_create_product_promotions.sql
+./supabase/migrations/migrations/20260526000000_pollazo_compatibility_patch.sql
+./tailwind.config.js
+./tsconfig.app.json
+./tsconfig.json
+./tsconfig.node.json
+./vercel.json
+./vite.config.ts
+
+## Supabase migrations
+supabase/migrations/20260427013239_create_app_metrics_and_testimonials.sql
+supabase/migrations/20260427013804_add_increment_metric_rpc.sql
+supabase/migrations/20260503224200_create_product_overrides_and_app_settings.sql
+supabase/migrations/20260505090000_pollazo_full_admin_orders_customers.sql
+supabase/migrations/20260602080000_pos_cash_mvp.sql
+supabase/migrations/20260602103000_online_order_stock_sync.sql
+supabase/migrations/20260602105000_inventory_adjustments.sql
+supabase/migrations/20260602112000_inventory_movements_reader.sql
+supabase/migrations/20260602115000_pos_reports_reader.sql
+supabase/migrations/20260602123000_pos_void_sales.sql
+supabase/migrations/20260602132000_pos_production_cleanup_helpers.sql
+supabase/migrations/20260602143000_catalog_visibility_flags.sql
+supabase/migrations/20260607052000_create_product_promotions.sql
+
+## Type imports
+import type { CartItem, LanguageCode, PaymentMethod, Product, Screen } from '../types'
+import type { CartItem, OrderStatus, PaymentMethod } from '../types'
+import type { CartItem, Product } from '../types'
+import type { Category, LanguageCode, Product } from '../types'
+import type { Category, Order, OrderStatus, Product, Screen } from '../types'
+import type { Category, Order, Product } from '../types'
+import type { Category, OrderStatus, PaymentStatus } from '../types'
+import type { Category, Product } from '../types'
+import type { Category, Product, Screen } from '../types'
+import type { DeliveryAddressLabel } from '../types'
+import type { LanguageCode } from '../types'
+import type { LanguageCode, LanguageOption } from '../types'
+import type { Order, OrderStatus } from '../types'
+import type { OrderStatus } from '../types'
+import type { PaymentMethod } from '../types'
+import type { Product } from '../types'
+import type { Screen } from '../types'
+
+## Direct order writes
+src/context/AdminContext.tsx:535:        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(150),
+src/context/AdminContext.tsx:1496:      const { error } = await supabase.from('orders').insert(payload);
+src/context/AdminContext.tsx:1624:        .from('orders')
+src/context/AdminContext.tsx:1696:        .from('orders')
+src/components/PersistentTrackingCenter.tsx:204:        .from('orders')
+src/components/TrackingFloatingNoticeButton.tsx:146:        .from('orders')
+src/components/AdminDashboard.tsx:1130:      .from('orders')
+src/components/CheckoutBusinessRulesBridge.tsx:194:      .from('orders')
+api/send-push.ts:260:    .from('orders')
+
+## Direct customer writes
+src/context/AdminContext.tsx:534:        supabase.from('customers').select('*').order('points', { ascending: false }),
+src/context/AdminContext.tsx:1079:          .from('customers')
+src/context/AdminContext.tsx:1096:        .from('customers')
+src/context/AdminContext.tsx:1136:        .from('customers')
+src/context/AdminContext.tsx:1168:      .from('customers')
+src/context/AdminContext.tsx:1320:          .from('customers')
+src/context/AdminContext.tsx:1337:          .from('customers')
+src/context/AdminContext.tsx:1391:            .from('customers')
+src/context/AdminContext.tsx:1432:            .from('customers')
+src/context/AdminContext.tsx:1542:          .from('customers')
+src/context/AdminContext.tsx:1561:        .from('customers')
+src/context/UserContext.tsx:639:        .from('customers')
+src/context/UserContext.tsx:664:        .from('customers')
+src/context/UserContext.tsx:749:        .from('customers')
+src/context/UserContext.tsx:775:        .from('customers')
+src/components/Testimonials.tsx:190:        .from('customers')
+src/components/Testimonials.tsx:261:      .from('customers')
+src/components/Testimonials.tsx:309:          .from('customers')
+src/components/Testimonials.tsx:353:        .from('customers')
+api/check-memberships.ts:485:          .from('customers')
