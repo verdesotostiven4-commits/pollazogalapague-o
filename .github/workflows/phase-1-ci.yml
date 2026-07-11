@@ -27,7 +27,18 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Generate synchronized lockfile for diagnosis
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Upload synchronized lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-1-lockfile
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Install dependencies from synchronized lockfile
         run: npm ci
 
       - name: Typecheck
