@@ -1,0 +1,58 @@
+name: Fase 1 Fix Hook Order
+
+# Isolated retry after diagnostics completed.
+on:
+  push:
+    branches:
+      - stabilization/fase-1
+    paths:
+      - .github/workflows/fase-1-fix-hook.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-hook-order:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stabilization/fase-1
+          fetch-depth: 0
+
+      - name: Keep hook invocation unconditional
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/InfoScreen.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = """}) {
+  if (!open) return null;
+
+  const currentLevel = getCustomerLevel(exp);
+  const { t } = useLanguage();
+"""
+          new = """}) {
+  const { t } = useLanguage();
+
+  if (!open) return null;
+
+  const currentLevel = getCustomerLevel(exp);
+"""
+          if old not in text:
+              raise SystemExit('Conditional hook pattern not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+      - name: Commit hook fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/InfoScreen.tsx
+          git commit -m "fix(react): keep language hook order stable"
+          git pull --rebase origin stabilization/fase-1
+          git push origin HEAD:stabilization/fase-1

@@ -1,49 +1,62 @@
+import { timingSafeEqual } from 'node:crypto';
+import {
+  createPanelSessionToken,
+  hasPanelSessionSecret,
+  isPanelRole,
+  serializePanelSessionCookie,
+  type PanelRole,
+} from './_panel-session.js';
+
 type ApiRequest = {
   method?: string;
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string | string[] | undefined>;
 };
 
 type ApiResponse = {
+  setHeader: (name: string, value: string | string[]) => void;
   status: (code: number) => {
     json: (payload: unknown) => void;
   };
 };
 
-type PanelType = 'admin' | 'delivery';
-
 type VerifyPinPayload = {
-  panel?: string;
-  pin?: string;
+  panel?: unknown;
+  pin?: unknown;
 };
 
 const MAX_PIN_LENGTH = 12;
+const MAX_ATTEMPTS = 6;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+const attempts = new Map<string, { count: number; resetAt: number }>();
 
 const getBody = (req: ApiRequest): VerifyPinPayload => {
   if (!req.body) return {};
 
   if (typeof req.body === 'string') {
     try {
-      return JSON.parse(req.body);
+      const parsed = JSON.parse(req.body) as unknown;
+      return parsed && typeof parsed === 'object'
+        ? (parsed as VerifyPinPayload)
+        : {};
     } catch {
       return {};
     }
   }
 
-  return req.body;
+  return typeof req.body === 'object'
+    ? (req.body as VerifyPinPayload)
+    : {};
 };
 
-const cleanPin = (pin?: string | null) => {
+const cleanPin = (pin: unknown) => {
   return String(pin || '')
     .replace(/\D/g, '')
     .slice(0, MAX_PIN_LENGTH);
 };
 
-const isPanelType = (value?: string | null): value is PanelType => {
-  return value === 'admin' || value === 'delivery';
-};
-
-const getExpectedPin = (panel: PanelType) => {
+const getExpectedPin = (panel: PanelRole) => {
   if (panel === 'admin') {
     return cleanPin(process.env.POLLAZO_ADMIN_PIN);
   }
@@ -51,41 +64,53 @@ const getExpectedPin = (panel: PanelType) => {
   return cleanPin(process.env.POLLAZO_DELIVERY_PIN);
 };
 
-const getRateLimitKey = (req: ApiRequest, panel: PanelType) => {
-  const forwardedFor = req.headers?.['x-forwarded-for'] || req.headers?.['X-Forwarded-For'];
-  const rawIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-  const ip = String(rawIp || 'unknown')
-    .split(',')[0]
-    .trim()
-    .slice(0, 80);
+const getHeader = (req: ApiRequest, name: string) => {
+  const match = Object.entries(req.headers || {}).find(
+    ([key]) => key.toLowerCase() === name.toLowerCase()
+  );
+
+  if (!match) return '';
+
+  const value = match[1];
+  return Array.isArray(value) ? value[0] || '' : String(value || '');
+};
+
+const getRateLimitKey = (req: ApiRequest, panel: PanelRole) => {
+  const rawIp =
+    getHeader(req, 'x-forwarded-for') ||
+    getHeader(req, 'x-real-ip') ||
+    'unknown';
+  const ip = rawIp.split(',')[0].trim().slice(0, 80);
 
   return `${panel}:${ip}`;
 };
-
-const attempts = new Map<string, { count: number; resetAt: number }>();
 
 const checkRateLimit = (key: string) => {
   const now = Date.now();
   const current = attempts.get(key);
 
   if (!current || current.resetAt <= now) {
-    attempts.set(key, {
+    const next = {
       count: 1,
-      resetAt: now + 10 * 60 * 1000,
-    });
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    };
+    attempts.set(key, next);
 
     return {
       allowed: true,
-      remaining: 5,
+      remaining: MAX_ATTEMPTS - 1,
       retryAfterSeconds: 0,
     };
   }
 
-  if (current.count >= 6) {
+  if (current.count >= MAX_ATTEMPTS) {
     return {
       allowed: false,
       remaining: 0,
-      retryAfterSeconds: Math.ceil((current.resetAt - now) / 1000),
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((current.resetAt - now) / 1000)
+      ),
     };
   }
 
@@ -94,7 +119,7 @@ const checkRateLimit = (key: string) => {
 
   return {
     allowed: true,
-    remaining: Math.max(0, 6 - current.count),
+    remaining: Math.max(0, MAX_ATTEMPTS - current.count),
     retryAfterSeconds: 0,
   };
 };
@@ -103,20 +128,20 @@ const resetRateLimit = (key: string) => {
   attempts.delete(key);
 };
 
-const timingSafeEqualText = (a: string, b: string) => {
-  if (!a || !b) return false;
-  if (a.length !== b.length) return false;
+const safePinEqual = (left: string, right: string) => {
+  if (!left || !right) return false;
 
-  let result = 0;
+  const leftBuffer = Buffer.from(left, 'utf8');
+  const rightBuffer = Buffer.from(right, 'utf8');
 
-  for (let index = 0; index < a.length; index += 1) {
-    result |= a.charCodeAt(index) ^ b.charCodeAt(index);
-  }
+  if (leftBuffer.length !== rightBuffer.length) return false;
 
-  return result === 0;
+  return timingSafeEqual(leftBuffer, rightBuffer);
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+
   if (req.method !== 'POST') {
     return res.status(405).json({
       ok: false,
@@ -128,7 +153,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const panel = String(payload.panel || '').trim();
   const pin = cleanPin(payload.pin);
 
-  if (!isPanelType(panel)) {
+  if (!isPanelRole(panel)) {
     return res.status(400).json({
       ok: false,
       error: 'Invalid panel',
@@ -142,10 +167,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
+  if (!hasPanelSessionSecret()) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Panel session is not configured',
+      missingEnv: true,
+    });
+  }
+
   const expectedPin = getExpectedPin(panel);
 
   if (!expectedPin) {
-    return res.status(500).json({
+    return res.status(503).json({
       ok: false,
       error:
         panel === 'admin'
@@ -159,6 +192,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const rateLimit = checkRateLimit(rateLimitKey);
 
   if (!rateLimit.allowed) {
+    res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+
     return res.status(429).json({
       ok: false,
       error: 'Too many attempts',
@@ -166,9 +201,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
-  const valid = timingSafeEqualText(pin, expectedPin);
-
-  if (!valid) {
+  if (!safePinEqual(pin, expectedPin)) {
     return res.status(401).json({
       ok: false,
       error: 'Invalid pin',
@@ -178,8 +211,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   resetRateLimit(rateLimitKey);
 
+  const session = createPanelSessionToken(panel);
+  res.setHeader('Set-Cookie', serializePanelSessionCookie(session.token));
+
   return res.status(200).json({
     ok: true,
     panel,
+    expiresAt: session.expiresAt,
   });
 }

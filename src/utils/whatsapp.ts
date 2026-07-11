@@ -234,3 +234,29 @@ export function buildWhatsAppUrl(
 
   return `https://wa.me/${cleanPhoneNumber(STORE_WHATSAPP)}?text=${encodeURIComponent(text)}`;
 }
+
+export function buildStatusWhatsAppUrl(
+  customerPhone: string,
+  code: string,
+  status: OrderStatus
+): string {
+  const statusMessage: Record<OrderStatus, string> = {
+    'Por Confirmar': 'recibimos tu solicitud y estamos validando disponibilidad',
+    Recibido: 'tu pedido fue confirmado y ya está registrado',
+    Preparando: 'tu pedido se está preparando',
+    Enviado: 'tu pedido salió para entrega',
+    Entregado: 'tu pedido fue entregado. ¡Gracias por comprar en Pollazo!',
+    Cancelado: 'tu pedido fue cancelado. Escríbenos si necesitas ayuda',
+  };
+
+  const text = [
+    'Hola 👋',
+    `Actualización de tu pedido ${code}:`,
+    statusMessage[status],
+    '',
+    `Estado actual: ${status}.`,
+    `Puedes revisar la app: ${APP_URL}`,
+  ].join('\n');
+
+  return `https://wa.me/${cleanPhoneNumber(customerPhone)}?text=${encodeURIComponent(text)}`;
+}
