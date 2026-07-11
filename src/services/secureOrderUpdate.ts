@@ -97,14 +97,7 @@ const requestOrderUpdate = async (
   }
 };
 
-export const isProtectedOrderUpdate = (patch: unknown) => {
-  if (!isRecord(patch)) return false;
-
-  return (
-    Object.prototype.hasOwnProperty.call(patch, 'status') ||
-    Object.prototype.hasOwnProperty.call(patch, 'payment_status')
-  );
-};
+export const isProtectedOrderUpdate = (patch: unknown) => isRecord(patch);
 
 export const createSecureOrderUpdateBuilder = (patch: unknown) => {
   const safePatch = isRecord(patch) ? patch : {};
@@ -150,21 +143,43 @@ export const createSecureOrderUpdateBuilder = (patch: unknown) => {
         });
       }
 
-      const paymentStatus = asString(safePatch.payment_status).toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(safePatch, 'payment_status')) {
+        const paymentStatus = asString(safePatch.payment_status).toLowerCase();
 
-      if (!paymentStatus) {
-        return failedResult(
-          400,
-          'Bad Request',
-          'Falta el estado del pago.',
-          'POLLAZO_PAYMENT_STATUS_MISSING'
-        );
+        if (!paymentStatus) {
+          return failedResult(
+            400,
+            'Bad Request',
+            'Falta el estado del pago.',
+            'POLLAZO_PAYMENT_STATUS_MISSING'
+          );
+        }
+
+        return requestOrderUpdate('/api/admin-order-payment', {
+          orderId,
+          paymentStatus,
+        });
       }
 
-      return requestOrderUpdate('/api/admin-order-payment', {
-        orderId,
-        paymentStatus,
-      });
+      if (
+        Object.prototype.hasOwnProperty.call(safePatch, 'bonus_items') ||
+        Object.prototype.hasOwnProperty.call(safePatch, 'vip_gift_message')
+      ) {
+        return requestOrderUpdate('/api/admin-order-metadata', {
+          orderId,
+          bonusItems: Array.isArray(safePatch.bonus_items)
+            ? safePatch.bonus_items
+            : [],
+          vipGiftMessage: asString(safePatch.vip_gift_message) || null,
+        });
+      }
+
+      return failedResult(
+        403,
+        'Forbidden',
+        'Esta actualización de pedido no está permitida desde el navegador.',
+        'POLLAZO_ORDER_UPDATE_NOT_ALLOWED'
+      );
     },
   };
 };
