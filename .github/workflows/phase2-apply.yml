@@ -34,3 +34,5 @@ jobs:
           git add server/api-handlers/panel-action.ts src/context/AdminContext.tsx src/components/AdminDashboard.tsx src/components/DeliveryDashboard.tsx src/components/CartScreen.tsx
           git commit -m "phase2: connect payments, delivery and stock [phase2-applied]"
           git push origin HEAD:phase-2-orders-payments-stock-20260711
+
+# Triggered after workflow registration so the branch patch runs once.
