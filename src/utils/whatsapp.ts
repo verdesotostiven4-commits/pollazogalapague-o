@@ -95,7 +95,9 @@ export function orderCode(): string {
 
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()
+    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`.toUpperCase();
 
   return `PZ-${day}${month}-${random}`;
 }
@@ -260,4 +262,3 @@ export function buildStatusWhatsAppUrl(
 
   return `https://wa.me/${cleanPhoneNumber(customerPhone)}?text=${encodeURIComponent(text)}`;
 }
-
