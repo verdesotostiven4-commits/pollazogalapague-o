@@ -4,7 +4,7 @@ import {
   getPanelSessionSecret,
   isPanelType,
   type PanelType,
-} from '../server/panel-session';
+} from '../panel-session';
 
 type ApiRequest = {
   method?: string;

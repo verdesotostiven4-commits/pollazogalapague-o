@@ -5,7 +5,7 @@ import {
   readPanelSessionToken,
   verifyPanelSessionToken,
   type PanelType,
-} from '../server/panel-session';
+} from '../panel-session';
 
 type ApiRequest = {
   method?: string;

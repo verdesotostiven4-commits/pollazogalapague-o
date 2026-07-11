@@ -44,7 +44,7 @@ export default function BottomNav({ current, onNavigate }: Props) {
       <div className="relative mx-2 mb-2 rounded-[30px] bg-white/94 backdrop-blur-xl border border-orange-100 shadow-[0_-10px_35px_rgba(249,115,22,0.14)] overflow-visible pointer-events-auto">
         <div className="flex h-[68px] overflow-visible">
           {tabs.map(({ id, icon: Icon, labelKey }) => {
-            const label = id === 'home' ? 'Inici' : t(labelKey);
+            const label = t(labelKey);
             const isActive = current === id;
             const isCart = id === 'cart';
             const hasItems = isCart && cartCount > 0;

@@ -3,7 +3,7 @@ import {
   getCustomerSessionSecret,
   readCustomerSessionToken,
   verifyCustomerSessionToken,
-} from '../server/customer-session';
+} from '../customer-session';
 
 type ApiRequest = {
   method?: string;

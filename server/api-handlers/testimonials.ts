@@ -3,12 +3,12 @@ import {
   getCustomerSessionSecret,
   readCustomerSessionToken,
   verifyCustomerSessionToken,
-} from '../server/customer-session';
+} from '../customer-session';
 import {
   getPanelSessionSecret,
   readPanelSessionToken,
   verifyPanelSessionToken,
-} from '../server/panel-session';
+} from '../panel-session';
 
 type ApiRequest = {
   method?: string;
