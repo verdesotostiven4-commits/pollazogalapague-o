@@ -21,6 +21,22 @@ type Warning = {
   code: string;
 };
 
+const PUBLIC_PRODUCT_FIELDS = [
+  'id',
+  'name',
+  'category',
+  'subcategory',
+  'price',
+  'unit',
+  'description',
+  'image',
+  'badge',
+  'available',
+  'show_in_app',
+  'show_in_pos',
+  'is_variable',
+].join(',');
+
 const getSafeErrorCode = (error: QueryError | null): string => {
   if (!error) return 'QUERY_FAILED';
 
@@ -87,7 +103,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const [products, overrides, appSettings, settings, seasons] = await Promise.all([
-    supabase.from('products').select('*'),
+    supabase
+      .from('products')
+      .select(PUBLIC_PRODUCT_FIELDS)
+      .eq('show_in_app', true),
     supabase.from('product_overrides').select('*'),
     supabase.from('app_settings').select('*'),
     supabase.from('settings').select('*').eq('id', 'global').maybeSingle(),
