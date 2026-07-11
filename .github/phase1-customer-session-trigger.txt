@@ -1,1 +1,0 @@
-Apply the verified customer session context migration.
