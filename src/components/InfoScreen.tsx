@@ -362,10 +362,11 @@ function LevelGuideSheet({
   onClose: () => void;
   exp: number;
 }) {
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   const currentLevel = getCustomerLevel(exp);
-  const { t } = useLanguage();
 
   return (
     <div className="fixed inset-0 z-[12060] flex items-end justify-center">
