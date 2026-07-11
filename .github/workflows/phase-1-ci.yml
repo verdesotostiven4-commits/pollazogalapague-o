@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -27,8 +29,21 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Generate synchronized lockfile for diagnosis
+      - name: Generate synchronized lockfile
         run: npm install --package-lock-only --ignore-scripts
+
+      - name: Persist synchronized lockfile on phase branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json is already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore(build): synchronize package lock"
+          git push origin HEAD:phase-1-stabilization-20260711
 
       - name: Upload synchronized lockfile
         uses: actions/upload-artifact@v4
@@ -42,10 +57,41 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        run: npm run typecheck
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
 
       - name: Lint
-        run: npm run lint
+        id: lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee lint.log
 
       - name: Build
-        run: npm run build
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+
+      - name: Upload validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-1-diagnostics
+          path: |
+            typecheck.log
+            lint.log
+            build.log
+          if-no-files-found: warn
+          retention-days: 3
+
+      - name: Fail when validation failed
+        if: ${{ steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.build.outcome == 'failure' }}
+        run: exit 1
