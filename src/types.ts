@@ -162,4 +162,126 @@ export interface Customer {
   // Direcciones favoritas
   delivery_addresses?: DeliveryAddress[] | null;
   selected_delivery_address_id?: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrderItem {
+  id?: string;
+  product_id?: string;
+  cart_item_id?: string;
+  name?: string;
+  category?: Category | string;
+  quantity?: number;
+  price?: number | string | null;
+  price_text?: string | null;
+  custom_price?: number | null;
+  subtotal?: number | string | null;
+  image?: string | null;
+  product?: Product | null;
+}
+
+export interface OrderBonusItem {
+  id?: string;
+  order_id: string;
+  order_code?: string | null;
+  customer_phone?: string | null;
+  item_name: string;
+  quantity: number;
+  reason?: string | null;
+  message?: string | null;
+  added_by_admin?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Order {
+  id: string;
+  order_code: string;
+  customer_id?: string | null;
+  customer_phone: string;
+  items: OrderItem[];
+  subtotal: number | string;
+  delivery_fee: number | string;
+  delivery_fee_original?: number | string | null;
+  delivery_fee_final?: number | string | null;
+  service_fee?: number | string | null;
+  card_fee?: number | string | null;
+  total: number | string;
+  status: OrderStatus;
+  preorder?: boolean;
+  payment_method?: PaymentMethod | null;
+  payment_status?: PaymentStatus | null;
+  delivery_type?: DeliveryType | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  reference?: string | null;
+  provider?: boolean | null;
+  membership_applied?: boolean | null;
+  membership_id?: string | null;
+  membership_plan?: string | null;
+  bonus_items?: OrderBonusItem[] | null;
+  vip_gift_message?: string | null;
+  counted_in_metrics?: boolean | null;
+  is_test_order?: boolean | null;
+  estimated_time?: number | string | null;
+  eta?: number | string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AppSettings {
+  announcement: string;
+  primary_color: string;
+  banner_link: string;
+}
+
+export interface ExtraSettings {
+  id?: string;
+  logo_url: string;
+  ranking_title: string;
+  prize_description: string;
+  ranking_end_date: string;
+  winner_photo_url: string;
+  prize_1: string;
+  prize_2: string;
+  prize_3: string;
+  event_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CustomerMembership {
+  id: string;
+  customer_phone: string;
+  customer_name?: string | null;
+  plan_key: MembershipPlanKey | string;
+  plan_name: string;
+  status: MembershipStatus;
+  price?: number | string | null;
+  payment_method?: PaymentMethod | null;
+  payment_status?: PaymentStatus | null;
+  notes?: string | null;
+  started_at?: string | null;
+  expires_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MembershipPayment {
+  id: string;
+  membership_id: string;
+  customer_phone: string;
+  customer_name?: string | null;
+  amount: number | string;
+  payment_method?: PaymentMethod | null;
+  payment_status: PaymentStatus;
+  notes?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
