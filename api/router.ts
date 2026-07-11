@@ -20,6 +20,7 @@ const handlers: Record<string, HandlerLoader> = {
   'customer-session': () => import('../server/api-handlers/customer-session.js'),
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
   'metrics': () => import('../server/api-handlers/metrics.js'),
+  'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
   'panel-action': () => import('../server/api-handlers/panel-action.js'),
   'panel-data': () => import('../server/api-handlers/panel-data.js'),
   'public-data': () => import('../server/api-handlers/public-data.js'),
