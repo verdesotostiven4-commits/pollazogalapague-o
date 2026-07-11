@@ -38,7 +38,7 @@ type SecureInsertArgs = Parameters<typeof insertOrderSecurely>[0];
 /**
  * Compatibilidad transicional de Fase 1:
  *
- * - INSERT sobre `orders` pasa por create_online_order_v2.
+ * - INSERT sobre `orders` pasa por /api/create-order.
  * - UPDATE de estado/pago pasa por endpoints con sesión firmada y service role.
  * - Un cambio logístico nunca puede confirmar el pago en la misma petición.
  * - Otras operaciones y tablas conservan el cliente normal.
@@ -61,7 +61,6 @@ export const supabase = new Proxy(rawSupabase, {
 
               return (values: unknown, options?: unknown) =>
                 insertOrderSecurely({
-                  client: target as unknown as SecureInsertArgs['client'],
                   values,
                   options,
                   fallbackInsert:
