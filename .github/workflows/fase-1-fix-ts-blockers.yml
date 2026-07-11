@@ -1,0 +1,89 @@
+name: Fase 1 Fix TypeScript Blockers
+
+on:
+  push:
+    branches:
+      - stabilization/fase-1
+    paths:
+      - .github/workflows/fase-1-fix-ts-blockers.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-typescript-blockers:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout phase branch
+        uses: actions/checkout@v4
+        with:
+          ref: stabilization/fase-1
+          fetch-depth: 0
+
+      - name: Apply focused TypeScript fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'Expected text not found in {path}: {old[:80]!r}')
+              file.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace(
+              'src/components/CartScreen.tsx',
+              "  const entry = TEXTS[key];\n  const base = entry[language] || entry.en || entry.es;",
+              "  const entry = TEXTS[key] as Partial<Record<LanguageCode, string>>;\n  const base = entry[language] ?? entry.en ?? entry.es ?? '';",
+          )
+
+          cart_screen = Path('src/components/CartScreen.tsx')
+          cart_text = cart_screen.read_text(encoding='utf-8')
+          cart_text = cart_text.replace("const ctx = canvas.getContext('2d');", "const context = canvas.getContext('2d');")
+          cart_text = cart_text.replace("if (!ctx) {", "if (!context) {")
+          cart_text = cart_text.replace('ctx.', 'context.')
+          cart_screen.write_text(cart_text, encoding='utf-8')
+
+          replace(
+              'src/components/InstallQrGuideBridge.tsx',
+              'ChevronRight, Download, Home, QrCode, Safari, Smartphone, Sparkles, X',
+              'ChevronRight, Compass, Download, Home, QrCode, Smartphone, Sparkles, X',
+          )
+          replace(
+              'src/components/InstallQrGuideBridge.tsx',
+              '<Safari size={21} />',
+              '<Compass size={21} />',
+          )
+
+          replace(
+              'src/components/SafeOrdersOverlay.tsx',
+              'PackageSearch, RefreshCw, Search, ShoppingBag',
+              'PackageSearch, RefreshCw, Repeat2, Search, ShoppingBag',
+          )
+          replace(
+              'src/components/SafeOrdersOverlay.tsx',
+              "import type { Category, Order, Product } from '../types';",
+              "import type { Category, Order, Product } from '../types';\nimport { STORE_WHATSAPP } from '../utils/whatsapp';",
+          )
+          replace(
+              'src/components/SafeOrdersOverlay.tsx',
+              'WHATSAPP_NUMBER',
+              'STORE_WHATSAPP',
+          )
+
+          replace('tsconfig.app.json', '"target": "ES2020"', '"target": "ES2021"')
+          replace('tsconfig.app.json', '"lib": ["ES2020", "DOM", "DOM.Iterable"]', '"lib": ["ES2021", "DOM", "DOM.Iterable"]')
+
+      - name: Commit focused fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/CartScreen.tsx src/components/InstallQrGuideBridge.tsx src/components/SafeOrdersOverlay.tsx tsconfig.app.json
+          git commit -m "fix(build): resolve remaining TypeScript blockers"
+          git pull --rebase origin stabilization/fase-1
+          git push origin HEAD:stabilization/fase-1
