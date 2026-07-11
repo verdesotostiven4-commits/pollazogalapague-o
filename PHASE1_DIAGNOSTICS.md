@@ -1,6 +1,6 @@
 # Phase 1 diagnostics
 
-Generated from commit: `ba9b1b153d1edea084294eb2707bd2575551267a`
+Generated from commit: `8dc80c1bb82f15523311a057e81bfa2866c8b278`
 
 | Check | Result |
 |---|---|
@@ -29,128 +29,19 @@ Run `npm audit` for details.
 ## typecheck
 
 ```text
+
+> vite-react-typescript-starter@0.0.0 typecheck
+> tsc --noEmit -p tsconfig.app.json
+
+src/Cart.tsx(23,55): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/Cart.tsx(24,58): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/Cart.tsx(35,24): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
   Type 'null' is not assignable to type 'string | undefined'.
 src/Cart.tsx(119,24): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
   Type 'null' is not assignable to type 'string | undefined'.
 src/components/AdminDashboard.tsx(52,10): error TS2724: '"../utils/whatsapp"' has no exported member named 'buildStatusWhatsAppUrl'. Did you mean 'buildWhatsAppUrl'?
-src/components/AdminDashboard.tsx(800,19): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(802,40): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(803,23): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(817,19): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(819,36): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(825,15): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(831,16): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(831,47): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(833,31): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(838,29): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(848,29): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(858,29): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(902,45): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(902,77): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(906,66): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(908,59): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(909,61): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(910,61): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(911,56): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(912,67): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(913,67): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(917,52): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(921,15): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(922,16): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(922,52): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(940,72): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(941,76): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(943,80): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(944,85): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(945,85): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(961,20): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(961,80): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(965,20): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(965,80): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1022,65): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1029,71): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1033,17): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1034,17): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1036,17): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1038,17): error TS2339: Property 'delivery_type' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1039,17): error TS2339: Property 'reference' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1049,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1050,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1857,82): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1900,76): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1903,41): error TS2339: Property 'lat' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1904,41): error TS2339: Property 'lng' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1906,41): error TS2339: Property 'reference' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1908,39): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1910,23): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1911,24): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1913,73): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1914,59): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1918,30): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1934,85): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1943,54): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1946,34): error TS2339: Property 'membership_applied' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1966,34): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1970,52): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1976,46): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1981,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1982,46): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(1996,39): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2000,137): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2002,32): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2006,46): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2011,26): error TS2339: Property 'membership_applied' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2020,40): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2020,62): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2027,30): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2048,44): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2049,45): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2063,32): error TS2339: Property 'delivery_type' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2097,29): error TS2339: Property 'items' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2098,30): error TS2339: Property 'items' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2134,28): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2137,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2145,29): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2145,65): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2148,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2156,29): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2156,60): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2159,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2167,28): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2170,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2181,36): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2183,49): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2196,31): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2197,31): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2198,31): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2208,69): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2218,28): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2218,60): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2221,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminDashboard.tsx(2230,66): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(268,17): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(268,49): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(271,80): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(274,28): error TS2339: Property 'membership_applied' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(714,73): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(717,45): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(723,49): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(724,25): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(726,55): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(726,93): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(731,30): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(742,32): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(742,95): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(745,40): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(745,70): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(750,48): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(788,66): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(795,66): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(804,64): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(811,61): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(812,61): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(814,53): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/AdminPlusPanel.tsx(818,52): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
 src/components/CartScreen.tsx(198,16): error TS7053: Element implicitly has an 'any' type because expression of type 'LanguageCode' can't be used to index type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
   Property 'pt' does not exist on type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
 src/components/CartScreen.tsx(198,53): error TS2339: Property 'es' does not exist on type 'never'.
@@ -162,122 +53,10 @@ src/components/CartScreen.tsx(256,7): error TS18047: 'ctx' is possibly 'null'.
 src/components/CartScreen.tsx(257,7): error TS18047: 'ctx' is possibly 'null'.
 src/components/CartScreen.tsx(258,7): error TS18047: 'ctx' is possibly 'null'.
 src/components/CartScreen.tsx(259,7): error TS18047: 'ctx' is possibly 'null'.
-src/components/DeliveryDashboard.tsx(22,15): error TS2305: Module '"../types"' has no exported member 'Order'.
-src/components/DeliveryDashboard.tsx(83,39): error TS7006: Parameter 'sum' implicitly has an 'any' type.
-src/components/DeliveryDashboard.tsx(83,44): error TS7006: Parameter 'item' implicitly has an 'any' type.
-src/components/DeliveryDashboard.tsx(97,10): error TS7006: Parameter 'item' implicitly has an 'any' type.
-src/components/DeliveryDashboard.tsx(293,30): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(294,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(294,75): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(299,30): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(300,50): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(300,107): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(305,64): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(307,46): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(308,45): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(318,36): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(318,60): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(322,27): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(322,68): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(372,68): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(382,53): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(382,84): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(389,62): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(407,29): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(650,51): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(655,39): error TS2339: Property 'lat' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(656,39): error TS2339: Property 'lng' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(658,37): error TS2339: Property 'reference' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(659,33): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(660,60): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(664,28): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(674,126): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(675,32): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(685,43): error TS2339: Property 'created_at' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(694,30): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(703,69): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(784,162): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(793,28): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(796,59): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/DeliveryDashboard.tsx(809,48): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
 src/components/InstallQrGuideBridge.tsx(2,48): error TS2305: Module '"lucide-react"' has no exported member 'Safari'.
-src/components/OrdersScreen.tsx(22,25): error TS2305: Module '"../types"' has no exported member 'Order'.
-src/components/OrdersScreen.tsx(502,42): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(507,93): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(508,77): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(517,39): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(524,15): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(526,15): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(527,15): error TS2339: Property 'reference' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(731,45): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(738,42): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(738,54): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/OrdersScreen.tsx(746,107): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(6,25): error TS2305: Module '"../types"' has no exported member 'Order'.
-src/components/SafeOrdersOverlay.tsx(146,42): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(158,27): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(158,53): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(158,66): error TS2339: Property 'reference' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(166,68): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(255,48): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(255,60): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(259,98): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/components/SafeOrdersOverlay.tsx(262,89): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
 src/components/SafeOrdersOverlay.tsx(268,237): error TS2304: Cannot find name 'Repeat2'.
 src/components/SafeOrdersOverlay.tsx(269,117): error TS2304: Cannot find name 'WHATSAPP_NUMBER'.
-src/components/SafeOrdersOverlay.tsx(269,204): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(13,3): error TS2305: Module '"../types"' has no exported member 'AppSettings'.
-src/context/AdminContext.tsx(15,3): error TS2305: Module '"../types"' has no exported member 'CustomerMembership'.
-src/context/AdminContext.tsx(16,3): error TS2305: Module '"../types"' has no exported member 'ExtraSettings'.
-src/context/AdminContext.tsx(17,3): error TS2305: Module '"../types"' has no exported member 'MembershipPayment'.
-src/context/AdminContext.tsx(18,3): error TS2305: Module '"../types"' has no exported member 'Order'.
-src/context/AdminContext.tsx(19,3): error TS2305: Module '"../types"' has no exported member 'OrderBonusItem'.
-src/context/AdminContext.tsx(128,62): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(169,41): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(260,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedCustomer'.
-src/context/AdminContext.tsx(261,34): error TS2339: Property 'created_at' does not exist on type 'ExtendedCustomer'.
-src/context/AdminContext.tsx(294,29): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(296,24): error TS2339: Property 'payment_method' does not exist on type 'Partial<ExtendedOrder>'.
-src/context/AdminContext.tsx(315,29): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(319,24): error TS2339: Property 'payment_method' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(412,25): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(416,16): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(424,30): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(425,26): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(441,16): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(454,30): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(455,26): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(456,23): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(461,41): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(675,17): error TS7006: Parameter 'prev' implicitly has an 'any' type.
-src/context/AdminContext.tsx(1453,28): error TS2339: Property 'status' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1456,62): error TS2339: Property 'customer_phone' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1459,37): error TS2339: Property 'customer_phone' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1462,44): error TS2339: Property 'subtotal' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1465,55): error TS2339: Property 'delivery_fee' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1474,53): error TS2339: Property 'customer_phone' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1479,25): error TS2339: Property 'provider' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1484,67): error TS2339: Property 'total' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1490,28): error TS2339: Property 'bonus_items' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1491,33): error TS2339: Property 'vip_gift_message' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1492,27): error TS2339: Property 'created_at' does not exist on type 'CreateOrderInput'.
-src/context/AdminContext.tsx(1512,62): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1513,46): error TS2339: Property 'total' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1584,51): error TS2339: Property 'status' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1585,55): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1590,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partial<ExtendedOrder>'.
-src/context/AdminContext.tsx(1615,17): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1655,55): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1663,32): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1664,34): error TS2339: Property 'order_code' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1665,38): error TS2339: Property 'customer_phone' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1691,40): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1691,68): error TS2339: Property 'bonus_items' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1702,32): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1711,17): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
-src/context/AdminContext.tsx(1711,37): error TS2339: Property 'id' does not exist on type 'ExtendedOrder'.
 src/context/LanguageContext.tsx(58,40): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
-src/context/UserContext.tsx(12,3): error TS2305: Module '"../types"' has no exported member 'CustomerMembership'.
 src/utils/productI18n.ts(30,40): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
 ```
 
@@ -465,7 +244,7 @@ Browserslist: caniuse-lite is outdated. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
 [32m✓[39m 1625 modules transformed.
-[31mx[39m Build failed in 4.02s
+[31mx[39m Build failed in 4.21s
 [31merror during build:
 [31msrc/components/AdminDashboard.tsx (52:9): "buildStatusWhatsAppUrl" is not exported by "src/utils/whatsapp.ts", imported by "src/components/AdminDashboard.tsx".[31m
 file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/AdminDashboard.tsx:52:9[31m
