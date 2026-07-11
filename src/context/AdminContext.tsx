@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { products as seedProducts, categories as seedCategories } from '../data/products';
-import { saveOrderCredential } from '../utils/orderCredentials';
+import { getOrderCredentials, saveOrderCredential } from '../utils/orderCredentials';
 import type {
   AppSettings,
   Customer,
@@ -510,165 +510,157 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
 
     try {
-      const [
-        prodRes,
-        ovRes,
-        settingsRes,
-        extraRes,
-        custRes,
-        orderRes,
-        seasonsRes,
-        membershipsRes,
-        membershipPaymentsRes,
-        orderBonusItemsRes,
-      ] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: true }),
-        supabase.from('product_overrides').select('id, price, available'),
-        supabase.from('app_settings').select('key, value'),
-        supabase.from('settings').select('*').eq('id', 'global').maybeSingle(),
-        supabase.from('customers').select('*').order('points', { ascending: false }),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(150),
-        supabase.from('seasons').select('*').order('created_at', { ascending: false }),
-        supabase
-          .from('customer_memberships')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('membership_payments')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('order_bonus_items')
-          .select('*')
-          .order('created_at', { ascending: false }),
-      ]);
+      const path = window.location.pathname;
+      const panel = path === '/admin' ? 'admin' : path === '/repartidor' ? 'delivery' : null;
+      const dataResponse = await fetch(
+        panel ? `/api/panel-data?panel=${encodeURIComponent(panel)}` : '/api/public-data',
+        {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }
+      );
 
-      warnIfError('Error leyendo products', prodRes.error);
-      warnIfError('Error leyendo product_overrides', ovRes.error);
-      warnIfError('Error leyendo app_settings', settingsRes.error);
-      warnIfError('Error leyendo settings global', extraRes.error);
-      warnIfError('Error leyendo customers', custRes.error);
-      warnIfError('Error leyendo orders', orderRes.error);
-      warnIfError('Error leyendo seasons', seasonsRes.error);
-      warnIfError('Error leyendo customer_memberships', membershipsRes.error);
-      warnIfError('Error leyendo membership_payments', membershipPaymentsRes.error);
-      warnIfError('Error leyendo order_bonus_items', orderBonusItemsRes.error);
+      const data = (await dataResponse.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        products?: Product[];
+        overrides?: ProductOverride[];
+        appSettings?: Array<{ key: string; value: string }>;
+        settings?: Partial<ExtraSettings> | null;
+        seasons?: Season[];
+        customers?: ExtendedCustomer[];
+        orders?: ExtendedOrder[];
+        memberships?: CustomerMembership[];
+        membershipPayments?: MembershipPayment[];
+        orderBonusItems?: OrderBonusItem[];
+      };
 
-      if (prodRes.data) {
-        setRemoteProducts(prodRes.data as Product[]);
+      if (!dataResponse.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudieron cargar los datos de la aplicación.');
       }
 
-      if (ovRes.data) {
-        const map: Record<string, ProductOverride> = {};
+      setRemoteProducts(Array.isArray(data.products) ? data.products : []);
 
-        ovRes.data.forEach(row => {
-          map[row.id] = {
-            id: row.id,
-            price: row.price ?? null,
-            available: row.available !== false,
-          };
-        });
-
-        setOverrides(map);
-      }
+      const overrideMap: Record<string, ProductOverride> = {};
+      (Array.isArray(data.overrides) ? data.overrides : []).forEach(row => {
+        if (!row?.id) return;
+        overrideMap[row.id] = {
+          id: row.id,
+          price: row.price ?? null,
+          available: row.available !== false,
+        };
+      });
+      setOverrides(overrideMap);
 
       const nextSettings: AppSettings = { ...DEFAULT_SETTINGS };
       const prizeSettings: Partial<ExtraSettings> = {};
 
-      if (settingsRes.data) {
-        settingsRes.data.forEach((setting: { key: string; value: string }) => {
-          if (setting.key in nextSettings) {
-            nextSettings[setting.key as keyof AppSettings] = setting.value;
-          }
+      (Array.isArray(data.appSettings) ? data.appSettings : []).forEach(setting => {
+        if (!setting?.key) return;
 
-          if (
-            setting.key === 'prize_1' ||
-            setting.key === 'prize_2' ||
-            setting.key === 'prize_3'
-          ) {
-            prizeSettings[setting.key] = setting.value;
-          }
-        });
-      }
+        if (setting.key in nextSettings) {
+          nextSettings[setting.key as keyof AppSettings] = setting.value;
+        }
+
+        if (
+          setting.key === 'prize_1' ||
+          setting.key === 'prize_2' ||
+          setting.key === 'prize_3'
+        ) {
+          prizeSettings[setting.key] = setting.value;
+        }
+      });
 
       setSettings(nextSettings);
       document.documentElement.style.setProperty(
         '--pollazo-primary',
         nextSettings.primary_color
       );
+      setExtraSettings({
+        ...DEFAULT_EXTRA,
+        ...(data.settings || {}),
+        ...prizeSettings,
+      });
+      setSeasons(Array.isArray(data.seasons) ? data.seasons : []);
 
-      if (extraRes.data) {
-        setExtraSettings({
-          ...DEFAULT_EXTRA,
-          ...(extraRes.data as Partial<ExtraSettings>),
-          ...prizeSettings,
-        });
+      if (panel) {
+        setCustomers(Array.isArray(data.customers) ? data.customers : []);
+        setOrders(Array.isArray(data.orders) ? data.orders : []);
+        setMemberships(Array.isArray(data.memberships) ? data.memberships : []);
+        setMembershipPayments(
+          Array.isArray(data.membershipPayments) ? data.membershipPayments : []
+        );
+        setOrderBonusItems(
+          Array.isArray(data.orderBonusItems) ? data.orderBonusItems : []
+        );
       } else {
-        setExtraSettings({
-          ...DEFAULT_EXTRA,
-          ...prizeSettings,
+        setCustomers([]);
+        setMemberships([]);
+        setMembershipPayments([]);
+        setOrderBonusItems([]);
+
+        const credentials = getOrderCredentials();
+        const ordersResponse = await fetch('/api/customer-orders', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ credentials }),
         });
-      }
+        const ordersPayload = (await ordersResponse.json().catch(() => ({}))) as {
+          ok?: boolean;
+          orders?: ExtendedOrder[];
+        };
 
-      if (custRes.data) {
-        setCustomers(custRes.data as ExtendedCustomer[]);
-      }
-
-      if (orderRes.data) {
-        setOrders(orderRes.data as ExtendedOrder[]);
-      }
-
-      if (seasonsRes.data) {
-        setSeasons(seasonsRes.data as Season[]);
-      }
-
-      if (membershipsRes.data) {
-        setMemberships(membershipsRes.data as CustomerMembership[]);
-      }
-
-      if (membershipPaymentsRes.data) {
-        setMembershipPayments(membershipPaymentsRes.data as MembershipPayment[]);
-      }
-
-      if (orderBonusItemsRes.data) {
-        setOrderBonusItems(orderBonusItemsRes.data as OrderBonusItem[]);
+        setOrders(
+          ordersResponse.ok && ordersPayload.ok && Array.isArray(ordersPayload.orders)
+            ? ordersPayload.orders
+            : []
+        );
       }
     } catch (error) {
-      console.error('❌ Error cargando datos:', error);
+      console.error('❌ Error cargando datos protegidos:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    const panel =
+      window.location.pathname === '/admin'
+        ? 'admin'
+        : window.location.pathname === '/repartidor'
+          ? 'delivery'
+          : null;
 
-    const channel = supabase
-      .channel('pollazo_admin_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_overrides' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_memberships' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'membership_payments' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_bonus_items' }, () => load())
-      .subscribe();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void load();
+      }
+    };
+
+    const interval = window.setInterval(
+      refresh,
+      panel === 'delivery' ? 5000 : panel === 'admin' ? 10000 : 60000
+    );
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [load]);
 
