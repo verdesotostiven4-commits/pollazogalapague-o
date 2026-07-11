@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  createRejectedCustomerDeleteBuilder,
+  createSecureCustomerMutationBuilder,
+  createSecureCustomerReadBuilder,
+} from '../services/secureCustomerGateway';
 import { insertOrderSecurely } from '../services/secureOrderInsert';
 import { createSecureOrderReadBuilder } from '../services/secureOrderRead';
 import {
@@ -36,14 +41,88 @@ const rawSupabase = createClient(
 
 type SecureInsertArgs = Parameters<typeof insertOrderSecurely>[0];
 
+const wrapCustomersQuery = (query: ReturnType<typeof rawSupabase.from>) => {
+  return new Proxy(query, {
+    get(queryTarget, queryProperty, queryReceiver) {
+      if (queryProperty === 'select') {
+        return () => createSecureCustomerReadBuilder();
+      }
+
+      if (queryProperty === 'upsert') {
+        return (value: unknown) =>
+          createSecureCustomerMutationBuilder('upsert', value);
+      }
+
+      if (queryProperty === 'insert') {
+        return (value: unknown) =>
+          createSecureCustomerMutationBuilder('insert', value);
+      }
+
+      if (queryProperty === 'update') {
+        return (value: unknown) =>
+          createSecureCustomerMutationBuilder('update', value);
+      }
+
+      if (queryProperty === 'delete') {
+        return () => createRejectedCustomerDeleteBuilder();
+      }
+
+      const value = Reflect.get(queryTarget, queryProperty, queryReceiver);
+
+      return typeof value === 'function' ? value.bind(queryTarget) : value;
+    },
+  });
+};
+
+const wrapOrdersQuery = (query: ReturnType<typeof rawSupabase.from>) => {
+  return new Proxy(query, {
+    get(queryTarget, queryProperty, queryReceiver) {
+      if (queryProperty === 'select') {
+        return () => createSecureOrderReadBuilder();
+      }
+
+      if (queryProperty === 'insert') {
+        const fallbackInsert = queryTarget.insert.bind(queryTarget);
+
+        return (values: unknown, options?: unknown) =>
+          insertOrderSecurely({
+            values,
+            options,
+            fallbackInsert:
+              fallbackInsert as unknown as SecureInsertArgs['fallbackInsert'],
+          });
+      }
+
+      if (queryProperty === 'update') {
+        return (patch: unknown) => {
+          if (isProtectedOrderUpdate(patch)) {
+            return createSecureOrderUpdateBuilder(patch);
+          }
+
+          return createSecureOrderUpdateBuilder({});
+        };
+      }
+
+      if (queryProperty === 'delete') {
+        return () => createSecureOrderUpdateBuilder({});
+      }
+
+      const value = Reflect.get(queryTarget, queryProperty, queryReceiver);
+
+      return typeof value === 'function' ? value.bind(queryTarget) : value;
+    },
+  });
+};
+
 /**
  * Compatibilidad transicional de Fase 1:
  *
+ * - `customers` nunca usa acceso público directo: panel, perfil y ranking
+ *   pasan por endpoints separados.
  * - SELECT de `orders` usa sesiones firmadas de panel o cliente.
  * - INSERT sobre `orders` pasa por /api/create-order.
- * - UPDATE de estado/pago pasa por endpoints con sesión firmada y service role.
- * - Un cambio logístico nunca puede confirmar el pago en la misma petición.
- * - Otras operaciones y tablas conservan el cliente normal.
+ * - UPDATE de estado/pago/bonos pasa por endpoints con sesión firmada.
+ * - DELETE directo de clientes y pedidos está bloqueado.
  * - El fallback de creación antiguo está desactivado en producción.
  */
 export const supabase = new Proxy(rawSupabase, {
@@ -52,54 +131,15 @@ export const supabase = new Proxy(rawSupabase, {
       return ((relation: string) => {
         const query = target.from(relation);
 
-        if (relation !== 'orders') {
-          return query;
+        if (relation === 'customers') {
+          return wrapCustomersQuery(query);
         }
 
-        return new Proxy(query, {
-          get(queryTarget, queryProperty, queryReceiver) {
-            if (queryProperty === 'select') {
-              return () => createSecureOrderReadBuilder();
-            }
+        if (relation === 'orders') {
+          return wrapOrdersQuery(query);
+        }
 
-            if (queryProperty === 'insert') {
-              const fallbackInsert = queryTarget.insert.bind(queryTarget);
-
-              return (values: unknown, options?: unknown) =>
-                insertOrderSecurely({
-                  values,
-                  options,
-                  fallbackInsert:
-                    fallbackInsert as unknown as SecureInsertArgs['fallbackInsert'],
-                });
-            }
-
-            if (queryProperty === 'update') {
-              const fallbackUpdate = queryTarget.update.bind(queryTarget);
-
-              return (patch: unknown, options?: unknown) => {
-                if (isProtectedOrderUpdate(patch)) {
-                  return createSecureOrderUpdateBuilder(patch);
-                }
-
-                return fallbackUpdate(
-                  patch as Parameters<typeof fallbackUpdate>[0],
-                  options as Parameters<typeof fallbackUpdate>[1]
-                );
-              };
-            }
-
-            const value = Reflect.get(
-              queryTarget,
-              queryProperty,
-              queryReceiver
-            );
-
-            return typeof value === 'function'
-              ? value.bind(queryTarget)
-              : value;
-          },
-        });
+        return query;
       }) as typeof target.from;
     }
 
