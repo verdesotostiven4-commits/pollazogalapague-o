@@ -15,7 +15,7 @@ type HandlerLoader = () => Promise<HandlerModule>;
 const handlers: Record<string, HandlerLoader> = {
   'admin-operations': () => import('../server/api-handlers/admin-operations.js'),
   'check-memberships': () => import('../server/api-handlers/check-memberships.js'),
-  'create-order': () => import('../server/api-handlers/create-order.js'),
+  'create-order': () => import('../server/api-handlers/create-order-v2.js'),
   'customer-orders': () => import('../server/api-handlers/customer-orders.js'),
   'customer-session': () => import('../server/api-handlers/customer-session.js'),
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
