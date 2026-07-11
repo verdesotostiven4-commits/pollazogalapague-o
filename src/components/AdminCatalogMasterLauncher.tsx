@@ -15,7 +15,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runAdminOperation } from '../utils/adminOperations';
+import { runPanelAction } from '../utils/panelApi';
 import { products as seedProducts } from '../data/products';
 import type { Category, Product } from '../types';
 
@@ -196,30 +197,21 @@ export default function AdminCatalogMasterLauncher() {
   }, []);
 
   const loadProducts = async () => {
-    if (!isSupabaseConfigured) {
-      setProducts(mergeCatalogProducts([]));
-      setError('No hay conexión con el catálogo. Mostrando lista guardada de respaldo.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
-    const { data, error: loadError } = await supabase
-      .from('products')
-      .select('*')
-      .order('category')
-      .order('name');
-
-    if (loadError) {
-      console.error(loadError);
+    try {
+      const result = await runAdminOperation<{ products: CatalogProduct[] }>(
+        'inventory_load'
+      );
+      setProducts(mergeCatalogProducts(result.products || []));
+    } catch (error) {
+      console.error(error);
       setError('No pude cargar los productos del sistema. Mostrando lista guardada de respaldo.');
       setProducts(mergeCatalogProducts([]));
-    } else {
-      setProducts(mergeCatalogProducts((data || []) as CatalogProduct[]));
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -253,11 +245,6 @@ export default function AdminCatalogMasterLauncher() {
   const selected = products.find(product => product.id === selectedId) || null;
 
   const activateFullCatalog = async () => {
-    if (!isSupabaseConfigured) {
-      setError('No hay conexión con el sistema de productos. Intenta nuevamente en unos segundos.');
-      return;
-    }
-
     const pendingProducts = products.filter(product => product.source === 'base');
 
     if (pendingProducts.length === 0) {
@@ -272,20 +259,22 @@ export default function AdminCatalogMasterLauncher() {
     setError(null);
     setMessage(null);
 
-    const now = new Date().toISOString();
-    const payload = pendingProducts.map(product => buildInsertPayloadFromBaseProduct(product, now));
-
-    const { error: syncError } = await supabase.from('products').upsert(payload);
-
-    if (syncError) {
-      console.error(syncError);
-      setError(syncError.message || 'No pude activar el catálogo completo.');
-    } else {
+    try {
+      const now = new Date().toISOString();
+      const payload = pendingProducts.map(product =>
+        buildInsertPayloadFromBaseProduct(product, now)
+      );
+      for (const product of payload) {
+        await runPanelAction('upsert_product', { product });
+      }
       setMessage(`Catálogo completo activado. ${pendingProducts.length} productos quedaron listos para clientes, caja e inventario.`);
       await loadProducts();
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude activar el catálogo completo.');
+    } finally {
+      setSyncingCatalog(false);
     }
-
-    setSyncingCatalog(false);
   };
 
   const selectProduct = (product: CatalogProduct) => {
@@ -325,11 +314,6 @@ export default function AdminCatalogMasterLauncher() {
       return;
     }
 
-    if (!isSupabaseConfigured) {
-      setError('No hay conexión con el sistema de productos. Intenta nuevamente en unos segundos.');
-      return;
-    }
-
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -361,27 +345,21 @@ export default function AdminCatalogMasterLauncher() {
       payload.created_at = now;
     }
 
-    const { error: saveError } = await supabase.from('products').upsert(payload);
-
-    if (saveError) {
-      console.error(saveError);
-      setError(saveError.message || 'No pude guardar el producto.');
-    } else {
+    try {
+      await runPanelAction('upsert_product', { product: payload });
       setMessage('Producto guardado. Ya está actualizado para clientes, caja e inventario.');
       await loadProducts();
       setSelectedId(id);
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude guardar el producto.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   const toggleAvailability = async () => {
     if (!selected) return;
-
-    if (!isSupabaseConfigured) {
-      setError('No hay conexión con el sistema de productos. Intenta nuevamente en unos segundos.');
-      return;
-    }
 
     const next = selected.available === false;
     const now = new Date().toISOString();
@@ -407,13 +385,13 @@ export default function AdminCatalogMasterLauncher() {
       created_at: selected.created_at || now,
     };
 
-    const { error: toggleError } = await supabase.from('products').upsert(payload);
-
-    if (toggleError) {
-      setError('No pude cambiar disponibilidad.');
-    } else {
+    try {
+      await runPanelAction('upsert_product', { product: payload });
       setMessage(next ? 'Producto marcado como disponible.' : 'Producto marcado como agotado. Puede seguir visible, pero no se podrá comprar.');
       await loadProducts();
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude cambiar disponibilidad.');
     }
   };
 

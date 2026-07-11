@@ -47,7 +47,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runAdminOperation } from '../utils/adminOperations';
 import type { Category, OrderStatus, PaymentStatus } from '../types';
 import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
 import { logoutPanelSession } from '../utils/panelSession';
@@ -1059,19 +1059,11 @@ function AdminDashboardContent() {
       return;
     }
 
-    if (!isSupabaseConfigured) {
-      window.alert('Supabase no está configurado.');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('orders')
-      .delete()
-      .eq('id', orderId);
-
-    if (error) {
-      window.alert('No se pudo borrar. Puede faltar una política DELETE en Supabase.');
+    try {
+      await runAdminOperation('delete_test_order', { orderId });
+    } catch (error) {
       console.error(error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo borrar el pedido de prueba.');
       return;
     }
 

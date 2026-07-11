@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, RefreshCw, RotateCcw, X } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runAdminOperation } from '../utils/adminOperations';
 
 type SaleRow = {
   id: string;
@@ -58,11 +58,6 @@ export default function AdminPosCorrectionsLauncher() {
   }, []);
 
   const loadSales = async () => {
-    if (!isSupabaseConfigured) {
-      setError('Supabase no está configurado.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -70,21 +65,19 @@ export default function AdminPosCorrectionsLauncher() {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const { data, error: reportError } = await supabase.rpc('get_pos_report_v1', {
-      p_start_date: start.toISOString(),
-      p_end_date: end.toISOString(),
-    });
-
-    if (reportError) {
-      console.error(reportError);
-      setError(reportError.message || 'No pude cargar ventas POS.');
+    try {
+      const result = await runAdminOperation<{ report: PosReport }>('pos_report', {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      });
+      setSales(result.report?.sales || []);
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude cargar ventas POS.');
       setSales([]);
-    } else {
-      const report = (data || {}) as PosReport;
-      setSales(report.sales || []);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -112,21 +105,19 @@ export default function AdminPosCorrectionsLauncher() {
     setError(null);
     setMessage(null);
 
-    const { error: correctionError } = await supabase.rpc('void_pos_sale_v1', {
-      p_pos_sale_id: sale.id,
-      p_reason: reason.trim(),
-      p_voided_by: 'admin',
-    });
-
-    if (correctionError) {
-      console.error(correctionError);
-      setError(correctionError.message || 'No pude corregir la venta.');
-    } else {
+    try {
+      await runAdminOperation('pos_void_sale', {
+        saleId: sale.id,
+        reason: reason.trim(),
+      });
       setMessage(`Venta ${sale.sale_code} corregida correctamente.`);
       await loadSales();
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : 'No pude corregir la venta.');
+    } finally {
+      setCorrectingId(null);
     }
-
-    setCorrectingId(null);
   };
 
   if (!visibleInAdmin) return null;
