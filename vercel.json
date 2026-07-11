@@ -76,6 +76,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "/api/router?route=:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

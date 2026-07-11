@@ -1,7 +1,7 @@
 import {
   buildExpiredPanelSessionCookie,
   isPanelType,
-} from '../server/panel-session';
+} from '../panel-session';
 
 type ApiRequest = {
   method?: string;
