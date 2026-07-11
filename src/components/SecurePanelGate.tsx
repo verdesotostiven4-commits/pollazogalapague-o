@@ -53,6 +53,11 @@ const PANEL_CONFIG: Record<PanelType, PanelConfig> = {
   },
 };
 
+const LEGACY_COMPATIBILITY_KEYS: Record<PanelType, string> = {
+  admin: 'pollazo_admin_auth',
+  delivery: 'pollazo_delivery_auth',
+};
+
 const detectPanel = (): PanelType | null => {
   if (window.location.pathname === '/admin') return 'admin';
   if (window.location.pathname === '/repartidor') return 'delivery';
@@ -61,6 +66,23 @@ const detectPanel = (): PanelType | null => {
 };
 
 const cleanPin = (value: string) => value.replace(/\D/g, '').slice(0, 12);
+
+const syncLegacyCompatibilityMarker = (
+  panel: PanelType,
+  isAuthorized: boolean
+) => {
+  try {
+    const key = LEGACY_COMPATIBILITY_KEYS[panel];
+
+    if (isAuthorized) {
+      sessionStorage.setItem(key, '1');
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    // El marcador es solo compatibilidad visual; nunca concede acceso real.
+  }
+};
 
 export default function SecurePanelGate({ children }: { children: ReactNode }) {
   const panel = useMemo(() => detectPanel(), []);
@@ -93,13 +115,16 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
 
         if (cancelled) return;
 
-        setAuthorized(
+        const sessionIsValid =
           response.ok &&
-            result.ok === true &&
-            result.panel === config.panel
-        );
+          result.ok === true &&
+          result.panel === config.panel;
+
+        syncLegacyCompatibilityMarker(config.panel, sessionIsValid);
+        setAuthorized(sessionIsValid);
       } catch {
         if (!cancelled) {
+          syncLegacyCompatibilityMarker(config.panel, false);
           setAuthorized(false);
         }
       } finally {
@@ -151,10 +176,13 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
         result.ok === true &&
         result.panel === config.panel
       ) {
+        syncLegacyCompatibilityMarker(config.panel, true);
         setAuthorized(true);
         setPin('');
         return;
       }
+
+      syncLegacyCompatibilityMarker(config.panel, false);
 
       if (response.status === 429) {
         setError(
@@ -172,6 +200,7 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
 
       setPin('');
     } catch {
+      syncLegacyCompatibilityMarker(config.panel, false);
       setError('No se pudo validar el acceso. El panel seguirá bloqueado hasta recuperar conexión.');
       setPin('');
     } finally {
