@@ -23,6 +23,25 @@ jobs:
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
 
+      - name: Upload source snapshot for diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-1-source
+          path: |
+            src
+            api
+            public
+            supabase
+            package.json
+            package-lock.json
+            tsconfig*.json
+            eslint.config.js
+            vite.config.ts
+            index.html
+            vercel.json
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
