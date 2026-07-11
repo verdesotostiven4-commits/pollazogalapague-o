@@ -1,6 +1,6 @@
 name: Fase 1 Diagnostics
 
-# Manual refresh marker: remaining ESLint blockers
+# Applies the final structural build fix, then records diagnostics.
 on:
   push:
     branches:
@@ -33,6 +33,32 @@ jobs:
         with:
           ref: stabilization/fase-1
           fetch-depth: 0
+
+      - name: Keep React hook order stable
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/InfoScreen.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = """}) {
+  if (!open) return null;
+
+  const currentLevel = getCustomerLevel(exp);
+  const { t } = useLanguage();
+"""
+          new = """}) {
+  const { t } = useLanguage();
+
+  if (!open) return null;
+
+  const currentLevel = getCustomerLevel(exp);
+"""
+
+          if old in text:
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          elif new not in text:
+              raise SystemExit('Expected LevelGuideSheet hook pattern was not found')
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -101,18 +127,18 @@ jobs:
             done
           } > PHASE1_DIAGNOSTICS.md
 
-      - name: Commit diagnostic report
+      - name: Commit source fix and diagnostic report
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add PHASE1_DIAGNOSTICS.md
+          git add src/components/InfoScreen.tsx PHASE1_DIAGNOSTICS.md
 
           if git diff --cached --quiet; then
-            echo "Diagnostic report did not change"
+            echo "Source and diagnostic report did not change"
             exit 0
           fi
 
-          git commit -m "test(ci): record phase 1 diagnostics"
+          git commit -m "fix(react): stabilize hook order and record diagnostics"
           git pull --rebase origin stabilization/fase-1
           git push origin HEAD:stabilization/fase-1
