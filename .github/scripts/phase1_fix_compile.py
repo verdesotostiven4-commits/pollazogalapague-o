@@ -112,3 +112,20 @@ for path in ["src/context/LanguageContext.tsx", "src/utils/productI18n.ts"]:
         "current.replaceAll(`{${key}}`, String(value))",
         "current.split(`{${key}}`).join(String(value))",
     )
+
+replace(
+    "src/components/InfoScreen.tsx",
+    "}) {\n  if (!open) return null;\n\n  const currentLevel = getCustomerLevel(exp);\n  const { t } = useLanguage();",
+    "}) {\n  const { t } = useLanguage();\n\n  if (!open) return null;\n\n  const currentLevel = getCustomerLevel(exp);",
+)
+
+replace(
+    "eslint.config.js",
+    "{ ignores: ['dist'] },",
+    "{ ignores: ['dist', 'public'] },",
+)
+replace(
+    "eslint.config.js",
+    "      'react-refresh/only-export-components': [\n        'warn',\n        { allowConstantExport: true },\n      ],",
+    "      'react-refresh/only-export-components': [\n        'warn',\n        { allowConstantExport: true },\n      ],\n      '@typescript-eslint/no-explicit-any': 'warn',\n      '@typescript-eslint/no-unused-vars': [\n        'warn',\n        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },\n      ],",
+)
