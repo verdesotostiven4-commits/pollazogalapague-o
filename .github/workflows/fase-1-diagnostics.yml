@@ -1,0 +1,110 @@
+name: Fase 1 Diagnostics
+
+on:
+  push:
+    branches:
+      - stabilization/fase-1
+    paths:
+      - package.json
+      - package-lock.json
+      - tsconfig*.json
+      - src/**
+      - api/**
+      - .github/workflows/fase-1-diagnostics.yml
+
+permissions:
+  contents: write
+
+jobs:
+  diagnostics:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout phase branch
+        uses: actions/checkout@v4
+        with:
+          ref: stabilization/fase-1
+          fetch-depth: 0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run diagnostics and create report
+        shell: bash
+        run: |
+          set +e
+
+          npm ci > /tmp/npm-ci.log 2>&1
+          NPM_CI_STATUS=$?
+
+          if [[ $NPM_CI_STATUS -eq 0 ]]; then
+            npm run typecheck > /tmp/typecheck.log 2>&1
+            TYPECHECK_STATUS=$?
+
+            npm run lint > /tmp/lint.log 2>&1
+            LINT_STATUS=$?
+
+            npm run build > /tmp/build.log 2>&1
+            BUILD_STATUS=$?
+          else
+            TYPECHECK_STATUS=125
+            LINT_STATUS=125
+            BUILD_STATUS=125
+            echo "Skipped because npm ci failed." > /tmp/typecheck.log
+            echo "Skipped because npm ci failed." > /tmp/lint.log
+            echo "Skipped because npm ci failed." > /tmp/build.log
+          fi
+
+          STATUS_LABEL() {
+            if [[ "$1" -eq 0 ]]; then
+              echo "PASS"
+            elif [[ "$1" -eq 125 ]]; then
+              echo "SKIPPED"
+            else
+              echo "FAIL ($1)"
+            fi
+          }
+
+          {
+            echo "# Phase 1 diagnostics"
+            echo
+            echo "Generated from commit: \`$(git rev-parse HEAD)\`"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| npm ci | $(STATUS_LABEL $NPM_CI_STATUS) |"
+            echo "| TypeScript | $(STATUS_LABEL $TYPECHECK_STATUS) |"
+            echo "| ESLint | $(STATUS_LABEL $LINT_STATUS) |"
+            echo "| Production build | $(STATUS_LABEL $BUILD_STATUS) |"
+            echo
+
+            for ITEM in "npm-ci:/tmp/npm-ci.log" "typecheck:/tmp/typecheck.log" "lint:/tmp/lint.log" "build:/tmp/build.log"; do
+              NAME="${ITEM%%:*}"
+              FILE="${ITEM#*:}"
+              echo "## ${NAME}"
+              echo
+              echo '```text'
+              tail -n 250 "$FILE"
+              echo '```'
+              echo
+            done
+          } > PHASE1_DIAGNOSTICS.md
+
+      - name: Commit diagnostic report
+        shell: bash
+        run: |
+          if git diff --quiet -- PHASE1_DIAGNOSTICS.md; then
+            echo "Diagnostic report did not change"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PHASE1_DIAGNOSTICS.md
+          git commit -m "test(ci): record phase 1 diagnostics"
+          git push origin HEAD:stabilization/fase-1
