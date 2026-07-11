@@ -89,5 +89,27 @@
       "path": "/api/check-memberships",
       "schedule": "0 13 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/ADMIN",
+      "destination": "/admin",
+      "permanent": false
+    },
+    {
+      "source": "/Admin",
+      "destination": "/admin",
+      "permanent": false
+    },
+    {
+      "source": "/REPARTIDOR",
+      "destination": "/repartidor",
+      "permanent": false
+    },
+    {
+      "source": "/Repartidor",
+      "destination": "/repartidor",
+      "permanent": false
+    }
   ]
 }
