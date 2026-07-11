@@ -1,0 +1,177 @@
+name: Apply Vercel Router Repair
+
+on:
+  push:
+    branches:
+      - vercel-build-repair-20260711
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vercel-build-repair-20260711
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Consolidate API handlers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          api_dir = Path('api')
+          handlers_dir = Path('server/api-handlers')
+          handlers_dir.mkdir(parents=True, exist_ok=True)
+
+          api_files = sorted(
+              p for p in api_dir.glob('*.ts')
+              if p.name not in {'router.ts'}
+          )
+
+          if not api_files:
+              raise SystemExit('No API handlers found to consolidate')
+
+          routes = []
+          imports = []
+
+          for index, source in enumerate(api_files):
+              route = source.stem
+              target = handlers_dir / source.name
+              content = source.read_text(encoding='utf-8')
+              content = content.replace("from '../server/", "from '../")
+              content = content.replace('from "../server/', 'from "../')
+              target.write_text(content, encoding='utf-8')
+              source.unlink()
+
+              alias = f'handler{index}'
+              imports.append(
+                  f"import {alias} from '../server/api-handlers/{source.stem}.js';"
+              )
+              routes.append((route, alias))
+
+          route_entries = '\n'.join(
+              f"  '{route}': {alias}," for route, alias in routes
+          )
+
+          router = f"""{'\n'.join(imports)}
+
+          type ApiRequest = {{
+            method?: string;
+            url?: string;
+            query?: Record<string, string | string[] | undefined>;
+          }};
+
+          type ApiResponse = {{
+            status: (code: number) => {{ json: (payload: unknown) => unknown }};
+          }};
+
+          type ApiHandler = (req: any, res: any) => unknown | Promise<unknown>;
+
+          const handlers: Record<string, ApiHandler> = {{
+          {route_entries}
+          }};
+
+          const resolveRoute = (req: ApiRequest): string => {{
+            const rawRoute = req.query?.route;
+            const fromQuery = Array.isArray(rawRoute)
+              ? rawRoute.join('/')
+              : String(rawRoute || '');
+
+            if (fromQuery) {{
+              return fromQuery.replace(/^\\/+|\\/+$/g, '');
+            }}
+
+            try {{
+              const pathname = new URL(req.url || '/', 'https://pollazo.local').pathname;
+              return pathname.replace(/^\\/api\\//, '').replace(/^\\/+|\\/+$/g, '');
+            }} catch {{
+              return '';
+            }}
+          }};
+
+          export default async function handler(req: ApiRequest, res: ApiResponse) {{
+            const route = resolveRoute(req);
+            const selected = handlers[route];
+
+            if (!selected) {{
+              return res.status(404).json({{
+                ok: false,
+                error: 'API route not found',
+              }});
+            }}
+
+            return selected(req, res);
+          }}
+          """
+
+          (api_dir / 'router.ts').write_text(router, encoding='utf-8')
+
+          vercel_path = Path('vercel.json')
+          config = json.loads(vercel_path.read_text(encoding='utf-8'))
+          rewrites = config.get('rewrites', [])
+          api_rewrite = {
+              'source': '/api/:path*',
+              'destination': '/api/router?route=:path*',
+          }
+          rewrites = [r for r in rewrites if r.get('source') != '/api/:path*']
+          config['rewrites'] = [api_rewrite, *rewrites]
+          vercel_path.write_text(
+              json.dumps(config, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+
+          bottom_nav = Path('src/components/BottomNav.tsx')
+          nav_content = bottom_nav.read_text(encoding='utf-8')
+          nav_content = nav_content.replace(
+              "const label = id === 'home' ? 'Inici' : t(labelKey);",
+              'const label = t(labelKey);',
+          )
+          bottom_nav.write_text(nav_content, encoding='utf-8')
+
+          workflow = Path('.github/workflows/apply-vercel-router-repair.yml')
+          if workflow.exists():
+              workflow.unlink()
+
+          count = len(list(api_dir.glob('*.ts')))
+          if count > 12:
+              raise SystemExit(f'Vercel function count still too high: {count}')
+
+          print(f'Consolidated {len(routes)} handlers into {count} Vercel function.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate client security
+        run: npm run security:check
+
+      - name: Validate app TypeScript
+        run: npm run typecheck
+
+      - name: Validate Vercel API TypeScript
+        run: npx tsc -p api/tsconfig.json --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit validated repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(vercel): consolidate APIs within Hobby limit"
+          git push origin HEAD:vercel-build-repair-20260711
