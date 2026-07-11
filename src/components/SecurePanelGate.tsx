@@ -1,5 +1,17 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Bike, Lock, ShieldCheck, AlertTriangle, Loader2, Delete } from 'lucide-react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  AlertTriangle,
+  Bike,
+  Delete,
+  Loader2,
+  Lock,
+  ShieldCheck,
+} from 'lucide-react';
 
 type PanelType = 'admin' | 'delivery';
 
@@ -7,15 +19,15 @@ type PanelConfig = {
   panel: PanelType;
   title: string;
   subtitle: string;
-  sessionKey: string;
-  fallbackPin: string;
   Icon: typeof ShieldCheck;
   accentClass: string;
   glowClass: string;
 };
 
-type VerifyPanelPinResponse = {
+type PanelSessionResponse = {
   ok?: boolean;
+  panel?: PanelType;
+  expiresAt?: number;
   error?: string;
   missingEnv?: boolean;
   retryAfterSeconds?: number;
@@ -27,8 +39,6 @@ const PANEL_CONFIG: Record<PanelType, PanelConfig> = {
     panel: 'admin',
     title: 'Admin VIP',
     subtitle: 'Panel seguro La Casa del Pollazo',
-    sessionKey: 'pollazo_admin_auth',
-    fallbackPin: '1328',
     Icon: ShieldCheck,
     accentClass: 'bg-orange-500 text-white shadow-orange-500/25',
     glowClass: 'shadow-orange-500/25',
@@ -37,8 +47,6 @@ const PANEL_CONFIG: Record<PanelType, PanelConfig> = {
     panel: 'delivery',
     title: 'Repartidor',
     subtitle: 'Acceso seguro para entregas',
-    sessionKey: 'pollazo_delivery_auth',
-    fallbackPin: '2580',
     Icon: Bike,
     accentClass: 'bg-orange-500 text-white shadow-orange-500/25',
     glowClass: 'shadow-orange-500/25',
@@ -54,35 +62,59 @@ const detectPanel = (): PanelType | null => {
 
 const cleanPin = (value: string) => value.replace(/\D/g, '').slice(0, 12);
 
-const canUseFallback = (
-  config: PanelConfig,
-  pin: string,
-  response?: VerifyPanelPinResponse | null,
-  requestFailed = false,
-  responseStatus = 0
-) => {
-  if (pin !== config.fallbackPin) return false;
-
-  return (
-    requestFailed ||
-    response?.missingEnv === true ||
-    responseStatus === 404 ||
-    responseStatus >= 500
-  );
-};
-
 export default function SecurePanelGate({ children }: { children: ReactNode }) {
   const panel = useMemo(() => detectPanel(), []);
   const config = panel ? PANEL_CONFIG[panel] : null;
 
   const [pin, setPin] = useState('');
-  const [authorized, setAuthorized] = useState(() => {
-    if (!config) return true;
-
-    return sessionStorage.getItem(config.sessionKey) === '1';
-  });
+  const [authorized, setAuthorized] = useState(() => !config);
+  const [checkingSession, setCheckingSession] = useState(() => Boolean(config));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!config) return undefined;
+
+    let cancelled = false;
+
+    const verifyExistingSession = async () => {
+      setCheckingSession(true);
+      setError('');
+
+      try {
+        const response = await fetch('/api/panel-session', {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+          },
+        });
+        const result = (await response.json().catch(() => ({}))) as PanelSessionResponse;
+
+        if (cancelled) return;
+
+        setAuthorized(
+          response.ok &&
+            result.ok === true &&
+            result.panel === config.panel
+        );
+      } catch {
+        if (!cancelled) {
+          setAuthorized(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    void verifyExistingSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config]);
 
   if (!config || authorized) {
     return <>{children}</>;
@@ -90,15 +122,10 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
 
   const Icon = config.Icon;
 
-  const grantAccess = () => {
-    sessionStorage.setItem(config.sessionKey, '1');
-    setAuthorized(true);
-  };
-
   const submitPin = async (nextPin = pin) => {
     const safePin = cleanPin(nextPin);
 
-    if (!safePin || loading) return;
+    if (!safePin || loading || checkingSession) return;
 
     setLoading(true);
     setError('');
@@ -106,8 +133,10 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/verify-panel-pin', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
         body: JSON.stringify({
           panel: config.panel,
@@ -115,15 +144,15 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
         }),
       });
 
-      const result = (await response.json().catch(() => ({}))) as VerifyPanelPinResponse;
+      const result = (await response.json().catch(() => ({}))) as PanelSessionResponse;
 
-      if (response.ok && result.ok) {
-        grantAccess();
-        return;
-      }
-
-      if (canUseFallback(config, safePin, result, false, response.status)) {
-        grantAccess();
+      if (
+        response.ok &&
+        result.ok === true &&
+        result.panel === config.panel
+      ) {
+        setAuthorized(true);
+        setPin('');
         return;
       }
 
@@ -135,20 +164,15 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
         );
       } else if (result.remainingAttempts !== undefined) {
         setError(`PIN incorrecto. Intentos restantes: ${result.remainingAttempts}.`);
-      } else if (response.status === 404 || response.status >= 500) {
-        setError('Validación server no disponible. Verifica que api/verify-panel-pin.ts esté desplegado en Vercel.');
+      } else if (result.missingEnv || response.status === 503) {
+        setError('El acceso seguro no está configurado en Vercel. Revisa las variables del panel.');
       } else {
-        setError('PIN incorrecto o no autorizado.');
+        setError('PIN incorrecto o acceso no autorizado.');
       }
 
       setPin('');
     } catch {
-      if (canUseFallback(config, safePin, null, true)) {
-        grantAccess();
-        return;
-      }
-
-      setError('No se pudo validar el acceso. Revisa conexión o variables de Vercel.');
+      setError('No se pudo validar el acceso. El panel seguirá bloqueado hasta recuperar conexión.');
       setPin('');
     } finally {
       setLoading(false);
@@ -156,14 +180,14 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
   };
 
   const addDigit = (digit: string) => {
-    if (loading) return;
+    if (loading || checkingSession) return;
 
     setError('');
     setPin(current => cleanPin(`${current}${digit}`));
   };
 
   const removeDigit = () => {
-    if (loading) return;
+    if (loading || checkingSession) return;
 
     setError('');
     setPin(current => current.slice(0, -1));
@@ -173,7 +197,11 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-7 animate-in fade-in zoom-in-95 duration-300">
         <div className={`w-24 h-24 rounded-[32px] mx-auto flex items-center justify-center shadow-2xl ${config.accentClass} ${config.glowClass}`}>
-          <Icon size={44} />
+          {checkingSession ? (
+            <Loader2 size={42} className="animate-spin" />
+          ) : (
+            <Icon size={44} />
+          )}
         </div>
 
         <div>
@@ -184,59 +212,63 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
             {config.title}
           </h1>
           <p className="text-white/45 text-[10px] font-black uppercase tracking-[0.22em] mt-3">
-            {config.subtitle}
+            {checkingSession ? 'Verificando sesión segura' : config.subtitle}
           </p>
         </div>
 
-        <div className="rounded-[28px] bg-white/5 border border-white/10 p-5 shadow-2xl shadow-black/20">
-          <div className="flex justify-center gap-3 mb-5">
-            {Array.from({ length: Math.max(4, pin.length || 4) }).slice(0, 8).map((_, index) => (
-              <div
-                key={index}
-                className={`w-3.5 h-3.5 rounded-full transition-all ${
-                  index < pin.length
-                    ? 'bg-orange-500 scale-125 shadow-[0_0_12px_#f97316]'
-                    : 'bg-white/10'
-                }`}
-              />
-            ))}
+        {!checkingSession && (
+          <div className="rounded-[28px] bg-white/5 border border-white/10 p-5 shadow-2xl shadow-black/20">
+            <div className="flex justify-center gap-3 mb-5">
+              {Array.from({ length: Math.max(4, pin.length || 4) })
+                .slice(0, 8)
+                .map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-3.5 h-3.5 rounded-full transition-all ${
+                      index < pin.length
+                        ? 'bg-orange-500 scale-125 shadow-[0_0_12px_#f97316]'
+                        : 'bg-white/10'
+                    }`}
+                  />
+                ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((digit, index) =>
+                digit ? (
+                  <button
+                    key={index}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      if (digit === '⌫') {
+                        removeDigit();
+                        return;
+                      }
+
+                      addDigit(digit);
+                    }}
+                    className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-black active:scale-90 transition-all hover:bg-white/10 disabled:opacity-40"
+                  >
+                    {digit === '⌫' ? <Delete size={20} className="mx-auto" /> : digit}
+                  </button>
+                ) : (
+                  <div key={index} />
+                )
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={loading || pin.length < 4}
+              onClick={() => void submitPin()}
+              className="mt-4 w-full h-12 rounded-2xl bg-orange-500 text-white font-black uppercase tracking-[0.18em] text-[11px] shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 size={17} className="animate-spin" /> : <Lock size={16} />}
+              {loading ? 'Validando' : 'Entrar seguro'}
+            </button>
           </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((digit, index) =>
-              digit ? (
-                <button
-                  key={index}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    if (digit === '⌫') {
-                      removeDigit();
-                      return;
-                    }
-
-                    addDigit(digit);
-                  }}
-                  className="aspect-square rounded-2xl bg-white/5 border border-white/10 text-xl font-black active:scale-90 transition-all hover:bg-white/10 disabled:opacity-40"
-                >
-                  {digit === '⌫' ? <Delete size={20} className="mx-auto" /> : digit}
-                </button>
-              ) : (
-                <div key={index} />
-              )
-            )}
-          </div>
-
-          <button
-            type="button"
-            disabled={loading || pin.length < 4}
-            onClick={() => void submitPin()}
-            className="mt-4 w-full h-12 rounded-2xl bg-orange-500 text-white font-black uppercase tracking-[0.18em] text-[11px] shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 size={17} className="animate-spin" /> : <Lock size={16} />}
-            {loading ? 'Validando' : 'Entrar seguro'}
-          </button>
-        </div>
+        )}
 
         {error && (
           <div className="rounded-2xl bg-red-500/10 border border-red-500/25 text-red-200 px-4 py-3 flex items-start gap-3 text-left">
@@ -248,7 +280,7 @@ export default function SecurePanelGate({ children }: { children: ReactNode }) {
         )}
 
         <p className="text-[10px] font-bold text-white/35 leading-relaxed">
-          El PIN se valida primero en servidor. El respaldo local evita quedarte fuera si Vercel aún no tiene variables configuradas.
+          El acceso se valida en servidor y se conserva únicamente mediante una sesión segura con expiración. Si la validación no está disponible, el panel permanece bloqueado.
         </p>
       </div>
     </div>
