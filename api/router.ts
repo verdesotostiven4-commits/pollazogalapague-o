@@ -28,8 +28,8 @@ const handlers: Record<string, HandlerLoader> = {
   'request-membership': () => import('../server/api-handlers/request-membership.js'),
   'send-push': () => import('../server/api-handlers/send-push.js'),
   'testimonials': () => import('../server/api-handlers/testimonials.js'),
-  'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin.js'),
-  'verify-panel-session': () => import('../server/api-handlers/verify-panel-session.js'),
+  'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin-v2.js'),
+  'verify-panel-session': () => import('../server/api-handlers/verify-panel-session-v2.js'),
 };
 
 const resolveRoute = (req: ApiRequest): string => {
