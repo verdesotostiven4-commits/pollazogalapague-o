@@ -1,5 +1,6 @@
 name: Fase 1 Fix Hook Order
 
+# Isolated retry after diagnostics completed.
 on:
   push:
     branches:
