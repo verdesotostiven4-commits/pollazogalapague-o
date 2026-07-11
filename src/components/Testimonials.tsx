@@ -8,7 +8,6 @@ import {
   Trophy,
   PartyPopper,
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useUser } from '../context/UserContext';
 import { useAdmin } from '../context/AdminContext';
 
@@ -21,15 +20,6 @@ interface Testimonial {
   created_at: string;
 }
 
-interface CustomerReviewRow {
-  id: string;
-  phone?: string | null;
-  points?: number | null;
-  exp?: number | null;
-  total_spent?: number | null;
-  has_reviewed?: boolean | null;
-  updated_at?: string | null;
-}
 
 const ADMIN_HOLD_MS = 3000;
 const REVIEW_STORAGE_PREFIX = 'pollazo_has_reviewed_';
@@ -179,60 +169,50 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       setHasReviewed(true);
     }
 
-    if (!isSupabaseConfigured) return;
-
-    const clean = getCleanPhone(customerPhone);
-
-    if (!clean) return;
-
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, has_reviewed')
-        .ilike('phone', `%${clean}`)
-        .order('updated_at', { ascending: false })
-        .limit(1);
+      const response = await fetch('/api/testimonials', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        hasReviewed?: boolean;
+      };
 
-      if (error) {
-        console.warn('No se pudo verificar estado de opinión:', error);
-        return;
-      }
-
-      const customer = data?.[0] as { id: string; has_reviewed?: boolean | null } | undefined;
-
-      if (customer?.has_reviewed) {
+      if (response.ok && result.ok && result.hasReviewed) {
         setHasReviewed(true);
         markLocalReviewed();
-        return;
-      }
-
-      if (!readLocalReviewed()) {
-        setHasReviewed(false);
       }
     } catch {
-      // Si Supabase falla temporalmente, usamos localStorage solo para ocultar el banner,
-      // pero el premio real se decide en servidor al publicar.
+      // La interfaz mantiene el estado local; el servidor decide al publicar.
     }
-  }, [customerPhone, getCleanPhone, markLocalReviewed, readLocalReviewed]);
+  }, [customerPhone, markLocalReviewed, readLocalReviewed]);
 
   const fetchTestimonials = useCallback(async () => {
-    if (!isSupabaseConfigured) {
+    try {
+      const response = await fetch('/api/testimonials', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        testimonials?: Testimonial[];
+        hasReviewed?: boolean;
+      };
+
+      if (response.ok && result.ok) {
+        setTestimonials(Array.isArray(result.testimonials) ? result.testimonials : []);
+        if (result.hasReviewed) {
+          setHasReviewed(true);
+          markLocalReviewed();
+        }
+      }
+    } catch (error) {
+      console.warn('No se pudieron cargar opiniones:', error);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from('testimonials')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (!error && data) {
-      setTestimonials(data as Testimonial[]);
-    }
-
-    setLoading(false);
-  }, []);
+  }, [markLocalReviewed]);
 
   useEffect(() => {
     checkReviewStatus();
@@ -250,139 +230,6 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     }
   }, [showForm, customerName, customerAvatar]);
 
-  const findCustomerForReview = useCallback(async () => {
-    if (!isSupabaseConfigured || !customerPhone) return null;
-
-    const clean = getCleanPhone(customerPhone);
-
-    if (!clean) return null;
-
-    const { data, error } = await supabase
-      .from('customers')
-      .select('id, phone, points, exp, total_spent, has_reviewed, updated_at')
-      .ilike('phone', `%${clean}`)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.warn('No se pudo buscar cliente para opinión:', error);
-      return null;
-    }
-
-    return (data?.[0] as CustomerReviewRow | undefined) || null;
-  }, [customerPhone, getCleanPhone]);
-
-  const markReviewedOnServerSafely = useCallback(async () => {
-    if (!isSupabaseConfigured || !customerPhone) {
-      return {
-        marked: false,
-        awardedPoints: false,
-      };
-    }
-
-    const clean = getCleanPhone(customerPhone);
-
-    if (!clean) {
-      return {
-        marked: false,
-        awardedPoints: false,
-      };
-    }
-
-    const normalizedPhone = customerPhone.replace(/\D/g, '');
-    const now = new Date().toISOString();
-
-    try {
-      const user = await findCustomerForReview();
-
-      if (user?.id) {
-        if (user.has_reviewed === true) {
-          return {
-            marked: true,
-            awardedPoints: false,
-          };
-        }
-
-        const nextPoints = seasonActive ? Number(user.points || 0) + 10 : Number(user.points || 0);
-
-        const { data: updatedRows, error: updateError } = await supabase
-          .from('customers')
-          .update({
-            points: nextPoints,
-            has_reviewed: true,
-            updated_at: now,
-          })
-          .eq('id', user.id)
-          .or('has_reviewed.is.null,has_reviewed.eq.false')
-          .select('id, points, has_reviewed')
-          .limit(1);
-
-        if (updateError) {
-          console.warn('No se pudo actualizar has_reviewed/puntos:', updateError);
-          return {
-            marked: false,
-            awardedPoints: false,
-          };
-        }
-
-        const updated = updatedRows?.[0];
-
-        if (!updated) {
-          return {
-            marked: true,
-            awardedPoints: false,
-          };
-        }
-
-        return {
-          marked: true,
-          awardedPoints: seasonActive,
-        };
-      }
-
-      const basePayload = {
-        phone: normalizedPhone,
-        name: customerName || name.trim() || null,
-        avatar_url: customerAvatar || photoUrl.trim() || null,
-        points: seasonActive ? 10 : 0,
-        has_reviewed: true,
-        updated_at: now,
-      };
-
-      const { error: upsertError } = await supabase
-        .from('customers')
-        .upsert(basePayload, { onConflict: 'phone' });
-
-      if (upsertError) {
-        console.warn('No se pudo crear cliente para opinión:', upsertError);
-        return {
-          marked: false,
-          awardedPoints: false,
-        };
-      }
-
-      return {
-        marked: true,
-        awardedPoints: seasonActive,
-      };
-    } catch (serverError) {
-      console.warn('Error inesperado marcando opinión:', serverError);
-
-      return {
-        marked: false,
-        awardedPoints: false,
-      };
-    }
-  }, [
-    customerAvatar,
-    customerName,
-    customerPhone,
-    findCustomerForReview,
-    getCleanPhone,
-    name,
-    photoUrl,
-    seasonActive,
-  ]);
 
   const playRewardSound = () => {
     try {
@@ -401,66 +248,75 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       return;
     }
 
-    if (!isSupabaseConfigured) {
-      setError('No se pudo conectar para publicar la opinión.');
-      return;
-    }
-
     setSubmitting(true);
     setError('');
 
     try {
-      const { error: testErr } = await supabase.from('testimonials').insert({
-        author_name: name.trim(),
-        stars,
-        comment: comment.trim(),
-        photo_url: photoUrl.trim() || null,
-        customer_phone: customerPhone ? customerPhone.replace(/\D/g, '') : null,
+      const response = await fetch('/api/testimonials', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          authorName: name.trim(),
+          stars,
+          comment: comment.trim(),
+          photoUrl: photoUrl.trim() || null,
+        }),
       });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        awardedPoints?: number;
+        hasReviewed?: boolean;
+      };
 
-      if (testErr) {
-        throw new Error('Error al publicar opinión.');
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudo publicar tu opinión.');
       }
 
-      let awardedPoints = false;
-
-      if (customerPhone) {
-        const result = await markReviewedOnServerSafely();
-
-        if (result.marked) {
-          markLocalReviewed();
-          setHasReviewed(true);
-        }
-
-        awardedPoints = result.awardedPoints;
+      const awardedPoints = Number(result.awardedPoints || 0) > 0;
+      if (result.hasReviewed) {
+        markLocalReviewed();
+        setHasReviewed(true);
       }
 
-      if (awardedPoints) {
-        setPointsGainedNow(true);
-        playRewardSound();
-      } else {
-        setPointsGainedNow(false);
-      }
-
-      setSubmitting(false);
+      setPointsGainedNow(awardedPoints);
+      if (awardedPoints) playRewardSound();
       setSuccess(true);
       setComment('');
-      fetchTestimonials();
+      await fetchTestimonials();
 
       window.setTimeout(() => {
         setSuccess(false);
         setPointsGainedNow(false);
         setShowForm(false);
       }, awardedPoints ? 9000 : 4500);
-    } catch (err: any) {
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo publicar tu opinión.');
+    } finally {
       setSubmitting(false);
-      setError(err?.message || 'No se pudo publicar tu opinión.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('testimonials').delete().eq('id', id);
-    setTestimonials(prev => prev.filter(t => t.id !== id));
+    try {
+      const response = await fetch('/api/testimonials', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudo borrar la opinión.');
+      }
+      setTestimonials(prev => prev.filter(testimonial => testimonial.id !== id));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo borrar la opinión.');
+    }
   };
 
   const startHold = () => {
