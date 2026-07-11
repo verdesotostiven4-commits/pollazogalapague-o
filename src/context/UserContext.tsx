@@ -7,7 +7,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+  closeCustomerSession,
+  fetchCustomerSession,
+  openCustomerSession,
+  type CustomerSessionAccount,
+} from '../utils/customerSessionApi';
 import type {
   CustomerMembership,
   DeliveryAddress,
@@ -456,49 +461,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const refreshMembership = useCallback(async () => {
-    const normalizedPhone = normalizeEcuadorPhone(customerPhone);
-
-    if (!isSupabaseConfigured || !normalizedPhone) return;
-
-    const { data, error } = await supabase
-      .from('customer_memberships')
-      .select('*')
-      .eq('customer_phone', normalizedPhone)
-      .in('status', ['active', 'pending', 'expired', 'cancelled'])
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.warn('No se pudo cargar membresía Pollazo Plus:', error);
-      return;
-    }
-
-    const memberships = (data || []) as CustomerMembership[];
-    const active = memberships.find(item => isMembershipActive(item)) || null;
-    const pending = memberships.find(item => item.status === 'pending') || null;
-    const latest = active || pending || memberships[0] || null;
-
-    if (!latest) {
-      applyMembershipState({
-        status: 'none',
-        plan: '',
-        startedAt: null,
-        expiresAt: null,
-        updatedAt: null,
-        active: null,
-      });
-      return;
-    }
-
-    applyMembershipState({
-      status: active ? 'active' : latest.status,
-      plan: latest.plan_name || 'Pollazo Plus',
-      startedAt: latest.started_at || null,
-      expiresAt: latest.expires_at || null,
-      updatedAt: latest.updated_at || latest.created_at || null,
-      active,
-    });
-  }, [applyMembershipState, customerPhone]);
 
   const applyDeliveryAddresses = useCallback(
     (addresses: DeliveryAddress[], selectedId?: string | null) => {
@@ -629,168 +591,101 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [applyDeliveryAddresses, applyMembershipState]
   );
 
-  const fetchDeliveryAddressesFromSupabase = useCallback(
-    async (phone: string) => {
-      const normalizedPhone = normalizeEcuadorPhone(phone);
+  const applyCustomerAccount = useCallback(
+    (account: CustomerSessionAccount) => {
+      applyServerCustomer(account.customer as CustomerSyncRow | null);
 
-      if (!isSupabaseConfigured || !normalizedPhone) return;
+      const membership = account.membership;
+      const active = membership && isMembershipActive(membership) ? membership : null;
+      const customer = account.customer;
 
-      const { data, error } = await supabase
-        .from('customers')
-        .select('delivery_addresses, selected_delivery_address_id')
-        .eq('phone', normalizedPhone)
-        .maybeSingle();
-
-      if (error) {
-        console.warn(
-          'Direcciones favoritas no disponibles todavía. Falta migración delivery_addresses:',
-          error
-        );
-        return;
-      }
-
-      applyServerCustomer(data as CustomerSyncRow | null);
+      applyMembershipState({
+        status: active
+          ? 'active'
+          : membership?.status || customer?.membership_status || 'none',
+        plan: membership?.plan_name || customer?.membership_plan || '',
+        startedAt:
+          membership?.started_at || customer?.membership_started_at || null,
+        expiresAt:
+          membership?.expires_at || customer?.membership_expires_at || null,
+        updatedAt:
+          membership?.updated_at ||
+          membership?.created_at ||
+          customer?.membership_updated_at ||
+          null,
+        active,
+      });
     },
-    [applyServerCustomer]
+    [applyMembershipState, applyServerCustomer]
   );
 
-  const fetchCustomerFromSupabase = useCallback(
+  const refreshMembership = useCallback(async () => {
+    if (!customerPhone) return;
+
+    try {
+      const account = await fetchCustomerSession();
+      applyCustomerAccount(account);
+    } catch (error) {
+      console.warn('No se pudo actualizar la cuenta protegida:', error);
+    }
+  }, [applyCustomerAccount, customerPhone]);
+
+  const fetchCustomerFromSession = useCallback(
     async (phone: string) => {
       const normalizedPhone = normalizeEcuadorPhone(phone);
+      if (!normalizedPhone) return;
 
-      if (!isSupabaseConfigured || !normalizedPhone) return;
-
-      const { data, error } = await supabase
-        .from('customers')
-        .select(
-          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference, membership_status, membership_plan, membership_started_at, membership_expires_at, membership_updated_at'
-        )
-        .eq('phone', normalizedPhone)
-        .maybeSingle();
-
-      if (error) {
-        console.warn('No se pudo cargar cliente desde Supabase:', error);
-        return;
+      try {
+        const account = await openCustomerSession({ phone: normalizedPhone });
+        applyCustomerAccount(account);
+      } catch (error) {
+        console.warn('No se pudo abrir la sesión protegida del cliente:', error);
       }
-
-      applyServerCustomer(data as CustomerSyncRow | null);
-      void fetchDeliveryAddressesFromSupabase(normalizedPhone);
-      void refreshMembership();
     },
-    [applyServerCustomer, fetchDeliveryAddressesFromSupabase, refreshMembership]
+    [applyCustomerAccount]
   );
 
-  const syncCustomerToSupabase = useCallback(
+  const syncCustomerToServer = useCallback(
     async (data: SetUserDataInput, normalizedPhone: string) => {
-      if (!isSupabaseConfigured || !normalizedPhone) return;
+      if (!normalizedPhone) return;
 
-      const payload: Record<string, unknown> = {
-        phone: normalizedPhone,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (data.name !== undefined) {
-        payload.name = data.name.trim() || null;
+      try {
+        const account = await openCustomerSession({
+          phone: normalizedPhone,
+          name: data.name?.trim() || undefined,
+          avatarUrl: data.avatar?.trim() || undefined,
+          lat: data.lat !== undefined && isValidCoordinate(data.lat) ? data.lat : undefined,
+          lng: data.lng !== undefined && isValidCoordinate(data.lng) ? data.lng : undefined,
+          reference: data.reference?.trim() || undefined,
+        });
+        applyCustomerAccount(account);
+      } catch (error) {
+        console.warn('No se pudo sincronizar el perfil protegido:', error);
       }
-
-      if (data.avatar !== undefined) {
-        payload.avatar_url = data.avatar.trim() || null;
-      }
-
-      if (data.lat !== undefined) {
-        payload.lat = isValidCoordinate(data.lat) ? data.lat : null;
-      }
-
-      if (data.lng !== undefined) {
-        payload.lng = isValidCoordinate(data.lng) ? data.lng : null;
-      }
-
-      if (data.reference !== undefined) {
-        payload.reference = data.reference.trim() || null;
-      }
-
-      if (data.points !== undefined) {
-        payload.points = Math.max(0, Math.floor(data.points));
-      }
-
-      if (data.exp !== undefined) {
-        payload.exp = Math.max(0, Math.floor(data.exp));
-      }
-
-      if (data.isVip !== undefined) {
-        payload.is_vip = data.isVip;
-      }
-
-      if (data.phoneVerified !== undefined) {
-        payload.phone_verified = data.phoneVerified;
-      }
-
-      if (data.membershipStatus !== undefined) {
-        payload.membership_status = data.membershipStatus || 'none';
-      }
-
-      if (data.membershipPlan !== undefined) {
-        payload.membership_plan = data.membershipPlan || null;
-      }
-
-      if (data.membershipStartedAt !== undefined) {
-        payload.membership_started_at = data.membershipStartedAt || null;
-      }
-
-      if (data.membershipExpiresAt !== undefined) {
-        payload.membership_expires_at = data.membershipExpiresAt || null;
-      }
-
-      if (data.membershipUpdatedAt !== undefined) {
-        payload.membership_updated_at = data.membershipUpdatedAt || null;
-      }
-
-      const { data: savedCustomer, error } = await supabase
-        .from('customers')
-        .upsert(payload, { onConflict: 'phone' })
-        .select(
-          'phone, name, avatar_url, points, exp, is_vip, phone_verified, lat, lng, reference, membership_status, membership_plan, membership_started_at, membership_expires_at, membership_updated_at'
-        )
-        .maybeSingle();
-
-      if (error) {
-        console.warn('No se pudo sincronizar cliente en Supabase:', error);
-        return;
-      }
-
-      applyServerCustomer(savedCustomer as CustomerSyncRow | null);
     },
-    [applyServerCustomer]
+    [applyCustomerAccount]
   );
 
-  const syncDeliveryAddressesToSupabase = useCallback(
+  const syncDeliveryAddressesToServer = useCallback(
     async (
       addresses: DeliveryAddress[],
       selectedId: string | null,
       normalizedPhone: string
     ) => {
-      if (!isSupabaseConfigured || !normalizedPhone) return;
+      if (!normalizedPhone) return;
 
-      const { error } = await supabase
-        .from('customers')
-        .upsert(
-          {
-            phone: normalizedPhone,
-            delivery_addresses: addresses,
-            selected_delivery_address_id: selectedId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'phone' }
-        );
-
-      if (error) {
-        console.warn(
-          'No se pudieron guardar direcciones favoritas en Supabase. Revisa migración delivery_addresses:',
-          error
-        );
+      try {
+        const account = await openCustomerSession({
+          phone: normalizedPhone,
+          deliveryAddresses: addresses,
+          selectedDeliveryAddressId: selectedId,
+        });
+        applyCustomerAccount(account);
+      } catch (error) {
+        console.warn('No se pudieron guardar las direcciones protegidas:', error);
       }
     },
-    []
+    [applyCustomerAccount]
   );
 
   useEffect(() => {
@@ -808,28 +703,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const storedLat = parseStoredNumber(localStorage.getItem(STORAGE_KEYS.lat));
     const storedLng = parseStoredNumber(localStorage.getItem(STORAGE_KEYS.lng));
-    const storedPoints = parseStoredInteger(localStorage.getItem(STORAGE_KEYS.points));
-    const storedExp = parseStoredInteger(localStorage.getItem(STORAGE_KEYS.exp));
-    const storedVip = parseStoredBoolean(localStorage.getItem(STORAGE_KEYS.isVip));
-    const storedPhoneVerified = parseStoredBoolean(
-      localStorage.getItem(STORAGE_KEYS.phoneVerified)
-    );
-
-    const storedMembershipStatus = parseStoredMembershipStatus(
-      localStorage.getItem(STORAGE_KEYS.membershipStatus)
-    );
-    const storedMembershipPlan = localStorage.getItem(STORAGE_KEYS.membershipPlan) || '';
-    const storedMembershipStartedAt =
-      localStorage.getItem(STORAGE_KEYS.membershipStartedAt) || null;
-    const storedMembershipExpiresAt =
-      localStorage.getItem(STORAGE_KEYS.membershipExpiresAt) || null;
-    const storedMembershipUpdatedAt =
-      localStorage.getItem(STORAGE_KEYS.membershipUpdatedAt) || null;
 
     if (normalizedPhone) {
       setCustomerPhone(normalizedPhone);
       localStorage.setItem(STORAGE_KEYS.phone, normalizedPhone);
-      void fetchCustomerFromSupabase(normalizedPhone);
+      void fetchCustomerFromSession(normalizedPhone);
     }
 
     setCustomerName(storedName);
@@ -837,61 +715,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomerLat(storedLat);
     setCustomerLng(storedLng);
     setCustomerReference(storedReference);
-    setCustomerPoints(storedPoints);
-    setCustomerExp(storedExp);
-    setIsVip(storedVip);
-    setPhoneVerified(storedPhoneVerified);
-
-    applyMembershipState({
-      status: storedMembershipStatus,
-      plan: storedMembershipPlan,
-      startedAt: storedMembershipStartedAt,
-      expiresAt: storedMembershipExpiresAt,
-      updatedAt: storedMembershipUpdatedAt,
-      active: null,
-    });
 
     applyDeliveryAddresses(storedAddresses, storedSelectedAddressId);
-  }, [applyDeliveryAddresses, applyMembershipState, fetchCustomerFromSupabase]);
+  }, [applyDeliveryAddresses, applyMembershipState, fetchCustomerFromSession]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !customerPhone) {
-      return undefined;
-    }
+    if (!customerPhone) return undefined;
 
-    const channel = supabase
-      .channel(`pollazo_customer_${customerPhone}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'customers' },
-        payload => {
-          const nextCustomer = payload.new as CustomerSyncRow | null;
-          const nextPhone = normalizeEcuadorPhone(nextCustomer?.phone || '');
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshMembership();
+      }
+    };
 
-          if (nextPhone === customerPhone) {
-            applyServerCustomer(nextCustomer);
-            void refreshMembership();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'customer_memberships' },
-        payload => {
-          const nextMembership = payload.new as CustomerMembership | null;
-          const nextPhone = normalizeEcuadorPhone(nextMembership?.customer_phone || '');
-
-          if (nextPhone === customerPhone) {
-            void refreshMembership();
-          }
-        }
-      )
-      .subscribe();
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [applyServerCustomer, customerPhone, refreshMembership]);
+  }, [customerPhone, refreshMembership]);
 
   const setUserData = useCallback(
     (data: SetUserDataInput) => {
@@ -900,18 +746,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const avatar = (data.avatar ?? customerAvatar).trim();
       const reference = data.reference?.trim() ?? customerReference;
 
-      const samePhone = normalizedPhone && normalizedPhone === customerPhone;
-      const nextPhoneVerified = data.phoneVerified ?? (samePhone ? phoneVerified : false);
-
       setCustomerPhone(normalizedPhone);
       setCustomerName(name);
       setCustomerAvatar(avatar);
-      setPhoneVerified(nextPhoneVerified);
 
       persistText(STORAGE_KEYS.phone, normalizedPhone);
       persistText(STORAGE_KEYS.name, name);
       persistText(STORAGE_KEYS.avatar, avatar);
-      persistBoolean(STORAGE_KEYS.phoneVerified, nextPhoneVerified);
 
       if (data.lat !== undefined) {
         const nextLat = isValidCoordinate(data.lat) ? data.lat : null;
@@ -928,36 +769,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (data.reference !== undefined) {
         setCustomerReference(reference);
         persistText(STORAGE_KEYS.reference, reference);
-      }
-
-      if (data.points !== undefined) {
-        setCustomerPoints(persistInteger(STORAGE_KEYS.points, data.points));
-      }
-
-      if (data.exp !== undefined) {
-        setCustomerExp(persistInteger(STORAGE_KEYS.exp, data.exp));
-      }
-
-      if (data.isVip !== undefined) {
-        setIsVip(data.isVip);
-        persistBoolean(STORAGE_KEYS.isVip, data.isVip);
-      }
-
-      if (
-        data.membershipStatus !== undefined ||
-        data.membershipPlan !== undefined ||
-        data.membershipStartedAt !== undefined ||
-        data.membershipExpiresAt !== undefined ||
-        data.membershipUpdatedAt !== undefined
-      ) {
-        applyMembershipState({
-          status: data.membershipStatus ?? membershipStatus,
-          plan: data.membershipPlan ?? membershipPlan,
-          startedAt: data.membershipStartedAt ?? membershipStartedAt,
-          expiresAt: data.membershipExpiresAt ?? membershipExpiresAt,
-          updatedAt: data.membershipUpdatedAt ?? membershipUpdatedAt,
-          active: activeMembership,
-        });
       }
 
       if (data.deliveryAddresses !== undefined) {
@@ -979,14 +790,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (normalizedPhone) {
-        void syncCustomerToSupabase(
+        void syncCustomerToServer(
           {
             ...data,
             phone: normalizedPhone,
             name,
             avatar,
             reference,
-            phoneVerified: nextPhoneVerified,
           },
           normalizedPhone
         );
@@ -998,7 +808,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
               ? data.selectedDeliveryAddressId
               : selectedDeliveryAddressId;
 
-          void syncDeliveryAddressesToSupabase(
+          void syncDeliveryAddressesToServer(
             nextAddresses,
             nextSelectedId || null,
             normalizedPhone
@@ -1022,8 +832,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       membershipUpdatedAt,
       phoneVerified,
       selectedDeliveryAddressId,
-      syncCustomerToSupabase,
-      syncDeliveryAddressesToSupabase,
+      syncCustomerToServer,
+      syncDeliveryAddressesToServer,
     ]
   );
 
@@ -1065,7 +875,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       persistText(STORAGE_KEYS.reference, address.reference);
 
       if (normalizedPhone) {
-        void syncCustomerToSupabase(
+        void syncCustomerToServer(
           {
             phone: normalizedPhone,
             lat: address.lat,
@@ -1075,7 +885,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           normalizedPhone
         );
 
-        void syncDeliveryAddressesToSupabase(
+        void syncDeliveryAddressesToServer(
           nextAddresses,
           address.id,
           normalizedPhone
@@ -1087,8 +897,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [
       customerPhone,
       deliveryAddresses,
-      syncCustomerToSupabase,
-      syncDeliveryAddressesToSupabase,
+      syncCustomerToServer,
+      syncDeliveryAddressesToServer,
     ]
   );
 
@@ -1122,7 +932,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       persistText(STORAGE_KEYS.reference, address.reference);
 
       if (normalizedPhone) {
-        void syncCustomerToSupabase(
+        void syncCustomerToServer(
           {
             phone: normalizedPhone,
             lat: address.lat,
@@ -1132,7 +942,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           normalizedPhone
         );
 
-        void syncDeliveryAddressesToSupabase(
+        void syncDeliveryAddressesToServer(
           nextAddresses,
           address.id,
           normalizedPhone
@@ -1142,8 +952,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [
       customerPhone,
       deliveryAddresses,
-      syncCustomerToSupabase,
-      syncDeliveryAddressesToSupabase,
+      syncCustomerToServer,
+      syncDeliveryAddressesToServer,
     ]
   );
 
@@ -1198,7 +1008,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (normalizedPhone) {
         if (nextSelectedAddress) {
-          void syncCustomerToSupabase(
+          void syncCustomerToServer(
             {
               phone: normalizedPhone,
               lat: nextSelectedAddress.lat,
@@ -1209,7 +1019,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        void syncDeliveryAddressesToSupabase(
+        void syncDeliveryAddressesToServer(
           nextAddresses,
           nextSelectedId,
           normalizedPhone
@@ -1220,12 +1030,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       customerPhone,
       deliveryAddresses,
       selectedDeliveryAddressId,
-      syncCustomerToSupabase,
-      syncDeliveryAddressesToSupabase,
+      syncCustomerToServer,
+      syncDeliveryAddressesToServer,
     ]
   );
 
   const logout = useCallback(() => {
+    void closeCustomerSession();
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
 
     setCustomerPhone('');
