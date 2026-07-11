@@ -22,14 +22,14 @@ const handlers: Record<string, HandlerLoader> = {
   'metrics': () => import('../server/api-handlers/metrics.js'),
   'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
   'panel-action': () => import('../server/api-handlers/panel-action.js'),
-  'panel-data': () => import('../server/api-handlers/panel-data.js'),
+  'panel-data': () => import('../server/api-handlers/panel-data-v2.js'),
   'public-data': () => import('../server/api-handlers/public-data.js'),
   'register-push': () => import('../server/api-handlers/register-push.js'),
   'request-membership': () => import('../server/api-handlers/request-membership.js'),
   'send-push': () => import('../server/api-handlers/send-push.js'),
   'testimonials': () => import('../server/api-handlers/testimonials.js'),
-  'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin.js'),
-  'verify-panel-session': () => import('../server/api-handlers/verify-panel-session.js'),
+  'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin-v2.js'),
+  'verify-panel-session': () => import('../server/api-handlers/verify-panel-session-v2.js'),
 };
 
 const resolveRoute = (req: ApiRequest): string => {
