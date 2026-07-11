@@ -5,15 +5,50 @@ on:
     branches:
       - main
       - phase-1-stabilization-20260711
+      - phase-2-orders-payments-stock-20260711
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  apply_phase2:
+    if: >-
+      github.ref == 'refs/heads/phase-2-orders-payments-stock-20260711' &&
+      !contains(github.event.head_commit.message, '[phase2-applied]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Phase 2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase-2-orders-payments-stock-20260711
+          fetch-depth: 0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Apply Phase 2 patch
+        run: node scripts/apply-phase2-ui.mjs
+
+      - name: Commit applied Phase 2 files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/api-handlers/panel-action.ts src/context/AdminContext.tsx src/components/AdminDashboard.tsx src/components/DeliveryDashboard.tsx src/components/CartScreen.tsx
+          git commit -m "phase2: connect payments, delivery and stock [phase2-applied]"
+          git push origin HEAD:phase-2-orders-payments-stock-20260711
+
   validate:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref != 'refs/heads/phase-2-orders-payments-stock-20260711' ||
+      contains(github.event.head_commit.message, '[phase2-applied]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
