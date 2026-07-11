@@ -59,9 +59,9 @@ begin
     comment on view public.memberships is
       'Vista de compatibilidad interna. La fuente oficial es customer_memberships.';
   end if;
-end $$;
 
--- No conceder lectura pública de la vista. Las funciones SECURITY DEFINER y
--- endpoints con service role pueden usarla sin exponer membresías al cliente.
-revoke all on table public.memberships from public;
-revoke all on table public.memberships from anon, authenticated;
+  if to_regclass('public.memberships') is not null then
+    execute 'revoke all on table public.memberships from public';
+    execute 'revoke all on table public.memberships from anon, authenticated';
+  end if;
+end $$;
