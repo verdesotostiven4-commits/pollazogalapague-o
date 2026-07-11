@@ -17,6 +17,13 @@ type OrderCredentialInput = {
   trackingToken?: string;
 };
 
+type DatabaseError = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
 const encoder = new TextEncoder();
 const MAX_CREDENTIALS = 50;
 
@@ -36,11 +43,15 @@ const getBody = (req: ApiRequest): { credentials?: OrderCredentialInput[] } => {
     : {};
 };
 
-const cleanCode = (value: unknown) => String(value || '').trim().slice(0, 100);
-const cleanToken = (value: unknown) => String(value || '').trim().slice(0, 240);
+const cleanCode = (value: unknown) =>
+  String(value || '').trim().slice(0, 100);
+
+const cleanToken = (value: unknown) =>
+  String(value || '').trim().slice(0, 240);
 
 const bytesToBase64Url = (bytes: Uint8Array) => {
   let binary = '';
+
   bytes.forEach(byte => {
     binary += String.fromCharCode(byte);
   });
@@ -52,8 +63,31 @@ const bytesToBase64Url = (bytes: Uint8Array) => {
 };
 
 const sha256 = async (value: string) => {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(value));
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    encoder.encode(value)
+  );
+
   return bytesToBase64Url(new Uint8Array(digest));
+};
+
+const isSchemaCompatibilityError = (error?: DatabaseError | null) => {
+  if (!error) return false;
+
+  const code = String(error.code || '').toUpperCase();
+  const message = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    (message.includes('column') && message.includes('does not exist')) ||
+    (message.includes('could not find') && message.includes('column')) ||
+    message.includes('schema cache')
+  );
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -64,10 +98,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    return res.status(500).json({ ok: false, error: 'Missing server database configuration' });
+    return res.status(500).json({
+      ok: false,
+      error: 'Missing server database configuration',
+    });
   }
 
   const credentials = (Array.isArray(getBody(req).credentials)
@@ -92,19 +132,54 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const results = await Promise.all(
     credentials.map(async credential => {
       const trackingHash = await sha256(credential.trackingToken);
-      const result = await supabase
+
+      const secureResult = await supabase
         .from('orders')
         .select('*')
         .eq('order_code', credential.orderCode)
         .eq('tracking_token_hash', trackingHash)
         .maybeSingle();
 
-      if (result.error) {
-        console.warn('Customer order lookup failed:', result.error.code || result.error.message);
+      if (!secureResult.error && secureResult.data) {
+        return secureResult.data;
+      }
+
+      if (
+        secureResult.error &&
+        !isSchemaCompatibilityError(secureResult.error)
+      ) {
+        console.warn(
+          'Customer secure order lookup failed:',
+          secureResult.error.code || secureResult.error.message
+        );
+      }
+
+      const legacyResult = await supabase
+        .from('orders')
+        .select('*')
+        .eq('order_code', credential.orderCode)
+        .maybeSingle();
+
+      if (legacyResult.error || !legacyResult.data) {
+        if (legacyResult.error) {
+          console.warn(
+            'Customer legacy order lookup failed:',
+            legacyResult.error.code || legacyResult.error.message
+          );
+        }
+
         return null;
       }
 
-      return result.data || null;
+      const storedHash = String(
+        (legacyResult.data as Record<string, unknown>).tracking_token_hash || ''
+      ).trim();
+
+      if (storedHash && storedHash !== trackingHash) {
+        return null;
+      }
+
+      return legacyResult.data;
     })
   );
 
@@ -116,7 +191,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   });
 
   const orders = Array.from(unique.values()).sort((a, b) => {
-    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    return String(b.created_at || '').localeCompare(
+      String(a.created_at || '')
+    );
   });
 
   return res.status(200).json({ ok: true, orders });
