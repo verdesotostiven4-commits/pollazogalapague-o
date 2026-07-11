@@ -25,12 +25,21 @@ const normalize = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const cleanPhoneTail = (value?: string | null) => String(value || '').replace(/\D/g, '').slice(-9);
+const cleanPhoneTail = (value?: string | null) =>
+  String(value || '').replace(/\D/g, '').slice(-9);
 
 const safePrice = (value: unknown) => {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Number(value.toFixed(2)));
-  const parsed = Number.parseFloat(String(value || '').replace(',', '.').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? Math.max(0, Number(parsed.toFixed(2))) : 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Number(value.toFixed(2)));
+  }
+
+  const parsed = Number.parseFloat(
+    String(value || '').replace(',', '.').replace(/[^0-9.]/g, '')
+  );
+
+  return Number.isFinite(parsed)
+    ? Math.max(0, Number(parsed.toFixed(2)))
+    : 0;
 };
 
 const money = (value: number) => `$${Math.max(0, value).toFixed(2)}`;
@@ -49,22 +58,28 @@ const readCartSubtotal = () => {
     const items = JSON.parse(raw);
     if (!Array.isArray(items)) return 0;
 
-    const subtotal = items.reduce((sum, item) => {
-      const product = item?.product || {};
-      const unitPrice = safePrice(product.custom_price || item?.custom_price || item?.price || product.price);
-      const quantity = Math.max(1, Math.floor(Number(item?.quantity || 1)));
-      return sum + unitPrice * quantity;
-    }, 0);
-
-    return Number(subtotal.toFixed(2));
+    return Number(
+      items
+        .reduce((sum, item) => {
+          const product = item?.product || {};
+          const unitPrice = safePrice(
+            product.custom_price ||
+              item?.custom_price ||
+              item?.price ||
+              product.price
+          );
+          const quantity = Math.max(1, Math.floor(Number(item?.quantity || 1)));
+          return sum + unitPrice * quantity;
+        }, 0)
+        .toFixed(2)
+    );
   } catch {
     return 0;
   }
 };
 
 const hasActivePlus = () => {
-  const status = localStorage.getItem(MEMBERSHIP_STATUS_KEY);
-  if (status !== 'active') return false;
+  if (localStorage.getItem(MEMBERSHIP_STATUS_KEY) !== 'active') return false;
 
   const expires = localStorage.getItem(MEMBERSHIP_EXPIRES_KEY);
   if (!expires) return true;
@@ -132,40 +147,36 @@ const installStyles = () => {
       text-transform: uppercase;
       box-shadow: 0 12px 24px rgba(249, 115, 22, 0.22);
     }
-    .pollazo-pacifico-only button:not([data-pollazo-allow-bank="1"]) {
-      display: none !important;
-    }
   `;
   document.head.appendChild(style);
 };
 
 const findCartScroll = () => {
-  const candidates = Array.from(document.querySelectorAll<HTMLElement>('div.overflow-y-auto'));
-  return candidates.find(element => {
-    const text = normalize(element.textContent || '');
-    return text.includes('tus productos') || text.includes('your products') || text.includes('productos');
-  }) || null;
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>('div.overflow-y-auto')
+  );
+
+  return (
+    candidates.find(element => {
+      const text = normalize(element.textContent || '');
+      return (
+        text.includes('tus productos') ||
+        text.includes('your products') ||
+        text.includes('productos')
+      );
+    }) || null
+  );
 };
 
-const markPacificoOnly = () => {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
-  buttons.forEach(button => {
-    const text = normalize(button.textContent || '');
-    if (text.includes('banco del pacifico') || text.includes('banco del pacífico')) {
-      button.setAttribute('data-pollazo-allow-bank', '1');
-      const parent = button.parentElement;
-      if (parent) parent.classList.add('pollazo-pacifico-only');
-    }
-  });
-};
-
-const findExistingOrderFlag = (phoneTail: string) => {
-  if (!phoneTail) return false;
-  return localStorage.getItem(`${FIRST_ORDER_USED_PREFIX}${phoneTail}`) === '1';
-};
+const findExistingOrderFlag = (phoneTail: string) =>
+  Boolean(
+    phoneTail &&
+      localStorage.getItem(`${FIRST_ORDER_USED_PREFIX}${phoneTail}`) === '1'
+  );
 
 const buildUrgentUrl = () => {
-  const text = 'Hola, necesito hacer un pedido urgente fuera del horario normal. ¿Hay posibilidad de entrega?';
+  const text =
+    'Hola, necesito hacer un pedido urgente fuera del horario normal. ¿Hay posibilidad de entrega?';
   return `https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(text)}`;
 };
 
@@ -173,8 +184,6 @@ const state = {
   phoneTail: '',
   hasPreviousOrder: false,
   lastLookup: 0,
-  blockedMessage: '',
-  closed: false,
 };
 
 const refreshPreviousOrders = async () => {
@@ -182,7 +191,7 @@ const refreshPreviousOrders = async () => {
   state.phoneTail = phoneTail;
 
   if (!phoneTail || findExistingOrderFlag(phoneTail)) {
-    state.hasPreviousOrder = Boolean(phoneTail && findExistingOrderFlag(phoneTail));
+    state.hasPreviousOrder = findExistingOrderFlag(phoneTail);
     return;
   }
 
@@ -197,9 +206,11 @@ const refreshPreviousOrders = async () => {
     });
 
     state.hasPreviousOrder = hasOrder;
-    if (hasOrder) localStorage.setItem(`${FIRST_ORDER_USED_PREFIX}${phoneTail}`, '1');
+    if (hasOrder) {
+      localStorage.setItem(`${FIRST_ORDER_USED_PREFIX}${phoneTail}`, '1');
+    }
   } catch {
-    // Si falla la consulta protegida, el servidor validará la promoción al confirmar.
+    // El servidor vuelve a validar promociones y mínimos al crear el pedido.
   }
 };
 
@@ -223,8 +234,6 @@ const evaluateRules = () => {
   let block = false;
 
   if (subtotal <= 0) {
-    state.blockedMessage = '';
-    state.closed = false;
     return { show: false, block: false, tone, kicker, title, text, urgent: false };
   }
 
@@ -232,32 +241,34 @@ const evaluateRules = () => {
     tone = 'closed';
     kicker = 'Horario de pedidos';
     title = 'Estamos fuera del horario normal';
-    text = 'Puedes ver el catálogo, pero los pedidos automáticos se reciben de 7:00 AM a 8:45 PM. Si es urgente, contáctanos por WhatsApp.';
+    text =
+      'Puedes ver el catálogo, pero los pedidos automáticos se reciben de 7:00 AM a 8:45 PM. Si es urgente, contáctanos por WhatsApp.';
     block = true;
   } else if (plus && subtotal < PLUS_FREE_DELIVERY_MIN) {
     tone = 'blocked';
     kicker = 'Pollazo Plus';
     title = `Agrega ${money(PLUS_FREE_DELIVERY_MIN - subtotal)} más`;
-    text = 'Tu Plus está activo. Para activar la entrega gratis en este pedido, agrega un poco más al carrito.';
+    text =
+      'Tu Plus está activo. Para activar la entrega gratis en este pedido, agrega un poco más al carrito.';
     block = true;
   } else if (!plus && subtotal < MIN_DELIVERY_ORDER) {
     tone = 'blocked';
     kicker = 'Pedido mínimo';
     title = `Agrega ${money(MIN_DELIVERY_ORDER - subtotal)} más`;
-    text = 'Para enviar a domicilio necesitamos que el pedido tenga un mínimo de productos.';
+    text =
+      'Para enviar a domicilio necesitamos que el pedido tenga un mínimo de productos.';
     block = true;
   } else if (firstFree) {
     kicker = 'Regalo de bienvenida';
     title = 'Tu primer delivery va gratis';
-    text = 'Promoción aplicada dentro de cobertura. Gracias por probar la app de La Casa del Pollazo.';
+    text =
+      'Promoción aplicada dentro de cobertura. Gracias por probar la app de La Casa del Pollazo.';
   } else if (plus) {
     kicker = 'Pollazo Plus activo';
     title = 'Delivery gratis aplicado';
     text = 'Tu membresía está lista para este pedido dentro de cobertura.';
   }
 
-  state.blockedMessage = block ? text : '';
-  state.closed = !open;
   return { show: true, block, tone, kicker, title, text, urgent: !open };
 };
 
@@ -284,11 +295,22 @@ const renderCard = () => {
     <p class="pollazo-rule-kicker">${rules.kicker}</p>
     <h3 class="pollazo-rule-title">${rules.title}</h3>
     <p class="pollazo-rule-text">${rules.text}</p>
-    ${rules.urgent ? '<button type="button" class="pollazo-rule-button" data-pollazo-urgent-order="1">Solicitar por WhatsApp</button>' : ''}
+    ${
+      rules.urgent
+        ? '<button type="button" class="pollazo-rule-button" data-pollazo-urgent-order="1">Solicitar por WhatsApp</button>'
+        : ''
+    }
   `;
 
-  const urgentButton = card.querySelector<HTMLButtonElement>('[data-pollazo-urgent-order="1"]');
-  if (urgentButton) urgentButton.onclick = () => { window.location.href = buildUrgentUrl(); };
+  const urgentButton = card.querySelector<HTMLButtonElement>(
+    '[data-pollazo-urgent-order="1"]'
+  );
+
+  if (urgentButton) {
+    urgentButton.onclick = () => {
+      window.location.href = buildUrgentUrl();
+    };
+  }
 };
 
 const isCheckoutAction = (button: HTMLButtonElement) => {
@@ -307,47 +329,39 @@ const isCheckoutAction = (button: HTMLButtonElement) => {
 };
 
 const interceptCheckout = (event: Event) => {
-  const button = (event.target as HTMLElement | null)?.closest('button') as HTMLButtonElement | null;
+  const button = (event.target as HTMLElement | null)?.closest(
+    'button'
+  ) as HTMLButtonElement | null;
+
   if (!button || !isCheckoutAction(button)) return;
 
   const rules = evaluateRules();
-  if (rules.block) {
-    event.preventDefault();
-    event.stopPropagation();
-    window.alert(rules.urgent ? 'Estamos fuera del horario normal. Usa WhatsApp si es urgente.' : state.blockedMessage || 'Revisa las condiciones del pedido.');
-    renderCard();
-    return;
-  }
+  if (!rules.block) return;
 
-  const text = normalize(button.textContent || '');
-  const likelyCashConfirm = text.includes('confirmar pedido') || text.includes('confirm order');
-  const confirmationKey = 'pollazo_cash_confirmed_recent';
+  event.preventDefault();
+  event.stopPropagation();
+  renderCard();
 
-  if (likelyCashConfirm && sessionStorage.getItem(confirmationKey) !== '1') {
-    const ok = window.confirm('¿Confirmas el pedido en efectivo? Pagarás al recibir. Evita pedidos por error o pedidos falsos.');
-    if (!ok) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    sessionStorage.setItem(confirmationKey, '1');
-    window.setTimeout(() => sessionStorage.removeItem(confirmationKey), 25000);
-  }
+  window.setTimeout(() => {
+    document.getElementById(CARD_ID)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }, 0);
 };
 
 export default function CheckoutBusinessRulesBridge() {
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
 
     installStyles();
 
     let frame = 0;
     const run = () => {
       frame = 0;
-      void refreshPreviousOrders().finally(() => {
-        markPacificoOnly();
-        renderCard();
-      });
+      void refreshPreviousOrders().finally(renderCard);
     };
 
     const schedule = () => {
@@ -356,7 +370,13 @@ export default function CheckoutBusinessRulesBridge() {
     };
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+    });
 
     schedule();
     window.addEventListener('click', interceptCheckout, true);
