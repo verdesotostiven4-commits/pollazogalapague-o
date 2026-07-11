@@ -38,6 +38,22 @@ const ORDER_STATUSES = new Set([
 
 const PAYMENT_STATUSES = new Set(['confirmado', 'rechazado', 'contra_entrega']);
 
+const SAFE_ERROR_PREFIXES = [
+  'Pedido inválido',
+  'Actor inválido',
+  'Estado de pedido inválido',
+  'Estado de pago inválido',
+  'El repartidor no puede',
+  'El repartidor solo puede',
+  'Pedido no encontrado',
+  'Transición no permitida',
+  'Confirma el pago',
+  'Stock insuficiente',
+  'No se puede modificar el pago',
+  'Un pedido entregado no puede',
+  'Solo el administrador puede',
+];
+
 const getClient = () => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -49,12 +65,37 @@ const getClient = () => {
 };
 
 const objectBody = (value: unknown): Body => {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return objectBody(parsed);
+    } catch {
+      return {};
+    }
+  }
+
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Body;
 };
 
 const cleanText = (value: unknown, maxLength: number) => {
-  return String(value ?? '').trim().slice(0, maxLength);
+  return String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
+};
+
+const rawErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message || '');
+  }
+
+  return '';
+};
+
+const safeErrorMessage = (error: unknown) => {
+  const message = cleanText(rawErrorMessage(error), 240);
+  const safe = SAFE_ERROR_PREFIXES.some(prefix => message.startsWith(prefix));
+  return safe ? message : 'No se pudo actualizar el pedido.';
 };
 
 const authenticate = async (
@@ -156,12 +197,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       panel: panelValue,
       action,
       orderId,
-      message: error instanceof Error ? error.message : String(error),
+      message: rawErrorMessage(error),
     });
 
     return res.status(409).json({
       ok: false,
-      error: error instanceof Error ? error.message : 'No se pudo actualizar el pedido',
+      error: safeErrorMessage(error),
     });
   }
 }
