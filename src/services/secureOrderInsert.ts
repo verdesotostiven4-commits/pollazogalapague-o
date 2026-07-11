@@ -8,13 +8,6 @@ type InsertResult = {
   statusText?: string;
 };
 
-type RpcClient = {
-  rpc: (
-    functionName: string,
-    args: JsonObject
-  ) => PromiseLike<InsertResult>;
-};
-
 type FallbackInsert = (
   values: unknown,
   options?: unknown
@@ -33,6 +26,7 @@ type StoredIdempotencyEntry = {
 
 const IDEMPOTENCY_STORAGE_PREFIX = 'pollazo_secure_order:';
 const IDEMPOTENCY_TTL_MS = 15 * 60 * 1000;
+const LAST_ORDER_CODE_KEY = 'pollazo_last_order_code';
 
 const isRecord = (value: unknown): value is JsonObject => {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -186,27 +180,12 @@ const getStableIdempotencyKey = (
   }
 };
 
-const isMissingRpcError = (error: unknown) => {
-  if (!isRecord(error)) return false;
-
-  const code = asString(error.code);
-  const message = asString(error.message).toLowerCase();
-  const details = asString(error.details).toLowerCase();
-
-  return (
-    code === 'PGRST202' ||
-    code === '42883' ||
-    ((message.includes('create_online_order_v2') ||
-      details.includes('create_online_order_v2')) &&
-      (message.includes('schema cache') ||
-        message.includes('could not find') ||
-        message.includes('does not exist')))
-  );
-};
-
-const makeClientError = (message: string) => ({
+const makeClientError = (
+  message: string,
+  code = 'POLLAZO_SECURE_ORDER_INVALID'
+) => ({
   name: 'PostgrestError',
-  code: 'POLLAZO_SECURE_ORDER_INVALID',
+  code,
   message,
   details: '',
   hint: '',
@@ -220,13 +199,25 @@ const allowDevelopmentFallback = () => {
   );
 };
 
+const rememberOrderCode = (payload: unknown) => {
+  if (!isRecord(payload)) return;
+
+  const orderCode = asString(payload.order_code) || asString(payload.orderCode);
+
+  if (!orderCode) return;
+
+  try {
+    localStorage.setItem(LAST_ORDER_CODE_KEY, orderCode);
+  } catch {
+    // localStorage es opcional; la cookie HttpOnly conserva la sesión real.
+  }
+};
+
 export async function insertOrderSecurely({
-  client,
   values,
   options,
   fallbackInsert,
 }: {
-  client: RpcClient;
   values: unknown;
   options?: unknown;
   fallbackInsert: FallbackInsert;
@@ -264,35 +255,84 @@ export async function insertOrderSecurely({
       : '');
   const idempotencyKey = getStableIdempotencyKey(order, items);
 
-  const result = await client.rpc('create_online_order_v2', {
-    p_customer_phone: asString(order.customer_phone),
-    p_customer_name: customerName || null,
-    p_items: items,
-    p_payment_method: asString(order.payment_method).toLowerCase(),
-    p_delivery_type:
-      asString(order.delivery_type).toLowerCase() || 'domicilio',
-    p_lat: asFiniteNumber(order.lat),
-    p_lng: asFiniteNumber(order.lng),
-    p_reference: asString(order.reference) || null,
-    p_idempotency_key: idempotencyKey,
-  });
+  try {
+    const response = await fetch('/api/create-order', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        customerPhone: asString(order.customer_phone),
+        customerName: customerName || null,
+        items,
+        paymentMethod: asString(order.payment_method).toLowerCase(),
+        deliveryType:
+          asString(order.delivery_type).toLowerCase() || 'domicilio',
+        lat: asFiniteNumber(order.lat),
+        lng: asFiniteNumber(order.lng),
+        reference: asString(order.reference) || null,
+        idempotencyKey,
+      }),
+    });
 
-  if (!result.error) {
+    const payload = (await response.json().catch(() => ({}))) as JsonObject;
+
+    if (response.ok && payload.ok === true) {
+      rememberOrderCode(payload);
+
+      return {
+        data: payload,
+        error: null,
+        count: null,
+        status: response.status || 201,
+        statusText: response.statusText || 'Created',
+      };
+    }
+
+    if (
+      allowDevelopmentFallback() &&
+      (response.status === 404 || response.status === 503)
+    ) {
+      console.warn(
+        '⚠️ El endpoint seguro no está disponible. Se usa el insert antiguo únicamente porque VITE_ALLOW_LEGACY_ORDER_INSERT=true en desarrollo.'
+      );
+
+      return fallbackInsert(values, options);
+    }
+
     return {
-      ...result,
-      count: result.count ?? null,
-      status: result.status || 201,
-      statusText: result.statusText || 'Created',
+      data: null,
+      error: makeClientError(
+        asString(payload.error) || 'No se pudo crear el pedido.',
+        `POLLAZO_CREATE_ORDER_${response.status}`
+      ),
+      count: null,
+      status: response.status,
+      statusText: response.statusText,
+    };
+  } catch (error) {
+    if (allowDevelopmentFallback()) {
+      console.warn(
+        '⚠️ No se pudo conectar con el endpoint seguro. Se usa el insert antiguo solo en desarrollo autorizado.',
+        error
+      );
+
+      return fallbackInsert(values, options);
+    }
+
+    return {
+      data: null,
+      error: makeClientError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo conectar con el servidor seguro.',
+        'POLLAZO_CREATE_ORDER_NETWORK'
+      ),
+      count: null,
+      status: 0,
+      statusText: 'Network Error',
     };
   }
-
-  if (isMissingRpcError(result.error) && allowDevelopmentFallback()) {
-    console.warn(
-      '⚠️ create_online_order_v2 no está disponible. Se usa el insert antiguo únicamente porque VITE_ALLOW_LEGACY_ORDER_INSERT=true en desarrollo.'
-    );
-
-    return fallbackInsert(values, options);
-  }
-
-  return result;
 }
