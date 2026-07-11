@@ -23,21 +23,21 @@ jobs:
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
 
-      - name: Apply one-time compile repairs
+      - name: Apply validated phase 1 baseline repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
         run: python .github/scripts/phase1_fix_compile.py
 
-      - name: Persist compile repairs on phase branch
+      - name: Persist baseline repairs on phase branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
         run: |
-          git add src/Cart.tsx src/utils/whatsapp.ts src/components/CartScreen.tsx src/components/InstallQrGuideBridge.tsx src/components/SafeOrdersOverlay.tsx src/context/LanguageContext.tsx src/utils/productI18n.ts
+          git add eslint.config.js src/Cart.tsx src/utils/whatsapp.ts src/components/CartScreen.tsx src/components/InfoScreen.tsx src/components/InstallQrGuideBridge.tsx src/components/SafeOrdersOverlay.tsx src/context/LanguageContext.tsx src/utils/productI18n.ts
           if git diff --cached --quiet; then
-            echo "Compile repairs are already applied"
+            echo "Baseline repairs are already applied"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "fix(build): resolve remaining compile blockers"
+          git commit -m "fix(build): apply validated baseline repairs"
           git push origin HEAD:phase-1-stabilization-20260711
 
       - name: Upload source snapshot for diagnosis
