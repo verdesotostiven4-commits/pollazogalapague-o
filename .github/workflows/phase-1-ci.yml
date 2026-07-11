@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -20,25 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
-
-      - name: Route checkout through secure order API
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
-        run: python .github/scripts/apply_secure_order_client.py
-
-      - name: Persist secure order client changes
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
-        run: |
-          git add src/App.tsx src/context/AdminContext.tsx
-          if git diff --cached --quiet; then
-            echo "Secure order client is already applied"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "security(orders): use server-calculated checkout"
-            git push origin HEAD:phase-1-stabilization-20260711
-          fi
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
