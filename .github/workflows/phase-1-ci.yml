@@ -18,17 +18,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout phase branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
+          ref: phase-1-stabilization-20260711
 
       - name: Protect customer profile and membership state
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
         run: python .github/scripts/apply_customer_session_context.py
 
       - name: Persist protected customer context
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
         run: |
           git add src/context/UserContext.tsx
           if git diff --cached --quiet; then
