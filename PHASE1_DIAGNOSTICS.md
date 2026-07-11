@@ -1,6 +1,6 @@
 # Phase 1 diagnostics
 
-Generated from commit: `4a3f64980db0cb0988fb43f0de437e6132021c59`
+Generated from commit: `ba9b1b153d1edea084294eb2707bd2575551267a`
 
 | Check | Result |
 |---|---|
@@ -465,7 +465,7 @@ Browserslist: caniuse-lite is outdated. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
 [32m✓[39m 1625 modules transformed.
-[31mx[39m Build failed in 4.09s
+[31mx[39m Build failed in 4.02s
 [31merror during build:
 [31msrc/components/AdminDashboard.tsx (52:9): "buildStatusWhatsAppUrl" is not exported by "src/utils/whatsapp.ts", imported by "src/components/AdminDashboard.tsx".[31m
 file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/AdminDashboard.tsx:52:9[31m
