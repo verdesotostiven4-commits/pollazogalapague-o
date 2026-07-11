@@ -1,20 +1,3 @@
-import handler0 from '../server/api-handlers/admin-operations.js';
-import handler1 from '../server/api-handlers/check-memberships.js';
-import handler2 from '../server/api-handlers/create-order.js';
-import handler3 from '../server/api-handlers/customer-orders.js';
-import handler4 from '../server/api-handlers/customer-session.js';
-import handler5 from '../server/api-handlers/logout-panel-session.js';
-import handler6 from '../server/api-handlers/metrics.js';
-import handler7 from '../server/api-handlers/panel-action.js';
-import handler8 from '../server/api-handlers/panel-data.js';
-import handler9 from '../server/api-handlers/public-data.js';
-import handler10 from '../server/api-handlers/register-push.js';
-import handler11 from '../server/api-handlers/request-membership.js';
-import handler12 from '../server/api-handlers/send-push.js';
-import handler13 from '../server/api-handlers/testimonials.js';
-import handler14 from '../server/api-handlers/verify-panel-pin.js';
-import handler15 from '../server/api-handlers/verify-panel-session.js';
-
 type ApiRequest = {
   method?: string;
   url?: string;
@@ -26,24 +9,26 @@ type ApiResponse = {
 };
 
 type ApiHandler = (req: any, res: any) => unknown | Promise<unknown>;
+type HandlerModule = { default: ApiHandler };
+type HandlerLoader = () => Promise<HandlerModule>;
 
-const handlers: Record<string, ApiHandler> = {
-  'admin-operations': handler0,
-  'check-memberships': handler1,
-  'create-order': handler2,
-  'customer-orders': handler3,
-  'customer-session': handler4,
-  'logout-panel-session': handler5,
-  'metrics': handler6,
-  'panel-action': handler7,
-  'panel-data': handler8,
-  'public-data': handler9,
-  'register-push': handler10,
-  'request-membership': handler11,
-  'send-push': handler12,
-  'testimonials': handler13,
-  'verify-panel-pin': handler14,
-  'verify-panel-session': handler15,
+const handlers: Record<string, HandlerLoader> = {
+  'admin-operations': () => import('../server/api-handlers/admin-operations.js'),
+  'check-memberships': () => import('../server/api-handlers/check-memberships.js'),
+  'create-order': () => import('../server/api-handlers/create-order.js'),
+  'customer-orders': () => import('../server/api-handlers/customer-orders.js'),
+  'customer-session': () => import('../server/api-handlers/customer-session.js'),
+  'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
+  'metrics': () => import('../server/api-handlers/metrics.js'),
+  'panel-action': () => import('../server/api-handlers/panel-action.js'),
+  'panel-data': () => import('../server/api-handlers/panel-data.js'),
+  'public-data': () => import('../server/api-handlers/public-data.js'),
+  'register-push': () => import('../server/api-handlers/register-push.js'),
+  'request-membership': () => import('../server/api-handlers/request-membership.js'),
+  'send-push': () => import('../server/api-handlers/send-push.js'),
+  'testimonials': () => import('../server/api-handlers/testimonials.js'),
+  'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin.js'),
+  'verify-panel-session': () => import('../server/api-handlers/verify-panel-session.js'),
 };
 
 const resolveRoute = (req: ApiRequest): string => {
@@ -66,14 +51,28 @@ const resolveRoute = (req: ApiRequest): string => {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   const route = resolveRoute(req);
-  const selected = handlers[route];
+  const loadHandler = handlers[route];
 
-  if (!selected) {
+  if (!loadHandler) {
     return res.status(404).json({
       ok: false,
       error: 'API route not found',
     });
   }
 
-  return selected(req, res);
+  try {
+    const module = await loadHandler();
+    return await module.default(req, res);
+  } catch (error) {
+    console.error('API route runtime failure:', {
+      route,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return res.status(500).json({
+      ok: false,
+      error: 'API route failed to start',
+      route,
+    });
+  }
 }
