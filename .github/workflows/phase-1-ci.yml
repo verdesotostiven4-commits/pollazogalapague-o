@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -20,6 +20,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
+
+      - name: Protect customer order reads
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
+        run: python .github/scripts/protect_customer_order_reads.py
+
+      - name: Persist protected customer order reads
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
+        run: |
+          git add src/components/CheckoutBusinessRulesBridge.tsx src/components/PersistentTrackingCenter.tsx src/components/TrackingFloatingNoticeButton.tsx
+          if git diff --cached --quiet; then
+            echo "Protected customer order reads are already applied"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "security(orders): remove public order table reads"
+            git push origin HEAD:phase-1-stabilization-20260711
+          fi
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
