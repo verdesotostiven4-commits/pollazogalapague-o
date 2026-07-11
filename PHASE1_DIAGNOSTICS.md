@@ -1,6 +1,6 @@
 # Phase 1 diagnostics
 
-Generated from commit: `e2dfc1201ce80ede58ac666612419d7fa9b21eb1`
+Generated from commit: `8e185d3479e3fab34eb343b4fbd604297749fd8f`
 
 | Check | Result |
 |---|---|
@@ -13,7 +13,7 @@ Generated from commit: `e2dfc1201ce80ede58ac666612419d7fa9b21eb1`
 
 ```text
 
-added 343 packages, and audited 344 packages in 4s
+added 343 packages, and audited 344 packages in 3s
 
 70 packages are looking for funding
   run `npm fund` for details
@@ -33,7 +33,6 @@ Run `npm audit` for details.
 > vite-react-typescript-starter@0.0.0 typecheck
 > tsc --noEmit -p tsconfig.app.json
 
-src/components/AdminDashboard.tsx(52,10): error TS2724: '"../utils/whatsapp"' has no exported member named 'buildStatusWhatsAppUrl'. Did you mean 'buildWhatsAppUrl'?
 src/components/CartScreen.tsx(198,16): error TS7053: Element implicitly has an 'any' type because expression of type 'LanguageCode' can't be used to index type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
   Property 'pt' does not exist on type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
 src/components/CartScreen.tsx(198,53): error TS2339: Property 'es' does not exist on type 'never'.
@@ -215,11 +214,7 @@ src/utils/productI18n.ts(30,40): error TS2550: Property 'replaceAll' does not ex
 /home/runner/work/pollazogalapague-o/pollazogalapague-o/src/pages/Ranking.tsx
   813:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/utils/whatsapp.ts
-  1:25  error  'OrderStatus' is defined but never used       @typescript-eslint/no-unused-vars
-  6:7   error  'APP_URL' is assigned a value but never used  @typescript-eslint/no-unused-vars
-
-✖ 99 problems (79 errors, 20 warnings)
+✖ 97 problems (77 errors, 20 warnings)
 
 ```
 
@@ -236,16 +231,16 @@ Browserslist: caniuse-lite is outdated. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
 [32m✓[39m 1625 modules transformed.
-[31mx[39m Build failed in 4.08s
+[31mx[39m Build failed in 3.97s
 [31merror during build:
-[31msrc/components/AdminDashboard.tsx (52:9): "buildStatusWhatsAppUrl" is not exported by "src/utils/whatsapp.ts", imported by "src/components/AdminDashboard.tsx".[31m
-file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/AdminDashboard.tsx:52:9[31m
+[31msrc/components/InstallQrGuideBridge.tsx (2:47): "Safari" is not exported by "node_modules/lucide-react/dist/esm/lucide-react.js", imported by "src/components/InstallQrGuideBridge.tsx".[31m
+file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/InstallQrGuideBridge.tsx:2:47[31m
 [33m
-50: import { supabase, isSupabaseConfigured } from '../lib/supabase';
-51: import type { Category, OrderStatus, PaymentStatus } from '../types';
-52: import { buildStatusWhatsAppUrl } from '../utils/whatsapp';
-             ^
-53: import AdminPlusPanel from './AdminPlusPanel';
+1: import { useEffect, useMemo, useState } from 'react';
+2: import { ChevronRight, Download, Home, QrCode, Safari, Smartphone, Sparkles, X } from 'lucide-react';
+                                                  ^
+3: 
+4: const INSTALL_PATH = '/instalar';
 [31m
     at getRollupError (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/parseAst.js:395:41)
     at error (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/parseAst.js:391:42)
@@ -254,8 +249,8 @@ file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/component
     at ModuleScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:13770:39)
     at FunctionScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
     at FunctionBodyScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
-    at ReturnValueScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
-    at FunctionBodyScope.findVariable (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
-    at Identifier.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5035:40)[39m
+    at Identifier.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:5035:40)
+    at CallExpression.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:2851:28)
+    at CallExpression.bind (file:///home/runner/work/pollazogalapague-o/pollazogalapague-o/node_modules/rollup/dist/es/shared/node-entry.js:11235:15)[39m
 ```
 
