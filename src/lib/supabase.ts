@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { insertOrderSecurely } from '../services/secureOrderInsert';
+import {
+  createSecureOrderUpdateBuilder,
+  isProtectedOrderUpdate,
+} from '../services/secureOrderUpdate';
 
 const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
 const supabaseAnonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
@@ -34,10 +38,11 @@ type SecureInsertArgs = Parameters<typeof insertOrderSecurely>[0];
 /**
  * Compatibilidad transicional de Fase 1:
  *
- * - Solo intercepta INSERT sobre `orders`.
- * - La creación real pasa por create_online_order_v2.
- * - SELECT/UPDATE/DELETE y todas las demás tablas conservan el cliente normal.
- * - El fallback antiguo está desactivado en builds de producción.
+ * - INSERT sobre `orders` pasa por create_online_order_v2.
+ * - UPDATE de estado/pago pasa por endpoints con sesión firmada y service role.
+ * - Un cambio logístico nunca puede confirmar el pago en la misma petición.
+ * - Otras operaciones y tablas conservan el cliente normal.
+ * - El fallback de creación antiguo está desactivado en producción.
  */
 export const supabase = new Proxy(rawSupabase, {
   get(target, property, receiver) {
@@ -62,6 +67,21 @@ export const supabase = new Proxy(rawSupabase, {
                   fallbackInsert:
                     fallbackInsert as unknown as SecureInsertArgs['fallbackInsert'],
                 });
+            }
+
+            if (queryProperty === 'update') {
+              const fallbackUpdate = queryTarget.update.bind(queryTarget);
+
+              return (patch: unknown, options?: unknown) => {
+                if (isProtectedOrderUpdate(patch)) {
+                  return createSecureOrderUpdateBuilder(patch);
+                }
+
+                return fallbackUpdate(
+                  patch as Parameters<typeof fallbackUpdate>[0],
+                  options as Parameters<typeof fallbackUpdate>[1]
+                );
+              };
             }
 
             const value = Reflect.get(
