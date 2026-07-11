@@ -13,13 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          show-progress: false
-
-      - name: Install
-        run: npm ci --silent
-
-      - name: TypeScript
-        run: npm run typecheck --silent
+      - name: Diagnose
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+          git fetch -q --depth=1 origin "${MERGE_SHA}"
+          git checkout -q FETCH_HEAD
+          npm ci --silent
+          npm run typecheck --silent
