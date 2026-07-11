@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -20,44 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
-
-      - name: Apply validated phase 1 baseline repairs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
-        run: python .github/scripts/phase1_fix_compile.py
-
-      - name: Persist baseline repairs on phase branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
-        run: |
-          git add eslint.config.js src/Cart.tsx src/utils/whatsapp.ts src/components/CartScreen.tsx src/components/InfoScreen.tsx src/components/InstallQrGuideBridge.tsx src/components/SafeOrdersOverlay.tsx src/context/LanguageContext.tsx src/utils/productI18n.ts
-          if git diff --cached --quiet; then
-            echo "Baseline repairs are already applied"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "fix(build): apply validated baseline repairs"
-          git push origin HEAD:phase-1-stabilization-20260711
-
-      - name: Upload source snapshot for diagnosis
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-1-source
-          path: |
-            src
-            api
-            public
-            supabase
-            package.json
-            package-lock.json
-            tsconfig*.json
-            eslint.config.js
-            vite.config.ts
-            index.html
-            vercel.json
-          if-no-files-found: error
-          retention-days: 3
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -65,69 +27,14 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Generate synchronized lockfile
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Persist synchronized lockfile on phase branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "package-lock.json is already synchronized"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore(build): synchronize package lock"
-          git push origin HEAD:phase-1-stabilization-20260711
-
-      - name: Upload synchronized lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-1-lockfile
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 3
-
-      - name: Install dependencies from synchronized lockfile
+      - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
-        id: typecheck
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run typecheck 2>&1 | tee typecheck.log
+        run: npm run typecheck
 
       - name: Lint
-        id: lint
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run lint 2>&1 | tee lint.log
+        run: npm run lint
 
       - name: Build
-        id: build
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run build 2>&1 | tee build.log
-
-      - name: Upload validation diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-1-diagnostics
-          path: |
-            typecheck.log
-            lint.log
-            build.log
-          if-no-files-found: warn
-          retention-days: 3
-
-      - name: Fail when validation failed
-        if: ${{ steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.build.outcome == 'failure' }}
-        run: exit 1
+        run: npm run build
