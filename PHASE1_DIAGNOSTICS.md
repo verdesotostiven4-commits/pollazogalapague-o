@@ -1,6 +1,6 @@
 # Phase 1 diagnostics
 
-Generated from commit: `8dc80c1bb82f15523311a057e81bfa2866c8b278`
+Generated from commit: `e2dfc1201ce80ede58ac666612419d7fa9b21eb1`
 
 | Check | Result |
 |---|---|
@@ -33,14 +33,6 @@ Run `npm audit` for details.
 > vite-react-typescript-starter@0.0.0 typecheck
 > tsc --noEmit -p tsconfig.app.json
 
-src/Cart.tsx(23,55): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
-  Type 'null' is not assignable to type 'string | undefined'.
-src/Cart.tsx(24,58): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
-  Type 'null' is not assignable to type 'string | undefined'.
-src/Cart.tsx(35,24): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | undefined'.
-  Type 'null' is not assignable to type 'string | undefined'.
-src/Cart.tsx(119,24): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
-  Type 'null' is not assignable to type 'string | undefined'.
 src/components/AdminDashboard.tsx(52,10): error TS2724: '"../utils/whatsapp"' has no exported member named 'buildStatusWhatsAppUrl'. Did you mean 'buildWhatsAppUrl'?
 src/components/CartScreen.tsx(198,16): error TS7053: Element implicitly has an 'any' type because expression of type 'LanguageCode' can't be used to index type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
   Property 'pt' does not exist on type '{ readonly es: "Tu carrito está vacío"; readonly en: "Your cart is empty"; readonly pt: "Seu carrinho está vazio"; readonly fr: "Votre panier est vide"; readonly de: "Dein Warenkorb ist leer"; ... 4 more ...; readonly ru: "Корзина пуста"; } | ... 100 more ... | { ...; }'.
@@ -244,7 +236,7 @@ Browserslist: caniuse-lite is outdated. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
 [32m✓[39m 1625 modules transformed.
-[31mx[39m Build failed in 4.21s
+[31mx[39m Build failed in 4.08s
 [31merror during build:
 [31msrc/components/AdminDashboard.tsx (52:9): "buildStatusWhatsAppUrl" is not exported by "src/utils/whatsapp.ts", imported by "src/components/AdminDashboard.tsx".[31m
 file: [36m/home/runner/work/pollazogalapague-o/pollazogalapague-o/src/components/AdminDashboard.tsx:52:9[31m
