@@ -6,22 +6,53 @@ on:
       - phase2-ci-base-20260711
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Diagnose
+      - name: Diagnose and apply narrow fixes
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           git init -q
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
-          git fetch -q --depth=1 origin "${MERGE_SHA}"
-          git checkout -q FETCH_HEAD
+          git fetch -q --depth=1 origin "${HEAD_REF}"
+          git checkout -q -B "${HEAD_REF}" FETCH_HEAD
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/AdminDashboard.tsx')
+          text = path.read_text()
+          before = """              {[
+                ['Activos', activeOrders.length, ShoppingBag, 'text-orange-600 bg-orange-50'],
+                ['Por confirmar', orders.filter(order => order.status === 'Por Confirmar').length, Bell, 'text-red-600 bg-red-50'],
+                ['Entregados', deliveredPaid.length, CheckCircle2, 'text-green-600 bg-green-50'],
+                ['Ingresos hoy', `$${todayIncome.toFixed(2)}`, CircleDollarSign, 'text-blue-600 bg-blue-50'],
+              ].map(([label, value, Icon, tone]) => (
+"""
+          after = """              {(
+                [
+                  { label: 'Activos', value: activeOrders.length, Icon: ShoppingBag, tone: 'text-orange-600 bg-orange-50' },
+                  { label: 'Por confirmar', value: orders.filter(order => order.status === 'Por Confirmar').length, Icon: Bell, tone: 'text-red-600 bg-red-50' },
+                  { label: 'Entregados', value: deliveredPaid.length, Icon: CheckCircle2, tone: 'text-green-600 bg-green-50' },
+                  { label: 'Ingresos hoy', value: `$${todayIncome.toFixed(2)}`, Icon: CircleDollarSign, tone: 'text-blue-600 bg-blue-50' },
+                ] as const
+              ).map(({ label, value, Icon, tone }) => (
+"""
+          if before in text:
+              path.write_text(text.replace(before, after))
+          PY
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/components/AdminDashboard.tsx
+            git commit -m "fix(phase2): type summary cards"
+            git push -q origin "HEAD:${HEAD_REF}"
+          fi
           npm ci --silent
           npm run typecheck --silent
