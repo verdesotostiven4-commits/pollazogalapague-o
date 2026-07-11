@@ -1,0 +1,140 @@
+name: Fase 1 Separate Payment State
+
+on:
+  push:
+    branches:
+      - stabilization/fase-1
+    paths:
+      - .github/workflows/fase-1-separate-payment-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-payment-state:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stabilization/fase-1
+          fetch-depth: 0
+
+      - name: Separate payment from logistics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/context/AdminContext.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          old_resolver = """const resolvePaymentStatus = (
+  order: Partial<ExtendedOrder>,
+  nextStatus: ExtendedOrder['status']
+): PaymentStatus => {
+  const method = order.payment_method;
+
+  if (nextStatus === 'Cancelado') {
+    return order.payment_status === 'confirmado' ? 'confirmado' : 'rechazado';
+  }
+
+  if (method === 'efectivo') {
+    return 'contra_entrega';
+  }
+
+  if (method === 'deuna' || method === 'transferencia' || method === 'tarjeta') {
+    return CONFIRMED_STATUSES.includes(nextStatus) ? 'confirmado' : 'validando';
+  }
+
+  return CONFIRMED_STATUSES.includes(nextStatus) ? 'confirmado' : 'pendiente';
+};
+
+const shouldCountOrderNow = (
+  order: ExtendedOrder,
+  nextStatus: ExtendedOrder['status']
+) => {
+  if (order.counted_in_metrics || order.is_test_order) return false;
+
+  const method = order.payment_method;
+
+  if (method === 'efectivo') {
+    return nextStatus === 'Entregado';
+  }
+
+  if (method === 'deuna' || method === 'transferencia' || method === 'tarjeta') {
+    return CONFIRMED_STATUSES.includes(nextStatus);
+  }
+
+  return nextStatus === 'Entregado';
+};
+"""
+
+          new_resolver = """const resolvePaymentStatus = (
+  order: Partial<ExtendedOrder>
+): PaymentStatus => {
+  if (order.payment_status) {
+    return order.payment_status;
+  }
+
+  if (order.payment_method === 'efectivo' || order.payment_method === 'deuna') {
+    return 'contra_entrega';
+  }
+
+  return 'pendiente';
+};
+
+const shouldCountOrderNow = (
+  order: ExtendedOrder,
+  nextStatus: ExtendedOrder['status']
+) => {
+  if (order.counted_in_metrics || order.is_test_order) return false;
+
+  return (
+    nextStatus === 'Entregado' &&
+    order.payment_status === 'confirmado'
+  );
+};
+"""
+
+          if old_resolver not in text:
+              raise SystemExit('Payment resolver block was not found')
+          text = text.replace(old_resolver, new_resolver, 1)
+
+          old_status_block = """      const currentOrder = orders.find(order => order.id === orderId);
+      const now = new Date().toISOString();
+      const paymentStatus = resolvePaymentStatus(currentOrder || {}, status);
+
+      const patch: Partial<ExtendedOrder> = {
+        status,
+        payment_status: paymentStatus,
+        updated_at: now,
+      };
+"""
+
+          new_status_block = """      const currentOrder = orders.find(order => order.id === orderId);
+      const now = new Date().toISOString();
+      const paymentStatus = resolvePaymentStatus(currentOrder || {});
+
+      const patch: Partial<ExtendedOrder> = {
+        status,
+        updated_at: now,
+      };
+"""
+
+          if old_status_block not in text:
+              raise SystemExit('Order status update block was not found')
+          text = text.replace(old_status_block, new_status_block, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit payment separation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/context/AdminContext.tsx
+          git commit -m "fix(payments): separate payment from order status"
+          git pull --rebase origin stabilization/fase-1
+          git push origin HEAD:stabilization/fase-1
