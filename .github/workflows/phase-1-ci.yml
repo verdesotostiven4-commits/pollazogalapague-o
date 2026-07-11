@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -20,6 +20,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
+
+      - name: Remove legacy client-side panel PINs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
+        run: python .github/scripts/remove_legacy_panel_pins.py
+
+      - name: Persist panel security changes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/phase-1-stabilization-20260711'
+        run: |
+          git add src/components/AdminDashboard.tsx src/components/DeliveryDashboard.tsx
+          if git diff --cached --quiet; then
+            echo "Legacy panel PINs are already removed"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "security(panel): remove hardcoded dashboard PINs"
+            git push origin HEAD:phase-1-stabilization-20260711
+          fi
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
