@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, Home, Info, PackageSearch, RefreshCw, Search, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
+import { CalendarDays, ChevronLeft, Home, Info, PackageSearch, RefreshCw, Repeat2, Search, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import type { Category, Order, Product } from '../types';
+import { STORE_WHATSAPP } from '../utils/whatsapp';
 
 const ACTIVE_STATUSES = ['Por Confirmar', 'Recibido', 'Preparando', 'Enviado'];
 const VALID_CATEGORIES: Category[] = [
@@ -266,7 +267,7 @@ export default function SafeOrdersOverlay() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-3">
                         <button type="button" onClick={() => repeatOrder(order)} className="rounded-2xl bg-orange-50 border border-orange-100 text-orange-600 py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1"><Repeat2 size={14} /> Repetir</button>
-                        <button type="button" onClick={() => active ? setOpen(false) : window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido ${order.order_code || ''}.`)}`, '_blank')} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1"><Truck size={14} /> {active ? 'Rastrear' : 'Ayuda'}</button>
+                        <button type="button" onClick={() => active ? setOpen(false) : window.open(`https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido ${order.order_code || ''}.`)}`, '_blank')} className="rounded-2xl bg-orange-500 text-white py-3 text-[9px] font-black uppercase flex items-center justify-center gap-1"><Truck size={14} /> {active ? 'Rastrear' : 'Ayuda'}</button>
                       </div>
                     </article>
                   );

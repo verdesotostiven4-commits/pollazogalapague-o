@@ -194,8 +194,8 @@ const BANK_OPTIONS = [
 ];
 
 function tx(language: LanguageCode, key: TextKey, params?: Record<string, string | number>) {
-  const entry = TEXTS[key];
-  const base = entry[language] || entry.en || entry.es;
+  const entry = TEXTS[key] as Partial<Record<LanguageCode, string>>;
+  const base = entry[language] ?? entry.en ?? entry.es ?? '';
 
   if (!params) return base;
 
@@ -212,8 +212,8 @@ function spawnConfetti() {
   canvas.height = window.innerHeight;
   document.body.appendChild(canvas);
 
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
+  const context = canvas.getContext('2d');
+  if (!context) {
     canvas.remove();
     return;
   }
@@ -241,7 +241,7 @@ function spawnConfetti() {
   const max = 65;
 
   function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     const alpha = Math.max(0, 1 - frame / max);
 
     particles.forEach(particle => {
@@ -250,13 +250,13 @@ function spawnConfetti() {
       particle.vy += 0.25;
       particle.vx *= 0.98;
       particle.rotation += particle.rotSpeed;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = particle.color;
-      ctx.save();
-      ctx.translate(particle.x, particle.y);
-      ctx.rotate(particle.rotation);
-      ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.5);
-      ctx.restore();
+      context.globalAlpha = alpha;
+      context.fillStyle = particle.color;
+      context.save();
+      context.translate(particle.x, particle.y);
+      context.rotate(particle.rotation);
+      context.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.5);
+      context.restore();
     });
 
     frame += 1;

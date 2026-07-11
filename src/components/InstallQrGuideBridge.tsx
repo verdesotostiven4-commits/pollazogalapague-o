@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Download, Home, QrCode, Safari, Smartphone, Sparkles, X } from 'lucide-react';
+import { ChevronRight, Compass, Download, Home, QrCode, Smartphone, Sparkles, X } from 'lucide-react';
 
 const INSTALL_PATH = '/instalar';
 const LANDING_DISMISSED_KEY = 'pollazo_landing_dismissed';
@@ -118,7 +118,7 @@ export default function InstallQrGuideBridge() {
             </div>
 
             <div className="rounded-[28px] bg-yellow-50 border border-yellow-100 p-4 flex gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-white text-yellow-600 flex items-center justify-center shadow-sm flex-shrink-0">{device === 'ios' ? <Safari size={21} /> : <Download size={21} />}</div>
+              <div className="w-11 h-11 rounded-2xl bg-white text-yellow-600 flex items-center justify-center shadow-sm flex-shrink-0">{device === 'ios' ? <Compass size={21} /> : <Download size={21} />}</div>
               <div>
                 <p className="text-sm font-black text-slate-950 uppercase">2. Guárdala como app</p>
                 <p className="mt-1 text-[11px] font-bold text-slate-500 leading-relaxed">{device === 'ios' ? 'En Safari: Compartir → Agregar a pantalla de inicio.' : 'En Android: toca Instalar app si aparece el aviso.'}</p>
