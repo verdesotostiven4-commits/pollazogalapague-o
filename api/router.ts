@@ -1,3 +1,5 @@
+import { installCanonicalSupabaseEnvironment } from '../server/supabase-env.js';
+
 type ApiRequest = {
   method?: string;
   url?: string;
@@ -19,7 +21,7 @@ const handlers: Record<string, HandlerLoader> = {
   'customer-orders': () => import('../server/api-handlers/customer-orders.js'),
   'customer-session': () => import('../server/api-handlers/customer-session.js'),
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
-  'metrics': () => import('../server/api-handlers/metrics.js'),
+  metrics: () => import('../server/api-handlers/metrics.js'),
   'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
   'panel-action': () => import('../server/api-handlers/panel-action.js'),
   'panel-data': () => import('../server/api-handlers/panel-data-v2.js'),
@@ -27,7 +29,8 @@ const handlers: Record<string, HandlerLoader> = {
   'register-push': () => import('../server/api-handlers/register-push.js'),
   'request-membership': () => import('../server/api-handlers/request-membership.js'),
   'send-push': () => import('../server/api-handlers/send-push.js'),
-  'testimonials': () => import('../server/api-handlers/testimonials.js'),
+  'system-status': () => import('../server/api-handlers/system-status.js'),
+  testimonials: () => import('../server/api-handlers/testimonials.js'),
   'verify-panel-pin': () => import('../server/api-handlers/verify-panel-pin-v2.js'),
   'verify-panel-session': () => import('../server/api-handlers/verify-panel-session-v2.js'),
 };
@@ -51,6 +54,8 @@ const resolveRoute = (req: ApiRequest): string => {
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  installCanonicalSupabaseEnvironment();
+
   const route = resolveRoute(req);
   const loadHandler = handlers[route];
 
