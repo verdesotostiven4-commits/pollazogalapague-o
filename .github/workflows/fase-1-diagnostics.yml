@@ -1,6 +1,6 @@
 name: Fase 1 Diagnostics
 
-# Manual refresh marker: remaining TypeScript blockers
+# Manual refresh marker: remaining ESLint blockers
 on:
   push:
     branches:
@@ -9,6 +9,7 @@ on:
       - package.json
       - package-lock.json
       - tsconfig*.json
+      - eslint.config.js
       - src/**
       - api/**
       - .github/workflows/fase-1-diagnostics.yml
