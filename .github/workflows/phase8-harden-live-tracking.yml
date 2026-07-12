@@ -48,3 +48,5 @@ jobs:
           fi
           git commit -m "[skip ci] Endurecer GPS real y autoasignación"
           git push origin HEAD:main
+
+# Trigger intencional: validar una sola vez antes del despliegue final.
