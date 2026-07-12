@@ -36,6 +36,26 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-maps-testimonials-fix.py')
+          source = path.read_text(encoding='utf-8')
+          old = """if old_load not in login:
+              raise RuntimeError('No se encontró el evento load de LoginModal')
+          login = login.replace(old_load, new_load, 1)"""
+          new = """login, load_count = re.subn(
+              r\"    map\\.on\\('load', \\(\\) => \\{.*?\\n    \\}\\);\\n\\n    map\\.on\\('movestart'\",
+              lambda _match: new_load + \"\\n\\n    map.on('movestart'\",
+              login,
+              count=1,
+              flags=re.S,
+          )
+          if load_count != 1:
+              raise RuntimeError('No se encontró el evento load de LoginModal')"""
+          if old not in source:
+              raise SystemExit('No se encontró el bloque temporal del mapa')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
           python3 scripts/apply-maps-testimonials-fix.py 2>&1 | tee maps-testimonials-patch.log
 
       - name: Stop after patch failure
