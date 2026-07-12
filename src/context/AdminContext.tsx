@@ -12,6 +12,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { products as seedProducts, categories as seedCategories } from '../data/products';
 import { getOrderCredentials, saveOrderCredential } from '../utils/orderCredentials';
 import { runPanelAction } from '../utils/panelApi';
+import { transitionOrder } from '../utils/orderLifecycleApi';
 import type {
   AppSettings,
   Customer,
@@ -1013,23 +1014,23 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const updateOrderStatus = useCallback(
     async (orderId: string, status: ExtendedOrder['status']) => {
       const currentOrder = orders.find(order => order.id === orderId);
-      const result = await runPanelAction<{ order: ExtendedOrder }>('transition_order', {
+      const panel = window.location.pathname === '/repartidor' ? 'delivery' : 'admin';
+      const updatedOrder = (await transitionOrder(
+        panel,
         orderId,
-        status,
-      });
+        status
+      )) as ExtendedOrder;
 
-      if (result.order) {
-        setOrders(prev =>
-          prev.map(order => (order.id === orderId ? result.order : order))
+      setOrders(prev =>
+        prev.map(order => (order.id === orderId ? updatedOrder : order))
+      );
+
+      if (currentOrder) {
+        void sendOrderPushNotification(
+          updatedOrder,
+          updatedOrder.status,
+          updatedOrder.payment_status || currentOrder.payment_status || 'pendiente'
         );
-
-        if (currentOrder) {
-          void sendOrderPushNotification(
-            result.order,
-            result.order.status,
-            result.order.payment_status || currentOrder.payment_status || 'pendiente'
-          );
-        }
       }
 
       await load();
