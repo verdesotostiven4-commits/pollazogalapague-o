@@ -32,7 +32,15 @@ jobs:
           cache: npm
 
       - name: Apply map and testimonial fixes
-        run: python3 scripts/apply-maps-testimonials-fix.py
+        id: patch
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 scripts/apply-maps-testimonials-fix.py 2>&1 | tee maps-testimonials-patch.log
+
+      - name: Stop after patch failure
+        if: steps.patch.outcome == 'failure'
+        run: exit 1
 
       - name: Install exact dependencies
         run: npm ci
@@ -49,7 +57,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maps-testimonials-diagnostic
-          path: maps-testimonials-validation.log
+          path: |
+            maps-testimonials-patch.log
+            maps-testimonials-validation.log
           if-no-files-found: ignore
           retention-days: 3
 
@@ -59,7 +69,7 @@ jobs:
 
       - name: Commit verified application files
         run: |
-          rm -f maps-testimonials-validation.log
+          rm -f maps-testimonials-patch.log maps-testimonials-validation.log
           rm -f scripts/apply-maps-testimonials-fix.py
           rm -f .github/workflows/apply-maps-testimonials-fix.yml
           git config user.name "github-actions[bot]"
