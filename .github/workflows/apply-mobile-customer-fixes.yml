@@ -37,7 +37,24 @@ jobs:
           cache: npm
 
       - name: Apply mobile customer fixes
-        run: python3 scripts/apply-mobile-customer-fixes.py
+        id: patch
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 scripts/apply-mobile-customer-fixes.py 2>&1 | tee mobile-fix.log
+
+      - name: Upload patch diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-fix-diagnostic
+          path: mobile-fix.log
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Stop after patch failure
+        if: steps.patch.outcome == 'failure'
+        run: exit 1
 
       - name: Install exact dependencies
         run: npm ci
@@ -47,6 +64,7 @@ jobs:
 
       - name: Commit verified changes
         run: |
+          rm -f mobile-fix.log
           rm -f scripts/apply-mobile-customer-fixes.py
           rm -f .github/workflows/apply-mobile-customer-fixes.yml
           git config user.name "github-actions[bot]"
