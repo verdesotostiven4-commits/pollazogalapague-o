@@ -44,15 +44,6 @@ jobs:
           sed -i "s#api/\[...route\]\.ts#api/router.ts#g" scripts/apply-mobile-customer-fixes.py
           python3 scripts/apply-mobile-customer-fixes.py 2>&1 | tee mobile-fix.log
 
-      - name: Upload patch diagnostic
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-fix-diagnostic
-          path: mobile-fix.log
-          if-no-files-found: ignore
-          retention-days: 3
-
       - name: Stop after patch failure
         if: steps.patch.outcome == 'failure'
         run: exit 1
@@ -61,11 +52,30 @@ jobs:
         run: npm ci
 
       - name: Validate TypeScript, lint and production build
-        run: npm run validate
+        id: validation
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run validate 2>&1 | tee mobile-validate.log
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-customer-diagnostics
+          path: |
+            mobile-fix.log
+            mobile-validate.log
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Stop after validation failure
+        if: steps.validation.outcome == 'failure'
+        run: exit 1
 
       - name: Commit verified changes
         run: |
-          rm -f mobile-fix.log
+          rm -f mobile-fix.log mobile-validate.log
           rm -f scripts/apply-mobile-customer-fixes.py
           rm -f .github/workflows/apply-mobile-customer-fixes.yml
           git config user.name "github-actions[bot]"
