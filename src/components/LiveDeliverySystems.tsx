@@ -3,6 +3,7 @@ import { Bike, MapPinned, Smartphone, X } from 'lucide-react';
 import type { Order } from '../types';
 import { getOrderCredential } from '../utils/orderCredentials';
 import AdminDeliveryDevices from './AdminDeliveryDevices';
+import AdminProductSourceBadges from './AdminProductSourceBadges';
 import RiderAutoDispatcher from './RiderAutoDispatcher';
 import RiderRouteDock from './RiderRouteDock';
 import RiderTrackingBridge, { hasStoredDeliveryDevice } from './RiderTrackingBridge';
@@ -270,6 +271,7 @@ function CustomerTrackingMapLauncher() {
 export default function LiveDeliverySystems() {
   return (
     <>
+      <AdminProductSourceBadges />
       <AdminDeliveryLauncher />
       <DeliveryTrackingLauncher />
       <CustomerTrackingMapLauncher />
