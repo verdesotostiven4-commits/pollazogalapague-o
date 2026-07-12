@@ -12,24 +12,6 @@ export type TrackingStatus =
   | 'delivered'
   | 'cancelled';
 
-export type TrackingDevice = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  max_orders: number;
-  last_seen_at?: string | null;
-  battery_percent?: number | null;
-  online?: boolean;
-  load?: number;
-  activeOrders?: Array<{
-    id: string;
-    device_id: string;
-    order_code: string;
-    status: TrackingStatus;
-    updated_at?: string | null;
-  }>;
-};
-
 export type TrackingSession = {
   id: string;
   device_id: string;
@@ -45,6 +27,21 @@ export type TrackingSession = {
   current_accuracy_m?: number | null;
   last_captured_at?: string | null;
   updated_at?: string | null;
+};
+
+export type TrackingDevice = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  max_orders: number;
+  last_seen_at?: string | null;
+  current_lat?: number | null;
+  current_lng?: number | null;
+  current_accuracy_m?: number | null;
+  battery_percent?: number | null;
+  online?: boolean;
+  load?: number;
+  activeOrders?: TrackingSession[];
 };
 
 export type TrackingPoint = {
@@ -92,15 +89,21 @@ type ApiResult<T> = T & {
   setupRequired?: boolean;
 };
 
+type TrackingError = Error & {
+  status?: number;
+  code?: string;
+  setupRequired?: boolean;
+};
+
 const parseResponse = async <T>(response: Response): Promise<T> => {
   const payload = (await response.json().catch(() => ({}))) as ApiResult<T>;
   if (!response.ok || payload.ok === false) {
-    const error = new Error(payload.error || 'No se pudo completar la operación de rastreo.');
-    Object.assign(error, {
-      status: response.status,
-      code: payload.code,
-      setupRequired: payload.setupRequired,
-    });
+    const error = new Error(
+      payload.error || 'No se pudo completar la operación de rastreo.'
+    ) as TrackingError;
+    error.status = response.status;
+    error.code = payload.code;
+    error.setupRequired = payload.setupRequired;
     throw error;
   }
   return payload as T;
@@ -156,11 +159,26 @@ const asQueuedUpdate = (
   };
 };
 
+const permanentQueueStatuses = new Set([400, 401, 403, 404, 409, 410, 422]);
+
 const flushPendingLocations = async () => {
   if (typeof navigator === 'undefined' || !navigator.onLine) return;
-  await flushTrackingQueue(item =>
-    postTrackingRequest('update_location', item as unknown as Record<string, unknown>)
-  );
+
+  await flushTrackingQueue(async item => {
+    try {
+      await postTrackingRequest(
+        'update_location',
+        item as unknown as Record<string, unknown>
+      );
+    } catch (cause) {
+      const status = Number((cause as TrackingError)?.status || 0);
+
+      // Una sesión entregada, cancelada o eliminada no debe bloquear para siempre
+      // las ubicaciones más nuevas que estén detrás en la cola.
+      if (permanentQueueStatuses.has(status)) return;
+      throw cause;
+    }
+  });
 };
 
 export const trackingPost = async <T>(
@@ -184,7 +202,7 @@ export const trackingPost = async <T>(
       await flushPendingLocations();
       return await postTrackingRequest<T>(action, payload);
     } catch (cause) {
-      const status = Number((cause as { status?: number })?.status || 0);
+      const status = Number((cause as TrackingError)?.status || 0);
       if (!status && queuedUpdate) {
         enqueueTrackingUpdates([queuedUpdate]);
         return {
