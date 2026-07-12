@@ -4,10 +4,34 @@ import type { Order } from '../types';
 import { getOrderCredential } from '../utils/orderCredentials';
 import AdminDeliveryDevices from './AdminDeliveryDevices';
 import RiderAutoDispatcher from './RiderAutoDispatcher';
+import RiderRouteDock from './RiderRouteDock';
 import RiderTrackingBridge, { hasStoredDeliveryDevice } from './RiderTrackingBridge';
+
+const DEVICE_TOKEN_KEY = 'pollazo_delivery_device_token_v1';
 
 const normalizeCode = (value?: string | null) =>
   String(value || '').trim().toUpperCase().slice(0, 120);
+
+const captureDeliveryDeviceToken = () => {
+  if (window.location.pathname !== '/repartidor') return;
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get('device') || '').trim();
+    if (!token) return;
+
+    localStorage.setItem(DEVICE_TOKEN_KEY, token);
+    params.delete('device');
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      document.title,
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    );
+  } catch {
+    // Si el navegador no permite guardar, el panel mostrará que falta habilitar el celular.
+  }
+};
 
 function AdminDeliveryLauncher() {
   const [open, setOpen] = useState(false);
@@ -58,7 +82,10 @@ function AdminDeliveryLauncher() {
 }
 
 function DeliveryTrackingLauncher() {
-  const deviceReady = useMemo(() => hasStoredDeliveryDevice(), []);
+  const deviceReady = useMemo(() => {
+    captureDeliveryDeviceToken();
+    return hasStoredDeliveryDevice();
+  }, []);
   const [open, setOpen] = useState(deviceReady);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -151,6 +178,7 @@ function DeliveryTrackingLauncher() {
             </div>
           )}
 
+          <RiderRouteDock orders={orders} />
           <RiderTrackingBridge orders={orders} onOrdersChanged={loadOrders} />
         </section>
       </div>
