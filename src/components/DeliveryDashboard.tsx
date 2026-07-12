@@ -245,33 +245,6 @@ export default function DeliveryDashboard() {
   };
 
   useEffect(() => {
-    void refreshData();
-
-    const interval = window.setInterval(() => {
-      void refreshData();
-    }, 9000);
-
-    const handleFocus = () => {
-      void refreshData();
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshData();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [refreshData]);
-
-  useEffect(() => {
     const currentReadyIds = new Set(readyOrders.map(order => order.id));
     const seenReadyIds = readSeenReadyIds();
 
@@ -347,8 +320,6 @@ export default function DeliveryDashboard() {
           return next;
         });
       }
-
-      await refreshData();
     } catch (error) {
       console.error('No se pudo actualizar pedido:', error);
       window.alert('No se pudo actualizar el pedido.');

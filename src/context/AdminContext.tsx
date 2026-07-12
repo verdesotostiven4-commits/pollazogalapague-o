@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -482,6 +483,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [orderBonusItems, setOrderBonusItems] = useState<OrderBonusItem[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const loadInFlightRef = useRef<Promise<void> | null>(null);
 
   const products = useMemo(() => {
     const map = new Map<string, Product>();
@@ -511,9 +513,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (loadInFlightRef.current) {
+      return loadInFlightRef.current;
+    }
 
-    try {
+    const request = (async () => {
+      try {
       const path = window.location.pathname;
       const panel = path === '/admin' ? 'admin' : path === '/repartidor' ? 'delivery' : null;
       const dataResponse = await fetch(
@@ -625,11 +630,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             : []
         );
       }
-    } catch (error) {
-      console.error('❌ Error cargando datos protegidos:', error);
-    } finally {
-      setLoading(false);
-    }
+      } catch (error) {
+        console.error('❌ Error cargando datos protegidos:', error);
+      } finally {
+        setLoading(false);
+        loadInFlightRef.current = null;
+      }
+    })();
+
+    loadInFlightRef.current = request;
+    return request;
   }, []);
 
   useEffect(() => {
