@@ -6,7 +6,9 @@ import {
   Copy,
   Link2,
   LoaderCircle,
+  Minus,
   Plus,
+  Power,
   RefreshCw,
   Route,
   ShieldCheck,
@@ -28,6 +30,7 @@ type CreateResult = {
   invitePath: string;
   warning?: string;
 };
+type UpdateResult = { ok: true; device: TrackingDevice };
 
 const relativeSeen = (value?: string | null) => {
   const time = value ? new Date(value).getTime() : 0;
@@ -45,6 +48,7 @@ export default function AdminDeliveryDevices() {
   const [maxOrders, setMaxOrders] = useState(3);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [updatingId, setUpdatingId] = useState('');
   const [error, setError] = useState('');
   const [createdLink, setCreatedLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -99,6 +103,25 @@ export default function AdminDeliveryDevices() {
     }
   };
 
+  const updateDevice = async (
+    device: TrackingDevice,
+    patch: { enabled?: boolean; maxOrders?: number }
+  ) => {
+    setUpdatingId(device.id);
+    setError('');
+    try {
+      await trackingPost<UpdateResult>('update_device', {
+        deviceId: device.id,
+        ...patch,
+      });
+      await loadDevices();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo actualizar el dispositivo.');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
   const copyLink = async () => {
     if (!createdLink) return;
     try {
@@ -122,7 +145,7 @@ export default function AdminDeliveryDevices() {
               {activeCount} celular{activeCount !== 1 ? 'es' : ''} activo{activeCount !== 1 ? 's' : ''}
             </h2>
             <p className="mt-2 max-w-xl text-[11px] font-bold leading-relaxed text-white/60">
-              Crea un enlace una sola vez, ábrelo en el celular del trabajador y ese dispositivo quedará habilitado para GPS y rutas.
+              Crea un enlace una sola vez, ábrelo en el celular del trabajador y controla aquí su capacidad o disponibilidad.
             </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-orange-300">
@@ -228,23 +251,26 @@ export default function AdminDeliveryDevices() {
 
           {devices.map(device => {
             const activeOrders = device.activeOrders || [];
+            const updating = updatingId === device.id;
+            const connected = device.enabled && device.online;
+
             return (
-              <article key={device.id} className="rounded-[24px] border border-gray-100 bg-gray-50 p-4">
+              <article key={device.id} className={`rounded-[24px] border p-4 ${device.enabled ? 'border-gray-100 bg-gray-50' : 'border-gray-200 bg-gray-100 opacity-75'}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${device.online ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
-                      {device.online ? <Wifi size={20} /> : <WifiOff size={20} />}
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${connected ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
+                      {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
                     </div>
                     <div>
                       <p className="text-sm font-black uppercase text-gray-900">{device.name}</p>
                       <p className="mt-1 text-[9px] font-bold uppercase text-gray-400">
-                        {relativeSeen(device.last_seen_at)} · {device.load || 0}/{device.max_orders} pedidos
+                        {device.enabled ? relativeSeen(device.last_seen_at) : 'Deshabilitado'} · {device.load || 0}/{device.max_orders} pedidos
                       </p>
                     </div>
                   </div>
 
-                  <span className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase ${device.online ? 'border-emerald-100 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-white text-gray-400'}`}>
-                    {device.online ? 'En línea' : 'Desconectado'}
+                  <span className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase ${connected ? 'border-emerald-100 bg-emerald-50 text-emerald-600' : device.enabled ? 'border-gray-200 bg-white text-gray-400' : 'border-red-100 bg-red-50 text-red-500'}`}>
+                    {connected ? 'En línea' : device.enabled ? 'Desconectado' : 'Deshabilitado'}
                   </span>
                 </div>
 
@@ -258,14 +284,49 @@ export default function AdminDeliveryDevices() {
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white p-3">
-                    <div className="flex items-center gap-2 text-[8px] font-black uppercase text-gray-400">
-                      <Route size={13} /> Carga
+                    <div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase text-gray-400">
+                      <span className="flex items-center gap-2"><Route size={13} /> Capacidad</span>
+                      {updating && <LoaderCircle size={13} className="animate-spin text-orange-500" />}
                     </div>
-                    <p className="mt-2 text-xs font-black text-gray-800">
-                      {device.load || 0} de {device.max_orders}
-                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        disabled={updating || device.max_orders <= Math.max(1, device.load || 0)}
+                        onClick={() => void updateDevice(device, { maxOrders: device.max_orders - 1 })}
+                        className="grid h-7 w-7 place-items-center rounded-lg bg-gray-100 text-gray-600 disabled:opacity-30"
+                        aria-label={`Reducir capacidad de ${device.name}`}
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <p className="text-xs font-black text-gray-800">{device.load || 0} / {device.max_orders}</p>
+                      <button
+                        type="button"
+                        disabled={updating || device.max_orders >= 8}
+                        onClick={() => void updateDevice(device, { maxOrders: device.max_orders + 1 })}
+                        className="grid h-7 w-7 place-items-center rounded-lg bg-orange-50 text-orange-600 disabled:opacity-30"
+                        aria-label={`Aumentar capacidad de ${device.name}`}
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  disabled={updating || (device.enabled && activeOrders.length > 0)}
+                  onClick={() => void updateDevice(device, { enabled: !device.enabled })}
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[9px] font-black uppercase disabled:opacity-40 ${device.enabled ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}
+                >
+                  {updating ? <LoaderCircle size={14} className="animate-spin" /> : <Power size={14} />}
+                  {device.enabled ? 'Deshabilitar celular' : 'Habilitar celular'}
+                </button>
+
+                {device.enabled && activeOrders.length > 0 && (
+                  <p className="mt-2 text-center text-[8px] font-bold text-amber-600">
+                    Finaliza sus entregas antes de deshabilitarlo.
+                  </p>
+                )}
 
                 {activeOrders.length > 0 && (
                   <div className="mt-3 space-y-2">
