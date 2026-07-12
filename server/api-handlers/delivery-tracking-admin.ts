@@ -17,11 +17,15 @@ type ApiResponse = {
 type Body = {
   name?: string;
   maxOrders?: number;
+  deviceId?: string;
+  enabled?: boolean;
   deviceToken?: string;
   orderCode?: string;
   storeLat?: number;
   storeLng?: number;
 };
+
+const activeStatuses = ['packing', 'en_route', 'nearby', 'arrived'];
 
 export const listTrackingDevices = async (
   res: ApiResponse,
@@ -45,7 +49,7 @@ export const listTrackingDevices = async (
   const sessionsResult = await supabase
     .from('delivery_sessions')
     .select('id,device_id,order_code,status,updated_at')
-    .in('status', ['packing', 'en_route', 'nearby', 'arrived']);
+    .in('status', activeStatuses);
 
   if (sessionsResult.error) {
     if (missingTrackingSchema(sessionsResult.error)) return trackingSetupRequired(res);
@@ -117,6 +121,108 @@ export const createTrackingDevice = async (
     invitePath: `/repartidor?device=${encodeURIComponent(deviceToken)}`,
     warning: 'El enlace se muestra una sola vez.',
   });
+};
+
+export const updateTrackingDevice = async (
+  body: Body,
+  res: ApiResponse,
+  supabase: SupabaseClient
+) => {
+  const deviceId = cleanTrackingText(body.deviceId, 100);
+  if (!deviceId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Falta el dispositivo.',
+    });
+  }
+
+  const currentResult = await supabase
+    .from('delivery_devices')
+    .select('id,name,enabled,max_orders')
+    .eq('id', deviceId)
+    .maybeSingle();
+
+  if (currentResult.error) {
+    if (missingTrackingSchema(currentResult.error)) return trackingSetupRequired(res);
+    return res.status(500).json({
+      ok: false,
+      error: 'No se pudo consultar el dispositivo.',
+    });
+  }
+
+  if (!currentResult.data) {
+    return res.status(404).json({
+      ok: false,
+      error: 'Dispositivo no encontrado.',
+    });
+  }
+
+  const activeResult = await supabase
+    .from('delivery_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('device_id', deviceId)
+    .in('status', activeStatuses);
+
+  if (activeResult.error) {
+    if (missingTrackingSchema(activeResult.error)) return trackingSetupRequired(res);
+    return res.status(500).json({
+      ok: false,
+      error: 'No se pudo revisar la carga del dispositivo.',
+    });
+  }
+
+  const activeCount = activeResult.count || 0;
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (typeof body.enabled === 'boolean') {
+    if (!body.enabled && activeCount > 0) {
+      return res.status(409).json({
+        ok: false,
+        error: 'Primero finaliza las entregas activas antes de deshabilitar este celular.',
+      });
+    }
+    patch.enabled = body.enabled;
+  }
+
+  if (body.maxOrders !== undefined) {
+    const nextMax = Math.max(1, Math.min(8, Math.round(Number(body.maxOrders) || 1)));
+    if (nextMax < activeCount) {
+      return res.status(409).json({
+        ok: false,
+        error: `Este celular ya tiene ${activeCount} entregas activas.`,
+      });
+    }
+    patch.max_orders = nextMax;
+  }
+
+  if (body.name !== undefined) {
+    const nextName = cleanTrackingText(body.name, 100);
+    if (!nextName) {
+      return res.status(400).json({
+        ok: false,
+        error: 'El nombre del dispositivo no puede quedar vacío.',
+      });
+    }
+    patch.name = nextName;
+  }
+
+  const update = await supabase
+    .from('delivery_devices')
+    .update(patch)
+    .eq('id', deviceId)
+    .select('id,name,enabled,max_orders,last_seen_at,battery_percent,updated_at')
+    .single();
+
+  if (update.error) {
+    return res.status(500).json({
+      ok: false,
+      error: 'No se pudo actualizar el dispositivo.',
+    });
+  }
+
+  return res.status(200).json({ ok: true, device: update.data });
 };
 
 export const startTrackingSession = async (
@@ -197,7 +303,7 @@ export const startTrackingSession = async (
     .from('delivery_sessions')
     .select('id', { count: 'exact', head: true })
     .eq('device_id', lookup.device.id)
-    .in('status', ['packing', 'en_route', 'nearby', 'arrived']);
+    .in('status', activeStatuses);
 
   if (activeCount.error) {
     if (missingTrackingSchema(activeCount.error)) return trackingSetupRequired(res);
