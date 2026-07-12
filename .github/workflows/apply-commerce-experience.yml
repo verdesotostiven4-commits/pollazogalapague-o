@@ -42,10 +42,28 @@ jobs:
         run: npm ci
 
       - name: Validate TypeScript, security, lint and production build
-        run: npm run validate
+        id: validation
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run validate 2>&1 | tee commerce-validation.log
+
+      - name: Upload validation diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: commerce-validation-diagnostic
+          path: commerce-validation.log
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Stop after validation failure
+        if: steps.validation.outcome == 'failure'
+        run: exit 1
 
       - name: Commit verified application
         run: |
+          rm -f commerce-validation.log
           rm -f scripts/apply-commerce-experience.py
           rm -f scripts/fix-commerce-experience-output.py
           rm -f .github/workflows/apply-commerce-experience.yml
