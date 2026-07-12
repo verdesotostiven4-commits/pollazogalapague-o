@@ -43,6 +43,16 @@ jobs:
           set -o pipefail
           sed -i "s#api/\[...route\]\.ts#api/router.ts#g" scripts/apply-mobile-customer-fixes.py
           python3 scripts/apply-mobile-customer-fixes.py 2>&1 | tee mobile-fix.log
+          sed -i "s/attributionControl: true,/attributionControl: { compact: true },/" src/components/LoginModal.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/components/Testimonials.tsx')
+          source = path.read_text(encoding='utf-8')
+          anchor = "  PartyPopper,\n  ChevronDown,"
+          if anchor not in source:
+              raise SystemExit('No se encontró el import para MessageCircle')
+          path.write_text(source.replace(anchor, "  PartyPopper,\n  MessageCircle,\n  ChevronDown,", 1), encoding='utf-8')
+          PY
 
       - name: Stop after patch failure
         if: steps.patch.outcome == 'failure'
