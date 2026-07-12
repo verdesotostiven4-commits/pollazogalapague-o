@@ -9,6 +9,14 @@ on:
       - src/components/InteractiveRasterMap.tsx
       - src/components/OrderTrackingLiveMap.tsx
       - .github/workflows/apply-interactive-map-tracking-fix.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/apply-interactive-map-tracking-fix.py
+      - src/components/InteractiveRasterMap.tsx
+      - src/components/OrderTrackingLiveMap.tsx
+      - .github/workflows/apply-interactive-map-tracking-fix.yml
 
 permissions:
   contents: write
