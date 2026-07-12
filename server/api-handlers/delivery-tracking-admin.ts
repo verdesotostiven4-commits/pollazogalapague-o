@@ -48,7 +48,9 @@ export const listTrackingDevices = async (
 
   const sessionsResult = await supabase
     .from('delivery_sessions')
-    .select('id,device_id,order_code,status,updated_at')
+    .select(
+      'id,device_id,order_code,status,store_lat,store_lng,customer_lat,customer_lng,customer_reference,current_lat,current_lng,current_accuracy_m,last_captured_at,updated_at'
+    )
     .in('status', activeStatuses);
 
   if (sessionsResult.error) {
