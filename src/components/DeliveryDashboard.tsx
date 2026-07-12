@@ -322,7 +322,9 @@ export default function DeliveryDashboard() {
       }
     } catch (error) {
       console.error('No se pudo actualizar pedido:', error);
-      window.alert('No se pudo actualizar el pedido.');
+      window.alert(
+        error instanceof Error ? error.message : 'No se pudo actualizar el pedido.'
+      );
     }
   };
 
