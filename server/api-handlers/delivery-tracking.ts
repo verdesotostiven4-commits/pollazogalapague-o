@@ -8,6 +8,7 @@ import {
   createTrackingDevice,
   listTrackingDevices,
   startTrackingSession,
+  updateTrackingDevice,
 } from './delivery-tracking-admin.js';
 import {
   completeTrackingSession,
@@ -117,10 +118,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return completeTrackingSession(body, res, supabase);
   }
 
-  const allowedPanels =
-    action === 'create_device'
-      ? (['admin'] as const)
-      : (['admin', 'delivery'] as const);
+  const adminOnly = action === 'create_device' || action === 'update_device';
+  const allowedPanels = adminOnly
+    ? (['admin'] as const)
+    : (['admin', 'delivery'] as const);
   const panel = await ensureTrackingPanel(req.headers, [...allowedPanels]);
 
   if (!panel) {
@@ -136,6 +137,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (action === 'create_device') {
     return createTrackingDevice(body, res, supabase);
+  }
+
+  if (action === 'update_device') {
+    return updateTrackingDevice(body, res, supabase);
   }
 
   if (action === 'start_session') {
