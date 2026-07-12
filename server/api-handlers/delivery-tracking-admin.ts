@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDeliveryDeviceByToken } from '../delivery-tracking-auth.js';
+import { sendDeliveryTrackingPush } from '../delivery-tracking-push.js';
 import {
   cleanTrackingText,
   createTrackingToken,
@@ -367,6 +368,8 @@ export const startTrackingSession = async (
     .from('delivery_devices')
     .update({ last_seen_at: now, updated_at: now })
     .eq('id', lookup.device.id);
+
+  void sendDeliveryTrackingPush(supabase, orderCode, 'assigned');
 
   return res.status(201).json({
     ok: true,

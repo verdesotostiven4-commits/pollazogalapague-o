@@ -19,7 +19,7 @@ import { useUser } from '../context/UserContext';
 import ProductCard from './ProductCard';
 import AnnouncementBanner from './AnnouncementBanner';
 import { WHATSAPP } from '../utils/whatsapp';
-import { Category, Screen } from '../types';
+import type { Category, Order, Screen } from '../types';
 
 interface Props {
   onNavigate: (s: Screen) => void;
@@ -111,8 +111,8 @@ function triggerLightHaptic() {
 }
 
 export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) {
-  const { customerName } = useUser();
-  const { products } = useAdmin();
+  const { customerName, customerPhone } = useUser();
+  const { products, orders } = useAdmin();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [logoAnimIndex, setLogoAnimIndex] = useState(0);
@@ -123,6 +123,34 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
 
   const cleanCustomerName = customerName?.trim();
   const hasCustomerName = Boolean(cleanCustomerName);
+
+  const reorderProducts = useMemo(() => {
+    const phone = String(customerPhone || '').replace(/\D/g, '').slice(-9);
+    if (!phone) return [];
+
+    const recent = ((orders || []) as Order[])
+      .filter(order => String(order.customer_phone || '').replace(/\D/g, '').slice(-9) === phone)
+      .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+      .slice(0, 4);
+    const ids = new Set<string>();
+    const names = new Set<string>();
+
+    recent.forEach(order => {
+      (order.items || []).forEach(item => {
+        if (item.product_id) ids.add(String(item.product_id));
+        if (item.name) names.add(String(item.name).trim().toLowerCase());
+      });
+    });
+
+    return products
+      .filter(product => ids.has(product.id) || names.has(product.name.trim().toLowerCase()))
+      .slice(0, 6);
+  }, [customerPhone, orders, products]);
+
+  const promotionProducts = useMemo(() => {
+    const tagged = products.filter(product => /oferta|promo|off|descuento/i.test(String(product.badge || '')));
+    return (tagged.length > 0 ? tagged : products.filter(product => product.available !== false)).slice(0, 6);
+  }, [products]);
 
   const bestsellers = useMemo(() => {
     const selected = products.filter(product => BESTSELLER_IDS.includes(product.id));
@@ -391,6 +419,44 @@ export default function HomeScreen({ onNavigate, onNavigateToCategory }: Props) 
           </div>
         </div>
       </div>
+
+      {reorderProducts.length > 0 && (
+        <section className="px-6 py-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">Para ti</p>
+              <h3 className="mt-1 text-xl font-black uppercase italic text-slate-950">Vuelve a comprar</h3>
+            </div>
+            <button type="button" onClick={() => onNavigate('orders')} className="rounded-full bg-orange-50 px-3 py-2 text-[9px] font-black uppercase text-orange-600 active:scale-95">Tus pedidos</button>
+          </div>
+          <div className="flex snap-x gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {reorderProducts.map(product => (
+              <div key={`reorder-${product.id}`} className="min-w-[46%] snap-start">
+                <ProductCard product={product} compact />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {promotionProducts.length > 0 && (
+        <section className="px-6 py-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-green-600">Descubre algo nuevo</p>
+              <h3 className="mt-1 text-xl font-black uppercase italic text-slate-950">Promociones de hoy</h3>
+            </div>
+            <button type="button" onClick={() => onNavigate('catalog')} className="rounded-full bg-green-50 px-3 py-2 text-[9px] font-black uppercase text-green-700 active:scale-95">Ver todo</button>
+          </div>
+          <div className="flex snap-x gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {promotionProducts.map(product => (
+              <div key={`promo-${product.id}`} className="min-w-[46%] snap-start">
+                <ProductCard product={product} compact />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {pairs.length > 0 && (
         <div className="px-6 py-6">

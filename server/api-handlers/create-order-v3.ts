@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { products as seedProducts } from '../../src/data/products.js';
+import {
+  calculateOrderPricing,
+  isInsidePuertoAyora,
+  MIN_ORDER_SUBTOTAL,
+} from '../../src/utils/commerce.js';
 
 type ApiRequest = {
   method?: string;
@@ -11,7 +16,7 @@ type ApiResponse = {
   setHeader: (name: string, value: string | string[]) => void;
 };
 
-type PaymentMethod = 'efectivo' | 'deuna';
+type PaymentMethod = 'efectivo' | 'transferencia';
 type DeliveryType = 'domicilio' | 'retiro';
 
 type InputItem = {
@@ -52,13 +57,6 @@ type OverrideRow = {
   available?: boolean | null;
 };
 
-type MembershipRow = {
-  id: string;
-  customer_phone: string;
-  plan_name?: string | null;
-  status: string;
-  expires_at?: string | null;
-};
 
 type DatabaseError = {
   code?: string | null;
@@ -67,9 +65,6 @@ type DatabaseError = {
   hint?: string | null;
 };
 
-const MIN_DELIVERY_ORDER = 5;
-const FIRST_DELIVERY_FREE_MIN = 10;
-const PLUS_FREE_DELIVERY_MIN = 8;
 const MAX_ITEMS = 80;
 const MAX_QUANTITY = 100;
 const MAX_VARIABLE_PRICE = 500;
@@ -128,8 +123,8 @@ const normalizePaymentMethod = (value: unknown): PaymentMethod | '' => {
     return 'efectivo';
   }
 
-  if (clean === 'deuna' || clean === 'de una') {
-    return 'deuna';
+  if (clean === 'transferencia' || clean === 'transfer') {
+    return 'transferencia';
   }
 
   return '';
@@ -243,24 +238,6 @@ const findProduct = (candidateId: string, products: ProductRow[]) =>
     )
     .sort((a, b) => b.id.length - a.id.length)[0] || null;
 
-const activeMembership = (
-  memberships: MembershipRow[],
-  customerPhone: string
-) => {
-  const tail = phoneTail(customerPhone);
-  const now = Date.now();
-
-  return (
-    memberships.find(membership => {
-      if (phoneTail(membership.customer_phone) !== tail) return false;
-      if (membership.status !== 'active') return false;
-      if (!membership.expires_at) return true;
-
-      const expires = new Date(membership.expires_at).getTime();
-      return Number.isFinite(expires) && expires > now;
-    }) || null
-  );
-};
 
 const seedCatalog = (): ProductRow[] =>
   seedProducts.map(source => {
@@ -480,7 +457,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (!paymentMethod) {
     return res.status(400).json({
       ok: false,
-      error: 'Selecciona efectivo o DeUna al recibir.',
+      error: 'Selecciona efectivo o transferencia.',
       code: 'INVALID_PAYMENT_METHOD',
     });
   }
@@ -507,6 +484,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         ok: false,
         error: 'La ubicación de entrega no es válida.',
         code: 'INVALID_DELIVERY_COORDINATES',
+      });
+    }
+
+    if (!isInsidePuertoAyora(lat, lng)) {
+      return res.status(409).json({
+        ok: false,
+        error: 'La entrega debe estar dentro de Puerto Ayora.',
+        code: 'OUTSIDE_DELIVERY_ZONE',
       });
     }
   }
@@ -562,16 +547,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
-  const [productsResult, overridesResult, membershipsResult] =
-    await Promise.all([
-      loadRemoteProducts(supabase),
-      supabase.from('product_overrides').select('id,price,available'),
-      supabase
-        .from('customer_memberships')
-        .select('id,customer_phone,plan_name,status,expires_at')
-        .eq('status', 'active')
-        .limit(100),
-    ]);
+  const [productsResult, overridesResult] = await Promise.all([
+    loadRemoteProducts(supabase),
+    supabase.from('product_overrides').select('id,price,available'),
+  ]);
 
   if (productsResult.error && seedProducts.length === 0) {
     console.error('Order catalog query failed:', productsResult.error);
@@ -590,9 +569,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       row,
     ])
   );
-  const memberships = membershipsResult.error
-    ? []
-    : ((membershipsResult.data || []) as MembershipRow[]);
 
   const orderItems: Array<Record<string, unknown>> = [];
   let subtotal = 0;
@@ -689,45 +665,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   }
 
-  const membership = activeMembership(memberships, customerPhone);
-
-  if (deliveryType === 'domicilio') {
-    const minimum = membership
-      ? PLUS_FREE_DELIVERY_MIN
-      : MIN_DELIVERY_ORDER;
-
-    if (subtotal < minimum) {
-      return res.status(409).json({
-        ok: false,
-        error: `El pedido mínimo para domicilio es $${minimum.toFixed(2)}.`,
-        code: 'MINIMUM_ORDER_NOT_REACHED',
-        minimumOrder: minimum,
-      });
-    }
+  if (deliveryType === 'domicilio' && subtotal < MIN_ORDER_SUBTOTAL) {
+    return res.status(409).json({
+      ok: false,
+      error: `La compra mínima es $${MIN_ORDER_SUBTOTAL.toFixed(2)}.`,
+      code: 'MINIMUM_ORDER_NOT_REACHED',
+      minimumOrder: MIN_ORDER_SUBTOTAL,
+    });
   }
 
-  const previousOrders = await supabase
-    .from('orders')
-    .select('id')
-    .eq('customer_phone', customerPhone)
-    .neq('status', 'Cancelado')
-    .limit(1);
-
-  const firstValidOrder =
-    !previousOrders.error && (previousOrders.data || []).length === 0;
-  let deliveryFee = 0;
-
-  if (deliveryType === 'domicilio' && !membership) {
-    if (firstValidOrder && subtotal >= FIRST_DELIVERY_FREE_MIN) {
-      deliveryFee = 0;
-    } else if (subtotal < 8) {
-      deliveryFee = 2;
-    } else {
-      deliveryFee = 1.5;
-    }
-  }
-
-  const total = Number((subtotal + deliveryFee).toFixed(2));
+  const pricing = calculateOrderPricing({
+    subtotal,
+    customerLat: lat,
+    customerLng: lng,
+  });
+  const deliveryFeeOriginal = deliveryType === 'domicilio' ? pricing.deliveryFeeOriginal : 0;
+  const deliveryFee = deliveryType === 'domicilio' ? pricing.deliveryFeeFinal : 0;
+  const smallOrderFee = deliveryType === 'domicilio' ? pricing.smallOrderFee : 0;
+  const total = Number((subtotal + deliveryFee + smallOrderFee).toFixed(2));
   const now = new Date().toISOString();
 
   let customerId: string | null = null;
@@ -782,26 +737,26 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     idempotency_key: idempotencyKey,
     tracking_token_hash: trackingTokenHash,
     customer_id: customerId,
-    delivery_fee_original: deliveryFee,
+    delivery_fee_original: deliveryFeeOriginal,
     delivery_fee_final: deliveryFee,
-    service_fee: 0,
+    service_fee: smallOrderFee,
     card_fee: 0,
-    membership_applied: Boolean(membership),
-    membership_id: membership?.id || null,
-    membership_plan: membership?.plan_name || null,
+    membership_applied: false,
+    membership_id: null,
+    membership_plan: null,
     counted_in_metrics: false,
     is_test_order: false,
   };
 
   const compatiblePayload = {
     ...commonPayload,
-    delivery_fee_original: deliveryFee,
+    delivery_fee_original: deliveryFeeOriginal,
     delivery_fee_final: deliveryFee,
-    service_fee: 0,
+    service_fee: smallOrderFee,
     card_fee: 0,
-    membership_applied: Boolean(membership),
-    membership_id: membership?.id || null,
-    membership_plan: membership?.plan_name || null,
+    membership_applied: false,
+    membership_id: null,
+    membership_plan: null,
     counted_in_metrics: false,
     is_test_order: false,
   };

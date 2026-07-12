@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDeliveryDeviceByToken } from '../delivery-tracking-auth.js';
+import { sendDeliveryTrackingPush } from '../delivery-tracking-push.js';
 import {
   TRACKING_LIMITS,
   cleanTrackingText,
@@ -361,6 +362,14 @@ export const updateTrackingLocation = async (
       .from('orders')
       .update({ status: 'Enviado', updated_at: now })
       .eq('order_code', session.order_code);
+  }
+
+  if (transitioned && nextStatus === 'nearby') {
+    void sendDeliveryTrackingPush(supabase, session.order_code, 'nearby');
+  }
+
+  if (transitioned && nextStatus === 'arrived') {
+    void sendDeliveryTrackingPush(supabase, session.order_code, 'arrived');
   }
 
   return res.status(200).json({

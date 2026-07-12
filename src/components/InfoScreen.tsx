@@ -37,7 +37,6 @@ import {
 import Testimonials from './Testimonials';
 import LiveMetrics from './LiveMetrics';
 import LegalModal from './LegalModal';
-import PollazoPlusProCard from './PollazoPlusProCard';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -305,11 +304,7 @@ function TeamCarousel() {
   );
 }
 
-function InfoHero({
-  onNavigate,
-}: {
-  onNavigate: (screen: Screen) => void;
-}) {
+function InfoHero() {
   const { t } = useLanguage();
 
   return (
@@ -346,9 +341,6 @@ function InfoHero({
         </div>
       </div>
 
-      <div className="relative px-3 pb-3 pt-1">
-        <PollazoPlusProCard onNavigate={onNavigate} />
-      </div>
     </section>
   );
 }
@@ -458,7 +450,6 @@ function CustomerAccountCard() {
     customerName,
     customerPhone,
     customerAvatar,
-    hasPollazoPlus,
   } = useUser();
 
   const { t } = useLanguage();
@@ -543,7 +534,7 @@ function CustomerAccountCard() {
             />
 
             <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg border-2 border-white shadow-sm">
-              {hasPollazoPlus ? '👑' : level.emoji}
+              {level.emoji}
             </div>
           </div>
 
@@ -557,7 +548,6 @@ function CustomerAccountCard() {
             </h3>
 
             <p className="text-[10px] font-bold text-gray-500 mt-1">
-              {hasPollazoPlus ? 'Pollazo Plus activo · ' : ''}
               Nivel {level.level} · {level.title}
             </p>
           </div>
@@ -1313,7 +1303,7 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
   return (
     <div className="bg-gradient-to-b from-orange-50/65 via-white to-white px-4 py-5 space-y-4 min-h-full pb-24">
-      <InfoHero onNavigate={onNavigate} />
+      <InfoHero />
 
       <LiveMetrics />
 
