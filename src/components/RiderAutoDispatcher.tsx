@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LoaderCircle, Pause, Play, Store, Zap } from 'lucide-react';
+import { Loader2, Pause, Play, Store, Zap } from 'lucide-react';
 import type { Order } from '../types';
 import {
   trackingPost,
@@ -257,7 +257,7 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
       aria-label={enabled ? 'Pausar asignación automática' : 'Activar asignación automática'}
     >
       {working ? (
-        <LoaderCircle size={15} className="animate-spin" />
+        <Loader2 size={15} className="animate-spin" />
       ) : !enabled ? (
         <Pause size={15} />
       ) : nearStore === false ? (

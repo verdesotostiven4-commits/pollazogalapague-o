@@ -754,7 +754,7 @@ export default function CascadaCatalogPortal() {
                     onChange={event => handleCategory(event.target.value as Category)}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black outline-none focus:border-red-400"
                   >
-                    {(categories as Category[]).map(category => (
+                    {categories.map(category => (
                       <option key={category} value={category}>
                         {category}
                       </option>

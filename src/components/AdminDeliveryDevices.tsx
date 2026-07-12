@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   Copy,
   Link2,
-  LoaderCircle,
+  Loader2,
   Minus,
   Plus,
   Power,
@@ -189,7 +189,7 @@ export default function AdminDeliveryDevices() {
             disabled={creating}
             className="self-end rounded-2xl bg-orange-500 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-orange-100 disabled:opacity-50"
           >
-            {creating ? <LoaderCircle className="mx-auto animate-spin" size={17} /> : 'Crear enlace'}
+            {creating ? <Loader2 className="mx-auto animate-spin" size={17} /> : 'Crear enlace'}
           </button>
         </div>
 
@@ -286,7 +286,7 @@ export default function AdminDeliveryDevices() {
                   <div className="rounded-2xl bg-white p-3">
                     <div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase text-gray-400">
                       <span className="flex items-center gap-2"><Route size={13} /> Capacidad</span>
-                      {updating && <LoaderCircle size={13} className="animate-spin text-orange-500" />}
+                      {updating && <Loader2 size={13} className="animate-spin text-orange-500" />}
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <button
@@ -318,7 +318,7 @@ export default function AdminDeliveryDevices() {
                   onClick={() => void updateDevice(device, { enabled: !device.enabled })}
                   className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[9px] font-black uppercase disabled:opacity-40 ${device.enabled ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}
                 >
-                  {updating ? <LoaderCircle size={14} className="animate-spin" /> : <Power size={14} />}
+                  {updating ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
                   {device.enabled ? 'Deshabilitar celular' : 'Habilitar celular'}
                 </button>
 

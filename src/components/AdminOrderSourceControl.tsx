@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, LoaderCircle, PackageSearch, RefreshCw, Store } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Loader2, PackageSearch, RefreshCw, Store } from 'lucide-react';
 import type { Order, OrderItem } from '../types';
 
 type Source = 'mirador' | 'cascada';
@@ -178,7 +178,7 @@ export default function AdminOrderSourceControl() {
                   {latest?.reason && <p className="mt-2 rounded-xl bg-white px-3 py-2 text-[8px] font-bold text-gray-500">Motivo: {latest.reason}</p>}
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {(['mirador', 'cascada'] as Source[]).map(source => <button key={source} type="button" disabled={busy} onClick={() => void record(order, item, source)} className={`flex items-center justify-center gap-1 rounded-xl px-3 py-2 text-[8px] font-black uppercase disabled:opacity-40 ${source === 'cascada' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {busy ? <LoaderCircle size={12} className="animate-spin" /> : <Store size={12} />}{labelOf(source)}
+                      {busy ? <Loader2 size={12} className="animate-spin" /> : <Store size={12} />}{labelOf(source)}
                     </button>)}
                   </div>
                 </div>;

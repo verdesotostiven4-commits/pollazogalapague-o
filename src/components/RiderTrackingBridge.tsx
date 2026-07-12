@@ -5,7 +5,7 @@ import {
   Bike,
   CheckCircle2,
   Crosshair,
-  LoaderCircle,
+  Loader2,
   LocateFixed,
   MapPin,
   Navigation,
@@ -510,7 +510,7 @@ export default function RiderTrackingBridge({ orders, onOrdersChanged }: Props) 
                   disabled={savingStore}
                   className="mt-3 flex items-center gap-2 rounded-xl bg-orange-500 px-3 py-2 text-[9px] font-black uppercase text-white disabled:opacity-50"
                 >
-                  {savingStore ? <LoaderCircle size={14} className="animate-spin" /> : <LocateFixed size={14} />}
+                  {savingStore ? <Loader2 size={14} className="animate-spin" /> : <LocateFixed size={14} />}
                   Guardar El Mirador aquí
                 </button>
               </div>
@@ -573,7 +573,7 @@ export default function RiderTrackingBridge({ orders, onOrdersChanged }: Props) 
                       disabled={completingId === session.id}
                       className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-[8px] font-black uppercase text-white disabled:opacity-50"
                     >
-                      {completingId === session.id ? <LoaderCircle size={13} className="animate-spin" /> : <PackageCheck size={13} />}
+                      {completingId === session.id ? <Loader2 size={13} className="animate-spin" /> : <PackageCheck size={13} />}
                       Entregado
                     </button>
                   ) : (
@@ -604,7 +604,7 @@ export default function RiderTrackingBridge({ orders, onOrdersChanged }: Props) 
                     disabled={!storePoint || startingCode === order.order_code}
                     className="flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-[8px] font-black uppercase text-white disabled:opacity-40"
                   >
-                    {startingCode === order.order_code ? <LoaderCircle size={13} className="animate-spin" /> : <Navigation size={13} />}
+                    {startingCode === order.order_code ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
                     Iniciar GPS
                   </button>
                 </div>

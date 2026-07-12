@@ -142,7 +142,7 @@ export const resolveSupabaseEnvironment = (): SupabaseEnvironmentStatus => {
   let selectedKeyKind: SupabaseEnvironmentStatus['selectedKeyKind'] =
     serverKeyUsable ? 'server' : publicKey ? 'public' : 'none';
 
-  let selectedUrl =
+  const selectedUrl =
     (selectedKeyKind === 'server' ? serverUrl : publicUrl) ||
     publicUrl ||
     serverUrl ||

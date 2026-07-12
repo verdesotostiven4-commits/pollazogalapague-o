@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
-  LoaderCircle,
+  Loader2,
   LocateFixed,
   MapPin,
   Navigation,
@@ -440,7 +440,7 @@ export default function RiderRouteDock({ orders }: Props) {
                 className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-red-600 shadow-sm disabled:opacity-50"
               >
                 {savingCascada ? (
-                  <LoaderCircle size={13} className="animate-spin" />
+                  <Loader2 size={13} className="animate-spin" />
                 ) : (
                   <LocateFixed size={13} />
                 )}
@@ -511,7 +511,7 @@ export default function RiderRouteDock({ orders }: Props) {
 
         {loading && routeOrders.length === 0 && (
           <div className="flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase text-gray-400">
-            <LoaderCircle size={15} className="animate-spin" />
+            <Loader2 size={15} className="animate-spin" />
             Preparando rutas
           </div>
         )}
