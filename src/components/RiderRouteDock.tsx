@@ -63,12 +63,54 @@ const readCascadaPoint = (): MapPoint | null => {
   }
 };
 
-const coordinateOf = (order: Order) => {
+const coordinateOf = (order: Order): MapPoint | null => {
   const latitude = Number(order.lat);
   const longitude = Number(order.lng);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
   return { latitude, longitude };
+};
+
+const distanceMeters = (a: MapPoint, b: MapPoint) => {
+  const radius = 6_371_000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+  const deltaLat = toRadians(b.latitude - a.latitude);
+  const deltaLng = toRadians(b.longitude - a.longitude);
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 2 * radius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const optimizeOrders = (source: Order[], start: MapPoint | null) => {
+  if (!start || source.length <= 1) return [...source];
+
+  const remaining = [...source];
+  const optimized: Order[] = [];
+  let cursor = start;
+
+  while (remaining.length > 0) {
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    remaining.forEach((order, index) => {
+      const point = coordinateOf(order);
+      if (!point) return;
+      const distance = distanceMeters(cursor, point);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+
+    const [next] = remaining.splice(nearestIndex, 1);
+    optimized.push(next);
+    cursor = coordinateOf(next) || cursor;
+  }
+
+  return optimized;
 };
 
 const itemProductId = (item: OrderItem) =>
@@ -87,7 +129,7 @@ const mapsRouteUrl = (
     .filter(
       (entry): entry is {
         order: Order;
-        point: { latitude: number; longitude: number };
+        point: MapPoint;
       } => Boolean(entry.point)
     );
 
@@ -187,6 +229,32 @@ export default function RiderRouteDock({ orders }: Props) {
       );
   }, [device?.activeOrders, orders]);
 
+  const totalCascadaItems = assignedOrders.reduce(
+    (total, order) => total + cascadaItems(order).length,
+    0
+  );
+  const routeNeedsCascada = totalCascadaItems > 0;
+
+  const routeOrders = useMemo(() => {
+    const devicePoint =
+      typeof device?.current_lat === 'number' &&
+      typeof device?.current_lng === 'number'
+        ? {
+            latitude: device.current_lat,
+            longitude: device.current_lng,
+          }
+        : null;
+
+    const start = routeNeedsCascada && cascadaPoint ? cascadaPoint : devicePoint;
+    return optimizeOrders(assignedOrders, start);
+  }, [
+    assignedOrders,
+    cascadaPoint,
+    device?.current_lat,
+    device?.current_lng,
+    routeNeedsCascada,
+  ]);
+
   const saveCascadaHere = () => {
     if (!window.confirm('¿Estás físicamente en La Cascada y deseas guardar este punto?')) {
       return;
@@ -238,15 +306,9 @@ export default function RiderRouteDock({ orders }: Props) {
 
   if (!readToken()) return null;
 
-  if (assignedOrders.length === 0 && !error) {
+  if (routeOrders.length === 0 && !error) {
     return null;
   }
-
-  const totalCascadaItems = assignedOrders.reduce(
-    (total, order) => total + cascadaItems(order).length,
-    0
-  );
-  const routeNeedsCascada = totalCascadaItems > 0;
 
   return (
     <section className="mb-4 overflow-hidden rounded-[28px] border border-violet-100 bg-white shadow-sm">
@@ -256,9 +318,9 @@ export default function RiderRouteDock({ orders }: Props) {
             <Route size={22} />
           </div>
           <div>
-            <p className="text-xs font-black uppercase italic">Ruta del repartidor</p>
+            <p className="text-xs font-black uppercase italic">Ruta optimizada</p>
             <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-white/55">
-              {assignedOrders.length} entrega{assignedOrders.length !== 1 ? 's' : ''} asignada{assignedOrders.length !== 1 ? 's' : ''}
+              {routeOrders.length} entrega{routeOrders.length !== 1 ? 's' : ''} ordenada{routeOrders.length !== 1 ? 's' : ''} por cercanía
             </p>
           </div>
         </div>
@@ -292,7 +354,7 @@ export default function RiderRouteDock({ orders }: Props) {
           <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-red-700">
             <Store size={18} className="mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-[9px] font-black uppercase">Parada interna: La Cascada</p>
+              <p className="text-[9px] font-black uppercase">Primera parada interna: La Cascada</p>
               <p className="mt-1 text-[9px] font-bold leading-relaxed text-red-700/70">
                 Hay {totalCascadaItems} producto{totalCascadaItems !== 1 ? 's' : ''} de La Cascada. Esta parada solo la ve el equipo.
               </p>
@@ -313,11 +375,11 @@ export default function RiderRouteDock({ orders }: Props) {
           </div>
         )}
 
-        {assignedOrders.length > 1 && (
+        {routeOrders.length > 1 && (
           <button
             type="button"
             onClick={() =>
-              openMaps(assignedOrders, cascadaPoint, routeNeedsCascada)
+              openMaps(routeOrders, cascadaPoint, routeNeedsCascada)
             }
             disabled={routeNeedsCascada && !cascadaPoint}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-violet-100 active:scale-[0.99] disabled:opacity-40"
@@ -330,7 +392,7 @@ export default function RiderRouteDock({ orders }: Props) {
         )}
 
         <div className="space-y-2">
-          {assignedOrders.map(order => {
+          {routeOrders.map((order, index) => {
             const sourceItems = cascadaItems(order);
             const needsCascada = sourceItems.length > 0;
             return (
@@ -340,6 +402,9 @@ export default function RiderRouteDock({ orders }: Props) {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-violet-100 text-[9px] font-black text-violet-700">
+                      {index + 1}
+                    </span>
                     <p className="text-[10px] font-black uppercase text-gray-900">
                       {order.order_code}
                     </p>
@@ -369,7 +434,7 @@ export default function RiderRouteDock({ orders }: Props) {
           })}
         </div>
 
-        {loading && assignedOrders.length === 0 && (
+        {loading && routeOrders.length === 0 && (
           <div className="flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase text-gray-400">
             <LoaderCircle size={15} className="animate-spin" />
             Preparando rutas
