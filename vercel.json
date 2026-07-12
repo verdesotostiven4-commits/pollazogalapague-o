@@ -88,6 +88,14 @@
       "destination": "/cascada.html"
     },
     {
+      "source": "/logistica-lab",
+      "destination": "/logistica-lab.html"
+    },
+    {
+      "source": "/logistica-lab/",
+      "destination": "/logistica-lab.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
