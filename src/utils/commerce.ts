@@ -206,6 +206,7 @@ export const estimateArrivalWindow = ({
   totalUnits = 1,
   queueDepth = 0,
   now = new Date(),
+  anchor = null,
 }: {
   status?: OrderStatus | string | null;
   customerLat?: number | null;
@@ -213,6 +214,7 @@ export const estimateArrivalWindow = ({
   totalUnits?: number;
   queueDepth?: number;
   now?: Date;
+  anchor?: Date | string | null;
 }): ArrivalWindow | null => {
   if (status === 'Entregado' || status === 'Cancelado') return null;
 
@@ -225,8 +227,15 @@ export const estimateArrivalWindow = ({
   const adjustment = statusAdjustment(status);
   const minMinutes = Math.max(6, eta.minMinutes + adjustment.min);
   const maxMinutes = Math.max(minMinutes + 5, eta.maxMinutes + adjustment.max);
-  const from = new Date(now.getTime() + minMinutes * 60_000);
-  const to = new Date(now.getTime() + maxMinutes * 60_000);
+  const parsedAnchor = anchor instanceof Date ? anchor : anchor ? new Date(anchor) : null;
+  const base = parsedAnchor && Number.isFinite(parsedAnchor.getTime()) ? parsedAnchor : now;
+  let from = new Date(base.getTime() + minMinutes * 60_000);
+  let to = new Date(base.getTime() + maxMinutes * 60_000);
+
+  if (to.getTime() < now.getTime()) {
+    from = new Date(now.getTime() + 5 * 60_000);
+    to = new Date(now.getTime() + Math.max(12, maxMinutes - minMinutes + 8) * 60_000);
+  }
 
   return {
     from,

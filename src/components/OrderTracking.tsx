@@ -232,6 +232,9 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
         customerLat: toNumber(activeOrder.lat),
         customerLng: toNumber(activeOrder.lng),
         totalUnits: itemCount,
+        anchor: activeOrder.status === 'Por Confirmar'
+          ? activeOrder.created_at
+          : activeOrder.updated_at || activeOrder.created_at,
       })
     : null;
   const deliveryAmount = toNumber(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee);
