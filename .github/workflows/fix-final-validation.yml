@@ -1,0 +1,54 @@
+name: Apply final validation fixes
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/fix-final-validation.mjs
+      - .github/workflows/fix-final-validation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply detected fixes
+        run: node scripts/fix-final-validation.mjs
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Validate production build
+        run: npm run validate
+
+      - name: Commit verified fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/components/AdminDeliveryDevices.tsx \
+            src/components/AdminOrderSourceControl.tsx \
+            src/components/CascadaCatalogPortal.tsx \
+            src/components/RiderAutoDispatcher.tsx \
+            src/components/RiderRouteDock.tsx \
+            src/components/RiderTrackingBridge.tsx \
+            server/supabase-env.ts
+          git commit -m "[skip ci] Corregir compilación final de producción"
+          git push origin HEAD:main
