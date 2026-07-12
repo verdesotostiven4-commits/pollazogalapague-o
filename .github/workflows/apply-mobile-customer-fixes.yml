@@ -1,0 +1,50 @@
+name: Apply mobile customer fixes
+
+on:
+  push:
+    branches:
+      - fix/mobile-customer-experience
+    paths:
+      - scripts/apply-mobile-customer-fixes.py
+      - .github/workflows/apply-mobile-customer-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout fix branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/mobile-customer-experience
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply mobile customer fixes
+        run: python3 scripts/apply-mobile-customer-fixes.py
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Validate TypeScript, lint and production build
+        run: npm run validate
+
+      - name: Commit verified changes
+        run: |
+          rm -f scripts/apply-mobile-customer-fixes.py
+          rm -f .github/workflows/apply-mobile-customer-fixes.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "[skip ci] Mejorar experiencia móvil del cliente"
+          git push origin HEAD:fix/mobile-customer-experience
