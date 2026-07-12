@@ -12,4 +12,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, 'index.html'),
+        cascada: path.resolve(__dirname, 'cascada.html'),
+      },
+    },
+  },
 });
