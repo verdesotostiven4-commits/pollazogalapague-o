@@ -7,6 +7,9 @@ import {
   Sparkles,
   Trophy,
   PartyPopper,
+  MessageCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { useAdmin } from '../context/AdminContext';
@@ -133,6 +136,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const [success, setSuccess] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
+  const [showAll, setShowAll] = useState(false);
 
   const holdRafRef = useRef<number | null>(null);
   const holdStartRef = useRef<number>(0);
@@ -209,6 +213,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       }
     } catch (error) {
       console.warn('No se pudieron cargar opiniones:', error);
+      setError('No pudimos cargar las opiniones. Toca nuevamente en unos segundos.');
     } finally {
       setLoading(false);
     }
@@ -357,6 +362,8 @@ export default function Testimonials({ onNavigateRanking }: Props) {
     !hasReviewed &&
     Boolean(customerName.trim()) &&
     Boolean(customerPhone.trim());
+
+  const visibleTestimonials = showAll ? testimonials : testimonials.slice(0, 3);
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
@@ -563,8 +570,20 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       )}
 
       <div className="divide-y divide-gray-50">
+        {!loading && testimonials.length === 0 && !showForm && (
+          <div className="px-5 py-8 text-center">
+            <MessageCircle className="mx-auto text-orange-300" size={34} />
+            <p className="mt-3 text-sm font-black uppercase italic text-slate-800">
+              Todavía no hay opiniones
+            </p>
+            <p className="mt-2 text-xs font-bold leading-relaxed text-slate-400">
+              Sé la primera persona en contar cómo fue su experiencia.
+            </p>
+          </div>
+        )}
+
         {!loading &&
-          testimonials.map(t => (
+          visibleTestimonials.map(t => (
             <div
               key={t.id}
               className="flex gap-4 px-5 py-6 hover:bg-gray-50/50 transition-colors"
@@ -618,6 +637,19 @@ export default function Testimonials({ onNavigateRanking }: Props) {
             </div>
           ))}
       </div>
+
+      {testimonials.length > 3 && !showForm && (
+        <div className="border-t border-gray-50 px-5 py-4">
+          <button
+            type="button"
+            onClick={() => setShowAll(value => !value)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-orange-600 active:scale-[0.98]"
+          >
+            {showAll ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {showAll ? 'Ver menos opiniones' : `Ver todas (${testimonials.length})`}
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes gold-sweep {

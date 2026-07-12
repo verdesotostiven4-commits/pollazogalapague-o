@@ -29,6 +29,7 @@ const handlers: Record<string, HandlerLoader> = {
   'panel-action': () => import('../server/api-handlers/panel-action.js'),
   'panel-data': () => import('../server/api-handlers/panel-data-v2.js'),
   'public-data': () => import('../server/api-handlers/public-data.js'),
+  'public-ranking': () => import('../server/api-handlers/public-ranking.js'),
   'register-push': () => import('../server/api-handlers/register-push.js'),
   'request-membership': () => import('../server/api-handlers/request-membership.js'),
   'send-push': () => import('../server/api-handlers/send-push.js'),

@@ -30,6 +30,7 @@ interface Props {
   style?: React.CSSProperties;
   className?: string;
   compact?: boolean;
+  priority?: boolean;
 }
 
 const isConsultPrice = (price?: string | null) => {
@@ -81,6 +82,7 @@ export default function ProductCard({
   style,
   className = '',
   compact = false,
+  priority = false,
 }: Props) {
   const { items, addItem, updateQuantity, removeItem } = useCart();
   const { triggerFly } = useFlyToCart();
@@ -224,7 +226,7 @@ export default function ProductCard({
   return (
     <>
       <div
-        style={style}
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '340px', ...style } as React.CSSProperties}
         className={`group relative flex flex-col h-auto self-start bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm transition-shadow duration-200 ${
           compact
             ? 'active:shadow-md'
@@ -236,7 +238,8 @@ export default function ProductCard({
             src={productImage}
             alt={translated.name}
             className="w-full h-full object-contain p-2.5"
-            loading="eager"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : 'low'}
             decoding="async"
             onError={() => setImageFailed(true)}
           />

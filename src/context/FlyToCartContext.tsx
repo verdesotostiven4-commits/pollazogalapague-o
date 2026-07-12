@@ -31,16 +31,16 @@ export function FlyToCartProvider({ children }: { children: ReactNode }) {
   const triggerFly = useCallback((startX: number, startY: number, image: string) => {
     const id = nextId++;
 
-    setParticles(prev => [...prev.slice(-1), { id, startX, startY, image }]);
+    setParticles(previous => [...previous.slice(-2), { id, startX, startY, image }]);
 
     window.setTimeout(() => {
       setCartPop(true);
-      window.setTimeout(() => setCartPop(false), 180);
-    }, 220);
+      window.setTimeout(() => setCartPop(false), 280);
+    }, 640);
 
     window.setTimeout(() => {
-      setParticles(prev => prev.filter(p => p.id !== id));
-    }, 520);
+      setParticles(previous => previous.filter(particle => particle.id !== id));
+    }, 940);
   }, []);
 
   return (
@@ -51,7 +51,7 @@ export function FlyToCartProvider({ children }: { children: ReactNode }) {
 }
 
 export function useFlyToCart() {
-  const ctx = useContext(FlyToCartContext);
-  if (!ctx) throw new Error('useFlyToCart must be used within FlyToCartProvider');
-  return ctx;
+  const context = useContext(FlyToCartContext);
+  if (!context) throw new Error('useFlyToCart must be used within FlyToCartProvider');
+  return context;
 }
