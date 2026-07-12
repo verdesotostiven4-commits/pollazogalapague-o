@@ -16,6 +16,7 @@ type HandlerLoader = () => Promise<HandlerModule>;
 
 const handlers: Record<string, HandlerLoader> = {
   'admin-operations': () => import('../server/api-handlers/admin-operations.js'),
+  'cascada-products': () => import('../server/api-handlers/cascada-products.js'),
   'check-memberships': () => import('../server/api-handlers/check-memberships.js'),
   'create-order': () => import('../server/api-handlers/create-order-v3.js'),
   'customer-orders': () => import('../server/api-handlers/customer-orders.js'),
