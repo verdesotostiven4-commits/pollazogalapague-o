@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
+import OrderTrackingLiveMap from './OrderTrackingLiveMap';
 
 interface Props {
   isOpen?: boolean;
@@ -281,7 +282,7 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
           </div>
         </header>
 
-        <div className="flex-1 space-y-2.5 overflow-hidden bg-gradient-to-b from-orange-50/45 via-white to-white px-3 py-3">
+        <div className="flex-1 space-y-2.5 overflow-y-auto overscroll-contain bg-gradient-to-b from-orange-50/45 via-white to-white px-3 py-3">
           {!activeOrder ? (
             <section className="rounded-[20px] border border-orange-100 bg-white p-4 text-center shadow-sm">
               <PackageSearch size={28} className="mx-auto text-orange-500" />
@@ -348,6 +349,11 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
                     );
                   })}
                 </div>
+
+                <OrderTrackingLiveMap
+                  orderCode={normalizeCode(activeOrder.order_code)}
+                  orderStatus={activeOrder.status}
+                />
               </section>
 
               <section className="grid grid-cols-2 gap-2.5">

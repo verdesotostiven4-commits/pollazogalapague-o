@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bike, MapPinned, Smartphone, X } from 'lucide-react';
+import { Bike, Smartphone, X } from 'lucide-react';
 import type { Order } from '../types';
-import { getOrderCredential } from '../utils/orderCredentials';
 import AdminDeliveryDevices from './AdminDeliveryDevices';
 import AdminOrderSourceControl from './AdminOrderSourceControl';
 import AdminProductSourceBadges from './AdminProductSourceBadges';
@@ -189,94 +188,12 @@ function DeliveryTrackingLauncher() {
   );
 }
 
-function CustomerTrackingMapLauncher() {
-  const [orderCode, setOrderCode] = useState('');
-  const [trackingOpen, setTrackingOpen] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
-
-  useEffect(() => {
-    if (window.location.pathname === '/admin' || window.location.pathname === '/repartidor') {
-      return undefined;
-    }
-
-    const inspect = () => {
-      const closeButton = document.querySelector<HTMLButtonElement>('button[aria-label="Cerrar rastreo"]');
-      const modal = closeButton?.closest('section') || closeButton?.parentElement?.parentElement || null;
-      let code = '';
-
-      if (modal) {
-        const heading = modal.querySelector('h2');
-        code = normalizeCode(heading?.textContent);
-      }
-
-      if (!code) {
-        try {
-          code = normalizeCode(sessionStorage.getItem('pollazo_tracking_order_code'));
-        } catch {
-          code = '';
-        }
-      }
-
-      const credential = getOrderCredential(code);
-      setOrderCode(credential ? code : '');
-      setTrackingOpen(Boolean(closeButton && credential));
-
-      if (!closeButton) setMapOpen(false);
-    };
-
-    const observer = new MutationObserver(inspect);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    window.addEventListener('pollazo:open-tracking', inspect as EventListener);
-    inspect();
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('pollazo:open-tracking', inspect as EventListener);
-    };
-  }, []);
-
-  if (!trackingOpen || !orderCode) return null;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setMapOpen(true)}
-        className="fixed bottom-[88px] left-4 z-[14500] flex items-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-[9px] font-black uppercase tracking-wider text-white shadow-2xl active:scale-95"
-        aria-label="Abrir mapa GPS del pedido"
-      >
-        <MapPinned size={17} className="text-orange-400" />
-        Mapa en vivo
-      </button>
-
-      {mapOpen && (
-        <div className="fixed inset-0 z-[16000] bg-slate-950">
-          <iframe
-            title={`Mapa en vivo ${orderCode}`}
-            src={`/mapa-pedido?compact=1&orderCode=${encodeURIComponent(orderCode)}`}
-            className="h-full w-full border-0"
-          />
-          <button
-            type="button"
-            onClick={() => setMapOpen(false)}
-            className="fixed right-4 top-[calc(env(safe-area-inset-top)+14px)] z-[16010] grid h-11 w-11 place-items-center rounded-2xl bg-white/90 text-slate-700 shadow-2xl backdrop-blur"
-            aria-label="Cerrar mapa GPS"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
 export default function LiveDeliverySystems() {
   return (
     <>
       <AdminProductSourceBadges />
       <AdminDeliveryLauncher />
       <DeliveryTrackingLauncher />
-      <CustomerTrackingMapLauncher />
     </>
   );
 }

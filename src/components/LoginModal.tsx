@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import RasterMapFallback from './RasterMapFallback';
+import InteractiveRasterMap from './InteractiveRasterMap';
 import {
   Camera,
   User,
@@ -372,7 +372,7 @@ export default function LoginModal({
   const getPinnedPositionFromMap = useCallback(() => {
     const map = mapInstance.current;
 
-    if (!map) return null;
+    if (!map) return selectedPointRef.current;
 
     const canvas = map.getCanvas();
     const pinnedLngLat = map.unproject([
@@ -455,11 +455,17 @@ export default function LoginModal({
   }, []);
 
   const moveMapTo = useCallback((position: LatLng, zoom = MAP_DEFAULT_ZOOM) => {
-    const map = mapInstance.current;
-
-    if (!map) return;
-
     const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
+
+    selectedPointRef.current = position;
+    setFallbackMapCenter(position);
+    setFallbackMapZoom(safeZoom);
+    setLat(position.lat);
+    setLng(position.lng);
+    paintLiveCoordinateLabel(position);
+
+    const map = mapInstance.current;
+    if (!map) return;
 
     map.flyTo({
       center: [position.lng, position.lat],
@@ -467,7 +473,7 @@ export default function LoginModal({
       offset: [0, MAP_PIN_OFFSET_Y],
       duration: 850,
     });
-  }, []);
+  }, [paintLiveCoordinateLabel]);
 
   const goToPuertoAyora = useCallback(
     (message?: string) => {
@@ -991,8 +997,28 @@ const loadingTimeout = window.setTimeout(() => {
     return (
       <div className="fixed inset-0 z-[10000] bg-slate-100 overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-[54dvh] min-h-[350px] max-h-[460px] z-0 overflow-hidden bg-slate-100">
-          <RasterMapFallback center={fallbackMapCenter} zoom={fallbackMapZoom} />
-          <div ref={mapContainerRef} className="pollazo-maplibre absolute inset-0 z-[1]" />
+          <InteractiveRasterMap
+            center={fallbackMapCenter}
+            zoom={fallbackMapZoom}
+            minZoom={14}
+            maxZoom={19}
+            pinOffsetY={MAP_PIN_OFFSET_Y}
+            interactive
+            showControls
+            onReady={() => {
+              setMapReady(true);
+              setMapFailed(false);
+            }}
+            onViewChange={(position, nextZoom, final) => {
+              selectedPointRef.current = position;
+              setFallbackMapCenter(position);
+              setFallbackMapZoom(nextZoom);
+              setLat(position.lat);
+              setLng(position.lng);
+              paintLiveCoordinateLabel(position);
+              setIsDragging(!final);
+            }}
+          />
 
           {!mapReady && !mapFailed && (
             <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
