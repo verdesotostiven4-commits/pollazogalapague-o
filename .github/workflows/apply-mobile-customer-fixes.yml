@@ -41,6 +41,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
+          sed -i "s#api/\[...route\]\.ts#api/router.ts#g" scripts/apply-mobile-customer-fixes.py
           python3 scripts/apply-mobile-customer-fixes.py 2>&1 | tee mobile-fix.log
 
       - name: Upload patch diagnostic
