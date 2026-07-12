@@ -66,8 +66,18 @@ const readEnabled = () => {
   }
 };
 
-const validCoordinates = (order: Order) =>
-  Number.isFinite(Number(order.lat)) && Number.isFinite(Number(order.lng));
+const validCoordinates = (order: Order) => {
+  if (order.lat === null || order.lat === undefined || order.lat === '') return false;
+  if (order.lng === null || order.lng === undefined || order.lng === '') return false;
+  const latitude = Number(order.lat);
+  const longitude = Number(order.lng);
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Math.abs(latitude) <= 90 &&
+    Math.abs(longitude) <= 180
+  );
+};
 
 const currentPosition = () =>
   new Promise<GeolocationPosition>((resolve, reject) => {
@@ -108,7 +118,7 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
       orders
         .filter(
           order =>
-            order.status === 'Preparando' &&
+            (order.status === 'Recibido' || order.status === 'Preparando') &&
             order.delivery_type !== 'retiro' &&
             Boolean(order.order_code) &&
             validCoordinates(order)
@@ -153,6 +163,11 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
         try {
           position = await currentPosition();
         } catch {
+          setNearStore(null);
+          return;
+        }
+
+        if (position.coords.accuracy > 100) {
           setNearStore(null);
           return;
         }
