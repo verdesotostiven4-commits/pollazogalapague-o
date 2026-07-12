@@ -14,6 +14,7 @@ import {
 import { useAdmin } from '../context/AdminContext';
 import { useUser } from '../context/UserContext';
 import OrderTrackingLiveMap from './OrderTrackingLiveMap';
+import { estimateArrivalWindow, FREE_DELIVERY_THRESHOLD } from '../utils/commerce';
 
 interface Props {
   isOpen?: boolean;
@@ -30,6 +31,9 @@ type OrderLike = {
   delivery_fee?: number | string | null;
   delivery_fee_final?: number | string | null;
   reference?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  service_fee?: number | string | null;
   payment_method?: string | null;
   membership_applied?: boolean | null;
   created_at?: string | null;
@@ -150,18 +154,6 @@ const messageFor = (status?: string | null) => {
   return 'El local está revisando disponibilidad, ubicación y forma de pago.';
 };
 
-const etaFor = (order: OrderLike) => {
-  if (order.status === 'Por Confirmar') return 'Pendiente';
-  if (order.status === 'Cancelado') return 'Cancelado';
-
-  const manual = order.estimated_time || order.eta;
-
-  if (manual) return `${manual}`;
-  if (order.status === 'Enviado') return '10-18 min';
-  if (order.status === 'Preparando') return '18-30 min';
-
-  return '25-35 min';
-};
 
 const paymentLabel = (method?: string | null) => {
   if (method === 'efectivo') return 'Efectivo';
@@ -234,17 +226,26 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
   const currentIndex = activeOrder ? steps.findIndex(step => step.key === activeOrder.status) : -1;
   const safeCurrentIndex = Math.max(0, currentIndex);
   const itemCount = activeOrder ? countItems(activeOrder) : 0;
+  const arrivalWindow = activeOrder
+    ? estimateArrivalWindow({
+        status: activeOrder.status,
+        customerLat: toNumber(activeOrder.lat),
+        customerLng: toNumber(activeOrder.lng),
+        totalUnits: itemCount,
+      })
+    : null;
   const deliveryAmount = toNumber(activeOrder?.delivery_fee_final ?? activeOrder?.delivery_fee);
-  const delivery = activeOrder?.membership_applied
-    ? 'Gratis Plus'
-    : deliveryAmount > 0
-      ? money(deliveryAmount)
-      : 'Gratis';
-  const deliveryText = activeOrder?.membership_applied
-    ? `Plus · ahorro ${money(activeOrder.delivery_fee || deliveryAmount || 0)}`
-    : deliveryAmount > 0
-      ? `Delivery ${money(deliveryAmount)}`
-      : 'Delivery gratis';
+  const subtotalAmount = toNumber(activeOrder?.subtotal);
+  const delivery = deliveryAmount > 0
+    ? money(deliveryAmount)
+    : subtotalAmount >= FREE_DELIVERY_THRESHOLD
+      ? 'Gratis'
+      : 'Incluido';
+  const deliveryText = deliveryAmount > 0
+    ? `Delivery ${money(deliveryAmount)}`
+    : subtotalAmount >= FREE_DELIVERY_THRESHOLD
+      ? 'Envío gratis por pedido grande'
+      : 'Delivery incluido';
 
   const handleClose = () => {
     clearRequestedOrderCode();
@@ -353,6 +354,8 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
                 <OrderTrackingLiveMap
                   orderCode={normalizeCode(activeOrder.order_code)}
                   orderStatus={activeOrder.status}
+                  customerLat={activeOrder.lat == null ? null : toNumber(activeOrder.lat)}
+                  customerLng={activeOrder.lng == null ? null : toNumber(activeOrder.lng)}
                 />
               </section>
 
@@ -362,9 +365,15 @@ export default function OrderTracking({ isOpen = false, onClose = () => {} }: Pr
                     <TimerReset size={14} className="text-orange-500" />
                     <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500">Tiempo</p>
                   </div>
-                  <p className="text-[14px] font-black uppercase leading-tight text-slate-950">{etaFor(activeOrder)}</p>
+                  <p className="text-[13px] font-black uppercase leading-tight text-slate-950">
+                    {activeOrder.status === 'Entregado'
+                      ? 'Entregado'
+                      : activeOrder.status === 'Cancelado'
+                        ? 'Cancelado'
+                        : arrivalWindow?.label || 'Calculando'}
+                  </p>
                   <p className="mt-0.5 text-[9px] font-bold leading-tight text-slate-400">
-                    {activeOrder.status === 'Por Confirmar' ? 'Al confirmar.' : 'Estimado.'}
+                    {activeOrder.status === 'Por Confirmar' ? 'Hora aproximada.' : 'Se recalcula automáticamente.'}
                   </p>
                 </div>
 

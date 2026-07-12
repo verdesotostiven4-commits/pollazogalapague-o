@@ -4,11 +4,10 @@ import {
   Banknote,
   Building,
   CheckCircle2,
+  Clock3,
   ChevronDown,
   ChevronRight,
   Circle,
-  Crown,
-  Gift,
   Home,
   Info,
   Lock,
@@ -16,7 +15,6 @@ import {
   Minus,
   PackageCheck,
   Plus,
-  QrCode,
   ReceiptText,
   ShieldCheck,
   ShoppingBag,
@@ -27,7 +25,13 @@ import {
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useLanguage } from '../context/LanguageContext';
-import { deliveryFeeOf, isFixedPrice } from '../utils/whatsapp';
+import { isFixedPrice } from '../utils/whatsapp';
+import {
+  calculateOrderPricing,
+  estimateCartEta,
+  MIN_ORDER_SUBTOTAL,
+  zoneLabel,
+} from '../utils/commerce';
 import { getProductDisplay } from '../utils/productI18n';
 import type { CartItem, LanguageCode, PaymentMethod, Product, Screen } from '../types';
 
@@ -38,7 +42,7 @@ interface Props {
   onEarlySave: () => Promise<void> | void;
 }
 
-type SupportedPaymentMethod = Extract<PaymentMethod, 'efectivo' | 'deuna' | 'transferencia'>;
+type SupportedPaymentMethod = Extract<PaymentMethod, 'efectivo' | 'transferencia'>;
 type TextKey = keyof typeof TEXTS;
 
 const CONFETTI_COLORS = [
@@ -52,11 +56,9 @@ const CONFETTI_COLORS = [
   '#ffffff',
 ];
 
-const BUSINESS_DEUNA_PHONE = '0989795628';
 const BUSINESS_BANK_ACCOUNT = '2204567890';
 const BUSINESS_BANK_ID = '1726543210';
 const BUSINESS_BENEFICIARY = 'La Casa del Pollazo';
-const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 
 const TEXTS = {
   emptyTitle: {
@@ -315,18 +317,6 @@ const clearPaymentStorage = () => {
   localStorage.removeItem('selectedBank');
 };
 
-const formatShortDate = (value?: string | null, language: LanguageCode = 'es') => {
-  if (!value) return '';
-
-  try {
-    return new Intl.DateTimeFormat(language === 'es' ? 'es-EC' : language, {
-      day: '2-digit',
-      month: 'short',
-    }).format(new Date(value));
-  } catch {
-    return '';
-  }
-};
 
 function StepTitle({
   step,
@@ -364,61 +354,6 @@ function StepTitle({
   );
 }
 
-function PollazoPlusSmartHint({
-  deliveryFee,
-  language,
-  onOpenPlus,
-}: {
-  deliveryFee: number;
-  language: LanguageCode;
-  onOpenPlus: () => void;
-}) {
-  if (deliveryFee <= 0) return null;
-
-  return (
-    <section className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-white via-orange-50 to-yellow-50 p-4 shadow-sm">
-      <div className="absolute -right-12 -top-12 w-32 h-32 rounded-full bg-orange-300/25 blur-3xl" />
-      <div className="absolute -left-10 -bottom-12 w-32 h-32 rounded-full bg-yellow-300/25 blur-3xl" />
-
-      <div className="relative flex items-start gap-3">
-        <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-200 flex-shrink-0">
-          <Crown size={24} />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.22em]">
-                {tx(language, 'plusTip')}
-              </p>
-              <h3 className="text-sm font-black text-slate-900 uppercase italic leading-tight mt-1">
-                {tx(language, 'plusFreeDelivery')}
-              </h3>
-            </div>
-
-            <span className="bg-green-50 text-green-600 border border-green-100 rounded-full px-2.5 py-1 text-[8px] font-black uppercase flex-shrink-0">
-              {tx(language, 'plusBadgeSave', { amount: deliveryFee.toFixed(2) })}
-            </span>
-          </div>
-
-          <p className="text-[10px] font-bold text-slate-500 leading-relaxed mt-2">
-            {tx(language, 'plusPitch', { amount: deliveryFee.toFixed(2) })}
-          </p>
-
-          <button
-            type="button"
-            onClick={onOpenPlus}
-            className="mt-3 inline-flex items-center justify-center gap-2 bg-white text-orange-600 border border-orange-100 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform shadow-sm"
-          >
-            {tx(language, 'viewPlus')}
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function getTranslatedProduct(product: Product, language: LanguageCode) {
   return getProductDisplay(product, language);
 }
@@ -436,9 +371,6 @@ export default function CartScreen({
     customerLat,
     customerLng,
     customerReference,
-    hasPollazoPlus,
-    activeMembership,
-    pollazoPlusExpiresAt,
   } = useUser();
   const { language } = useLanguage();
 
@@ -456,17 +388,22 @@ export default function CartScreen({
   const confirmSectionRef = useRef<HTMLDivElement>(null);
 
   const subtotal = toMoney(total);
-  const deliveryFeeOriginal = deliveryFeeOf(subtotal);
-  const deliveryFee = hasPollazoPlus ? 0 : deliveryFeeOriginal;
-  const deliverySavings = Math.max(0, deliveryFeeOriginal - deliveryFee);
-  const finalTotal = toMoney(subtotal + deliveryFee);
-  const plusExpiresLabel = formatShortDate(activeMembership?.expires_at || pollazoPlusExpiresAt, language);
+  const pricing = calculateOrderPricing({
+    subtotal,
+    customerLat,
+    customerLng,
+  });
+  const deliveryFeeOriginal = pricing.deliveryFeeOriginal;
+  const deliveryFee = pricing.deliveryFeeFinal;
+  const smallOrderFee = pricing.smallOrderFee;
+  const finalTotal = pricing.total;
   const hasConsult = items.some(item => !itemHasKnownPrice(item));
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
   const hasProfile = Boolean(customerName.trim() && customerPhone.trim());
   const hasLocation = hasValidDeliveryLocation(customerLat, customerLng, customerReference);
   const canUseDigitalPayment = !hasConsult && finalTotal > 0;
-  const isPaymentReady = paymentMethod === 'efectivo' || (canUseDigitalPayment && paymentMethod === 'deuna') || (canUseDigitalPayment && paymentMethod === 'transferencia' && selectedBank !== null);
+  const eta = estimateCartEta({ customerLat, customerLng, totalUnits });
+  const isPaymentReady = pricing.minimumReached && (paymentMethod === 'efectivo' || (canUseDigitalPayment && paymentMethod === 'transferencia' && selectedBank !== null));
 
   const checkoutLabel = paymentMethod === 'efectivo'
     ? hasConsult
@@ -480,8 +417,10 @@ export default function CartScreen({
       : tx(language, 'confirmOrder')
     : tx(language, 'continuePayment');
 
-  const pendingActionText = !hasProfile || !hasLocation
-    ? tx(language, 'completeDelivery')
+  const pendingActionText = !pricing.minimumReached
+    ? `Agrega $${pricing.amountMissingForMinimum.toFixed(2)} para llegar al mínimo`
+    : !hasProfile || !hasLocation
+      ? tx(language, 'completeDelivery')
     : paymentMethod === 'transferencia' && !selectedBank
       ? tx(language, 'chooseYourBank')
       : hasConsult
@@ -514,15 +453,16 @@ export default function CartScreen({
   const scrollToPayment = () => paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const scrollToConfirm = () => confirmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const handleOpenPlusInfo = () => {
-    sessionStorage.setItem(PLUS_OPEN_SIGNAL_KEY, '1');
-    onNavigate('info');
-    window.setTimeout(() => window.dispatchEvent(new CustomEvent('pollazo:open-plus')), 220);
-  };
 
   const handleSmartScroll = () => {
     if (!hasProfile || !hasLocation) {
       scrollRef.current?.scrollBy({ top: 360, behavior: 'smooth' });
+      return;
+    }
+
+    if (!pricing.minimumReached) {
+      triggerDryTap();
+      showNotice(`La compra mínima es de $${MIN_ORDER_SUBTOTAL.toFixed(2)}.`);
       return;
     }
 
@@ -569,7 +509,7 @@ export default function CartScreen({
       return;
     }
 
-    if ((method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment) {
+    if (method === 'transferencia' && !canUseDigitalPayment) {
       triggerDryTap();
       showNotice(tx(language, 'consultDigitalBlocked'));
       return;
@@ -603,6 +543,12 @@ export default function CartScreen({
       return;
     }
 
+    if (!pricing.minimumReached) {
+      triggerDryTap();
+      showNotice(`La compra mínima es de $${MIN_ORDER_SUBTOTAL.toFixed(2)}.`);
+      return;
+    }
+
     if (!paymentMethod) {
       triggerDryTap();
       showNotice(tx(language, 'selectPaymentFirst'));
@@ -610,7 +556,7 @@ export default function CartScreen({
       return;
     }
 
-    if ((paymentMethod === 'deuna' || paymentMethod === 'transferencia') && !canUseDigitalPayment) {
+    if (paymentMethod === 'transferencia' && !canUseDigitalPayment) {
       triggerDryTap();
       showNotice(tx(language, 'consultReview'));
       return;
@@ -717,7 +663,7 @@ export default function CartScreen({
   ) => {
     const active = paymentMethod === method;
     const lockedOther = isOrderSaved && paymentMethod !== method;
-    const blockedByConsult = (method === 'deuna' || method === 'transferencia') && !canUseDigitalPayment;
+    const blockedByConsult = method === 'transferencia' && !canUseDigitalPayment;
     const visuallyDisabled = lockedOther || blockedByConsult;
 
     return (
@@ -762,7 +708,6 @@ export default function CartScreen({
   const paymentSummary = useMemo(() => {
     if (!paymentMethod) return tx(language, 'pending');
     if (paymentMethod === 'efectivo') return tx(language, 'cash');
-    if (paymentMethod === 'deuna') return 'Deuna';
     return selectedBank ? tx(language, 'transfer') : tx(language, 'chooseBank');
   }, [language, paymentMethod, selectedBank]);
 
@@ -808,33 +753,6 @@ export default function CartScreen({
           </div>
         )}
 
-        {hasPollazoPlus && (
-          <section className="relative overflow-hidden rounded-[30px] border border-yellow-200 bg-gradient-to-br from-yellow-50 via-orange-50 to-white p-4 shadow-sm">
-            <div className="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-yellow-300/20 blur-2xl" />
-            <div className="relative flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200/60 flex-shrink-0">
-                <Crown size={22} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">{tx(language, 'plusActive')}</p>
-                <h3 className="text-sm font-black text-slate-900 uppercase italic leading-tight">{tx(language, 'plusDeliveryApplied')}</h3>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 leading-relaxed">
-                  {deliverySavings > 0
-                    ? tx(language, 'plusSaving', { amount: deliverySavings.toFixed(2) })
-                    : tx(language, 'plusReady')}
-                  {plusExpiresLabel ? ` ${tx(language, 'expires', { date: plusExpiresLabel })}` : ''}
-                </p>
-              </div>
-              <div className="w-9 h-9 rounded-2xl bg-white/80 text-orange-500 flex items-center justify-center border border-yellow-100">
-                <Gift size={18} />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {!hasPollazoPlus && subtotal > 0 && deliveryFeeOriginal > 0 && !isOrderSaved && (
-          <PollazoPlusSmartHint deliveryFee={deliveryFeeOriginal} language={language} onOpenPlus={handleOpenPlusInfo} />
-        )}
 
         <section className="bg-white rounded-[30px] border border-orange-100 p-4 shadow-sm space-y-3">
           <StepTitle
@@ -962,6 +880,46 @@ export default function CartScreen({
           )}
         </section>
 
+        {hasProfile && hasLocation && (
+          <section className="overflow-hidden rounded-[30px] border border-orange-100 bg-white shadow-sm">
+            <div className="flex items-center gap-3 bg-gradient-to-r from-orange-500 to-yellow-400 px-4 py-3 text-white">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/20">
+                <Clock3 size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/80">Entrega estimada</p>
+                <p className="text-lg font-black leading-none">{eta.label}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-black uppercase text-white/75">{zoneLabel(pricing.zone)}</p>
+                <p className="text-sm font-black">{pricing.freeDeliveryApplied ? 'GRATIS' : `$${deliveryFee.toFixed(2)}`}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4">
+              {!pricing.minimumReached && (
+                <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5">
+                  <p className="text-[10px] font-black uppercase text-red-600">Compra mínima: $5,00</p>
+                  <p className="mt-1 text-[10px] font-bold text-red-500">Agrega ${pricing.amountMissingForMinimum.toFixed(2)} más para continuar.</p>
+                </div>
+              )}
+
+              {pricing.minimumReached && smallOrderFee > 0 && (
+                <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-3 py-2.5">
+                  <p className="text-[10px] font-black uppercase text-yellow-700">Recargo por pedido pequeño: $0,60</p>
+                  <p className="mt-1 text-[10px] font-bold text-yellow-700/80">Agrega ${pricing.amountMissingForNoSmallOrderFee.toFixed(2)} para quitar el recargo.</p>
+                </div>
+              )}
+
+              {pricing.freeDeliveryApplied && (
+                <div className="rounded-2xl border border-green-100 bg-green-50 px-3 py-2.5">
+                  <p className="text-[10px] font-black uppercase text-green-700">Pedido grande: entrega gratis aplicada</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {actionNotice && (
           <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex gap-3 animate-in fade-in duration-300">
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-blue-500 flex-shrink-0 shadow-sm">
@@ -1003,15 +961,6 @@ export default function CartScreen({
               'bg-green-50/70 border-green-100 text-green-700 font-bold'
             )}
             {renderPaymentButton(
-              'deuna',
-              'Deuna',
-              tx(language, 'deunaDescription'),
-              <QrCode size={21} className={paymentMethod === 'deuna' ? 'text-purple-600' : 'text-purple-500'} />,
-              'bg-purple-50 border-purple-400 text-purple-700 font-black shadow-sm ring-2 ring-purple-100',
-              'bg-purple-50/70 border-purple-100 text-purple-700 font-bold',
-              tx(language, 'blockedDeuna')
-            )}
-            {renderPaymentButton(
               'transferencia',
               tx(language, 'transfer'),
               tx(language, 'transferDescription'),
@@ -1024,24 +973,6 @@ export default function CartScreen({
 
           {renderPaymentStatusBox()}
 
-          {isOrderSaved && paymentMethod === 'deuna' && (
-            <div className="bg-purple-50/40 rounded-2xl p-4 border border-purple-100 flex flex-col items-center text-center space-y-2 animate-in fade-in duration-300">
-              <p className="text-xs text-purple-900 font-black uppercase tracking-tight">{tx(language, 'scanQr')}</p>
-              <div className="w-32 h-32 bg-white rounded-xl p-2 border border-purple-200/60 shadow-inner flex items-center justify-center">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LaCasaDelPollazoDeunaQR" alt="QR Deuna" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex flex-col items-center gap-1 w-full pt-1">
-                <p className="text-[10px] text-purple-700 font-bold uppercase">{tx(language, 'samePhone')}</p>
-                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-purple-200/60 w-full max-w-[220px]">
-                  <span className="font-mono font-black text-purple-950 text-xs">{BUSINESS_DEUNA_PHONE}</span>
-                  <button type="button" onClick={() => handleCopyText(BUSINESS_DEUNA_PHONE, 'celular_deuna')} className="text-[9px] bg-purple-100 text-purple-700 font-black px-2 py-1 rounded-lg active:scale-90 transition-all">
-                    {copiedLabel === 'celular_deuna' ? tx(language, 'copied') : tx(language, 'copy')}
-                  </button>
-                </div>
-              </div>
-              <p className="text-[10px] text-purple-500 font-black uppercase tracking-tight">{tx(language, 'thenContinue')}</p>
-            </div>
-          )}
 
           {paymentMethod === 'transferencia' && (
             <div className="space-y-3 animate-in fade-in duration-300">
@@ -1127,21 +1058,21 @@ export default function CartScreen({
             {subtotal > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">{tx(language, 'deliveryFee')}</span>
-                {hasPollazoPlus ? (
-                  <span className="text-right">
-                    {deliveryFeeOriginal > 0 && <span className="block text-[10px] text-gray-400 line-through font-bold">${deliveryFeeOriginal.toFixed(2)}</span>}
-                    <span className="text-green-600 font-black">{tx(language, 'freePlus')}</span>
+                <span className="text-right font-bold">
+                  {pricing.freeDeliveryApplied && deliveryFeeOriginal > 0 && (
+                    <span className="block text-[10px] text-gray-400 line-through">${deliveryFeeOriginal.toFixed(2)}</span>
+                  )}
+                  <span className={pricing.freeDeliveryApplied ? 'text-green-600 font-black' : 'text-gray-800'}>
+                    {pricing.freeDeliveryApplied ? tx(language, 'free') : `$${deliveryFee.toFixed(2)}`}
                   </span>
-                ) : (
-                  <span className="text-gray-800 font-bold">{deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : tx(language, 'free')}</span>
-                )}
+                </span>
               </div>
             )}
 
-            {hasPollazoPlus && (
-              <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-100 rounded-xl p-2">
-                <Crown size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[9px] font-black text-orange-700 uppercase leading-relaxed">{tx(language, 'plusApplied')}</p>
+            {smallOrderFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Recargo pedido pequeño</span>
+                <span className="font-bold text-gray-800">${smallOrderFee.toFixed(2)}</span>
               </div>
             )}
 
@@ -1176,16 +1107,12 @@ export default function CartScreen({
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{hasConsult ? tx(language, 'partialTotal') : tx(language, 'finalTotal')}</p>
             <div className="flex items-end gap-2">
               <p className="text-2xl font-black text-orange-600 leading-none mt-1">${finalTotal.toFixed(2)}</p>
-              {hasPollazoPlus && deliverySavings > 0 && (
-                <span className="mb-0.5 text-[9px] font-black text-green-600 uppercase bg-green-50 border border-green-100 px-2 py-1 rounded-full">-${deliverySavings.toFixed(2)}</span>
-              )}
             </div>
           </div>
 
           <div className="text-right">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{tx(language, 'payment')}</p>
             <p className="text-[11px] font-black text-gray-700 uppercase mt-1">{paymentSummary}</p>
-            {hasPollazoPlus && <p className="text-[9px] font-black text-orange-500 uppercase mt-1">{tx(language, 'plusActiveShort')}</p>}
           </div>
         </div>
 

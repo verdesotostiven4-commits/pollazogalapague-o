@@ -1,10 +1,10 @@
 import type { CartItem, OrderStatus, PaymentMethod } from '../types';
+import { calculateOrderPricing } from './commerce';
 
 export const WHATSAPP = '593989795628';
 export const STORE_WHATSAPP = WHATSAPP;
 
-const APP_URL = 'https://pollazogalapague-o.vercel.app';
-const FIRST_DELIVERY_PROMO_KEY = 'pollazo_first_delivery_free_active';
+const APP_URL = 'https://pollazogalapague-o-phi.vercel.app';
 
 interface WhatsAppOptions {
   paymentMethod?: PaymentMethod;
@@ -14,8 +14,6 @@ interface WhatsAppOptions {
   customerLng?: number | null;
   deliveryType?: 'domicilio' | 'retiro';
 
-  // Pollazo Plus: solo con membresía activa el delivery va gratis.
-  hasPollazoPlus?: boolean;
 }
 
 const BANK_LABELS: Record<string, string> = {
@@ -69,25 +67,12 @@ export function subtotalOf(items: CartItem[]): number {
   return Number(subtotal.toFixed(2));
 }
 
-export function deliveryFeeOf(subtotal: number): number {
-  if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
-
-  try {
-    if (
-      typeof window !== 'undefined' &&
-      window.localStorage.getItem(FIRST_DELIVERY_PROMO_KEY) === '1' &&
-      subtotal >= 10
-    ) {
-      return 0;
-    }
-  } catch {
-    // localStorage opcional.
-  }
-
-  if (subtotal < 5) return 0;
-  if (subtotal < 8) return 2;
-
-  return 1.5;
+export function deliveryFeeOf(
+  subtotal: number,
+  customerLat?: number | null,
+  customerLng?: number | null
+): number {
+  return calculateOrderPricing({ subtotal, customerLat, customerLng }).deliveryFeeFinal;
 }
 
 export function orderCode(): string {
@@ -192,10 +177,11 @@ export function buildWhatsAppUrl(
   options?: WhatsAppOptions
 ): string {
   const subtotal = subtotalOf(items);
-  const deliveryBase = deliveryFeeOf(subtotal);
-  const hasPollazoPlus = options?.hasPollazoPlus === true;
-  const deliveryFee = hasPollazoPlus ? 0 : deliveryBase;
-  const total = Number((subtotal + deliveryFee).toFixed(2));
+  const pricing = calculateOrderPricing({
+    subtotal,
+    customerLat: options?.customerLat,
+    customerLng: options?.customerLng,
+  });
 
   const selectedBank =
     options?.selectedBank && BANK_LABELS[options.selectedBank]
@@ -203,12 +189,13 @@ export function buildWhatsAppUrl(
       : options?.selectedBank || 'No aplica';
 
   const locationText = buildLocationText(options);
-
-  const deliveryText = hasPollazoPlus
-    ? 'Gratis por Pollazo Plus 👑'
-    : deliveryFee === 0
-      ? 'Gratis por promoción de bienvenida 🎁'
-      : formatMoney(deliveryFee);
+  const deliveryText = pricing.freeDeliveryApplied
+    ? 'Gratis por pedido grande 🎁'
+    : formatMoney(pricing.deliveryFeeFinal);
+  const smallOrderText =
+    pricing.smallOrderFee > 0
+      ? `\nRecargo pedido pequeño: ${formatMoney(pricing.smallOrderFee)}`
+      : '';
 
   const messageSections = [
     `Hola, soy ${customerName || 'cliente'} 👋`,
@@ -218,16 +205,14 @@ export function buildWhatsAppUrl(
       ? `Estado de horario: Pedido programado / tienda fuera de horario`
       : `Estado de horario: Tienda abierta`,
     `WhatsApp del cliente: ${customerPhone}`,
-    hasPollazoPlus ? `Membresía: Pollazo Plus activo 👑` : '',
-    deliveryFee === 0 && !hasPollazoPlus ? `Promoción: primer delivery gratis aplicado 🎁` : '',
     `Método de pago: ${paymentLabel(options?.paymentMethod)}`,
     options?.paymentMethod === 'transferencia'
       ? `Banco del cliente: ${selectedBank}`
       : '',
     locationText ? `Entrega:\n${locationText}` : '',
     `Productos:\n${orderItemsText(items)}`,
-    `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${deliveryText}\nTotal: ${formatMoney(total)}`,
-    options?.paymentMethod === 'deuna' || options?.paymentMethod === 'transferencia'
+    `Resumen:\nSubtotal: ${formatMoney(subtotal)}\nDomicilio: ${deliveryText}${smallOrderText}\nTotal: ${formatMoney(pricing.total)}`,
+    options?.paymentMethod === 'transferencia'
       ? `Adjunto o enviaré el comprobante de pago para validación.`
       : `Quedo pendiente de confirmación.`,
   ].filter(Boolean);

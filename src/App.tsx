@@ -23,11 +23,12 @@ import LegalModal from './components/LegalModal';
 import Ranking from './pages/Ranking';
 import {
   buildWhatsAppUrl,
-  deliveryFeeOf,
   isStoreOpen,
+  subtotalOf,
   numericPrice,
   orderCode,
 } from './utils/whatsapp';
+import { calculateOrderPricing, MIN_ORDER_SUBTOTAL } from './utils/commerce';
 import type {
   CartItem,
   Category,
@@ -97,7 +98,6 @@ class ErrorBoundary extends Component<
 }
 
 const LEGAL_ACCEPTED_KEY = 'pollazo_legal_accepted';
-const PLUS_OPEN_SIGNAL_KEY = 'pollazo_open_plus';
 const FINAL_TRACKING_MINUTES = 3;
 const FINAL_TRACKING_AUTO_CLOSE_MS = 12000;
 const TRACKING_DEEP_LINK_WAIT_MS = 8500;
@@ -123,9 +123,7 @@ const toMoney = (value: number): number => {
 const isPaymentMethod = (value: string | null): value is PaymentMethod => {
   return (
     value === 'efectivo' ||
-    value === 'deuna' ||
-    value === 'transferencia' ||
-    value === 'tarjeta'
+    value === 'transferencia'
   );
 };
 
@@ -141,18 +139,8 @@ const clearStoredPaymentMethod = () => {
 };
 
 const getInitialPaymentStatus = (paymentMethod?: PaymentMethod): AppPaymentStatus => {
-  if (paymentMethod === 'efectivo') {
-    return 'contra_entrega';
-  }
-
-  if (paymentMethod === 'deuna' || paymentMethod === 'transferencia') {
-    return 'validando';
-  }
-
-  if (paymentMethod === 'tarjeta') {
-    return 'validando';
-  }
-
+  if (paymentMethod === 'efectivo') return 'contra_entrega';
+  if (paymentMethod === 'transferencia') return 'validando';
   return 'pendiente';
 };
 
@@ -409,9 +397,6 @@ function AppShell() {
     customerLat,
     customerLng,
     customerReference,
-    hasPollazoPlus,
-    activeMembership,
-    membershipPlan,
     setUserData,
   } = useUser();
 
@@ -483,29 +468,6 @@ function AppShell() {
     });
   }, [refreshData]);
 
-  const openPlusFromNotification = useCallback(() => {
-    sessionStorage.setItem(PLUS_OPEN_SIGNAL_KEY, '1');
-
-    setScreen('info');
-    setShowTracking(false);
-    setShowLoginModal(false);
-    setIsChangingLocation(false);
-    setPendingOrder(false);
-    setShowConfirmation(false);
-    setTrackingLaunchSource(null);
-
-    if (mainRef.current) {
-      mainRef.current.scrollTop = 0;
-    }
-
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('pollazo:open-plus'));
-    }, 180);
-
-    void refreshData().catch(error => {
-      console.error('No se pudo refrescar Pollazo Plus desde notificación:', error);
-    });
-  }, [refreshData]);
 
   const openTrackingManually = useCallback(() => {
     setShowTracking(true);
@@ -567,26 +529,6 @@ function AppShell() {
     window.history.replaceState({}, '', nextUrl);
   }, [openTrackingFromNotification]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shouldOpenPlus =
-      params.get('plus') === '1' ||
-      params.has('membershipReminder') ||
-      params.has('membershipId');
-
-    if (!shouldOpenPlus) return;
-
-    openPlusFromNotification();
-
-    params.delete('plus');
-    params.delete('membershipReminder');
-    params.delete('membershipId');
-
-    const nextSearch = params.toString();
-    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
-
-    window.history.replaceState({}, '', nextUrl);
-  }, [openPlusFromNotification]);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
@@ -600,9 +542,6 @@ function AppShell() {
         openTrackingFromNotification();
       }
 
-      if (data?.type === 'POLLAZO_OPEN_PLUS') {
-        openPlusFromNotification();
-      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
@@ -610,7 +549,7 @@ function AppShell() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
     };
-  }, [openPlusFromNotification, openTrackingFromNotification]);
+  }, [openTrackingFromNotification]);
 
   useEffect(() => {
     if (!showTracking || !latestTrackableOrder) return undefined;
@@ -722,30 +661,26 @@ function AppShell() {
     const subtotal = toMoney(
       detailedItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
     );
-
-    const deliveryFeeOriginal = toMoney(deliveryFeeOf(subtotal));
-    const deliveryFeeFinal = hasPollazoPlus ? 0 : deliveryFeeOriginal;
-    const serviceFee = 0;
-    const cardFee = 0;
-    const total = toMoney(subtotal + deliveryFeeFinal + serviceFee + cardFee);
+    const pricing = calculateOrderPricing({
+      subtotal,
+      customerLat,
+      customerLng,
+    });
     const paymentMethod = getStoredPaymentMethod();
     const paymentStatus = getInitialPaymentStatus(paymentMethod);
-    const membershipId =
-      typeof activeMembership?.id === 'string'
-        ? activeMembership.id
-        : null;
 
     return {
       order_code: code,
       customer_phone: customerPhone,
       items: detailedItems,
       subtotal,
-      delivery_fee: toMoney(deliveryFeeFinal),
-      delivery_fee_original: deliveryFeeOriginal,
-      delivery_fee_final: toMoney(deliveryFeeFinal),
-      service_fee: toMoney(serviceFee),
-      card_fee: toMoney(cardFee),
-      total,
+      delivery_fee: pricing.deliveryFeeFinal,
+      delivery_fee_original: pricing.deliveryFeeOriginal,
+      delivery_fee_final: pricing.deliveryFeeFinal,
+      // Se reutiliza esta columna existente para el recargo de pedido pequeño.
+      service_fee: pricing.smallOrderFee,
+      card_fee: 0,
+      total: pricing.total,
       status,
       payment_status: paymentStatus,
       preorder: !isStoreOpen(),
@@ -754,11 +689,9 @@ function AppShell() {
       lat: customerLat,
       lng: customerLng,
       reference: customerReference.trim(),
-      membership_applied: hasPollazoPlus,
-      membership_id: hasPollazoPlus ? membershipId : null,
-      membership_plan: hasPollazoPlus
-        ? membershipPlan || activeMembership?.plan_name || 'Pollazo Plus'
-        : null,
+      membership_applied: false,
+      membership_id: null,
+      membership_plan: null,
       counted_in_metrics: false,
       is_test_order: false,
       created_at: new Date().toISOString(),
@@ -793,6 +726,10 @@ function AppShell() {
   const handleEarlySave = async () => {
     if (!hasCustomerIdentity || !hasDeliveryData || items.length === 0) {
       throw new Error('Faltan datos del cliente, ubicación o productos para registrar el pedido.');
+    }
+
+    if (subtotalOf(items) < MIN_ORDER_SUBTOTAL) {
+      throw new Error(`La compra mínima es de $${MIN_ORDER_SUBTOTAL.toFixed(2)}.`);
     }
 
     if (!getStoredPaymentMethod()) {
@@ -1034,12 +971,7 @@ export default function App() {
 
     const params = new URLSearchParams(window.location.search);
     const shouldOpenTracking = params.get('tracking') === '1';
-    const shouldOpenPlus =
-      params.get('plus') === '1' ||
-      params.has('membershipReminder') ||
-      params.has('membershipId');
-
-    return isPWA || isDismissed || shouldOpenTracking || shouldOpenPlus;
+    return isPWA || isDismissed || shouldOpenTracking;
   });
 
   useEffect(() => {
