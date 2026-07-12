@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         app: path.resolve(__dirname, 'index.html'),
         cascada: path.resolve(__dirname, 'cascada.html'),
+        logisticsLab: path.resolve(__dirname, 'logistica-lab.html'),
       },
     },
   },
