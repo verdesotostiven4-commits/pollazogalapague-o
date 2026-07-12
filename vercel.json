@@ -96,6 +96,14 @@
       "destination": "/logistica-lab.html"
     },
     {
+      "source": "/repartidores-lab",
+      "destination": "/repartidores-lab.html"
+    },
+    {
+      "source": "/repartidores-lab/",
+      "destination": "/repartidores-lab.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
