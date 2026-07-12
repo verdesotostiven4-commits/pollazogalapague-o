@@ -19,6 +19,7 @@ export default defineConfig({
         cascada: path.resolve(__dirname, 'cascada.html'),
         logisticsLab: path.resolve(__dirname, 'logistica-lab.html'),
         riderDevicesLab: path.resolve(__dirname, 'repartidores-lab.html'),
+        gpsLab: path.resolve(__dirname, 'gps-lab.html'),
       },
     },
   },

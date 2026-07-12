@@ -104,6 +104,14 @@
       "destination": "/repartidores-lab.html"
     },
     {
+      "source": "/gps-lab",
+      "destination": "/gps-lab.html"
+    },
+    {
+      "source": "/gps-lab/",
+      "destination": "/gps-lab.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
