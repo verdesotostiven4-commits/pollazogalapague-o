@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LoaderCircle, Pause, Play, Zap } from 'lucide-react';
+import { LoaderCircle, Pause, Play, Store, Zap } from 'lucide-react';
 import type { Order } from '../types';
 import {
   trackingPost,
@@ -10,6 +10,7 @@ import {
 const DEVICE_TOKEN_KEY = 'pollazo_delivery_device_token_v1';
 const STORE_LOCATION_KEY = 'pollazo_delivery_store_location_v1';
 const AUTO_DISPATCH_KEY = 'pollazo_delivery_auto_dispatch_v1';
+const AUTO_ASSIGN_RADIUS_M = 250;
 
 type StoredPoint = {
   latitude: number;
@@ -68,10 +69,38 @@ const readEnabled = () => {
 const validCoordinates = (order: Order) =>
   Number.isFinite(Number(order.lat)) && Number.isFinite(Number(order.lng));
 
+const currentPosition = () =>
+  new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('GPS no disponible'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 12_000,
+      maximumAge: 5_000,
+    });
+  });
+
+const distanceMeters = (a: StoredPoint, b: StoredPoint) => {
+  const radius = 6_371_000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+  const deltaLat = toRadians(b.latitude - a.latitude);
+  const deltaLng = toRadians(b.longitude - a.longitude);
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 2 * radius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
 export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) {
   const [enabled, setEnabled] = useState(readEnabled);
   const [working, setWorking] = useState(false);
   const [lastAssigned, setLastAssigned] = useState(0);
+  const [nearStore, setNearStore] = useState<boolean | null>(null);
   const runningRef = useRef(false);
 
   const candidates = useMemo(
@@ -120,15 +149,37 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
       let assigned = 0;
 
       try {
+        let position: GeolocationPosition;
+        try {
+          position = await currentPosition();
+        } catch {
+          setNearStore(null);
+          return;
+        }
+
+        const riderPoint = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        const distanceFromStore = distanceMeters(riderPoint, storePoint);
+        const isNearStore = distanceFromStore <= AUTO_ASSIGN_RADIUS_M;
+        setNearStore(isNearStore);
+
         const heartbeat = await trackingPost<DeviceResult>('heartbeat', {
           deviceToken,
+          latitude: riderPoint.latitude,
+          longitude: riderPoint.longitude,
+          accuracyM: position.coords.accuracy,
         });
+
+        if (!isNearStore) return;
+
         const listed = await trackingPost<DevicesResult>('list_devices');
         const current = (listed.devices || []).find(
           device => device.id === heartbeat.device.id
         );
 
-        if (!current?.enabled) return;
+        if (!current?.enabled || !current.online) return;
 
         const capacity = Math.max(
           0,
@@ -169,25 +220,35 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
 
   if (window.location.pathname !== '/repartidor' || !readToken()) return null;
 
+  const label = !enabled
+    ? 'Auto reparto pausado'
+    : nearStore === false
+      ? 'Auto reparto: fuera del local'
+      : 'Auto reparto activo';
+
   return (
     <button
       type="button"
       onClick={() => setEnabled(value => !value)}
       className={`fixed bottom-[76px] right-5 z-[11990] flex items-center gap-2 rounded-full px-4 py-2.5 text-[9px] font-black uppercase tracking-wider shadow-xl transition active:scale-95 ${
-        enabled
+        enabled && nearStore !== false
           ? 'bg-emerald-600 text-white shadow-emerald-200'
-          : 'bg-white text-slate-500 shadow-slate-200'
+          : enabled
+            ? 'bg-amber-500 text-white shadow-amber-200'
+            : 'bg-white text-slate-500 shadow-slate-200'
       }`}
       aria-label={enabled ? 'Pausar asignación automática' : 'Activar asignación automática'}
     >
       {working ? (
         <LoaderCircle size={15} className="animate-spin" />
-      ) : enabled ? (
-        <Zap size={15} />
-      ) : (
+      ) : !enabled ? (
         <Pause size={15} />
+      ) : nearStore === false ? (
+        <Store size={15} />
+      ) : (
+        <Zap size={15} />
       )}
-      {enabled ? 'Auto reparto activo' : 'Auto reparto pausado'}
+      {label}
       {lastAssigned > 0 && enabled && !working && (
         <span className="rounded-full bg-white/20 px-1.5 py-0.5">+{lastAssigned}</span>
       )}
