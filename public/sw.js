@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v46';
+const CACHE_VERSION = 'pollazo-cache-clean-v47';
 
 const DEFAULT_ICON = '/logo-final.png';
 const DEFAULT_BADGE = '/logo-final.png';

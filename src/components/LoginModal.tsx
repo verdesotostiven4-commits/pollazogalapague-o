@@ -56,7 +56,37 @@ const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
-const MAP_STYLE_URL = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    'pollazo-streets': {
+      type: 'raster',
+      tiles: ['/api/map-tile?z={z}&x={x}&y={y}'],
+      tileSize: 256,
+      minzoom: 4,
+      maxzoom: 20,
+      attribution: '© CARTO · Esri · OpenStreetMap',
+    },
+  },
+  layers: [
+    {
+      id: 'pollazo-map-background',
+      type: 'background',
+      paint: { 'background-color': '#e7eef5' },
+    },
+    {
+      id: 'pollazo-streets',
+      type: 'raster',
+      source: 'pollazo-streets',
+      minzoom: 4,
+      maxzoom: 20,
+      paint: {
+        'raster-fade-duration': 90,
+        'raster-opacity': 1,
+      },
+    },
+  ],
+} as any;
 const MAP_MAX_ZOOM = 18;
 const MAP_DEFAULT_ZOOM = 17;
 const MAP_GPS_ZOOM = 17;
@@ -649,14 +679,18 @@ export default function LoginModal({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE_URL,
+      style: MAP_STYLE,
       center: [startPosition.lng, startPosition.lat],
       zoom: MAP_DEFAULT_ZOOM,
-      minZoom: 5,
+      minZoom: 13,
       maxZoom: MAP_MAX_ZOOM,
       attributionControl: false,
       renderWorldCopies: false,
-      fadeDuration: 120,
+      maxBounds: [
+        [PUERTO_AYORA_BOUNDS.lngMin, PUERTO_AYORA_BOUNDS.latMin],
+        [PUERTO_AYORA_BOUNDS.lngMax, PUERTO_AYORA_BOUNDS.latMax],
+      ],
+      fadeDuration: 90,
     });
 
 
@@ -668,13 +702,18 @@ const loadingTimeout = window.setTimeout(() => {
 
       setMapFailed(true);
       setError('No se pudo cargar el mapa. Revisa tu conexión e intenta nuevamente.');
-    }, 12000);
+    }, 15000);
+
+    const markMapReady = () => {
+      if (disposed || loaded) return;
+      loaded = true;
+      window.clearTimeout(loadingTimeout);
+      setMapFailed(false);
+      setMapReady(true);
+    };
 
     map.on('load', () => {
       if (disposed) return;
-
-      loaded = true;
-      window.clearTimeout(loadingTimeout);
 
       window.requestAnimationFrame(() => {
         if (disposed) return;
@@ -686,16 +725,15 @@ const loadingTimeout = window.setTimeout(() => {
           offset: [0, MAP_PIN_OFFSET_Y],
           duration: 0,
         });
-
         syncSelectedPointFromMap();
 
         if (userActualLocation && isPointInsidePuertoAyora(userActualLocation)) {
           syncUserMarker(userActualLocation);
         }
-
-        setMapReady(true);
       });
     });
+
+    map.on('idle', markMapReady);
 
     map.on('movestart', () => {
       setIsDragging(true);

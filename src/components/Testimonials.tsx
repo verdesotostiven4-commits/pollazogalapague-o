@@ -133,6 +133,7 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   const [photoUrl, setPhotoUrl] = useState('');
 
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [success, setSuccess] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
@@ -193,6 +194,9 @@ export default function Testimonials({ onNavigateRanking }: Props) {
   }, [customerPhone, markLocalReviewed, readLocalReviewed]);
 
   const fetchTestimonials = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+
     try {
       const response = await fetch('/api/testimonials', {
         credentials: 'same-origin',
@@ -200,20 +204,28 @@ export default function Testimonials({ onNavigateRanking }: Props) {
       });
       const result = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         testimonials?: Testimonial[];
         hasReviewed?: boolean;
       };
 
-      if (response.ok && result.ok) {
-        setTestimonials(Array.isArray(result.testimonials) ? result.testimonials : []);
-        if (result.hasReviewed) {
-          setHasReviewed(true);
-          markLocalReviewed();
-        }
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'La API de opiniones no respondió.');
       }
-    } catch (error) {
-      console.warn('No se pudieron cargar opiniones:', error);
-      setError('No pudimos cargar las opiniones. Toca nuevamente en unos segundos.');
+
+      setTestimonials(Array.isArray(result.testimonials) ? result.testimonials : []);
+      if (result.hasReviewed) {
+        setHasReviewed(true);
+        markLocalReviewed();
+      }
+    } catch (apiError) {
+      console.warn('No se pudieron cargar opiniones:', apiError);
+      setTestimonials([]);
+      setLoadError(
+        apiError instanceof Error
+          ? apiError.message
+          : 'No pudimos conectar con las opiniones. Intenta nuevamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -574,11 +586,22 @@ export default function Testimonials({ onNavigateRanking }: Props) {
           <div className="px-5 py-8 text-center">
             <MessageCircle className="mx-auto text-orange-300" size={34} />
             <p className="mt-3 text-sm font-black uppercase italic text-slate-800">
-              Todavía no hay opiniones
+              {loadError ? 'No se pudieron cargar las opiniones' : 'Todavía no hay opiniones'}
             </p>
             <p className="mt-2 text-xs font-bold leading-relaxed text-slate-400">
-              Sé la primera persona en contar cómo fue su experiencia.
+              {loadError
+                ? loadError
+                : 'Sé la primera persona en contar cómo fue su experiencia.'}
             </p>
+            {loadError && (
+              <button
+                type="button"
+                onClick={() => void fetchTestimonials()}
+                className="mt-4 rounded-2xl bg-orange-50 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-orange-600 active:scale-95"
+              >
+                Reintentar
+              </button>
+            )}
           </div>
         )}
 
