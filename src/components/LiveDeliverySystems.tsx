@@ -3,6 +3,7 @@ import { Bike, MapPinned, Smartphone, X } from 'lucide-react';
 import type { Order } from '../types';
 import { getOrderCredential } from '../utils/orderCredentials';
 import AdminDeliveryDevices from './AdminDeliveryDevices';
+import AdminOrderSourceControl from './AdminOrderSourceControl';
 import AdminProductSourceBadges from './AdminProductSourceBadges';
 import RiderAutoDispatcher from './RiderAutoDispatcher';
 import RiderRouteDock from './RiderRouteDock';
@@ -75,6 +76,7 @@ function AdminDeliveryLauncher() {
               </button>
             </div>
             <AdminDeliveryDevices />
+            <AdminOrderSourceControl />
           </section>
         </div>
       )}
