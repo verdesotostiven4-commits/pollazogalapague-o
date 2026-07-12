@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import InteractiveRasterMap from './InteractiveRasterMap';
 import {
   Camera,
   User,
@@ -57,28 +56,7 @@ const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
-const MAP_STYLE = {
-  version: 8,
-  sources: {
-    'osm-standard': {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      minzoom: 0,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [
-    {
-      id: 'osm-standard',
-      type: 'raster',
-      source: 'osm-standard',
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-} as any;
+const MAP_STYLE_URL = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 const MAP_MAX_ZOOM = 18;
 const MAP_DEFAULT_ZOOM = 17;
 const MAP_GPS_ZOOM = 17;
@@ -191,7 +169,6 @@ export default function LoginModal({
   const selectedPointRef = useRef<LatLng>(DEFAULT_CENTER);
   const liveCoordinateLabelRef = useRef<HTMLParagraphElement | null>(null);
   const liveCoordinateFrameRef = useRef<number | null>(null);
-  const fallbackMapFrameRef = useRef<number | null>(null);
 
   const {
     customerName,
@@ -232,8 +209,6 @@ export default function LoginModal({
   const [isDragging, setIsDragging] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
-  const [fallbackMapCenter, setFallbackMapCenter] = useState<LatLng>(DEFAULT_CENTER);
-  const [fallbackMapZoom, setFallbackMapZoom] = useState(MAP_DEFAULT_ZOOM);
   const [error, setError] = useState('');
   const [gpsNotice, setGpsNotice] = useState('');
 
@@ -372,7 +347,7 @@ export default function LoginModal({
   const getPinnedPositionFromMap = useCallback(() => {
     const map = mapInstance.current;
 
-    if (!map) return selectedPointRef.current;
+    if (!map) return null;
 
     const canvas = map.getCanvas();
     const pinnedLngLat = map.unproject([
@@ -455,17 +430,11 @@ export default function LoginModal({
   }, []);
 
   const moveMapTo = useCallback((position: LatLng, zoom = MAP_DEFAULT_ZOOM) => {
-    const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
-
-    selectedPointRef.current = position;
-    setFallbackMapCenter(position);
-    setFallbackMapZoom(safeZoom);
-    setLat(position.lat);
-    setLng(position.lng);
-    paintLiveCoordinateLabel(position);
-
     const map = mapInstance.current;
+
     if (!map) return;
+
+    const safeZoom = Math.min(zoom, MAP_MAX_ZOOM);
 
     map.flyTo({
       center: [position.lng, position.lat],
@@ -473,7 +442,7 @@ export default function LoginModal({
       offset: [0, MAP_PIN_OFFSET_Y],
       duration: 850,
     });
-  }, [paintLiveCoordinateLabel]);
+  }, []);
 
   const goToPuertoAyora = useCallback(
     (message?: string) => {
@@ -677,17 +646,15 @@ export default function LoginModal({
 
     setMapReady(false);
     setMapFailed(false);
-    setFallbackMapCenter(startPosition);
-    setFallbackMapZoom(MAP_DEFAULT_ZOOM);
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE,
+      style: MAP_STYLE_URL,
       center: [startPosition.lng, startPosition.lat],
       zoom: MAP_DEFAULT_ZOOM,
       minZoom: 5,
       maxZoom: MAP_MAX_ZOOM,
-      attributionControl: { compact: true },
+      attributionControl: false,
       renderWorldCopies: false,
       fadeDuration: 120,
     });
@@ -695,16 +662,6 @@ export default function LoginModal({
 
 mapInstance.current = map;
 
-const scheduleFallbackMapSync = () => {
-  if (fallbackMapFrameRef.current !== null) return;
-
-  fallbackMapFrameRef.current = window.requestAnimationFrame(() => {
-    fallbackMapFrameRef.current = null;
-    const center = map.getCenter();
-    setFallbackMapCenter({ lat: center.lat, lng: center.lng });
-    setFallbackMapZoom(map.getZoom());
-  });
-};
 
 const loadingTimeout = window.setTimeout(() => {
       if (disposed || loaded) return;
@@ -723,7 +680,6 @@ const loadingTimeout = window.setTimeout(() => {
         if (disposed) return;
 
         map.resize();
-        scheduleFallbackMapSync();
         map.flyTo({
           center: [startPosition.lng, startPosition.lat],
           zoom: MAP_DEFAULT_ZOOM,
@@ -747,7 +703,6 @@ const loadingTimeout = window.setTimeout(() => {
 
     map.on('move', () => {
       scheduleLiveSelectedPointPaint();
-      scheduleFallbackMapSync();
     });
 
     map.on('moveend', () => {
@@ -775,10 +730,6 @@ const loadingTimeout = window.setTimeout(() => {
         liveCoordinateFrameRef.current = null;
       }
 
-      if (fallbackMapFrameRef.current !== null) {
-        window.cancelAnimationFrame(fallbackMapFrameRef.current);
-        fallbackMapFrameRef.current = null;
-      }
 
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
@@ -997,28 +948,7 @@ const loadingTimeout = window.setTimeout(() => {
     return (
       <div className="fixed inset-0 z-[10000] bg-slate-100 overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-[54dvh] min-h-[350px] max-h-[460px] z-0 overflow-hidden bg-slate-100">
-          <InteractiveRasterMap
-            center={fallbackMapCenter}
-            zoom={fallbackMapZoom}
-            minZoom={14}
-            maxZoom={19}
-            pinOffsetY={MAP_PIN_OFFSET_Y}
-            interactive
-            showControls
-            onReady={() => {
-              setMapReady(true);
-              setMapFailed(false);
-            }}
-            onViewChange={(position, nextZoom, final) => {
-              selectedPointRef.current = position;
-              setFallbackMapCenter(position);
-              setFallbackMapZoom(nextZoom);
-              setLat(position.lat);
-              setLng(position.lng);
-              paintLiveCoordinateLabel(position);
-              setIsDragging(!final);
-            }}
-          />
+          <div ref={mapContainerRef} className="pollazo-maplibre absolute inset-0 z-0" />
 
           {!mapReady && !mapFailed && (
             <div className="absolute inset-0 z-[500] bg-gradient-to-br from-orange-50 via-white to-amber-50 flex flex-col items-center justify-center gap-3">
@@ -1244,9 +1174,9 @@ const loadingTimeout = window.setTimeout(() => {
         <style>{`
           .pollazo-maplibre {
             font-family: inherit;
-            background: transparent;
+            background: #e2e8f0;
             cursor: grab;
-            contain: layout size;
+            contain: strict;
           }
 
           .pollazo-maplibre:active {
@@ -1255,7 +1185,7 @@ const loadingTimeout = window.setTimeout(() => {
 
           .pollazo-maplibre .maplibregl-canvas {
             outline: none;
-            background: transparent !important;
+            background: #e2e8f0;
           }
 
           .pollazo-maplibre .maplibregl-ctrl-attrib {
