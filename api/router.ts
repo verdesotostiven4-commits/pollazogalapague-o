@@ -25,6 +25,7 @@ const handlers: Record<string, HandlerLoader> = {
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
   metrics: () => import('../server/api-handlers/metrics.js'),
   'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
+  'order-sources': () => import('../server/api-handlers/order-sources.js'),
   'panel-action': () => import('../server/api-handlers/panel-action.js'),
   'panel-data': () => import('../server/api-handlers/panel-data-v2.js'),
   'public-data': () => import('../server/api-handlers/public-data.js'),
