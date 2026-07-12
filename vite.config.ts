@@ -20,6 +20,7 @@ export default defineConfig({
         logisticsLab: path.resolve(__dirname, 'logistica-lab.html'),
         riderDevicesLab: path.resolve(__dirname, 'repartidores-lab.html'),
         gpsLab: path.resolve(__dirname, 'gps-lab.html'),
+        customerMapLab: path.resolve(__dirname, 'mapa-cliente-lab.html'),
       },
     },
   },

@@ -42,6 +42,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         productsReadable: false,
         metricsReadable: false,
         ordersReadable: false,
+        deliveryTrackingReady: false,
       },
       recommendation: 'Revisa las variables de Supabase en Vercel.',
     });
@@ -51,15 +52,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [products, metrics, orders] = await Promise.all([
+  const [products, metrics, orders, deliveryTracking] = await Promise.all([
     supabase.from('products').select('id').limit(1),
     supabase.from('app_metrics').select('id').limit(1),
     supabase.from('orders').select('id').limit(1),
+    supabase.from('delivery_sessions').select('id').limit(1),
   ]);
 
   const productsReadable = !products.error;
   const metricsReadable = !metrics.error;
   const ordersReadable = !orders.error;
+  const deliveryTrackingReady = !deliveryTracking.error;
   const healthy =
     environment.projectMatch !== false &&
     productsReadable &&
@@ -80,6 +83,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   } else if (!healthy) {
     recommendation =
       'La base respondió, pero alguna tabla o permiso necesita revisión.';
+  } else if (!deliveryTrackingReady) {
+    recommendation =
+      'La aplicación principal está lista. El rastreo GPS espera la migración de la Fase 6.';
   }
 
   return res.status(200).json({
@@ -105,6 +111,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       metricsCode: safeCode(metrics.error),
       ordersReadable,
       ordersCode: safeCode(orders.error),
+      deliveryTrackingReady,
+      deliveryTrackingCode: safeCode(deliveryTracking.error),
     },
     recommendation,
   });

@@ -112,6 +112,14 @@
       "destination": "/gps-lab.html"
     },
     {
+      "source": "/mapa-cliente-lab",
+      "destination": "/mapa-cliente-lab.html"
+    },
+    {
+      "source": "/mapa-cliente-lab/",
+      "destination": "/mapa-cliente-lab.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

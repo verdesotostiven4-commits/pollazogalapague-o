@@ -21,6 +21,7 @@ const handlers: Record<string, HandlerLoader> = {
   'create-order': () => import('../server/api-handlers/create-order-v3.js'),
   'customer-orders': () => import('../server/api-handlers/customer-orders.js'),
   'customer-session': () => import('../server/api-handlers/customer-session.js'),
+  'delivery-tracking': () => import('../server/api-handlers/delivery-tracking.js'),
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
   metrics: () => import('../server/api-handlers/metrics.js'),
   'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
