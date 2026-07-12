@@ -35,6 +35,16 @@ jobs:
 
       - name: Apply commerce experience
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-commerce-experience.py')
+          source = path.read_text(encoding='utf-8')
+          old = "re.subn(build_whatsapp, new_build_whatsapp, whatsapp, count=1, flags=re.S)"
+          new = "re.subn(build_whatsapp, lambda _match: new_build_whatsapp, whatsapp, count=1, flags=re.S)"
+          if old not in source:
+              raise SystemExit('No se encontró la sustitución de WhatsApp')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
           python3 scripts/apply-commerce-experience.py
           python3 scripts/fix-commerce-experience-output.py
 
