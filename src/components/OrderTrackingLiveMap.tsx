@@ -6,7 +6,7 @@ import {
   type PublicTracking,
 } from '../utils/deliveryTrackingApi';
 import { getOrderCredential } from '../utils/orderCredentials';
-import { STORE_LOCATION } from '../utils/commerce';
+import { isInsidePuertoAyora, STORE_LOCATION } from '../utils/commerce';
 import InteractiveRasterMap, {
   type RasterLatLng,
   type RasterMarker,
@@ -106,24 +106,51 @@ export default function OrderTrackingLiveMap({
   }, [load]);
 
   const trackingData = tracking?.tracking;
-  const store = trackingData
+  const storedCustomer = validPoint(customerLat, customerLng);
+  const trackedStore = trackingData
     ? validPoint(trackingData.store.latitude, trackingData.store.longitude)
-    : STORE_LOCATION;
-  const customer = trackingData
+    : null;
+  const trackedCustomer = trackingData
     ? validPoint(trackingData.customer.latitude, trackingData.customer.longitude)
-    : validPoint(customerLat, customerLng);
-  const rider = trackingData?.current
+    : null;
+  const riderRaw = trackingData?.current
     ? validPoint(trackingData.current.latitude, trackingData.current.longitude)
     : null;
+
+  const store = trackedStore && isInsidePuertoAyora(trackedStore.lat, trackedStore.lng)
+    ? trackedStore
+    : STORE_LOCATION;
+  const customer = trackedCustomer && isInsidePuertoAyora(trackedCustomer.lat, trackedCustomer.lng)
+    ? trackedCustomer
+    : storedCustomer && isInsidePuertoAyora(storedCustomer.lat, storedCustomer.lng)
+      ? storedCustomer
+      : null;
+  const rider = riderRaw && isInsidePuertoAyora(riderRaw.lat, riderRaw.lng)
+    ? riderRaw
+    : null;
+  const riderOutsideCoverage = Boolean(riderRaw && !rider);
 
   const path = useMemo(() => {
     const values = (trackingData?.path || [])
       .map(point => validPoint(point.latitude, point.longitude))
-      .filter((point): point is RasterLatLng => Boolean(point));
+      .filter(
+        (point): point is RasterLatLng =>
+          Boolean(point && isInsidePuertoAyora(point.lat, point.lng))
+      );
 
-    if (values.length === 0 && store) values.push(store);
-    if (rider && !values.some(point => point.lat === rider.lat && point.lng === rider.lng)) values.push(rider);
-    if (!rider && customer && !values.some(point => point.lat === customer.lat && point.lng === customer.lng)) values.push(customer);
+    const addUnique = (point: RasterLatLng | null) => {
+      if (!point) return;
+      if (!values.some(item => item.lat === point.lat && item.lng === point.lng)) {
+        values.push(point);
+      }
+    };
+
+    if (values.length === 0) {
+      addUnique(rider || store);
+      if (rider) addUnique(store);
+    }
+
+    addUnique(customer);
     return values.slice(-120);
   }, [customer, rider, store, trackingData?.path]);
 
@@ -158,11 +185,13 @@ export default function OrderTrackingLiveMap({
   const capturedAt = active
     ? trackingData?.current?.capturedAt || trackingData?.updatedAt || tracking?.order.updatedAt
     : null;
-  const statusText = active && trackingData
-    ? `${trackingStatusLabel(trackingData.status)} · ${trackingData.riderName}`
-    : orderStatus === 'Enviado'
-      ? 'Esperando la primera ubicación del repartidor'
-      : 'Ruta estimada · preparando tu pedido';
+  const statusText = riderOutsideCoverage
+    ? 'GPS de prueba fuera de Puerto Ayora'
+    : active && trackingData
+      ? `${trackingStatusLabel(trackingData.status)} · ${trackingData.riderName}`
+      : orderStatus === 'Enviado'
+        ? 'Esperando la primera ubicación del repartidor'
+        : 'Ruta estimada · preparando tu pedido';
 
   return (
     <div className="mt-3 overflow-hidden rounded-[19px] border border-blue-100 bg-white shadow-sm">
@@ -184,7 +213,7 @@ export default function OrderTrackingLiveMap({
         </div>
       </div>
 
-      <div className="relative h-[190px] bg-slate-100">
+      <div className="relative h-[220px] bg-slate-100">
         <InteractiveRasterMap
           center={viewCenter}
           zoom={viewZoom}
@@ -202,11 +231,15 @@ export default function OrderTrackingLiveMap({
         />
       </div>
 
-      {!active && (
+      {riderOutsideCoverage ? (
+        <div className="bg-amber-50 px-3 py-2 text-[8px] font-bold text-amber-700">
+          El GPS del repartidor está fuera de Puerto Ayora. Para no deformar el mapa, aquí se mantiene la ruta local entre El Mirador y tu entrega.
+        </div>
+      ) : !active ? (
         <div className="bg-orange-50 px-3 py-2 text-[8px] font-bold text-orange-700">
           La línea muestra la ruta estimada entre El Mirador y tu punto. La moto aparecerá cuando un repartidor sea asignado.
         </div>
-      )}
+      ) : null}
 
       {error && (
         <div className="flex items-center gap-2 bg-red-50 px-3 py-2 text-[8px] font-bold text-red-600">

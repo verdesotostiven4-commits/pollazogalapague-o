@@ -104,6 +104,7 @@ function RasterTile({ tile, onReady }: { tile: TileDescriptor; onReady: () => vo
   const cartoSubdomain = ['a', 'b', 'c', 'd'][Math.abs(tile.x + tile.y) % 4];
 
   const sources = [
+    `/api/map-tile?z=${tile.z}&x=${wrappedX}&y=${tile.y}`,
     `https://${cartoSubdomain}.basemaps.cartocdn.com/rastertiles/voyager/${tile.z}/${wrappedX}/${tile.y}.png`,
     `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${tile.z}/${tile.y}/${wrappedX}`,
     `https://tile.openstreetmap.org/${tile.z}/${wrappedX}/${tile.y}.png`,
@@ -129,6 +130,8 @@ function RasterTile({ tile, onReady }: { tile: TileDescriptor; onReady: () => vo
       alt=""
       aria-hidden="true"
       draggable={false}
+      loading="eager"
+      decoding="async"
       className="absolute block select-none"
       style={{
         left: tile.left,
