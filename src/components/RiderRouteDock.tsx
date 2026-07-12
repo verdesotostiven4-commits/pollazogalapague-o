@@ -23,6 +23,15 @@ type MapPoint = {
   savedAt?: string;
 };
 
+type SourceEvent = {
+  id: string;
+  order_code: string;
+  product_id?: string | null;
+  item_name: string;
+  actual_source: 'mirador' | 'cascada';
+  created_at: string;
+};
+
 type Props = {
   orders: Order[];
 };
@@ -64,6 +73,8 @@ const readCascadaPoint = (): MapPoint | null => {
 };
 
 const coordinateOf = (order: Order): MapPoint | null => {
+  if (order.lat === null || order.lat === undefined || order.lat === '') return null;
+  if (order.lng === null || order.lng === undefined || order.lng === '') return null;
   const latitude = Number(order.lat);
   const longitude = Number(order.lng);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
@@ -114,10 +125,15 @@ const optimizeOrders = (source: Order[], start: MapPoint | null) => {
 };
 
 const itemProductId = (item: OrderItem) =>
-  String(item.product_id || item.product?.id || item.id || '').trim().toLowerCase();
+  String(item.product_id || item.product?.id || item.cart_item_id || item.id || '')
+    .trim()
+    .toLowerCase();
 
-const cascadaItems = (order: Order) =>
-  (order.items || []).filter(item => itemProductId(item).startsWith('cascada-'));
+const itemName = (item: OrderItem) =>
+  String(item.name || item.product?.name || 'Producto').trim();
+
+const itemKey = (orderCode: string, item: OrderItem) =>
+  `${orderCode.toUpperCase()}::${itemProductId(item) || itemName(item).toLowerCase()}`;
 
 const mapsRouteUrl = (
   routeOrders: Order[],
@@ -173,6 +189,7 @@ const openMaps = (
 
 export default function RiderRouteDock({ orders }: Props) {
   const [device, setDevice] = useState<TrackingDevice | null>(null);
+  const [sourceEvents, setSourceEvents] = useState<SourceEvent[]>([]);
   const [cascadaPoint, setCascadaPoint] = useState<MapPoint | null>(readCascadaPoint);
   const [loading, setLoading] = useState(false);
   const [savingCascada, setSavingCascada] = useState(false);
@@ -229,8 +246,66 @@ export default function RiderRouteDock({ orders }: Props) {
       );
   }, [device?.activeOrders, orders]);
 
+  const assignedCodes = useMemo(
+    () => assignedOrders.map(order => order.order_code).filter(Boolean).join(','),
+    [assignedOrders]
+  );
+
+  useEffect(() => {
+    if (!assignedCodes) {
+      setSourceEvents([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSources = async () => {
+      try {
+        const response = await fetch(
+          `/api/order-sources?orderCodes=${encodeURIComponent(assignedCodes)}`,
+          { credentials: 'same-origin', cache: 'no-store' }
+        );
+        const payload = await response.json().catch(() => ({})) as {
+          ok?: boolean;
+          events?: SourceEvent[];
+          setupRequired?: boolean;
+        };
+        if (!cancelled && response.ok && payload.ok) {
+          setSourceEvents(Array.isArray(payload.events) ? payload.events : []);
+        }
+      } catch {
+        // Si la auditoría aún no está activa, se usa el origen original del producto.
+      }
+    };
+
+    void loadSources();
+    const timer = window.setInterval(() => void loadSources(), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [assignedCodes]);
+
+  const latestSourceByItem = useMemo(() => {
+    const map = new Map<string, SourceEvent>();
+    sourceEvents.forEach(event => {
+      const key = `${event.order_code.toUpperCase()}::${String(event.product_id || '').toLowerCase() || event.item_name.toLowerCase()}`;
+      if (!map.has(key)) map.set(key, event);
+    });
+    return map;
+  }, [sourceEvents]);
+
+  const cascadaItemsFor = useCallback(
+    (order: Order) =>
+      (order.items || []).filter(item => {
+        const plannedCascada = itemProductId(item).startsWith('cascada-');
+        const event = latestSourceByItem.get(itemKey(order.order_code, item));
+        return event ? event.actual_source === 'cascada' : plannedCascada;
+      }),
+    [latestSourceByItem]
+  );
+
   const totalCascadaItems = assignedOrders.reduce(
-    (total, order) => total + cascadaItems(order).length,
+    (total, order) => total + cascadaItemsFor(order).length,
     0
   );
   const routeNeedsCascada = totalCascadaItems > 0;
@@ -356,7 +431,7 @@ export default function RiderRouteDock({ orders }: Props) {
             <div className="flex-1">
               <p className="text-[9px] font-black uppercase">Primera parada interna: La Cascada</p>
               <p className="mt-1 text-[9px] font-bold leading-relaxed text-red-700/70">
-                Hay {totalCascadaItems} producto{totalCascadaItems !== 1 ? 's' : ''} de La Cascada. Esta parada solo la ve el equipo.
+                Hay {totalCascadaItems} producto{totalCascadaItems !== 1 ? 's' : ''} que deben recogerse allí. Esta parada solo la ve el equipo.
               </p>
               <button
                 type="button"
@@ -393,7 +468,7 @@ export default function RiderRouteDock({ orders }: Props) {
 
         <div className="space-y-2">
           {routeOrders.map((order, index) => {
-            const sourceItems = cascadaItems(order);
+            const sourceItems = cascadaItemsFor(order);
             const needsCascada = sourceItems.length > 0;
             return (
               <article
