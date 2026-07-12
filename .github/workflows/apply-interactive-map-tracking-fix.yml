@@ -1,0 +1,52 @@
+name: Apply interactive map and tracking fix
+
+on:
+  push:
+    branches:
+      - fix/mapa-interactivo-y-rastreo-integrado
+    paths:
+      - scripts/apply-interactive-map-tracking-fix.py
+      - src/components/InteractiveRasterMap.tsx
+      - src/components/OrderTrackingLiveMap.tsx
+      - .github/workflows/apply-interactive-map-tracking-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/mapa-interactivo-y-rastreo-integrado
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply changes
+        run: python3 scripts/apply-interactive-map-tracking-fix.py
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate TypeScript, security, lint and build
+        run: npm run validate
+
+      - name: Commit verified changes
+        run: |
+          rm -f scripts/apply-interactive-map-tracking-fix.py
+          rm -f .github/workflows/apply-interactive-map-tracking-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "[skip ci] Integrar mapa táctil y rastreo GPS en el pedido"
+          git push origin HEAD:fix/mapa-interactivo-y-rastreo-integrado
