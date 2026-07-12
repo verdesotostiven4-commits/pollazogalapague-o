@@ -7,6 +7,12 @@ on:
     paths:
       - scripts/apply-mobile-customer-fixes.py
       - .github/workflows/apply-mobile-customer-fixes.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/apply-mobile-customer-fixes.py
+      - .github/workflows/apply-mobile-customer-fixes.yml
 
 permissions:
   contents: write
