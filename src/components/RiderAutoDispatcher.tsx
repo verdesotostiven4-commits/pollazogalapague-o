@@ -186,7 +186,9 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
           Number(current.max_orders || 1) - Number(current.load || 0)
         );
 
-        for (const order of candidates.slice(0, capacity)) {
+        for (const order of candidates) {
+          if (assigned >= capacity) break;
+
           try {
             await trackingPost<StartResult>('start_session', {
               deviceToken,
@@ -196,7 +198,7 @@ export default function RiderAutoDispatcher({ orders, onOrdersChanged }: Props) 
             });
             assigned += 1;
           } catch {
-            // Otro celular pudo tomarlo primero; el servidor evita duplicados.
+            // Si otro celular lo tomó, este continúa con el siguiente pedido de la cola.
           }
         }
 
