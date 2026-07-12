@@ -12,6 +12,56 @@ const setNativeInputValue = (input: HTMLInputElement, value: string) => {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
+const installCompactStyles = () => {
+  const styleId = 'pollazo-customer-map-compact-styles';
+  if (document.getElementById(styleId)) return;
+
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    html.pollazo-customer-map-compact,
+    html.pollazo-customer-map-compact body,
+    html.pollazo-customer-map-compact #root {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #020617;
+    }
+
+    html.pollazo-customer-map-compact #root > div {
+      min-height: 100dvh !important;
+    }
+
+    html.pollazo-customer-map-compact #root > div > header,
+    html.pollazo-customer-map-compact #root > div > main > section:first-child,
+    html.pollazo-customer-map-compact #root > div > main > section:nth-child(2) > div:nth-child(2) {
+      display: none !important;
+    }
+
+    html.pollazo-customer-map-compact #root > div > main {
+      width: 100% !important;
+      max-width: none !important;
+      height: 100dvh !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    html.pollazo-customer-map-compact #root > div > main > section:nth-child(2) {
+      display: block !important;
+      height: 100dvh !important;
+    }
+
+    html.pollazo-customer-map-compact #root > div > main > section:nth-child(2) > div:first-child {
+      min-height: 100dvh !important;
+      height: 100dvh !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
 export default function CustomerMapBootstrap() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -21,6 +71,7 @@ export default function CustomerMapBootstrap() {
 
     if (compact) {
       document.documentElement.classList.add('pollazo-customer-map-compact');
+      installCompactStyles();
     }
 
     if (!orderCode || !credential?.trackingToken) return undefined;
