@@ -112,43 +112,48 @@ function DeliveryTrackingLauncher() {
         GPS {deviceReady ? 'activo' : 'configurar'}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[14000] bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0"
-            aria-label="Cerrar GPS de reparto"
-          />
-          <section className="relative z-10 mx-auto h-full w-full max-w-3xl overflow-y-auto rounded-[32px] bg-gray-50 p-4 shadow-2xl sm:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500">Repartidor</p>
-                <h2 className="mt-1 text-xl font-black uppercase italic text-slate-950">Control automático GPS</h2>
-                <p className="mt-1 text-[10px] font-bold text-slate-400">
-                  {loading ? 'Actualizando pedidos…' : `${orders.length} pedidos cargados`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-500 shadow-sm"
-                aria-label="Cerrar"
-              >
-                <X size={20} />
-              </button>
+      <div
+        className={`fixed inset-0 z-[14000] bg-slate-950/60 p-3 backdrop-blur-sm transition-opacity sm:p-6 ${
+          open ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'
+        }`}
+        aria-hidden={!open}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="absolute inset-0"
+          aria-label="Cerrar GPS de reparto"
+          tabIndex={open ? 0 : -1}
+        />
+        <section className="relative z-10 mx-auto h-full w-full max-w-3xl overflow-y-auto rounded-[32px] bg-gray-50 p-4 shadow-2xl sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500">Repartidor</p>
+              <h2 className="mt-1 text-xl font-black uppercase italic text-slate-950">Control automático GPS</h2>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                {loading ? 'Actualizando pedidos…' : `${orders.length} pedidos cargados`}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-500 shadow-sm"
+              aria-label="Cerrar"
+              tabIndex={open ? 0 : -1}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-            {error && (
-              <div className="mb-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-[10px] font-bold text-red-600">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="mb-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-[10px] font-bold text-red-600">
+              {error}
+            </div>
+          )}
 
-            <RiderTrackingBridge orders={orders} onOrdersChanged={loadOrders} />
-          </section>
-        </div>
-      )}
+          <RiderTrackingBridge orders={orders} onOrdersChanged={loadOrders} />
+        </section>
+      </div>
     </>
   );
 }
