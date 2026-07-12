@@ -3,6 +3,7 @@ import { Bike, MapPinned, Smartphone, X } from 'lucide-react';
 import type { Order } from '../types';
 import { getOrderCredential } from '../utils/orderCredentials';
 import AdminDeliveryDevices from './AdminDeliveryDevices';
+import RiderAutoDispatcher from './RiderAutoDispatcher';
 import RiderTrackingBridge, { hasStoredDeliveryDevice } from './RiderTrackingBridge';
 
 const normalizeCode = (value?: string | null) =>
@@ -99,6 +100,8 @@ function DeliveryTrackingLauncher() {
 
   return (
     <>
+      <RiderAutoDispatcher orders={orders} onOrdersChanged={loadOrders} />
+
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -214,7 +217,7 @@ function CustomerTrackingMapLauncher() {
         <div className="fixed inset-0 z-[16000] bg-slate-950">
           <iframe
             title={`Mapa en vivo ${orderCode}`}
-            src={`/mapa-cliente-lab?compact=1&orderCode=${encodeURIComponent(orderCode)}`}
+            src={`/mapa-pedido?compact=1&orderCode=${encodeURIComponent(orderCode)}`}
             className="h-full w-full border-0"
           />
           <button
