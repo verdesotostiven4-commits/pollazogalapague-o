@@ -1,3 +1,9 @@
+import {
+  enqueueTrackingUpdates,
+  flushTrackingQueue,
+  type QueuedTrackingUpdate,
+} from './deliveryTrackingQueue';
+
 export type TrackingStatus =
   | 'packing'
   | 'en_route'
@@ -100,7 +106,7 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
   return payload as T;
 };
 
-export const trackingPost = async <T>(
+const postTrackingRequest = async <T>(
   action: string,
   payload: Record<string, unknown> = {}
 ): Promise<T> => {
@@ -111,6 +117,94 @@ export const trackingPost = async <T>(
     body: JSON.stringify({ action, ...payload }),
   });
   return parseResponse<T>(response);
+};
+
+const asQueuedUpdate = (
+  payload: Record<string, unknown>
+): QueuedTrackingUpdate | null => {
+  const candidate = payload as Partial<QueuedTrackingUpdate>;
+  if (
+    !candidate.deviceToken ||
+    !candidate.sessionId ||
+    !Number.isFinite(Number(candidate.latitude)) ||
+    !Number.isFinite(Number(candidate.longitude)) ||
+    !Number.isFinite(Number(candidate.accuracyM)) ||
+    !candidate.capturedAt
+  ) {
+    return null;
+  }
+
+  return {
+    deviceToken: String(candidate.deviceToken),
+    sessionId: String(candidate.sessionId),
+    latitude: Number(candidate.latitude),
+    longitude: Number(candidate.longitude),
+    accuracyM: Number(candidate.accuracyM),
+    speedMps:
+      candidate.speedMps === null || candidate.speedMps === undefined
+        ? null
+        : Number(candidate.speedMps),
+    headingDeg:
+      candidate.headingDeg === null || candidate.headingDeg === undefined
+        ? null
+        : Number(candidate.headingDeg),
+    capturedAt: candidate.capturedAt,
+    batteryPercent:
+      candidate.batteryPercent === null || candidate.batteryPercent === undefined
+        ? null
+        : Number(candidate.batteryPercent),
+  };
+};
+
+const flushPendingLocations = async () => {
+  if (typeof navigator === 'undefined' || !navigator.onLine) return;
+  await flushTrackingQueue(item =>
+    postTrackingRequest('update_location', item as unknown as Record<string, unknown>)
+  );
+};
+
+export const trackingPost = async <T>(
+  action: string,
+  payload: Record<string, unknown> = {}
+): Promise<T> => {
+  if (action === 'update_location') {
+    const queuedUpdate = asQueuedUpdate(payload);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine && queuedUpdate) {
+      enqueueTrackingUpdates([queuedUpdate]);
+      return {
+        ok: true,
+        accepted: false,
+        queued: true,
+        reason: 'Ubicación guardada hasta recuperar internet.',
+      } as T;
+    }
+
+    try {
+      await flushPendingLocations();
+      return await postTrackingRequest<T>(action, payload);
+    } catch (cause) {
+      const status = Number((cause as { status?: number })?.status || 0);
+      if (!status && queuedUpdate) {
+        enqueueTrackingUpdates([queuedUpdate]);
+        return {
+          ok: true,
+          accepted: false,
+          queued: true,
+          reason: 'Ubicación guardada por conexión inestable.',
+        } as T;
+      }
+      throw cause;
+    }
+  }
+
+  try {
+    await flushPendingLocations();
+  } catch {
+    // La cola se reintentará en la próxima petición o al recuperar conexión.
+  }
+
+  return postTrackingRequest<T>(action, payload);
 };
 
 export const readPublicTracking = async (
