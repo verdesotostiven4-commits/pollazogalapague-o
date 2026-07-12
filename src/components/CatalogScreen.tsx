@@ -82,6 +82,9 @@ const BESTSELLER_IDS = [
   'leche-tru-1l',
 ];
 
+const INITIAL_PRODUCT_LIMIT = 24;
+const PRODUCT_LIMIT_STEP = 24;
+
 const SORT_OPTIONS: Array<{
   id: SortOption;
   label: string;
@@ -292,6 +295,7 @@ export default function CatalogScreen({
   const [sortBy, setSortBy] = useState<SortOption>('sugeridos');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [search, setSearch] = useState('');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_PRODUCT_LIMIT);
 
   const tabBarRef = useRef<HTMLDivElement>(null);
   const subBarRef = useRef<HTMLDivElement>(null);
@@ -450,6 +454,10 @@ export default function CatalogScreen({
     setActiveCategory(initialCategory);
     setActiveSubcategory(null);
   }, [initialCategory]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_PRODUCT_LIMIT);
+  }, [activeCategory, activeSubcategory, sortBy]);
 
   useEffect(() => {
     const main = document.querySelector('main');
@@ -826,13 +834,25 @@ export default function CatalogScreen({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 flex-1">
-            {displayedProducts.map(product => (
-              <div key={product.id} className="w-full min-w-0">
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 flex-1">
+              {displayedProducts.slice(0, visibleCount).map((product, index) => (
+                <div key={product.id} className="w-full min-w-0">
+                  <ProductCard product={product} priority={index < 6} />
+                </div>
+              ))}
+            </div>
+
+            {visibleCount < displayedProducts.length && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount(value => value + PRODUCT_LIMIT_STEP)}
+                className="mx-auto mt-5 rounded-full border border-orange-200 bg-white px-6 py-3 text-[10px] font-black uppercase tracking-widest text-orange-600 shadow-sm active:scale-95"
+              >
+                Ver más productos · {displayedProducts.length - visibleCount}
+              </button>
+            )}
+          </>
         )}
       </div>
 

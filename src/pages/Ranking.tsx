@@ -241,6 +241,9 @@ export default function Ranking() {
   const [isInHallOfFame, setIsInHallOfFame] = useState(false);
   const [showPrizeDetails, setShowPrizeDetails] = useState(false);
   const [alertButton, setAlertButton] = useState(false);
+  const [publicCustomers, setPublicCustomers] = useState<CustomerRecord[]>([]);
+  const [publicCurrentCustomerId, setPublicCurrentCustomerId] = useState('');
+  const [publicRankingLoading, setPublicRankingLoading] = useState(true);
 
   const eventActive = extraSettings?.event_active !== false;
   const hasEndDate = Boolean(extraSettings?.ranking_end_date);
@@ -255,6 +258,38 @@ export default function Ranking() {
   useEffect(() => {
     if (refreshData) refreshData();
   }, [refreshData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPublicRanking = async () => {
+      try {
+        const response = await fetch('/api/public-ranking', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          customers?: CustomerRecord[];
+          currentCustomerId?: string | null;
+        };
+
+        if (!cancelled && response.ok && payload.ok) {
+          setPublicCustomers(Array.isArray(payload.customers) ? payload.customers : []);
+          setPublicCurrentCustomerId(String(payload.currentCustomerId || ''));
+        }
+      } catch (error) {
+        console.warn('No se pudo cargar el ranking público:', error);
+      } finally {
+        if (!cancelled) setPublicRankingLoading(false);
+      }
+    };
+
+    void loadPublicRanking();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (extraSettings?.ranking_end_date && !loading && eventActive) {
@@ -304,11 +339,13 @@ export default function Ranking() {
   }, [eventActive, extraSettings?.ranking_end_date]);
 
   const ranking = useMemo(() => {
-    return normalizeRankingCustomers(customers as CustomerRecord[]);
-  }, [customers]);
+    const source = customers.length > 0 ? customers : publicCustomers;
+    return normalizeRankingCustomers(source as CustomerRecord[]);
+  }, [customers, publicCustomers]);
 
   const myRankIndex = ranking.findIndex(customer => {
-    return cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
+    if (publicCurrentCustomerId && customer.id === publicCurrentCustomerId) return true;
+    return Boolean(cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone);
   });
 
   const myData = myRankIndex !== -1 ? ranking[myRankIndex] : null;
@@ -635,7 +672,14 @@ export default function Ranking() {
       )}
 
       <div className="px-4 mt-12 space-y-5">
-        {ranking.length === 0 && (
+        {ranking.length === 0 && publicRankingLoading && (
+          <div className="bg-white rounded-[34px] border border-orange-100 p-8 text-center shadow-sm">
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500" />
+            <p className="mt-4 text-xs font-black uppercase text-slate-500">Cargando puntos...</p>
+          </div>
+        )}
+
+        {ranking.length === 0 && !publicRankingLoading && (
           <div className="bg-white rounded-[34px] border border-orange-100 p-8 text-center shadow-sm">
             <Trophy size={44} className="mx-auto text-orange-300 mb-4" />
             <p className="font-black text-slate-900 uppercase">
@@ -648,7 +692,10 @@ export default function Ranking() {
         )}
 
         {ranking.slice(0, 3).map((customer, index) => {
-          const isMe = cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
+          const isMe = Boolean(
+            (publicCurrentCustomerId && customer.id === publicCurrentCustomerId) ||
+              (cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone)
+          );
 
           return (
             <RevealOnScroll key={customer.id || `${customer.phone}-${index}`} delay={index * 100}>
@@ -715,7 +762,10 @@ export default function Ranking() {
       <div className="px-4 mt-8 space-y-3">
         {ranking.slice(3).map((customer, index) => {
           const actualIndex = index + 3;
-          const isMe = cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone;
+          const isMe = Boolean(
+            (publicCurrentCustomerId && customer.id === publicCurrentCustomerId) ||
+              (cleanUserPhone && cleanPhoneTail(customer.phone) === cleanUserPhone)
+          );
 
           return (
             <RevealOnScroll key={customer.id || `${customer.phone}-${actualIndex}`} delay={index * 50}>

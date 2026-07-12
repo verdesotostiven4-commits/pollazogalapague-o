@@ -56,7 +56,38 @@ const DEFAULT_AVATAR = PRESET_AVATARS[0]?.url || '';
 const DEFAULT_CENTER: LatLng = { lat: -0.7439, lng: -90.3131 };
 const EDIT_ADDRESS_STORAGE_KEY = 'pollazo_edit_delivery_address_id';
 
-const MAP_STYLE_URL = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    'carto-voyager': {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+      ],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 20,
+      attribution: '© OpenStreetMap contributors © CARTO',
+    },
+  },
+  layers: [
+    {
+      id: 'map-background',
+      type: 'background',
+      paint: { 'background-color': '#eef2f7' },
+    },
+    {
+      id: 'carto-voyager',
+      type: 'raster',
+      source: 'carto-voyager',
+      minzoom: 0,
+      maxzoom: 20,
+    },
+  ],
+} as any;
 const MAP_MAX_ZOOM = 18;
 const MAP_DEFAULT_ZOOM = 17;
 const MAP_GPS_ZOOM = 17;
@@ -649,12 +680,12 @@ export default function LoginModal({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE_URL,
+      style: MAP_STYLE,
       center: [startPosition.lng, startPosition.lat],
       zoom: MAP_DEFAULT_ZOOM,
       minZoom: 5,
       maxZoom: MAP_MAX_ZOOM,
-      attributionControl: false,
+      attributionControl: { compact: true },
       renderWorldCopies: false,
       fadeDuration: 120,
     });

@@ -1317,6 +1317,8 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
 
       <LiveMetrics />
 
+      <Testimonials />
+
       <LanguageSelectorCard />
 
       <CustomerAccountCard />
@@ -1541,8 +1543,6 @@ export default function InfoScreen({ onInstall, canInstall, onNavigate, onChange
           </div>
         </div>
       </div>
-
-      <Testimonials />
 
       <div className="bg-white rounded-[32px] border border-orange-50 shadow-sm overflow-hidden">
         <button
