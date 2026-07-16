@@ -2,8 +2,8 @@
   "name": "La Casa del Pollazo",
   "short_name": "Pollazo",
   "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
-  "id": "/?appVersion=16",
-  "start_url": "/?appVersion=16",
+  "id": "/",
+  "start_url": "/?appVersion=17",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -16,16 +16,10 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/pollazo-icon-any-512-v16.png?v=16",
+      "src": "/pollazo-icon-any-512-v16.png?v=17",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/pollazo-icon-maskable-512-v16.png?v=16",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -34,14 +28,14 @@
       "short_name": "Catálogo",
       "description": "Ver productos disponibles",
       "url": "/catalogo",
-      "icons": [{ "src": "/pollazo-icon-any-512-v16.png?v=16", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/pollazo-icon-any-512-v16.png?v=17", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "Carrito",
       "short_name": "Carrito",
       "description": "Revisar pedido",
       "url": "/carrito",
-      "icons": [{ "src": "/pollazo-icon-any-512-v16.png?v=16", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/pollazo-icon-any-512-v16.png?v=17", "sizes": "512x512", "type": "image/png" }]
     }
   ]
 }
