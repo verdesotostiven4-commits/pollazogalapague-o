@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v51';
+const CACHE_VERSION = 'pollazo-cache-clean-v52';
 
-const DEFAULT_ICON = 'https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png';
+const DEFAULT_ICON = '/pollazo-icon-v26.jpg';
 const DEFAULT_BADGE = DEFAULT_ICON;
 
 const STATUS_ICONS = {
