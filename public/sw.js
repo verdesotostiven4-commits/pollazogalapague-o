@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v47';
+const CACHE_VERSION = 'pollazo-cache-clean-v48';
 
-const DEFAULT_ICON = '/logo-final.png';
+const DEFAULT_ICON = '/api/pwa-icon?size=192&v=22';
 const DEFAULT_BADGE = '/logo-final.png';
 
 const STATUS_ICONS = {
