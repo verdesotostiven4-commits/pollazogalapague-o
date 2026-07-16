@@ -52,7 +52,9 @@
             if (!isInstallButton(button)) return;
 
             const ready = Boolean(state.prompt) || state.installed;
-            button.disabled = !ready;
+            if (button.disabled !== !ready) {
+              button.disabled = !ready;
+            }
             button.style.opacity = ready ? '' : '0.72';
             button.style.cursor = ready ? '' : 'wait';
             button.title = ready
@@ -132,7 +134,7 @@
             'load',
             () => {
               navigator.serviceWorker
-                .register('/sw.js?v=49', { scope: '/' })
+                .register('/sw.js?v=51', { scope: '/' })
                 .then(registration => registration.update())
                 .catch(error => {
                   console.error('No se pudo registrar el service worker:', error);
@@ -145,9 +147,11 @@
     </script>
 
     <link rel="canonical" href="https://pollazogalapague-o-phi.vercel.app/" />
-    <link rel="manifest" href="/manifest.json?v=24" />
+    <link rel="manifest" href="/manifest.json?v=25" />
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
-    <link rel="preload" href="/api/pwa-icon?size=512&v=24" as="image" type="image/png" />
+    <link rel="preconnect" href="https://cdn.phototourl.com" crossorigin />
+    <link rel="dns-prefetch" href="https://cdn.phototourl.com" />
+    <link rel="preload" href="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" as="image" />
 
     <meta name="theme-color" content="#f97316" />
     <meta name="background-color" content="#ffffff" />
@@ -156,9 +160,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-    <link rel="icon" type="image/png" sizes="192x192" href="/api/pwa-icon?size=192&v=24" />
-    <link rel="shortcut icon" type="image/png" href="/api/pwa-icon?size=192&v=24" />
-    <link rel="apple-touch-icon" href="/api/pwa-icon?size=192&v=24" />
+    <link rel="icon" type="image/jpeg" href="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" />
+    <link rel="shortcut icon" type="image/jpeg" href="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" />
+    <link rel="apple-touch-icon" href="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" />
 
     <meta property="og:locale" content="es_EC" />
     <meta property="og:type" content="website" />
@@ -169,7 +173,7 @@
       property="og:description"
       content="Pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura en Puerto Ayora, Galápagos."
     />
-    <meta property="og:image" content="https://pollazogalapague-o-phi.vercel.app/api/pwa-icon?size=512&v=24" />
+    <meta property="og:image" content="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" />
     <meta property="og:image:alt" content="Logo de La Casa del Pollazo" />
 
     <meta name="twitter:card" content="summary_large_image" />
@@ -178,7 +182,7 @@
       name="twitter:description"
       content="Market local en Puerto Ayora con pollo fresco, productos del día y pedidos rápidos."
     />
-    <meta name="twitter:image" content="https://pollazogalapague-o-phi.vercel.app/api/pwa-icon?size=512&v=24" />
+    <meta name="twitter:image" content="https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png" />
 
     <script type="application/ld+json">
       {
@@ -187,8 +191,8 @@
         "name": "La Casa del Pollazo",
         "alternateName": "Pollazo Galapagueño",
         "url": "https://pollazogalapague-o-phi.vercel.app/",
-        "logo": "https://pollazogalapague-o-phi.vercel.app/api/pwa-icon?size=512&v=24",
-        "image": "https://pollazogalapague-o-phi.vercel.app/api/pwa-icon?size=512&v=24",
+        "logo": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
+        "image": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
         "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
         "telephone": "+593989795628",
         "priceRange": "$$",
