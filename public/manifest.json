@@ -3,7 +3,7 @@
   "short_name": "Pollazo",
   "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
   "id": "/",
-  "start_url": "/?appVersion=24",
+  "start_url": "/?appVersion=25",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -16,15 +16,15 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/api/pwa-icon?size=192&v=24",
+      "src": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any"
     },
     {
-      "src": "/api/pwa-icon?size=512&v=24",
+      "src": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any"
     }
   ],
@@ -36,9 +36,9 @@
       "url": "/catalogo",
       "icons": [
         {
-          "src": "/api/pwa-icon?size=192&v=24",
+          "src": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
           "sizes": "192x192",
-          "type": "image/png"
+          "type": "image/jpeg"
         }
       ]
     },
@@ -49,9 +49,9 @@
       "url": "/carrito",
       "icons": [
         {
-          "src": "/api/pwa-icon?size=192&v=24",
+          "src": "https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png",
           "sizes": "192x192",
-          "type": "image/png"
+          "type": "image/jpeg"
         }
       ]
     }
