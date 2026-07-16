@@ -77,6 +77,10 @@
   ],
   "rewrites": [
     {
+      "source": "/pollazo-icon-v26.jpg",
+      "destination": "/api/router?route=pwa-icon-source"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/router?route=:path*"
     },
