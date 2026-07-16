@@ -20,11 +20,11 @@
     <meta name="color-scheme" content="light" />
 
     <link rel="canonical" href="https://pollazogalapague-o-phi.vercel.app/" />
-    <link rel="manifest" href="/manifest.json?v=16" />
+    <link rel="manifest" href="/manifest.json?v=17" />
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
     <link rel="preconnect" href="https://blogger.googleusercontent.com" crossorigin />
     <link rel="dns-prefetch" href="https://blogger.googleusercontent.com" />
-    <link rel="preload" href="/pollazo-icon-any-512-v16.png" as="image" type="image/png" />
+    <link rel="preload" href="/pollazo-icon-any-512-v16.png?v=17" as="image" type="image/png" />
 
     <meta name="theme-color" content="#f97316" />
     <meta name="background-color" content="#ffffff" />
@@ -32,9 +32,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-    <link rel="icon" type="image/png" href="/pollazo-icon-any-512-v16.png?v=16" />
-    <link rel="shortcut icon" type="image/png" href="/pollazo-icon-any-512-v16.png?v=16" />
-    <link rel="apple-touch-icon" href="/pollazo-icon-any-512-v16.png?v=16" />
+    <link rel="icon" type="image/png" href="/pollazo-icon-any-512-v16.png?v=17" />
+    <link rel="shortcut icon" type="image/png" href="/pollazo-icon-any-512-v16.png?v=17" />
+    <link rel="apple-touch-icon" href="/pollazo-icon-any-512-v16.png?v=17" />
 
     <meta property="og:locale" content="es_EC" />
     <meta property="og:type" content="website" />
@@ -45,7 +45,7 @@
       property="og:description"
       content="Pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura en Puerto Ayora, Galápagos."
     />
-    <meta property="og:image" content="/pollazo-icon-any-512-v16.png" />
+    <meta property="og:image" content="/pollazo-icon-any-512-v16.png?v=17" />
     <meta property="og:image:alt" content="Logo de La Casa del Pollazo" />
 
     <meta name="twitter:card" content="summary_large_image" />
@@ -54,7 +54,7 @@
       name="twitter:description"
       content="Market local en Puerto Ayora con pollo fresco, productos del día y pedidos rápidos."
     />
-    <meta name="twitter:image" content="/pollazo-icon-any-512-v16.png" />
+    <meta name="twitter:image" content="/pollazo-icon-any-512-v16.png?v=17" />
 
     <script type="application/ld+json">
       {
@@ -153,45 +153,6 @@
         border: 0;
       }
 
-      #pollazo-boot {
-        position: fixed;
-        inset: 0;
-        z-index: 2147483646;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #ffffff;
-        color: #111827;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        opacity: 1;
-        transition: opacity 180ms ease;
-        pointer-events: none;
-      }
-
-      #pollazo-boot.is-leaving { opacity: 0; }
-
-      #pollazo-boot img {
-        width: min(46vw, 184px);
-        height: min(46vw, 184px);
-        object-fit: contain;
-      }
-
-      #pollazo-boot strong {
-        margin-top: 22px;
-        font-size: 19px;
-        font-weight: 650;
-        letter-spacing: -0.02em;
-      }
-
-      #pollazo-boot span {
-        width: 64px;
-        height: 4px;
-        margin-top: 18px;
-        border-radius: 999px;
-        background: #f97316;
-      }
-
       @media (min-width: 720px) and (hover: hover) and (pointer: fine) {
         html,
         body {
@@ -227,52 +188,7 @@
       </nav>
     </section>
 
-    <div id="pollazo-boot" aria-hidden="true">
-      <img src="/pollazo-icon-any-512-v16.png" alt="" />
-      <strong>La Casa del Pollazo</strong>
-      <span></span>
-    </div>
-
     <div id="root"></div>
-    <script>
-      (() => {
-        const boot = document.getElementById('pollazo-boot');
-        const root = document.getElementById('root');
-        if (!boot || !root) return;
-
-        const startedAt = Date.now();
-        let removed = false;
-        const finish = () => {
-          if (removed) return;
-          removed = true;
-          const wait = Math.max(0, 360 - (Date.now() - startedAt));
-          window.setTimeout(() => {
-            boot.classList.add('is-leaving');
-            window.setTimeout(() => boot.remove(), 190);
-          }, wait);
-        };
-
-        const isRealScreenReady = () => {
-          const text = (root.textContent || '').toLowerCase();
-          if (!root.firstElementChild) return false;
-          if (text.includes('cargando experiencia pollazo')) return false;
-          return text.trim().length > 0 || Boolean(root.querySelector('nav, main, button, form'));
-        };
-
-        const observer = new MutationObserver(() => {
-          if (isRealScreenReady()) {
-            observer.disconnect();
-            finish();
-          }
-        });
-
-        observer.observe(root, { childList: true, subtree: true, characterData: true });
-        window.setTimeout(() => {
-          observer.disconnect();
-          finish();
-        }, 9000);
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
