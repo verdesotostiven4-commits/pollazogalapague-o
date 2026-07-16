@@ -1,39 +1,17 @@
 (() => {
   'use strict';
 
-  const PROMPT_KEY = '__pollazoInstallPromptV18';
-  const INSTALL_TIMEOUT_MS = 6000;
-  let installInProgress = false;
+  const PROMPT_KEY = '__pollazoNativeInstallPromptV19';
+  const SW_RELOAD_KEY = 'pollazo_sw_controlled_reload_v19';
+  let installing = false;
 
   const isStandalone = () =>
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
 
-  const getPrompt = () => window[PROMPT_KEY] || null;
-  const setPrompt = prompt => {
-    window[PROMPT_KEY] = prompt || null;
-    window.dispatchEvent(
-      new CustomEvent('pollazo:install-prompt-state', {
-        detail: { ready: Boolean(prompt) },
-      })
-    );
-  };
-
-  const registerServiceWorker = async () => {
-    if (!('serviceWorker' in navigator)) return;
-
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/',
-      });
-      await registration.update().catch(() => undefined);
-    } catch (error) {
-      console.warn('[Pollazo PWA] No se pudo registrar el service worker.', error);
-    }
-  };
-
-  const INSTALL_LABELS = [
+  const labels = [
     'instalar app',
+    'instalar en mi celular',
     'install app',
     'instalar aplicativo',
     'installer l’app',
@@ -46,133 +24,165 @@
     'установить приложение',
   ];
 
+  const readPrompt = () => window[PROMPT_KEY] || null;
+
   const isInstallButton = button => {
     const text = String(button?.textContent || '')
       .trim()
       .toLowerCase()
       .replace(/\s+/g, ' ');
 
-    return INSTALL_LABELS.some(label => text.includes(label));
+    return labels.some(label => text.includes(label));
   };
 
-  const setButtonHtml = (button, html) => {
-    if (!button || !button.isConnected) return;
-    button.innerHTML = html;
-  };
+  const installButtons = () =>
+    Array.from(document.querySelectorAll('button')).filter(isInstallButton);
 
-  const restoreButton = (button, originalHtml) => {
-    if (!button || !button.isConnected) return;
-    button.disabled = false;
-    button.style.removeProperty('opacity');
-    button.style.removeProperty('cursor');
-    setButtonHtml(button, originalHtml);
-  };
+  const syncButtons = () => {
+    if (isStandalone()) return;
 
-  const showManualHelp = button => {
-    if (!button || !button.isConnected) return;
-    button.disabled = false;
-    button.style.removeProperty('opacity');
-    button.style.removeProperty('cursor');
-    setButtonHtml(button, '⋮ Chrome → Instalar app');
-    button.setAttribute(
-      'aria-label',
-      'Abre el menú de Chrome y elige Instalar app o Agregar a pantalla principal'
-    );
-  };
+    const ready = Boolean(readPrompt());
 
-  const waitForPrompt = timeoutMs => {
-    const existing = getPrompt();
-    if (existing) return Promise.resolve(existing);
-
-    return new Promise(resolve => {
-      let finished = false;
-
-      const finish = value => {
-        if (finished) return;
-        finished = true;
-        window.removeEventListener('pollazo:install-prompt-state', onState);
-        window.clearTimeout(timer);
-        resolve(value || null);
-      };
-
-      const onState = event => {
-        if (event?.detail?.ready) finish(getPrompt());
-      };
-
-      const timer = window.setTimeout(() => finish(null), timeoutMs);
-      window.addEventListener('pollazo:install-prompt-state', onState);
+    installButtons().forEach(button => {
+      if (installing) return;
+      button.disabled = !ready;
+      button.style.setProperty('opacity', ready ? '1' : '0.72');
+      button.style.setProperty('cursor', ready ? 'pointer' : 'wait');
+      button.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      button.setAttribute(
+        'aria-label',
+        ready ? 'Instalar aplicación' : 'Preparando instalación nativa de Chrome'
+      );
     });
   };
 
-  const requestInstall = async button => {
-    if (installInProgress || isStandalone()) return;
+  const storePrompt = event => {
+    window[PROMPT_KEY] = event || null;
+    syncButtons();
+  };
 
-    installInProgress = true;
-    const originalHtml = button.innerHTML;
-    button.disabled = true;
-    button.style.setProperty('opacity', '0.82');
-    button.style.setProperty('cursor', 'wait');
-    setButtonHtml(button, '⏳ Preparando instalación…');
+  const registerServiceWorker = async () => {
+    if (!('serviceWorker' in navigator)) return;
 
     try {
-      await registerServiceWorker();
-      const promptEvent = await waitForPrompt(INSTALL_TIMEOUT_MS);
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+      });
 
-      if (!promptEvent || typeof promptEvent.prompt !== 'function') {
-        showManualHelp(button);
-        return;
-      }
+      await registration.update().catch(() => undefined);
+      await navigator.serviceWorker.ready;
 
-      setButtonHtml(button, '⏳ Abriendo instalación…');
-      await promptEvent.prompt();
-      const choice = await promptEvent.userChoice;
-      setPrompt(null);
+      if (!navigator.serviceWorker.controller) {
+        await new Promise(resolve => {
+          let finished = false;
 
-      if (choice?.outcome === 'accepted') {
-        setButtonHtml(button, '✅ Instalación aceptada');
-        localStorage.setItem('pollazo_landing_dismissed', '1');
-      } else {
-        restoreButton(button, originalHtml);
+          const finish = () => {
+            if (finished) return;
+            finished = true;
+            navigator.serviceWorker.removeEventListener('controllerchange', finish);
+            window.clearTimeout(timer);
+            resolve(undefined);
+          };
+
+          const timer = window.setTimeout(finish, 2500);
+          navigator.serviceWorker.addEventListener('controllerchange', finish, {
+            once: true,
+          });
+        });
+
+        if (
+          navigator.serviceWorker.controller &&
+          sessionStorage.getItem(SW_RELOAD_KEY) !== '1'
+        ) {
+          sessionStorage.setItem(SW_RELOAD_KEY, '1');
+          window.location.reload();
+        }
       }
     } catch (error) {
-      console.warn('[Pollazo PWA] No se pudo abrir la instalación.', error);
-      restoreButton(button, originalHtml);
-    } finally {
-      installInProgress = false;
+      console.warn('[Pollazo PWA] No se pudo preparar la instalación.', error);
     }
   };
 
   window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault();
-    setPrompt(event);
+    storePrompt(event);
   });
 
   window.addEventListener('appinstalled', () => {
-    setPrompt(null);
+    storePrompt(null);
     localStorage.setItem('pollazo_landing_dismissed', '1');
   });
 
   window.addEventListener(
     'click',
     event => {
-      const target = event.target;
-      const button = target?.closest?.('button');
+      const button = event.target?.closest?.('button');
+      const promptEvent = readPrompt();
 
-      if (!button || !isInstallButton(button) || isStandalone()) return;
+      if (
+        !button ||
+        !isInstallButton(button) ||
+        !promptEvent ||
+        installing ||
+        isStandalone()
+      ) {
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      void requestInstall(button);
+
+      installing = true;
+      button.disabled = true;
+      button.style.setProperty('opacity', '0.82');
+
+      storePrompt(null);
+
+      try {
+        const promptResult = promptEvent.prompt();
+
+        Promise.resolve(promptResult)
+          .then(() => promptEvent.userChoice)
+          .then(choice => {
+            if (choice?.outcome === 'accepted') {
+              localStorage.setItem('pollazo_landing_dismissed', '1');
+            }
+          })
+          .catch(error => {
+            console.warn('[Pollazo PWA] Chrome no abrió el cuadro nativo.', error);
+          })
+          .finally(() => {
+            installing = false;
+            syncButtons();
+          });
+      } catch (error) {
+        installing = false;
+        console.warn('[Pollazo PWA] Chrome no abrió el cuadro nativo.', error);
+        syncButtons();
+      }
     },
     true
   );
 
+  const observer = new MutationObserver(syncButtons);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+
   if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', () => void registerServiceWorker(), {
-      once: true,
-    });
+    window.addEventListener(
+      'DOMContentLoaded',
+      () => {
+        syncButtons();
+        void registerServiceWorker();
+      },
+      { once: true }
+    );
   } else {
+    syncButtons();
     void registerServiceWorker();
   }
 })();
