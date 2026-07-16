@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v50';
+const CACHE_VERSION = 'pollazo-cache-clean-v51';
 
-const DEFAULT_ICON = '/api/pwa-icon?size=192&v=24';
-const DEFAULT_BADGE = '/api/pwa-icon?size=192&v=24';
+const DEFAULT_ICON = 'https://cdn.phototourl.com/free/2026-07-16-e4197884-cd6c-4cd6-a494-900356e0debf.png';
+const DEFAULT_BADGE = DEFAULT_ICON;
 
 const STATUS_ICONS = {
   Recibido: '/notification-confirmed.png',
