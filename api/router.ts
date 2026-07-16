@@ -24,7 +24,6 @@ const handlers: Record<string, HandlerLoader> = {
   'delivery-tracking': () => import('../server/api-handlers/delivery-tracking.js'),
   'logout-panel-session': () => import('../server/api-handlers/logout-panel-session.js'),
   'map-tile': () => import('../server/api-handlers/map-tile.js'),
-  'pwa-icon': () => import('../server/api-handlers/pwa-icon.js'),
   metrics: () => import('../server/api-handlers/metrics.js'),
   'order-lifecycle': () => import('../server/api-handlers/order-lifecycle.js'),
   'order-sources': () => import('../server/api-handlers/order-sources.js'),
