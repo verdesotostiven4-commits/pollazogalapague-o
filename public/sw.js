@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'pollazo-cache-clean-v52';
+const CACHE_VERSION = 'pollazo-cache-clean-v53';
 
-const DEFAULT_ICON = '/pollazo-icon-v26.jpg';
-const DEFAULT_BADGE = DEFAULT_ICON;
+const DEFAULT_ICON = '/pollazo-icon-192-v34.png';
+const DEFAULT_BADGE = '/pollazo-icon-192-v34.png';
 
 const STATUS_ICONS = {
   Recibido: '/notification-confirmed.png',
