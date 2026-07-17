@@ -31,6 +31,36 @@
       ]
     },
     {
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {
@@ -109,7 +139,35 @@
       "destination": "/mapa-cliente-lab.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/repartidor",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/catalogo",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pedidos",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/carrito",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/info",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ranking",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/instalar",
       "destination": "/index.html"
     }
   ],
