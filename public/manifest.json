@@ -3,7 +3,7 @@
   "short_name": "Pollazo",
   "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
   "id": "/",
-  "start_url": "/?appVersion=30",
+  "start_url": "/?appVersion=31",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -16,13 +16,19 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/pollazo-icon-192-v27.png?v=30",
+      "src": "/pollazo-install-icon-v31.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pollazo-icon-192-v27.png?v=31",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pollazo-icon-512-v27.png?v=30",
+      "src": "/pollazo-icon-512-v27.png?v=31",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
@@ -36,9 +42,9 @@
       "url": "/catalogo",
       "icons": [
         {
-          "src": "/pollazo-icon-192-v27.png?v=30",
-          "sizes": "192x192",
-          "type": "image/png"
+          "src": "/pollazo-install-icon-v31.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
@@ -49,9 +55,9 @@
       "url": "/carrito",
       "icons": [
         {
-          "src": "/pollazo-icon-192-v27.png?v=30",
-          "sizes": "192x192",
-          "type": "image/png"
+          "src": "/pollazo-install-icon-v31.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     }
