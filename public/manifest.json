@@ -3,7 +3,7 @@
   "short_name": "Pollazo",
   "description": "Market local en Puerto Ayora con pollo fresco, productos del día, pedidos rápidos y entrega dentro de cobertura.",
   "id": "/",
-  "start_url": "/?appVersion=28",
+  "start_url": "/?appVersion=29",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -15,6 +15,12 @@
   "categories": ["food", "shopping", "business", "lifestyle"],
   "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "/pollazo-install-icon-v29.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/pollazo-icon-192-v27.png",
       "sizes": "192x192",
@@ -36,9 +42,9 @@
       "url": "/catalogo",
       "icons": [
         {
-          "src": "/pollazo-icon-192-v27.png",
-          "sizes": "192x192",
-          "type": "image/png"
+          "src": "/pollazo-install-icon-v29.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
@@ -49,9 +55,9 @@
       "url": "/carrito",
       "icons": [
         {
-          "src": "/pollazo-icon-192-v27.png",
-          "sizes": "192x192",
-          "type": "image/png"
+          "src": "/pollazo-install-icon-v29.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     }
