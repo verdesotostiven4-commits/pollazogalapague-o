@@ -1,0 +1,490 @@
+/* Brand intro — aislado del resto de la tienda, sin estilos globales. */
+.brandIntro {
+  --intro-cream: #fcf8ef;
+  --intro-ink: #2d180f;
+  --intro-orange: #ed591e;
+  position: relative;
+  min-height: 100svh;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--intro-cream);
+  color: var(--intro-ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.brandIntro__scene {
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 0 39%;
+  overflow: hidden;
+  background: linear-gradient(180deg, #a3cdea 0%, #d7e4e2 33%, #38acc1 55%, #15748b 72%, #2f3028 100%);
+}
+
+.brandIntro__scenery,
+.brandIntro__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.brandIntro__scenery {
+  overflow: hidden;
+}
+
+.brandIntro__scenery::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 40%, rgba(252, 231, 195, .15));
+  pointer-events: none;
+}
+
+.brandIntro__islands {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 35% 56%, #293c43 0 7%, transparent 7.5%),
+    radial-gradient(ellipse at 56% 55%, #34434a 0 11%, transparent 11.5%),
+    linear-gradient(160deg, transparent 0 48%, rgba(18, 97, 120, .34) 49% 53%, transparent 54%),
+    linear-gradient(180deg, transparent 0 56%, rgba(33, 135, 153, .3) 57% 62%, transparent 64%);
+  opacity: .45;
+  filter: blur(3px);
+}
+
+.brandIntro__layer {
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.brandIntro__layer--background {
+  z-index: 1;
+  transform: scale(1.045);
+  animation: brandIntroSky 22s ease-in-out infinite alternate;
+}
+
+.brandIntro__layer--leavesBack {
+  z-index: 2;
+  transform-origin: 80% 30%;
+  animation: brandIntroLeavesBack 10s ease-in-out infinite;
+}
+
+.brandIntro__layer--product {
+  z-index: 5;
+  transform-origin: 50% 88%;
+  opacity: 0;
+}
+
+.brandIntro--entered .brandIntro__layer--product {
+  animation:
+    brandIntroProductIn 1350ms cubic-bezier(.18, .82, .27, 1) 180ms both,
+    brandIntroProductBreath 9s ease-in-out 1700ms infinite;
+}
+
+.brandIntro__layer--leavesTop {
+  z-index: 6;
+  transform-origin: 82% 0;
+  animation: brandIntroLeavesTop 7.3s ease-in-out infinite;
+}
+
+.brandIntro__layer--leavesFront {
+  z-index: 8;
+  transform-origin: 30% 95%;
+  animation: brandIntroLeavesFront 8.6s ease-in-out infinite;
+}
+
+.brandIntro__productPlaceholder {
+  position: absolute;
+  z-index: 5;
+  top: 33%;
+  right: 9%;
+  width: min(49%, 400px);
+  aspect-ratio: 1 / 1.13;
+  border-radius: 46% 46% 30% 30%;
+  background: linear-gradient(135deg, #fff1c7 3%, #eab16b 45%, #c7824f 100%);
+  border: 1px solid rgba(255,255,255,.65);
+  box-shadow: 0 34px 55px rgba(42, 30, 14, .19), inset 8px 14px 38px rgba(255,255,255,.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  padding: 2rem;
+  text-align: center;
+  color: rgba(57, 29, 9, .7);
+  font-weight: 700;
+  font-size: clamp(.7rem, 1.2vw, .97rem);
+  transform: translateY(50px);
+  opacity: 0;
+}
+
+.brandIntro__productPlaceholder small {
+  font-weight: 500;
+  opacity: .75;
+}
+
+.brandIntro--entered .brandIntro__productPlaceholder {
+  animation: brandIntroProductIn 1350ms cubic-bezier(.18, .82, .27, 1) 180ms both;
+}
+
+.brandIntro__panel {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 43%;
+  background: var(--intro-cream);
+}
+
+.brandIntro__panel::before,
+.brandIntro__panel::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(215, 177, 123, .20);
+  width: 300px;
+  height: 440px;
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-25deg);
+}
+
+.brandIntro__panel::before {
+  top: -330px;
+  left: -215px;
+}
+
+.brandIntro__panel::after {
+  bottom: -380px;
+  left: -110px;
+}
+
+.brandIntro__curve {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  height: 100%;
+  top: 0;
+  left: 42.9%;
+  width: 15%;
+  fill: var(--intro-cream);
+}
+
+.brandIntro__content {
+  position: relative;
+  z-index: 4;
+  width: min(43%, 760px);
+  min-height: 100svh;
+  padding: clamp(32px, 5vh, 64px) clamp(26px, 3vw, 72px) clamp(36px, 4vh, 60px) clamp(44px, 6vw, 110px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(20px, 3.3vh, 40px);
+}
+
+.brandIntro__logoReveal,
+.brandIntro__copy {
+  opacity: 0;
+  transform: translateY(22px);
+}
+
+.brandIntro--entered .brandIntro__logoReveal {
+  animation: brandIntroReveal 850ms cubic-bezier(.18, .7, .22, 1) 110ms both;
+}
+
+.brandIntro--entered .brandIntro__copy {
+  animation: brandIntroReveal 950ms cubic-bezier(.18, .7, .22, 1) 350ms both;
+}
+
+.brandIntro__logoReveal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandIntro__logo {
+  display: block;
+  height: auto;
+  max-height: min(34svh, 320px);
+  width: min(100%, 380px);
+  object-fit: contain;
+}
+
+.brandIntro__copy {
+  width: min(100%, 570px);
+}
+
+.brandIntro__dash {
+  width: 75px;
+  height: 2px;
+  margin-bottom: clamp(14px, 2vh, 28px);
+  background: #f0a524;
+}
+
+.brandIntro__copy h1 {
+  margin: 0;
+  line-height: 1.075;
+  letter-spacing: -.035em;
+  font-size: clamp(30px, 3vw, 55px);
+  font-weight: 800;
+}
+
+.brandIntro__copy h1 span,
+.brandIntro__copy h1 strong {
+  display: block;
+}
+
+.brandIntro__copy h1 strong {
+  color: var(--intro-orange);
+  white-space: nowrap;
+}
+
+.brandIntro__copy p {
+  margin: clamp(14px, 2vh, 26px) 0 clamp(24px, 3vh, 39px);
+  font-size: clamp(16px, 1.45vw, 24px);
+  line-height: 1.43;
+  color: #6b6865;
+  max-width: 520px;
+}
+
+.brandIntro__features {
+  display: flex;
+  align-items: center;
+  margin-bottom: clamp(20px, 3.2vh, 44px);
+  gap: clamp(9px, 1.15vw, 20px);
+}
+
+.brandIntro__feature {
+  display: inline-flex;
+  align-items: center;
+  flex: 1;
+  gap: clamp(6px, .8vw, 12px);
+  font-size: clamp(10px, .88vw, 14px);
+  line-height: 1.2;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.brandIntro__feature:not(:first-child) {
+  border-left: 1px solid #dbb796;
+  padding-left: clamp(8px, 1.3vw, 20px);
+}
+
+.brandIntro__feature svg {
+  color: #46271b;
+  flex-shrink: 0;
+  width: clamp(18px, 1.75vw, 30px);
+}
+
+.brandIntro__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 3vw, 54px);
+  width: min(100%, 475px);
+  min-height: 68px;
+  border: 1px solid #ffb239;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffad35 0%, #f36719 43%, #cd440f 100%);
+  box-shadow: 0 10px 24px rgba(199, 71, 15, .20);
+  color: white;
+  font: inherit;
+  font-size: clamp(21px, 2vw, 31px);
+  font-weight: 800;
+  font-style: italic;
+  cursor: pointer;
+  transition: filter .25s, transform .25s, box-shadow .25s;
+}
+
+.brandIntro__cta:hover {
+  filter: brightness(1.05);
+  transform: translateY(-3px);
+  box-shadow: 0 15px 29px rgba(199, 71, 15, .26);
+}
+
+.brandIntro__cta:active {
+  transform: translateY(1px);
+}
+
+.brandIntro__cta:focus-visible {
+  outline: 4px solid rgba(255, 126, 26, .5);
+  outline-offset: 4px;
+}
+
+.brandIntro__ctaArrow {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff6e7;
+  color: var(--intro-orange);
+}
+
+.brandIntro__bird {
+  position: absolute;
+  z-index: 3;
+  top: var(--bird-top);
+  left: -15%;
+  width: clamp(40px, 6vw, 86px);
+  height: 70px;
+  opacity: .5;
+  filter: blur(2.7px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.brandIntro__bird img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brandIntro__bird--right {
+  animation: brandIntroBirdRight var(--bird-duration) linear forwards;
+}
+
+.brandIntro__bird--left {
+  left: 107%;
+  animation: brandIntroBirdLeft var(--bird-duration) linear forwards;
+}
+
+.brandIntro--exiting {
+  animation: brandIntroExit 580ms ease-in both;
+}
+
+@keyframes brandIntroReveal {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes brandIntroProductIn {
+  from { opacity: 0; transform: translateY(90px) scale(.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes brandIntroProductBreath {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-5px) rotate(.25deg); }
+}
+
+@keyframes brandIntroSky {
+  from { transform: scale(1.04) translateX(0); }
+  to { transform: scale(1.08) translateX(-1.1%); }
+}
+
+@keyframes brandIntroLeavesBack {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1deg); }
+}
+
+@keyframes brandIntroLeavesTop {
+  0%, 100% { transform: rotate(-.6deg); }
+  50% { transform: rotate(1.8deg); }
+}
+
+@keyframes brandIntroLeavesFront {
+  0%, 100% { transform: translate(-2px, 0) rotate(0deg); }
+  50% { transform: translate(3px, -3px) rotate(-1deg); }
+}
+
+@keyframes brandIntroBirdRight {
+  0% { transform: translateX(0) translateY(0) scale(var(--bird-scale)); opacity: 0; }
+  13% { opacity: .55; }
+  88% { opacity: .55; }
+  100% { transform: translateX(88vw) translateY(-24px) scale(var(--bird-scale)); opacity: 0; }
+}
+
+@keyframes brandIntroBirdLeft {
+  0% { transform: translateX(0) translateY(0) scaleX(-1) scale(var(--bird-scale)); opacity: 0; }
+  12% { opacity: .55; }
+  88% { opacity: .55; }
+  100% { transform: translateX(-88vw) translateY(20px) scaleX(-1) scale(var(--bird-scale)); opacity: 0; }
+}
+
+@keyframes brandIntroExit {
+  to { opacity: 0; transform: scale(1.014); }
+}
+
+@media (max-width: 1200px) and (min-width: 801px) {
+  .brandIntro__content {
+    padding-left: 4vw;
+    padding-right: 1.5vw;
+    width: 46%;
+  }
+  .brandIntro__copy h1 strong { white-space: normal; }
+  .brandIntro__features { gap: 6px; }
+  .brandIntro__feature { font-size: 11px; }
+}
+
+@media (max-height: 750px) and (min-width: 801px) {
+  .brandIntro__content { gap: 10px; padding-top: 18px; padding-bottom: 18px; }
+  .brandIntro__logo { max-height: 29svh; }
+  .brandIntro__copy p { margin-top: 12px; margin-bottom: 15px; }
+  .brandIntro__features { margin-bottom: 14px; }
+  .brandIntro__cta { min-height: 54px; }
+}
+
+@media (max-width: 800px) {
+  .brandIntro { min-height: 100svh; overflow-x: hidden; overflow-y: auto; }
+  .brandIntro__scene {
+    position: relative;
+    inset: auto;
+    height: clamp(270px, 39svh, 420px);
+    width: 100%;
+  }
+  .brandIntro__panel,
+  .brandIntro__curve { display: none; }
+  .brandIntro__content {
+    position: relative;
+    z-index: 9;
+    width: 100%;
+    min-height: calc(61svh + 32px);
+    margin-top: -32px;
+    padding: 24px clamp(22px, 6vw, 52px) 46px;
+    border-radius: 36px 36px 0 0;
+    background: var(--intro-cream);
+    align-items: center;
+    text-align: center;
+    justify-content: flex-start;
+    gap: 15px;
+  }
+  .brandIntro__logo { width: min(250px, 59vw); max-height: 180px; }
+  .brandIntro__copy { max-width: 490px; }
+  .brandIntro__dash { margin: 0 auto 14px; }
+  .brandIntro__copy h1 { font-size: clamp(30px, 6vw, 43px); }
+  .brandIntro__copy h1 strong { white-space: normal; }
+  .brandIntro__copy p { font-size: 16px; margin: 13px auto 20px; }
+  .brandIntro__features { margin-bottom: 24px; justify-content: center; gap: 8px; }
+  .brandIntro__feature { justify-content: center; font-size: 10px; gap: 6px; text-align: left; }
+  .brandIntro__feature:not(:first-child) { padding-left: 9px; }
+  .brandIntro__feature svg { width: 22px; }
+  .brandIntro__cta { width: 100%; min-height: 58px; font-size: 23px; }
+  .brandIntro__ctaArrow { width: 38px; height: 38px; }
+  .brandIntro__productPlaceholder { top: 15%; right: 25%; width: 48%; font-size: 11px; }
+}
+
+@media (max-width: 365px) {
+  .brandIntro__content { padding-left: 16px; padding-right: 16px; }
+  .brandIntro__features { flex-wrap: wrap; row-gap: 15px; }
+  .brandIntro__feature { flex: 1 1 29%; }
+  .brandIntro__feature svg { width: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brandIntro *, .brandIntro *::before, .brandIntro *::after {
+    animation: none !important;
+    transition-duration: .01ms !important;
+    transform: none !important;
+  }
+  .brandIntro__logoReveal,
+  .brandIntro__copy,
+  .brandIntro__layer--product,
+  .brandIntro__productPlaceholder { opacity: 1 !important; }
+  .brandIntro__bird { display: none; }
+}
