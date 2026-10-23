@@ -15,6 +15,7 @@ import BottomNav from './components/BottomNav';
 import AppHeader from './components/AppHeader';
 import OrderConfirmation from './components/OrderConfirmation';
 import LandingPage from './components/LandingPage';
+import BrandIntro from './components/BrandIntro/BrandIntro';
 import AdminDashboard from './components/AdminDashboard';
 import DeliveryDashboard from './components/DeliveryDashboard';
 import LoginModal from './components/LoginModal';
@@ -962,6 +963,10 @@ function AppShell() {
 }
 
 export default function App() {
+  // Vista previa protegida por query: no reemplaza el inicio de producción.
+  const [brandIntroPreview, setBrandIntroPreview] = useState(
+    () => new URLSearchParams(window.location.search).get('introPreview') === '1'
+  );
   const [landingDone, setLandingDone] = useState(() => {
     const isPWA =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -991,6 +996,18 @@ export default function App() {
       window.removeEventListener('load', updateRegistration);
     };
   }, []);
+
+  if (brandIntroPreview && window.location.pathname === '/') {
+    return (
+      <BrandIntro
+        onContinue={() => {
+          window.history.replaceState(null, '', '/');
+          setBrandIntroPreview(false);
+          setLandingDone(true);
+        }}
+      />
+    );
+  }
 
   if (window.location.pathname === '/admin') {
     return (
